@@ -2126,13 +2126,6 @@ MoveSwimBoost:AddSlider("SwimBoostValue", {
 	Min = 16,
 	Max = 100,
 	Rounding = 1,
-})
-
-MoveSwimBoost:AddToggle("BoatSpeed", {
-	Text = "+ Boat Speed",
-	Default = false,
-})
-
 local MoveSwingSpeed = Tabs.Movement:AddLeftGroupbox("Swing Speed", "swords")
 
 MoveSwingSpeed:AddToggle("SwingSpeedToggle", {
@@ -2289,83 +2282,6 @@ end)
 Toggles.SwimBoost:OnChanged(function()
 	if Toggles.SwimBoost.Value then
 		Library:Notify({ Title = "Swim Boost", Description = "Enabled", Time = 2 })
-	end
-end)
-
-local localPlayer = LocalPlayer
-local runService = RunService
-local originalY = nil
-local boatCFrame = nil
-local kwconnections = getgenv().kwconnections or {}
-
-local function getHumanoid(plr)
-	plr = plr or localPlayer
-	if plr.Character then
-		return plr.Character:FindFirstChild("Humanoid")
-	end
-	return nil
-end
-
-local function getCurrentBoat()
-	local humanoid = getHumanoid(localPlayer)
-	if humanoid and humanoid.SeatPart then
-		local folder = humanoid.SeatPart:FindFirstAncestorOfClass("Folder")
-		if folder and folder == workspace.boats then
-			return humanoid.SeatPart:FindFirstAncestorOfClass("Model")
-		end
-	end
-end
-
-local function enableBoatSpeed()
-	if kwconnections["boat_hover"] then
-		kwconnections["boat_hover"]:Disconnect()
-		kwconnections["boat_hover"] = nil
-	end
-	originalY = nil
-	boatCFrame = nil
-	kwconnections["boat_hover"] = runService.Stepped:Connect(function()
-		local humanoid = getHumanoid(localPlayer)
-		local boat = getCurrentBoat()
-		if not boat or not humanoid then
-			originalY = nil
-			boatCFrame = nil
-			return
-		end
-		if not boatCFrame then
-			boatCFrame = boat:GetPivot()
-		end
-		if not originalY then
-			originalY = boatCFrame.Position.Y
-		end
-		for _, v in pairs(boat:GetDescendants()) do
-			if v:IsA("Part") or v:IsA("MeshPart") or v:IsA("Union") then
-				v.Velocity = Vector3.new(0, 0, 0)
-			end
-		end
-		boat:PivotTo(boatCFrame)
-		local extraY = 0
-		if humanoid.Parent:GetAttribute("inTerrain") then
-			extraY = 0
-		else
-			extraY = 0
-			boatCFrame = boatCFrame - Vector3.new(0, boatCFrame.Position.Y - originalY, 0)
-		end
-		boatCFrame = boatCFrame + Vector3.new(0, extraY, 0) + humanoid.MoveDirection * 0.9
-	end)
-end
-
-local function disableBoatSpeed()
-	if kwconnections["boat_hover"] then
-		kwconnections["boat_hover"]:Disconnect()
-		kwconnections["boat_hover"] = nil
-	end
-end
-
-Toggles.BoatSpeed:OnChanged(function()
-	if Toggles.BoatSpeed.Value then
-		enableBoatSpeed()
-	else
-		disableBoatSpeed()
 	end
 end)
 
@@ -2660,6 +2576,11 @@ local FarmAI = Tabs.Farming:AddRightGroupbox("AI Aura", "zap")
 
 FarmAI:AddToggle("AiAura", {
 	Text = "AI Aura",
+	Default = false,
+})
+
+FarmAI:AddToggle("TitanAura", {
+	Text = "+ Titan Aura",
 	Default = false,
 })
 
@@ -3009,6 +2930,80 @@ Toggles.AiAura:OnChanged(function()
 		updateHighlight(hlAI, nil, false)
 	end
 end)
+
+local ToggleTitan = Toggles.TitanAura
+function ToggleTitan:GetValue()
+	return self.Value
+end
+
+local ToggleAI = Toggles.AiAura
+local player = LocalPlayer
+local runService = RunService
+
+local flying = false
+local bodyGyro
+local bodyVelocity
+local flyConnection
+local character
+local humanoid
+
+local function startFlying()
+	if flying then return end
+	flying = true
+	humanoid.PlatformStand = true
+	local hrp = character:WaitForChild("HumanoidRootPart")
+	bodyGyro = Instance.new("BodyGyro", hrp)
+	bodyVelocity = Instance.new("BodyVelocity", hrp)
+	bodyGyro.MaxTorque = Vector3.new(400000, 400000, 400000)
+	bodyGyro.P = 5000
+	bodyGyro.CFrame = hrp.CFrame
+	bodyVelocity.MaxForce = Vector3.new(400000, 400000, 400000)
+	bodyVelocity.Velocity = Vector3.new(0, 0.1, 0)
+	flyConnection = runService.RenderStepped:Connect(function()
+		if flying and hrp then
+			bodyVelocity.Velocity = Vector3.new(0, 0.1, 0)
+			bodyGyro.CFrame = hrp.CFrame
+		end
+	end)
+end
+
+local function stopFlying()
+	flying = false
+	if flyConnection then flyConnection:Disconnect() flyConnection = nil end
+	if bodyGyro then bodyGyro:Destroy() bodyGyro = nil end
+	if bodyVelocity then bodyVelocity:Destroy() bodyVelocity = nil end
+	if humanoid then humanoid.PlatformStand = false end
+end
+
+local function setupCharacter()
+	character = player.Character or player.CharacterAdded:Wait()
+	humanoid = character:WaitForChild("Humanoid")
+	if ToggleTitan:GetValue() then
+		local hrp = character:WaitForChild("HumanoidRootPart")
+		hrp.CFrame = hrp.CFrame + Vector3.new(0, 12, 0)
+		startFlying()
+	end
+end
+
+ToggleTitan:OnChanged(function()
+	local value = ToggleTitan:GetValue()
+	local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+	if value and hrp then
+		hrp.CFrame = hrp.CFrame + Vector3.new(0, 12, 0)
+		startFlying()
+		ToggleAI:SetValue(true)
+	else
+		stopFlying()
+		ToggleAI:SetValue(false)
+	end
+end)
+
+player.CharacterAdded:Connect(function()
+	task.wait(1)
+	setupCharacter()
+end)
+
+ToggleTitan:SetValue(false)
 
 -- ==========================================
 -- TELEPORT
