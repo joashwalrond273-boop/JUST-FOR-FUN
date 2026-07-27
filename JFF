@@ -2968,6 +2968,11 @@ local extraLocations = {
 	{ name = "Below ML",   pos = Vector3.new(-177, 25.26, -1014.83)      },
 	{ name = "Arena",      pos = Vector3.new(-1315.59, 41.19, 1972.84)   },
 	{ name = "Bamboo",     pos = Vector3.new(-1330.92, 39.43, 5798.47)   },
+	{ name = "Merchant AS",pos = Vector3.new(-747.80, 329.20, 7135.49)   },
+	{ name = "Merchant ML",pos = Vector3.new(-143.45, 25.26, 432.48)     },
+	{ name = "Merchant DS",pos = Vector3.new(1426.79, 25.26, -591.59)    },
+	{ name = "Merchant BM",pos = Vector3.new(-166.76, 25.26, -1043.05)   },
+	{ name = "Merchant AC",pos = Vector3.new(-1248.54, 25.25, -1993.60)  },
 }
 
 for _, loc in ipairs(extraLocations) do
