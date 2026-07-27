@@ -2294,9 +2294,17 @@ end)
 
 local localPlayer = LocalPlayer
 local runService = RunService
-local kwconnections = {}
 local originalY = nil
 local boatCFrame = nil
+local kwconnections = getgenv().kwconnections or {}
+
+local function getHumanoid(plr)
+	plr = plr or localPlayer
+	if plr.Character then
+		return plr.Character:FindFirstChild("Humanoid")
+	end
+	return nil
+end
 
 local function getCurrentBoat()
 	local humanoid = getHumanoid(localPlayer)
