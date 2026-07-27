@@ -2984,32 +2984,6 @@ for _, loc in ipairs(extraLocations) do
 	})
 end
 
--- Merchants
-local TeleportMerchants = Tabs.Teleport:AddLeftGroupbox("Merchants", "map-pin")
-
-local merchantLocations = {
-	{ name = "Asia",      pos = Vector3.new(-747.80, 329.20, 7135.49)  },
-	{ name = "Mainland",  pos = Vector3.new(-143.45, 25.26, 432.48)    },
-	{ name = "Desert",    pos = Vector3.new(1426.79, 25.26, -591.59)   },
-	{ name = "Below ML",  pos = Vector3.new(-166.76, 25.26, -1043.05)  },
-	{ name = "Artic",     pos = Vector3.new(-1248.54, 25.25, -1993.60) },
-}
-
-for _, merchant in ipairs(merchantLocations) do
-	TeleportMerchants:AddButton({
-		Text = merchant.name,
-		Func = function()
-			local root = getRootPart()
-			if root then
-				root.CFrame = CFrame.new(merchant.pos)
-				Library:Notify({ Title = "Teleport", Description = "Teleported to " .. merchant.name, Time = 1.5 })
-			else
-				Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
-			end
-		end,
-	})
-end
-
 -- Instant Respawn Groupbox
 local InstantRespawnGroup = Tabs.Teleport:AddRightGroupbox("Instant Respawn", "map-pin")
 
