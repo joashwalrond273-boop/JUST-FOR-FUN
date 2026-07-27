@@ -445,7 +445,48 @@ TeleportGroup:AddDropdown("TeleportPlayerList", {
 TeleportGroup:AddButton({
 	Text = "Teleport",
 	Func = function()
-		task.spawn(resetAndTeleport, Options.TeleportPlayerList.Value)
+		local player = game.Players.LocalPlayer
+		local savedName = Options.TeleportPlayerList.Value
+
+		local function notify(title, content, duration)
+			if Fluent and Fluent.Notify then
+				Fluent:Notify({ Title = title, Content = content, Duration = duration })
+			elseif Library and Library.Notify then
+				Library:Notify({ Title = title, Description = content, Time = duration })
+			end
+		end
+
+		if savedName == "" or not savedName then
+			notify("Tp Error", "Write a player name.", 5)
+			return
+		end
+
+		local matchedPlayers = {}
+
+		for _, targetPlayer in ipairs(game.Players:GetPlayers()) do
+			if targetPlayer ~= player and (targetPlayer.Name:lower():sub(1, #savedName) == savedName:lower() or targetPlayer.DisplayName:lower():sub(1, #savedName) == savedName:lower()) then
+				table.insert(matchedPlayers, targetPlayer)
+			end
+		end
+
+		if #matchedPlayers == 0 then
+			notify("Tp Error", "This player cant found on the server.", 5)
+			return
+		elseif #matchedPlayers > 1 then
+			notify("Tp Error", "There is multiple players with the same name.", 5)
+			return
+		end
+
+		local targetCharacter = matchedPlayers[1].Character
+
+		if not targetCharacter or not targetCharacter:FindFirstChild("Humanoid") or targetCharacter:FindFirstChild("Humanoid").Health <= 0 then
+			notify("Tp Error", "This player is not alive.", 5)
+			return
+		end
+
+		if targetCharacter:FindFirstChild("HumanoidRootPart") and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+			player.Character.HumanoidRootPart.CFrame = targetCharacter.HumanoidRootPart.CFrame + Vector3.new(0, 3, 0)
+		end
 	end,
 })
 
