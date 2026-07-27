@@ -2939,13 +2939,9 @@ end
 local ToggleAI = Toggles.AiAura
 local player = LocalPlayer
 local runService = RunService
-
-local flying = false
-local bodyGyro
-local bodyVelocity
-local flyConnection
-local character
-local humanoid
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoid = character:WaitForChild("Humanoid")
+local flying, bodyGyro, bodyVelocity, flyConnection = false
 
 local function startFlying()
 	if flying then return end
