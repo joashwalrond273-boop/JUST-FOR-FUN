@@ -2962,11 +2962,11 @@ end
 local TeleportExtra = Tabs.Teleport:AddLeftGroupbox("Extra Locations", "map-pin")
 
 local extraLocations = {
-	{ name = "Desert Hill", pos = Vector3.new(1548.35, 145.47, 196.68)   },
-	{ name = "MainLand",    pos = Vector3.new(-170.20, 25.26, 430.70)    },
-	{ name = "Below ML",    pos = Vector3.new(-177, 25.26, -1014.83)     },
-	{ name = "Arena",       pos = Vector3.new(-1315.59, 41.19, 1972.84)  },
-	{ name = "Bamboo",      pos = Vector3.new(-1330.92, 39.43, 5798.47)  },
+	{ name = "Desert Hill",pos = Vector3.new(1548.35, 145.47, 196.68)    },
+	{ name = "MainLand",   pos = Vector3.new(-170.20, 25.26, 430.70)     },
+	{ name = "Below ML",   pos = Vector3.new(-177, 25.26, -1014.83)      },
+	{ name = "Arena",      pos = Vector3.new(-1315.59, 41.19, 1972.84)   },
+	{ name = "Bamboo",     pos = Vector3.new(-1330.92, 39.43, 5798.47)   },
 }
 
 for _, loc in ipairs(extraLocations) do
