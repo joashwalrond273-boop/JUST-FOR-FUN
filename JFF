@@ -2939,11 +2939,16 @@ end
 local ToggleAI = Toggles.AiAura
 local player = LocalPlayer
 local runService = RunService
-local character = player.Character or player.CharacterAdded:Wait()
-local humanoid = character:WaitForChild("Humanoid")
-local flying, bodyGyro, bodyVelocity, flyConnection = false
+
+local flying = false
+local bodyGyro
+local bodyVelocity
+local flyConnection
 
 local function startFlying()
+	local character = player.Character
+	local humanoid = character and character:FindFirstChild("Humanoid")
+	if not character or not humanoid then return end
 	if flying then return end
 	flying = true
 	humanoid.PlatformStand = true
@@ -2968,16 +2973,20 @@ local function stopFlying()
 	if flyConnection then flyConnection:Disconnect() flyConnection = nil end
 	if bodyGyro then bodyGyro:Destroy() bodyGyro = nil end
 	if bodyVelocity then bodyVelocity:Destroy() bodyVelocity = nil end
+	local character = player.Character
+	local humanoid = character and character:FindFirstChild("Humanoid")
 	if humanoid then humanoid.PlatformStand = false end
 end
 
-local function setupCharacter()
-	character = player.Character or player.CharacterAdded:Wait()
-	humanoid = character:WaitForChild("Humanoid")
+local function setupCharacter(char)
+	if not char then return end
+	local humanoid = char:WaitForChild("Humanoid", 10)
 	if ToggleTitan:GetValue() then
-		local hrp = character:WaitForChild("HumanoidRootPart")
-		hrp.CFrame = hrp.CFrame + Vector3.new(0, 12, 0)
-		startFlying()
+		local hrp = char:WaitForChild("HumanoidRootPart", 10)
+		if hrp then
+			hrp.CFrame = hrp.CFrame + Vector3.new(0, 12, 0)
+			startFlying()
+		end
 	end
 end
 
@@ -2994,9 +3003,9 @@ ToggleTitan:OnChanged(function()
 	end
 end)
 
-player.CharacterAdded:Connect(function()
+player.CharacterAdded:Connect(function(char)
 	task.wait(1)
-	setupCharacter()
+	setupCharacter(char)
 end)
 
 ToggleTitan:SetValue(false)
