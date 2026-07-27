@@ -2572,15 +2572,18 @@ FarmChop:AddToggle("HighlightChop", {
 })
 
 -- ==========================================
+local TitanAuraGroup = Tabs.Farming:AddLeftGroupbox("Titan Aura", "swords")
+
+TitanAuraGroup:AddToggle("TitanAura", {
+	Text = "+ Titan Aura",
+	Default = false,
+})
+
+-- ==========================================
 local FarmAI = Tabs.Farming:AddRightGroupbox("AI Aura", "zap")
 
 FarmAI:AddToggle("AiAura", {
 	Text = "AI Aura",
-	Default = false,
-})
-
-FarmAI:AddToggle("TitanAura", {
-	Text = "+ Titan Aura",
 	Default = false,
 })
 
@@ -2931,12 +2934,6 @@ Toggles.AiAura:OnChanged(function()
 	end
 end)
 
-local ToggleTitan = Toggles.TitanAura
-function ToggleTitan:GetValue()
-	return self.Value
-end
-
-local ToggleAI = Toggles.AiAura
 local player = LocalPlayer
 local runService = RunService
 
@@ -2981,7 +2978,7 @@ end
 local function setupCharacter(char)
 	if not char then return end
 	local humanoid = char:WaitForChild("Humanoid", 10)
-	if ToggleTitan:GetValue() then
+	if Toggles.TitanAura.Value then
 		local hrp = char:WaitForChild("HumanoidRootPart", 10)
 		if hrp then
 			hrp.CFrame = hrp.CFrame + Vector3.new(0, 12, 0)
@@ -2990,16 +2987,16 @@ local function setupCharacter(char)
 	end
 end
 
-ToggleTitan:OnChanged(function()
-	local value = ToggleTitan:GetValue()
+Toggles.TitanAura:OnChanged(function()
+	local value = Toggles.TitanAura.Value
 	local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
 	if value and hrp then
 		hrp.CFrame = hrp.CFrame + Vector3.new(0, 12, 0)
 		startFlying()
-		ToggleAI:SetValue(true)
+		Toggles.AiAura:SetValue(true)
 	else
 		stopFlying()
-		ToggleAI:SetValue(false)
+		Toggles.AiAura:SetValue(false)
 	end
 end)
 
@@ -3008,7 +3005,7 @@ player.CharacterAdded:Connect(function(char)
 	setupCharacter(char)
 end)
 
-ToggleTitan:SetValue(false)
+Toggles.TitanAura:SetValue(false)
 
 -- ==========================================
 -- TELEPORT
