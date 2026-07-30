@@ -1311,11 +1311,6 @@ CombatPhantomAura:AddToggle("PhantomMode", {
 	Default = false,
 })
 
-CombatPhantomAura:AddToggle("KillFromBelow", {
-	Text = "+ Kill From Below",
-	Default = false,
-})
-
 CombatPhantomAura:AddSlider("RangeAura", {
 	Text = "Range Aura",
 	Default = 20,
@@ -1825,56 +1820,6 @@ Toggles.KillAura:OnChanged(function()
 		end
 		track("KillAura", RunService.Heartbeat:Connect(killAuraLoop))
 		Library:Notify({ Title = "Kill Aura", Description = "Enabled", Time = 2 })
-	end
-end)
-
-local function getKillFromBelowTarget()
-	local root = getRootPart()
-	if not root then return nil end
-	local pos = root.Position
-	local range = Options.RangeAura and Options.RangeAura.Value or 20
-	local nearestDist = range
-	local nearestTarget = nil
-
-	-- Scan Players
-	for _, otherPlayer in ipairs(Players:GetPlayers()) do
-		if otherPlayer ~= LocalPlayer and otherPlayer.Character then
-			local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
-			local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart") or otherPlayer.Character.PrimaryPart
-			if otherHum and otherHum.Health > 0 and otherRoot then
-				local d = (otherRoot.Position - pos).Magnitude
-				if d < nearestDist then
-					nearestDist = d
-					nearestTarget = otherRoot
-				end
-			end
-		end
-	end
-
-	return nearestTarget
-end
-
-Toggles.KillFromBelow:OnChanged(function()
-	disconnect("KillFromBelowLoop")
-	if Toggles.KillFromBelow.Value then
-		track("KillFromBelowLoop", RunService.Heartbeat:Connect(function()
-			if not Toggles.KillFromBelow.Value then return end
-			local targetRoot = getKillFromBelowTarget()
-			local char = getCharacter()
-			local myRoot = getRootPart()
-			if targetRoot and myRoot and isAlive() then
-				for _, part in ipairs(char:GetDescendants()) do
-					if part:IsA("BasePart") then
-						part.CanCollide = false
-					end
-				end
-				myRoot.CFrame = targetRoot.CFrame * CFrame.new(0, -6, 0)
-				myRoot.Velocity = Vector3.new(0, 0, 0)
-			end
-		end))
-		Library:Notify({ Title = "Kill From Below", Description = "Enabled", Time = 2 })
-	else
-		Library:Notify({ Title = "Kill From Below", Description = "Disabled", Time = 2 })
 	end
 end)
 
@@ -2597,6 +2542,16 @@ BossFarm:AddToggle("TitanAura", {
 	Default = false,
 })
 
+BossFarm:AddToggle("SamuraiAura", {
+	Text = "Samurai Aura",
+	Default = false,
+})
+
+BossFarm:AddToggle("JuggernautAura", {
+	Text = "Juggernaut Aura",
+	Default = false,
+})
+
 -- ==========================================
 local FarmMine = Tabs.Farming:AddLeftGroupbox("Auto Mine", "pickaxe")
 
@@ -2998,7 +2953,7 @@ Toggles.TitanAura:OnChanged(function()
 			local root = getRootPart()
 			if not root then return end
 			root.Velocity = Vector3.new(root.Velocity.X, 0, root.Velocity.Z)
-			root.CFrame = CFrame.new(root.Position.X, 45, root.Position.Z) * root.CFrame.Rotation
+			root.CFrame = CFrame.new(root.Position.X, 35, root.Position.Z) * root.CFrame.Rotation
 		end))
 		if Toggles.AiAura and not Toggles.AiAura.Value then
 			Toggles.AiAura:SetValue(true)
@@ -3012,6 +2967,50 @@ Toggles.TitanAura:OnChanged(function()
 	end
 end)
 
+Toggles.SamuraiAura:OnChanged(function()
+	disconnect("SamuraiAuraFloat")
+	if Toggles.SamuraiAura.Value then
+		track("SamuraiAuraFloat", RunService.Heartbeat:Connect(function()
+			if not isAlive() then return end
+			local root = getRootPart()
+			if not root then return end
+			root.Velocity = Vector3.new(root.Velocity.X, 0, root.Velocity.Z)
+			root.CFrame = CFrame.new(root.Position.X, 528, root.Position.Z) * root.CFrame.Rotation
+		end))
+		if Toggles.AiAura and not Toggles.AiAura.Value then
+			Toggles.AiAura:SetValue(true)
+		end
+		Library:Notify({ Title = "Samurai Aura", Description = "Enabled", Time = 2 })
+	else
+		if Toggles.AiAura and Toggles.AiAura.Value then
+			Toggles.AiAura:SetValue(false)
+		end
+		Library:Notify({ Title = "Samurai Aura", Description = "Disabled", Time = 2 })
+	end
+end)
+
+Toggles.JuggernautAura:OnChanged(function()
+	disconnect("JuggernautAuraFloat")
+	if Toggles.JuggernautAura.Value then
+		track("JuggernautAuraFloat", RunService.Heartbeat:Connect(function()
+			if not isAlive() then return end
+			local root = getRootPart()
+			if not root then return end
+			root.Velocity = Vector3.new(root.Velocity.X, 0, root.Velocity.Z)
+			root.CFrame = CFrame.new(root.Position.X, 118, root.Position.Z) * root.CFrame.Rotation
+		end))
+		if Toggles.AiAura and not Toggles.AiAura.Value then
+			Toggles.AiAura:SetValue(true)
+		end
+		Library:Notify({ Title = "Juggernaut Aura", Description = "Enabled", Time = 2 })
+	else
+		if Toggles.AiAura and Toggles.AiAura.Value then
+			Toggles.AiAura:SetValue(false)
+		end
+		Library:Notify({ Title = "Juggernaut Aura", Description = "Disabled", Time = 2 })
+	end
+end)
+
 
 
 -- ==========================================
@@ -3022,7 +3021,7 @@ local TeleportLeft = Tabs.Teleport:AddLeftGroupbox("Boss Locations", "map-pin")
 local bossTeleports = {
 	{ name = "Juggernaut", pos = Vector3.new(-1601.49, 108.01, -2890.59) },
 	{ name = "Titan",      pos = Vector3.new(1654.57,  23.20,  2312.14)  },
-	{ name = "Samurai",    pos = Vector3.new(-1683.00, 524.00, 7246.00)  },
+	{ name = "Samurai",    pos = Vector3.new(-1727.48, 517.20, 7305.50)  },
 	{ name = "Kraken",     pos = Vector3.new(802.42,   19.35,  -1999.35) },
 	{ name = "Spider",     pos = Vector3.new(-319.00,  -81.00, 420.00)   },
     { name = "Desert",     pos = Vector3.new(1459.50, 26.26, -204.70)    },
@@ -4721,9 +4720,6 @@ Library:OnUnload(function()
 	if Toggles.DodgeAttack and Toggles.DodgeAttack.Value then
 		Toggles.DodgeAttack:SetValue(false)
 	end
-	if Toggles.KillFromBelow and Toggles.KillFromBelow.Value then
-		Toggles.KillFromBelow:SetValue(false)
-	end
 	if Toggles.TouchFling and Toggles.TouchFling.Value then
 		Toggles.TouchFling:SetValue(false)
 	end
@@ -4759,6 +4755,12 @@ Library:OnUnload(function()
 	end
 	if Toggles.TitanAura and Toggles.TitanAura.Value then
 		Toggles.TitanAura:SetValue(false)
+	end
+	if Toggles.SamuraiAura and Toggles.SamuraiAura.Value then
+		Toggles.SamuraiAura:SetValue(false)
+	end
+	if Toggles.JuggernautAura and Toggles.JuggernautAura.Value then
+		Toggles.JuggernautAura:SetValue(false)
 	end
 	if Toggles.StretchedRES and Toggles.StretchedRES.Value then
 		Toggles.StretchedRES:SetValue(false)
