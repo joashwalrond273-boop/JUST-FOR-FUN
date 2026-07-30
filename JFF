@@ -1311,6 +1311,11 @@ CombatPhantomAura:AddToggle("PhantomMode", {
 	Default = false,
 })
 
+CombatPhantomAura:AddToggle("KillFromBelow", {
+	Text = "+ Kill From Below",
+	Default = false,
+})
+
 CombatPhantomAura:AddSlider("RangeAura", {
 	Text = "Range Aura",
 	Default = 20,
@@ -1820,6 +1825,56 @@ Toggles.KillAura:OnChanged(function()
 		end
 		track("KillAura", RunService.Heartbeat:Connect(killAuraLoop))
 		Library:Notify({ Title = "Kill Aura", Description = "Enabled", Time = 2 })
+	end
+end)
+
+local function getKillFromBelowTarget()
+	local root = getRootPart()
+	if not root then return nil end
+	local pos = root.Position
+	local range = Options.RangeAura and Options.RangeAura.Value or 20
+	local nearestDist = range
+	local nearestTarget = nil
+
+	-- Scan Players
+	for _, otherPlayer in ipairs(Players:GetPlayers()) do
+		if otherPlayer ~= LocalPlayer and otherPlayer.Character then
+			local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
+			local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart") or otherPlayer.Character.PrimaryPart
+			if otherHum and otherHum.Health > 0 and otherRoot then
+				local d = (otherRoot.Position - pos).Magnitude
+				if d < nearestDist then
+					nearestDist = d
+					nearestTarget = otherRoot
+				end
+			end
+		end
+	end
+
+	return nearestTarget
+end
+
+Toggles.KillFromBelow:OnChanged(function()
+	disconnect("KillFromBelowLoop")
+	if Toggles.KillFromBelow.Value then
+		track("KillFromBelowLoop", RunService.Heartbeat:Connect(function()
+			if not Toggles.KillFromBelow.Value then return end
+			local targetRoot = getKillFromBelowTarget()
+			local char = getCharacter()
+			local myRoot = getRootPart()
+			if targetRoot and myRoot and isAlive() then
+				for _, part in ipairs(char:GetDescendants()) do
+					if part:IsA("BasePart") then
+						part.CanCollide = false
+					end
+				end
+				myRoot.CFrame = targetRoot.CFrame * CFrame.new(0, -6, 0)
+				myRoot.Velocity = Vector3.new(0, 0, 0)
+			end
+		end))
+		Library:Notify({ Title = "Kill From Below", Description = "Enabled", Time = 2 })
+	else
+		Library:Notify({ Title = "Kill From Below", Description = "Disabled", Time = 2 })
 	end
 end)
 
@@ -2535,6 +2590,14 @@ end
 local FarmRight = Tabs.Farming:AddRightGroupbox("Highlight Settings", "palette")
 
 -- ==========================================
+local BossFarm = Tabs.Farming:AddLeftGroupbox("Boss Farm", "sword")
+
+BossFarm:AddToggle("TitanAura", {
+	Text = "Titan Aura",
+	Default = false,
+})
+
+-- ==========================================
 local FarmMine = Tabs.Farming:AddLeftGroupbox("Auto Mine", "pickaxe")
 
 FarmMine:AddToggle("AutoMine", {
@@ -2927,6 +2990,28 @@ Toggles.AiAura:OnChanged(function()
 	end
 end)
 
+Toggles.TitanAura:OnChanged(function()
+	disconnect("TitanAuraFloat")
+	if Toggles.TitanAura.Value then
+		track("TitanAuraFloat", RunService.Heartbeat:Connect(function()
+			if not isAlive() then return end
+			local root = getRootPart()
+			if not root then return end
+			root.Velocity = Vector3.new(root.Velocity.X, 0, root.Velocity.Z)
+			root.CFrame = CFrame.new(root.Position.X, 45, root.Position.Z) * root.CFrame.Rotation
+		end))
+		if Toggles.AiAura and not Toggles.AiAura.Value then
+			Toggles.AiAura:SetValue(true)
+		end
+		Library:Notify({ Title = "Titan Aura", Description = "Enabled", Time = 2 })
+	else
+		if Toggles.AiAura and Toggles.AiAura.Value then
+			Toggles.AiAura:SetValue(false)
+		end
+		Library:Notify({ Title = "Titan Aura", Description = "Disabled", Time = 2 })
+	end
+end)
+
 
 
 -- ==========================================
@@ -2963,16 +3048,11 @@ end
 local TeleportExtra = Tabs.Teleport:AddLeftGroupbox("Extra Locations", "map-pin")
 
 local extraLocations = {
-	{ name = "Desert Hill",pos = Vector3.new(1548.35, 145.47, 196.68)    },
-	{ name = "MainLand",   pos = Vector3.new(-170.20, 25.26, 430.70)     },
-	{ name = "Below ML",   pos = Vector3.new(-177, 25.26, -1014.83)      },
-	{ name = "Arena",      pos = Vector3.new(-1315.59, 41.19, 1972.84)   },
-	{ name = "Bamboo",     pos = Vector3.new(-1330.92, 39.43, 5798.47)   },
-	{ name = "Merchant AS",pos = Vector3.new(-747.80, 329.20, 7135.49)   },
-	{ name = "Merchant ML",pos = Vector3.new(-143.45, 25.26, 432.48)     },
-	{ name = "Merchant DS",pos = Vector3.new(1426.79, 25.26, -591.59)    },
-	{ name = "Merchant BM",pos = Vector3.new(-166.76, 25.26, -1043.05)   },
-	{ name = "Merchant AC",pos = Vector3.new(-1248.54, 25.25, -1993.60)  },
+	{ name = "Desert Hill", pos = Vector3.new(1548.35, 145.47, 196.68)   },
+	{ name = "MainLand",    pos = Vector3.new(-170.20, 25.26, 430.70)    },
+	{ name = "Below ML",    pos = Vector3.new(-177, 25.26, -1014.83)     },
+	{ name = "Arena",       pos = Vector3.new(-1315.59, 41.19, 1972.84)  },
+	{ name = "Bamboo",      pos = Vector3.new(-1330.92, 39.43, 5798.47)  },
 }
 
 for _, loc in ipairs(extraLocations) do
@@ -4641,6 +4721,9 @@ Library:OnUnload(function()
 	if Toggles.DodgeAttack and Toggles.DodgeAttack.Value then
 		Toggles.DodgeAttack:SetValue(false)
 	end
+	if Toggles.KillFromBelow and Toggles.KillFromBelow.Value then
+		Toggles.KillFromBelow:SetValue(false)
+	end
 	if Toggles.TouchFling and Toggles.TouchFling.Value then
 		Toggles.TouchFling:SetValue(false)
 	end
@@ -4673,6 +4756,9 @@ Library:OnUnload(function()
 	end
     if Toggles.AdamantiteFarm and Toggles.AdamantiteFarm.Value then
 		Toggles.AdamantiteFarm:SetValue(false)
+	end
+	if Toggles.TitanAura and Toggles.TitanAura.Value then
+		Toggles.TitanAura:SetValue(false)
 	end
 	if Toggles.StretchedRES and Toggles.StretchedRES.Value then
 		Toggles.StretchedRES:SetValue(false)
