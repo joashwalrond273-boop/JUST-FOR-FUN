@@ -20,34 +20,6 @@ local joinLowPingServer
 -- Obsidian
 local repo = "https://raw.githubusercontent.com/deividcomsono/Obsidian/main/"
 local Library = loadstring(game:HttpGet(repo .. "Library.lua"))()
-
--- Override AddDraggableButton to block and hide the Lock button
-local oldAddDraggableButton = Library.AddDraggableButton
-function Library:AddDraggableButton(...)
-	local args = {...}
-	local text = args[1]
-	if typeof(text) == "table" then
-		text = text.Text
-	end
-	
-	local buttonObj = oldAddDraggableButton(self, ...)
-	if text == "Lock" then
-		task.spawn(function()
-			task.wait()
-			if buttonObj and buttonObj.Button then
-				buttonObj.Button.Visible = false
-				buttonObj.Button.Position = UDim2.fromOffset(-9999, -9999)
-				buttonObj.Button:GetPropertyChangedSignal("Visible"):Connect(function()
-					buttonObj.Button.Visible = false
-				end)
-				buttonObj.Button:GetPropertyChangedSignal("Position"):Connect(function()
-					buttonObj.Button.Position = UDim2.fromOffset(-9999, -9999)
-				end)
-			end
-		end)
-	end
-	return buttonObj
-end
 local ThemeManager = loadstring(game:HttpGet(repo .. "addons/ThemeManager.lua"))()
 local SaveManager = loadstring(game:HttpGet(repo .. "addons/SaveManager.lua"))()
 
