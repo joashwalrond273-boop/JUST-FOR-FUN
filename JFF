@@ -372,6 +372,7 @@ end
 -- ==========================================
 -- MAIN
 -- ==========================================
+
 local MainLeft = Tabs.Player:AddLeftGroupbox("Player", "user")
 local MainRight = Tabs.Player:AddRightGroupbox("Misc", "sparkles")
 
@@ -1170,7 +1171,7 @@ Toggles.NoBossDamage:OnChanged(noBossDamageToggle)
  -- Auto pickup (CollectionService tag DROPPED_ITEM -> inventory.pickupItem)
 local droppedItemSpawnTimes = {}
 local lastAutoPickup = 0
-local AUTO_PICKUP_RANGE = 20
+local AUTO_PICKUP_RANGE = 40
 local AUTO_PICKUP_COOLDOWN = 0
 
 local function trackDroppedItem(item)
@@ -2138,7 +2139,7 @@ MoveSwingSpeed:AddSlider("SwingSpeedVal", {
 	Text = "Swing Speed Value",
 	Default = 1,
 	Min = 1,
-	Max = 10,
+	Max = 20,
 	Rounding = 1,
 })
 
@@ -2456,7 +2457,10 @@ Toggles.SwingSpeedToggle:OnChanged(function()
 	local animator = hum and hum:FindFirstChild("Animator")
 	if animator then
 		for _, trackObj in ipairs(animator:GetPlayingAnimationTracks()) do
-			local targetSpeed = Toggles.SwingSpeedToggle.Value and Options.SwingSpeedVal.Value or 1
+			local targetSpeed = 1
+			if Toggles.SwingSpeedToggle.Value and isSwingAnimation(trackObj) then
+				targetSpeed = Options.SwingSpeedVal.Value
+			end
 			trackObj:AdjustSpeed(targetSpeed)
 		end
 	end
@@ -2469,14 +2473,21 @@ Options.SwingSpeedVal:OnChanged(function()
 		local animator = hum and hum:FindFirstChild("Animator")
 		if animator then
 			for _, trackObj in ipairs(animator:GetPlayingAnimationTracks()) do
-				trackObj:AdjustSpeed(Options.SwingSpeedVal.Value)
+				if isSwingAnimation(trackObj) then
+					trackObj:AdjustSpeed(Options.SwingSpeedVal.Value)
+				else
+					trackObj:AdjustSpeed(1)
+				end
 			end
 		end
 	end
 end)
 
 local function applyAnimationSpeed(trackObj)
-	local targetSpeed = Toggles.SwingSpeedToggle.Value and Options.SwingSpeedVal.Value or 1
+	local targetSpeed = 1
+	if Toggles.SwingSpeedToggle.Value and isSwingAnimation(trackObj) then
+		targetSpeed = Options.SwingSpeedVal.Value
+	end
 	trackObj:AdjustSpeed(targetSpeed)
 end
 
@@ -2489,7 +2500,10 @@ local function setupAnimationSpeedHacks(char)
 			local adjusting = false
 			local function enforceSpeed()
 				if adjusting then return end
-				local targetSpeed = Toggles.SwingSpeedToggle.Value and Options.SwingSpeedVal.Value or 1
+				local targetSpeed = 1
+				if Toggles.SwingSpeedToggle.Value and isSwingAnimation(trackObj) then
+					targetSpeed = Options.SwingSpeedVal.Value
+				end
 				if math.abs(trackObj.Speed - targetSpeed) > 0.01 then
 					adjusting = true
 					trackObj:AdjustSpeed(targetSpeed)
@@ -3629,9 +3643,17 @@ VisualLeft:AddToggle("ShowTracers", {
 	Default = false,
 })
 
-VisualLeft:AddToggle("ShowBox", {
-	Text = "Show Box",
+VisualLeft:AddToggle("ShowHitbox", {
+	Text = "Show Hitbox",
 	Default = false,
+})
+
+VisualLeft:AddSlider("Expander", {
+	Text = "Expander",
+	Default = 2,
+	Min = 2,
+	Max = 30,
+	Rounding = 1,
 })
 
 local VisualEnv = Tabs.Visuals:AddLeftGroupbox("ENVIRONMENT", "sun")
@@ -3643,11 +3665,6 @@ VisualEnv:AddToggle("AlwaysDay", {
 
 VisualEnv:AddToggle("Midday", {
 	Text = "Midday",
-	Default = false,
-})
-
-VisualEnv:AddToggle("AlwaysNight", {
-	Text = "Always Night",
 	Default = false,
 })
 
@@ -3667,42 +3684,52 @@ VisualRight:AddSlider("ESPDistance", {
 local espObjects = {}
 local hasDrawing = (typeof(Drawing) ~= "nil")
 
-local function clearESP()
-	for _, obj in pairs(espObjects) do
-		if typeof(obj) == "Instance" then
-			obj:Destroy()
-		elseif typeof(obj) == "table" then
-			for _, child in pairs(obj) do
-				if typeof(child) == "Instance" then
-					child:Destroy()
-				else
-					pcall(function() child:Remove() end)
-				end
-			end
+local function clearESPForPlayer(player)
+	if espObjects[player] then
+		local old = espObjects[player]
+		pcall(function() old[1]:Destroy() end) -- highlight
+		pcall(function() old[2]:Destroy() end) -- billboard
+		pcall(function() old[4]:Remove() end) -- tracer
+		if old[5] then
+			pcall(function() old[5]:Destroy() end) -- hitboxBox
 		end
+		espObjects[player] = nil
+	end
+	disconnect("ESP_" .. player.Name)
+	disconnect("CharAdded_" .. player.Name)
+end
+
+local function clearESP()
+	for _, player in ipairs(Players:GetPlayers()) do
+		clearESPForPlayer(player)
 	end
 	table.clear(espObjects)
+	for name in pairs(Connections) do
+		if name:sub(1, 4) == "ESP_" or name:sub(1, 10) == "CharAdded_" then
+			disconnect(name)
+		end
+	end
 end
 
 local function createESP(player)
+	clearESPForPlayer(player)
+	
 	local character = player.Character
 	if not character then
 		return
 	end
-	local root = character:FindFirstChild("HumanoidRootPart")
+	local root = character:WaitForChild("HumanoidRootPart", 5)
 	local hum = character:FindFirstChildOfClass("Humanoid")
 	if not root or not hum then
 		return
 	end
 
-	local box2d = nil
-	if hasDrawing then
-		box2d = Drawing.new("Square")
-		box2d.Color = Color3.fromRGB(192, 192, 192)
-		box2d.Thickness = 1.5
-		box2d.Filled = false
-		box2d.Visible = false
-	end
+	local highlight = Instance.new("Highlight")
+	highlight.FillColor = Color3.fromRGB(80, 180, 255)
+	highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+	highlight.FillTransparency = 0.5
+	highlight.Adornee = character
+	highlight.Parent = workspace
 
 	local billboard = Instance.new("BillboardGui")
 	billboard.Size = UDim2.fromOffset(120, 40)
@@ -3722,49 +3749,40 @@ local function createESP(player)
 	local tracer = nil
 	if hasDrawing then
 		tracer = Drawing.new("Line")
-		tracer.Color = Color3.fromRGB(192, 192, 192)
+		tracer.Color = Color3.fromRGB(80, 180, 255)
 		tracer.Thickness = 1.5
 		tracer.Transparency = 1
 		tracer.Visible = false
 	end
 
-	espObjects[player] = { box2d, billboard, label, tracer }
+	local hitboxBox = nil
+	if root then
+		hitboxBox = Instance.new("SelectionBox")
+		hitboxBox.Name = "HitboxBoxESP"
+		hitboxBox.Color3 = Color3.fromRGB(255, 60, 60)
+		hitboxBox.LineThickness = 0.05
+		hitboxBox.Adornee = root
+		hitboxBox.Visible = false
+		hitboxBox.Parent = root
+	end
+
+	espObjects[player] = { highlight, billboard, label, tracer, hitboxBox }
 
 	local function update()
 		local myRoot = getRootPart()
-		if not myRoot or not character.Parent then
+		if not myRoot or not character.Parent or not root.Parent then
 			if tracer then tracer.Visible = false end
-			if box2d then box2d.Visible = false end
 			return
 		end
 		local dist = (root.Position - myRoot.Position).Magnitude
 		local shouldShow = dist <= Options.ESPDistance.Value and Toggles.PlayerESP.Value
-		if box2d then
-			if shouldShow and Toggles.ShowBox and Toggles.ShowBox.Value then
-				local screenPos, onScreen = workspace.CurrentCamera:WorldToViewportPoint(root.Position)
-				if onScreen then
-					local head = character:FindFirstChild("Head")
-					local topPos = head and head.Position + Vector3.new(0, 0.5, 0) or root.Position + Vector3.new(0, 3, 0)
-					local bottomPos = head and head.Position - Vector3.new(0, 6.5, 0) or root.Position - Vector3.new(0, 3.5, 0)
-					
-					local topCoords = workspace.CurrentCamera:WorldToViewportPoint(topPos)
-					local bottomCoords = workspace.CurrentCamera:WorldToViewportPoint(bottomPos)
-					
-					local height = math.abs(topCoords.Y - bottomCoords.Y)
-					local width = height * 0.6
-					
-					box2d.Position = Vector2.new(screenPos.X - width / 2, topCoords.Y)
-					box2d.Size = Vector2.new(width, height)
-					box2d.Visible = true
-				else
-					box2d.Visible = false
-				end
-			else
-				box2d.Visible = false
-			end
+		if shouldShow then
+			highlight.Enabled = true
+			billboard.Enabled = true
+		else
+			highlight.Enabled = false
+			billboard.Enabled = false
 		end
-
-		billboard.Enabled = shouldShow
 		local text = player.Name
 		if Toggles.ShowDistance.Value then
 			text ..= string.format("\n%.0fm", dist)
@@ -3774,7 +3792,7 @@ local function createESP(player)
 		end
 		label.Text = text
 
-		if tracer and Toggles.ShowTracers.Value then
+		if tracer and Toggles.ShowTracers.Value and shouldShow then
 			local pos, onScreen = workspace.CurrentCamera:WorldToViewportPoint(root.Position)
 			if onScreen then
 				tracer.From = Vector2.new(workspace.CurrentCamera.ViewportSize.X / 2, workspace.CurrentCamera.ViewportSize.Y)
@@ -3786,6 +3804,10 @@ local function createESP(player)
 		elseif tracer then
 			tracer.Visible = false
 		end
+
+		if hitboxBox then
+			hitboxBox.Visible = Toggles.ShowHitbox.Value and Toggles.PlayerESP.Value and shouldShow
+		end
 	end
 
 	update()
@@ -3793,38 +3815,92 @@ local function createESP(player)
 end
 
 Toggles.PlayerESP:OnChanged(function()
+	clearESP()
 	if not Toggles.PlayerESP.Value then
-		clearESP()
-		for name in pairs(Connections) do
-			if name:sub(1, 4) == "ESP_" then
-				disconnect(name)
-			end
-		end
+		disconnect("ESP_PlayerAdded")
+		disconnect("ESP_PlayerRemoving")
 		return
 	end
-	for _, player in ipairs(Players:GetPlayers()) do
-		if player ~= LocalPlayer then
-			createESP(player)
+	
+	local function monitorPlayer(player)
+		clearESPForPlayer(player)
+		track("CharAdded_" .. player.Name, player.CharacterAdded:Connect(function()
+			task.wait(0.5)
+			if Toggles.PlayerESP.Value then
+				createESP(player)
+			end
+		end))
+		if player.Character then
+			task.spawn(createESP, player)
 		end
 	end
+
+	for _, player in ipairs(Players:GetPlayers()) do
+		if player ~= LocalPlayer then
+			monitorPlayer(player)
+		end
+	end
+
 	track("ESP_PlayerAdded", Players.PlayerAdded:Connect(function(player)
-		if Toggles.PlayerESP.Value then
-			player.CharacterAdded:Connect(function()
-				task.wait(1)
-				if Toggles.PlayerESP.Value then
-					createESP(player)
-				end
-			end)
+		if player ~= LocalPlayer then
+			monitorPlayer(player)
 		end
 	end))
+
+	track("ESP_PlayerRemoving", Players.PlayerRemoving:Connect(function(player)
+		clearESPForPlayer(player)
+	end))
 end)
+
+local function updatePlayerHitboxSize(player, size)
+	if player == LocalPlayer then return end
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if root then
+		if size > 2 then
+			root.Size = Vector3.new(size, size, size)
+			root.CanCollide = false
+			root.Massless = true
+		else
+			root.Size = Vector3.new(2, 2, 1)
+			root.CanCollide = false
+			root.Massless = true
+		end
+	end
+end
+
+local function updateAllHitboxes()
+	local size = Options.Expander.Value
+	for _, player in ipairs(Players:GetPlayers()) do
+		if player ~= LocalPlayer then
+			pcall(updatePlayerHitboxSize, player, size)
+		end
+	end
+end
+
+local function resetAllHitboxes()
+	for _, player in ipairs(Players:GetPlayers()) do
+		if player ~= LocalPlayer then
+			pcall(updatePlayerHitboxSize, player, 2)
+		end
+	end
+end
+
+Options.Expander:OnChanged(updateAllHitboxes)
+track("HitboxExpander", task.spawn(function()
+	while true do
+		if Options.Expander.Value > 2 then
+			updateAllHitboxes()
+		end
+		task.wait(0.5)
+	end
+end))
 
 
 
 Toggles.AlwaysDay:OnChanged(function()
 	if Toggles.AlwaysDay.Value then
 		Toggles.Midday:SetValue(false)
-		Toggles.AlwaysNight:SetValue(false)
 		disconnect("EnvironmentTime")
 		track("EnvironmentTime", RunService.Heartbeat:Connect(function()
 			game:GetService("Lighting").ClockTime = 14
@@ -3838,7 +3914,6 @@ end)
 Toggles.Midday:OnChanged(function()
 	if Toggles.Midday.Value then
 		Toggles.AlwaysDay:SetValue(false)
-		Toggles.AlwaysNight:SetValue(false)
 		disconnect("EnvironmentTime")
 		track("EnvironmentTime", RunService.Heartbeat:Connect(function()
 			game:GetService("Lighting").ClockTime = 12
@@ -3849,19 +3924,8 @@ Toggles.Midday:OnChanged(function()
 	end
 end)
 
-Toggles.AlwaysNight:OnChanged(function()
-	if Toggles.AlwaysNight.Value then
-		Toggles.AlwaysDay:SetValue(false)
-		Toggles.Midday:SetValue(false)
-		disconnect("EnvironmentTime")
-		track("EnvironmentTime", RunService.Heartbeat:Connect(function()
-			game:GetService("Lighting").ClockTime = 0
-		end))
-		Library:Notify({ Title = "Always Night", Description = "Enabled", Time = 2 })
-	else
-		disconnect("EnvironmentTime")
-	end
-end)
+
+
 
 Toggles.InfiniteZoom:OnChanged(function()
 	if Toggles.InfiniteZoom.Value then
@@ -4699,7 +4763,7 @@ track("CursorUpdate", RunService.Heartbeat:Connect(updateCursor))
 local MenuGroup = Tabs["UI Settings"]:AddLeftGroupbox("Menu", "wrench")
 
 MenuGroup:AddToggle("KeybindMenuOpen", {
-	Default = Library.KeybindFrame.Visible,
+	Default = false,
 	Text = "Open Keybind Menu",
 	Callback = function(value)
 		Library.KeybindFrame.Visible = value
@@ -4750,7 +4814,10 @@ SaveManager:BuildConfigSection(Tabs["UI Settings"])
 ThemeManager:ApplyToTab(Tabs["UI Settings"])
 SaveManager:LoadAutoloadConfig()
 
+Library.KeybindFrame.Visible = false
+
 Library:OnUnload(function()
+
 
 	if Toggles.DesyncToggle and Toggles.DesyncToggle.Value then
 		Toggles.DesyncToggle:SetValue(false)
@@ -4863,6 +4930,7 @@ Library:OnUnload(function()
 		disconnect(name)
 	end
 	clearESP()
+	pcall(resetAllHitboxes)
 	highlightTarget:Destroy()
 	workspace.Gravity = 196.2
 	LocalPlayer.CameraMaxZoomDistance = 400
