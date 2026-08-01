@@ -1372,8 +1372,8 @@ CombatReach:AddToggle("Reach", {
 CombatReach:AddSlider("ReachRange", {
 	Text = "Reach Range",
 	Default = 15,
-	Min = 10,
-	Max = 30,
+	Min = 5,
+	Max = 40,
 	Rounding = 1,
 })
 
