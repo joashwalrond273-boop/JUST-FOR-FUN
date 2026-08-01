@@ -1372,10 +1372,12 @@ CombatReach:AddSlider("ReachRange", {
 	Rounding = 1,
 })
 
-CombatReach:AddToggle("ShowHitbox", {
-	Text = "+ Show Hitbox",
+CombatReach:AddToggle("ShowHit", {
+	Text = "Show Hit",
 	Default = false,
 })
+
+
 
 local CombatAutoBlock = Tabs.Combat:AddRightGroupbox("Auto Block", "shield")
 
@@ -1972,7 +1974,7 @@ end)
 
 local function updateHitboxes()
 	local size = Options.ReachRange and Options.ReachRange.Value or 15
-	local enabled = Toggles.ShowHitbox and Toggles.ShowHitbox.Value
+	local enabled = Toggles.ShowHit and Toggles.ShowHit.Value
 	
 	for _, player in ipairs(Players:GetPlayers()) do
 		if player ~= LocalPlayer and player.Character then
@@ -1998,11 +2000,11 @@ local function updateHitboxes()
 	end
 end
 
-Toggles.ShowHitbox:OnChanged(function()
-	disconnect("ShowHitbox")
-	if Toggles.ShowHitbox.Value then
-		track("ShowHitbox", RunService.Heartbeat:Connect(updateHitboxes))
-		Library:Notify({ Title = "Show Hitbox", Description = "Hitbox Expander Enabled", Time = 2 })
+Toggles.ShowHit:OnChanged(function()
+	disconnect("ShowHit")
+	if Toggles.ShowHit.Value then
+		track("ShowHit", RunService.Heartbeat:Connect(updateHitboxes))
+		Library:Notify({ Title = "Show Hit", Description = "Hitbox Expander Enabled", Time = 2 })
 	else
 		updateHitboxes()
 	end
@@ -4911,8 +4913,8 @@ Library:OnUnload(function()
 	if Toggles.AimbotLockOn and Toggles.AimbotLockOn.Value then
 		Toggles.AimbotLockOn:SetValue(false)
 	end
-	if Toggles.ShowHitbox and Toggles.ShowHitbox.Value then
-		Toggles.ShowHitbox:SetValue(false)
+	if Toggles.ShowHit and Toggles.ShowHit.Value then
+		Toggles.ShowHit:SetValue(false)
 	end
 	if Toggles.AttachToggle and Toggles.AttachToggle.Value then
 		Toggles.AttachToggle:SetValue(false)
