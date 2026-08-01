@@ -1357,6 +1357,11 @@ CombatAimbot:AddSlider("AimbotFOV", {
 	Rounding = 0,
 })
 
+CombatAimbot:AddToggle("InfiniteDistance", {
+	Text = "Infinite Distance",
+	Default = false,
+})
+
 local CombatReach = Tabs.Combat:AddRightGroupbox("Reach", "expand")
 
 CombatReach:AddToggle("Reach", {
@@ -1370,11 +1375,6 @@ CombatReach:AddSlider("ReachRange", {
 	Min = 10,
 	Max = 30,
 	Rounding = 1,
-})
-
-CombatReach:AddToggle("ShowHit", {
-	Text = "Show Hit",
-	Default = false,
 })
 
 
@@ -1763,18 +1763,31 @@ local function getClosestPlayerToCenter()
 	local viewportSize = camera.ViewportSize
 	local center = Vector2.new(viewportSize.X / 2, viewportSize.Y / 2)
 
+	local infiniteRange = Toggles.InfiniteDistance and Toggles.InfiniteDistance.Value
+
 	for _, player in ipairs(Players:GetPlayers()) do
 		if player ~= LocalPlayer and player.Character then
 			local torso = player.Character:FindFirstChild("LowerTorso") or player.Character:FindFirstChild("UpperTorso") or player.Character:FindFirstChild("Torso") or player.Character:FindFirstChild("HumanoidRootPart")
 			local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
 			if torso and humanoid and humanoid.Health > 0 then
-				local screenPos, onScreen = camera:WorldToViewportPoint(torso.Position)
-				if onScreen then
-					local distance = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
-					local fovRadius = (Options.AimbotFOV and Options.AimbotFOV.Value) or 100
-					if distance < shortestDistance and distance <= fovRadius then
-						shortestDistance = distance
-						closestPlayer = torso
+				if infiniteRange then
+					local root = getRootPart()
+					if root then
+						local dist3D = (torso.Position - root.Position).Magnitude
+						if dist3D < shortestDistance then
+							shortestDistance = dist3D
+							closestPlayer = torso
+						end
+					end
+				else
+					local screenPos, onScreen = camera:WorldToViewportPoint(torso.Position)
+					if onScreen then
+						local distance = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
+						local fovRadius = (Options.AimbotFOV and Options.AimbotFOV.Value) or 100
+						if distance < shortestDistance and distance <= fovRadius then
+							shortestDistance = distance
+							closestPlayer = torso
+						end
 					end
 				end
 			end
@@ -1794,7 +1807,9 @@ Toggles.AimbotLockOn:OnChanged(function()
 				local viewportSize = workspace.CurrentCamera.ViewportSize
 				fovCircle.Position = Vector2.new(viewportSize.X / 2, viewportSize.Y / 2)
 				fovCircle.Radius = (Options.AimbotFOV and Options.AimbotFOV.Value) or 100
-				fovCircle.Visible = true
+				
+				local infiniteRange = Toggles.InfiniteDistance and Toggles.InfiniteDistance.Value
+				fovCircle.Visible = not infiniteRange
 			end
 		end))
 
@@ -1969,44 +1984,6 @@ end)
 Toggles.Reach:OnChanged(function()
 	if Toggles.Reach.Value then
 		Library:Notify({ Title = "Reach", Description = "Enabled", Time = 2 })
-	end
-end)
-
-local function updateHitboxes()
-	local size = Options.ReachRange and Options.ReachRange.Value or 15
-	local enabled = Toggles.ShowHit and Toggles.ShowHit.Value
-	
-	for _, player in ipairs(Players:GetPlayers()) do
-		if player ~= LocalPlayer and player.Character then
-			local root = player.Character:FindFirstChild("HumanoidRootPart")
-			if root then
-				if enabled then
-					if root.Size.X ~= size then
-						root.Size = Vector3.new(size, size, size)
-						root.Transparency = 0.75
-						root.Color = Color3.fromRGB(255, 0, 0)
-						root.Material = Enum.Material.ForceField
-						root.CanCollide = false
-					end
-				else
-					if root.Size.X ~= 2 then
-						root.Size = Vector3.new(2, 2, 1)
-						root.Transparency = 1
-						root.CanCollide = false
-					end
-				end
-			end
-		end
-	end
-end
-
-Toggles.ShowHit:OnChanged(function()
-	disconnect("ShowHit")
-	if Toggles.ShowHit.Value then
-		track("ShowHit", RunService.Heartbeat:Connect(updateHitboxes))
-		Library:Notify({ Title = "Show Hit", Description = "Hitbox Expander Enabled", Time = 2 })
-	else
-		updateHitboxes()
 	end
 end)
 
@@ -4913,8 +4890,8 @@ Library:OnUnload(function()
 	if Toggles.AimbotLockOn and Toggles.AimbotLockOn.Value then
 		Toggles.AimbotLockOn:SetValue(false)
 	end
-	if Toggles.ShowHit and Toggles.ShowHit.Value then
-		Toggles.ShowHit:SetValue(false)
+	if Toggles.InfiniteDistance and Toggles.InfiniteDistance.Value then
+		Toggles.InfiniteDistance:SetValue(false)
 	end
 	if Toggles.AttachToggle and Toggles.AttachToggle.Value then
 		Toggles.AttachToggle:SetValue(false)
