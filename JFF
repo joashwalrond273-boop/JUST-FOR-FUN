@@ -3633,6 +3633,11 @@ VisualLeft:AddToggle("ShowBox", {
 	Default = false,
 })
 
+VisualLeft:AddToggle("OutlineESP", {
+	Text = "Outline ESP",
+	Default = false,
+})
+
 local VisualEnv = Tabs.Visuals:AddLeftGroupbox("ENVIRONMENT", "sun")
 
 VisualEnv:AddToggle("AlwaysDay", {
@@ -3727,13 +3732,24 @@ local function createESP(player)
 		tracer.Visible = false
 	end
 
-	espObjects[player] = { box2d, billboard, label, tracer }
+	local highlight = Instance.new("Highlight")
+	highlight.FillColor = Color3.fromRGB(255, 255, 255)
+	highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+	highlight.FillTransparency = 1
+	highlight.OutlineTransparency = 0
+	highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+	highlight.Enabled = false
+	highlight.Adornee = character
+	highlight.Parent = character
+
+	espObjects[player] = { box2d, billboard, label, tracer, highlight }
 
 	local function update()
 		local myRoot = getRootPart()
 		if not myRoot or not character.Parent then
 			if tracer then tracer.Visible = false end
 			if box2d then box2d.Visible = false end
+			if highlight then highlight.Enabled = false end
 			return
 		end
 		local dist = (root.Position - myRoot.Position).Magnitude
@@ -3784,6 +3800,14 @@ local function createESP(player)
 			end
 		elseif tracer then
 			tracer.Visible = false
+		end
+
+		if highlight then
+			if shouldShow and Toggles.OutlineESP and Toggles.OutlineESP.Value then
+				highlight.Enabled = true
+			else
+				highlight.Enabled = false
+			end
 		end
 	end
 
