@@ -1377,8 +1377,6 @@ CombatReach:AddToggle("ShowHitbox", {
 	Default = false,
 })
 
-
-
 local CombatAutoBlock = Tabs.Combat:AddRightGroupbox("Auto Block", "shield")
 
 local AutoShieldToggle = CombatAutoBlock:AddToggle("AutoShield", {
