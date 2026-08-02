@@ -1357,6 +1357,11 @@ CombatAimbot:AddSlider("AimbotFOV", {
 	Rounding = 0,
 })
 
+CombatAimbot:AddToggle("InfiniteDistance", {
+	Text = "Infinite Distance",
+	Default = false,
+})
+
 local CombatReach = Tabs.Combat:AddRightGroupbox("Reach", "expand")
 
 CombatReach:AddToggle("Reach", {
@@ -4816,6 +4821,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.AimbotLockOn and Toggles.AimbotLockOn.Value then
 		Toggles.AimbotLockOn:SetValue(false)
+	end
+	if Toggles.InfiniteDistance and Toggles.InfiniteDistance.Value then
+		Toggles.InfiniteDistance:SetValue(false)
 	end
 	if Toggles.AttachToggle and Toggles.AttachToggle.Value then
 		Toggles.AttachToggle:SetValue(false)
