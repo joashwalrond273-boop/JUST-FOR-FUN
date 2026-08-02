@@ -2706,6 +2706,20 @@ local coalLocations = {
 	{ name = "Coal 2",  pos = Vector3.new(1447.98, 39.83,  2400.27) },
 	{ name = "Coal 3",  pos = Vector3.new(1837.06, 29.36,  2471.74) },
 	{ name = "Coal 4",  pos = Vector3.new(1177.61, 29.01,  -609.47) },
+	{ name = "Coal 5",  pos = Vector3.new(1188.42, 20.58,  -563.03) },
+	{ name = "Coal 6",  pos = Vector3.new(-651.84, 226.09, 654.28)  },
+	{ name = "Coal 7",  pos = Vector3.new(-540.20, 76.40,  297.97)  },
+	{ name = "Coal 8",  pos = Vector3.new(-639.61, -24.83, -83.22)  },
+	{ name = "Coal 9",  pos = Vector3.new(-1182.86, 54.42, 6608.34) },
+	{ name = "Coal 10", pos = Vector3.new(-2015.67, 30.73, -39.95)  },
+	{ name = "Coal 11", pos = Vector3.new(-912.17, 125.72, -408.72) },
+	{ name = "Coal 12", pos = Vector3.new(-264.65, 47.32,  1427.81) },
+    { name = "Coal 13", pos = Vector3.new(245.51,  45.00,  460.77)  },
+	{ name = "Coal 14", pos = Vector3.new(-1261.77, 43.72, 6281.94) },
+	{ name = "Coal 15", pos = Vector3.new(-1765.08, 95.91, 7158.15) },
+	{ name = "Coal 16", pos = Vector3.new(1686.60, 41.64, -917.39)  },
+	{ name = "Coal 17", pos = Vector3.new(1566.16, 23.19, -946.35)  },
+	{ name = "Coal 18", pos = Vector3.new(252.14, 22.06, 811.69)    },
 }
 
 local coalNames = {}
