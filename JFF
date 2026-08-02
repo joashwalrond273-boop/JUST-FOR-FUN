@@ -166,8 +166,8 @@ end)
 
 local mainFrame = Instance.new("Frame")
 mainFrame.Parent = screenGui
-mainFrame.Size = UDim2.new(0, 240, 0, 180)
-mainFrame.Position = UDim2.new(0.5, -120, 0.5, -90)
+mainFrame.Size = UDim2.new(0, 200, 0, 140)
+mainFrame.Position = UDim2.new(0.5, -100, 0.5, -70)
 mainFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
 mainFrame.BackgroundTransparency = 0
 mainFrame.BorderSizePixel = 2
@@ -195,24 +195,24 @@ glowCorner.CornerRadius = UDim.new(0, 20)
 
 local title = Instance.new("TextLabel")
 title.Parent = mainFrame
-title.Size = UDim2.new(1, 0, 0, 40)
-title.Position = UDim2.new(0, 0, 0, 5)
+title.Size = UDim2.new(1, 0, 0, 30)
+title.Position = UDim2.new(0, 0, 0, 2)
 title.Text = "URIEL"
 title.TextColor3 = Color3.fromRGB(255, 0, 0)
 title.BackgroundTransparency = 1
 title.Font = Enum.Font.GothamBold
-title.TextSize = 20
+title.TextSize = 16
 title.TextXAlignment = Enum.TextXAlignment.Center
 
 local closeBtn = Instance.new("TextButton")
 closeBtn.Parent = mainFrame
-closeBtn.Size = UDim2.new(0, 30, 0, 30)
-closeBtn.Position = UDim2.new(1, -35, 0, 5)
+closeBtn.Size = UDim2.new(0, 24, 0, 24)
+closeBtn.Position = UDim2.new(1, -28, 0, 4)
 closeBtn.Text = "✕"
 closeBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
 closeBtn.BackgroundTransparency = 1
 closeBtn.Font = Enum.Font.GothamBold
-closeBtn.TextSize = 18
+closeBtn.TextSize = 14
 closeBtn.MouseButton1Click:Connect(function()
     mainFrame.Visible = false
     menuOpen = false
@@ -220,8 +220,8 @@ end)
 
 local contentFrame = Instance.new("Frame")
 contentFrame.Parent = mainFrame
-contentFrame.Size = UDim2.new(1, -20, 1, -55)
-contentFrame.Position = UDim2.new(0.025, 0, 0, 45)
+contentFrame.Size = UDim2.new(1, -20, 1, -40)
+contentFrame.Position = UDim2.new(0.025, 0, 0, 32)
 contentFrame.BackgroundTransparency = 1
 
 local combatContent = Instance.new("Frame")
@@ -355,12 +355,12 @@ local function makeSlider(parent, text, y, settingKey, default, min, max)
     end)
 end
 
-local cy = 5
+local cy = 2
 makeToggle(combatContent, "Silent Aim", cy, "SilentAim", Settings.SilentAim)
-cy = cy + 45
+cy = cy + 35
 makeSlider(combatContent, "FOV", cy, "FOV", Settings.FOV, 30, 300)
-cy = cy + 55
-combatContent.Size = UDim2.new(1, 0, 0, cy + 20)
+cy = cy + 50
+combatContent.Size = UDim2.new(1, 0, 0, cy + 10)
 
 -- ===== TOGGLE MENU =====
 toggleBtn.MouseButton1Click:Connect(function()
