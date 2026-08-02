@@ -1789,7 +1789,9 @@ Toggles.AimbotLockOn:OnChanged(function()
 				local viewportSize = workspace.CurrentCamera.ViewportSize
 				fovCircle.Position = Vector2.new(viewportSize.X / 2, viewportSize.Y / 2)
 				fovCircle.Radius = (Options.AimbotFOV and Options.AimbotFOV.Value) or 100
-				fovCircle.Visible = true
+				
+				local infiniteRange = Toggles.InfiniteDistance and Toggles.InfiniteDistance.Value
+				fovCircle.Visible = not infiniteRange
 			end
 		end))
 
