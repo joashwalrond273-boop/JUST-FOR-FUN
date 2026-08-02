@@ -166,8 +166,8 @@ end)
 
 local mainFrame = Instance.new("Frame")
 mainFrame.Parent = screenGui
-mainFrame.Size = UDim2.new(0, 200, 0, 140)
-mainFrame.Position = UDim2.new(0.5, -100, 0.5, -70)
+mainFrame.Size = UDim2.new(0, 170, 0, 115)
+mainFrame.Position = UDim2.new(0.5, -85, 0.5, -57)
 mainFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
 mainFrame.BackgroundTransparency = 0
 mainFrame.BorderSizePixel = 2
@@ -195,24 +195,24 @@ glowCorner.CornerRadius = UDim.new(0, 20)
 
 local title = Instance.new("TextLabel")
 title.Parent = mainFrame
-title.Size = UDim2.new(1, 0, 0, 30)
-title.Position = UDim2.new(0, 0, 0, 2)
+title.Size = UDim2.new(1, 0, 0, 24)
+title.Position = UDim2.new(0, 0, 0, 1)
 title.Text = "URIEL"
 title.TextColor3 = Color3.fromRGB(255, 0, 0)
 title.BackgroundTransparency = 1
 title.Font = Enum.Font.GothamBold
-title.TextSize = 16
+title.TextSize = 14
 title.TextXAlignment = Enum.TextXAlignment.Center
 
 local closeBtn = Instance.new("TextButton")
 closeBtn.Parent = mainFrame
-closeBtn.Size = UDim2.new(0, 24, 0, 24)
-closeBtn.Position = UDim2.new(1, -28, 0, 4)
+closeBtn.Size = UDim2.new(0, 20, 0, 20)
+closeBtn.Position = UDim2.new(1, -22, 0, 3)
 closeBtn.Text = "✕"
 closeBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
 closeBtn.BackgroundTransparency = 1
 closeBtn.Font = Enum.Font.GothamBold
-closeBtn.TextSize = 14
+closeBtn.TextSize = 12
 closeBtn.MouseButton1Click:Connect(function()
     mainFrame.Visible = false
     menuOpen = false
@@ -220,8 +220,8 @@ end)
 
 local contentFrame = Instance.new("Frame")
 contentFrame.Parent = mainFrame
-contentFrame.Size = UDim2.new(1, -20, 1, -40)
-contentFrame.Position = UDim2.new(0.025, 0, 0, 32)
+contentFrame.Size = UDim2.new(1, -20, 1, -28)
+contentFrame.Position = UDim2.new(0.025, 0, 0, 25)
 contentFrame.BackgroundTransparency = 1
 
 local combatContent = Instance.new("Frame")
@@ -233,7 +233,7 @@ combatContent.Visible = true
 local function makeToggle(parent, text, y, settingKey, default)
     local frame = Instance.new("Frame")
     frame.Parent = parent
-    frame.Size = UDim2.new(1, 0, 0, 32)
+    frame.Size = UDim2.new(1, 0, 0, 26)
     frame.Position = UDim2.new(0, 0, 0, y)
     frame.BackgroundTransparency = 1
 
@@ -244,13 +244,13 @@ local function makeToggle(parent, text, y, settingKey, default)
     label.TextColor3 = Color3.fromRGB(230, 230, 240)
     label.BackgroundTransparency = 1
     label.Font = Enum.Font.Gotham
-    label.TextSize = 14
+    label.TextSize = 12
     label.TextXAlignment = Enum.TextXAlignment.Left
 
     local btn = Instance.new("TextButton")
     btn.Parent = frame
-    btn.Size = UDim2.new(0.18, 0, 0.75, 0)
-    btn.Position = UDim2.new(0.8, 0, 0.125, 0)
+    btn.Size = UDim2.new(0.22, 0, 0.8, 0)
+    btn.Position = UDim2.new(0.78, 0, 0.1, 0)
     btn.Text = default and "ON" or "OFF"
     btn.BackgroundColor3 = default and Color3.fromRGB(0, 200, 80) or Color3.fromRGB(200, 50, 50)
     btn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -274,24 +274,24 @@ end
 local function makeSlider(parent, text, y, settingKey, default, min, max)
     local frame = Instance.new("Frame")
     frame.Parent = parent
-    frame.Size = UDim2.new(1, 0, 0, 48)
+    frame.Size = UDim2.new(1, 0, 0, 38)
     frame.Position = UDim2.new(0, 0, 0, y)
     frame.BackgroundTransparency = 1
 
     local label = Instance.new("TextLabel")
     label.Parent = frame
-    label.Size = UDim2.new(1, 0, 0, 20)
+    label.Size = UDim2.new(1, 0, 0, 16)
     label.Text = text .. ": " .. tostring(default)
     label.TextColor3 = Color3.fromRGB(200, 200, 220)
     label.BackgroundTransparency = 1
     label.Font = Enum.Font.Gotham
-    label.TextSize = 14
+    label.TextSize = 12
     label.TextXAlignment = Enum.TextXAlignment.Left
 
     local slider = Instance.new("Frame")
     slider.Parent = frame
     slider.Size = UDim2.new(1, 0, 0, 6)
-    slider.Position = UDim2.new(0, 0, 0, 28)
+    slider.Position = UDim2.new(0, 0, 0, 22)
     slider.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
     slider.BorderSizePixel = 0
 
@@ -303,8 +303,8 @@ local function makeSlider(parent, text, y, settingKey, default, min, max)
 
     local handle = Instance.new("TextButton")
     handle.Parent = slider
-    handle.Size = UDim2.new(0, 22, 0, 22)
-    handle.Position = UDim2.new((default - min) / (max - min), -11, -0.5, -8)
+    handle.Size = UDim2.new(0, 16, 0, 16)
+    handle.Position = UDim2.new((default - min) / (max - min), -8, -0.5, -5)
     handle.BackgroundColor3 = Color3.fromRGB(255, 120, 120)
     handle.Text = ""
     handle.BorderSizePixel = 0
@@ -324,7 +324,7 @@ local function makeSlider(parent, text, y, settingKey, default, min, max)
         value = min + (max - min) * pos
         value = math.floor(value * 10) / 10
         fill.Size = UDim2.new(pos, 0, 1, 0)
-        handle.Position = UDim2.new(pos, -11, -0.5, -8)
+        handle.Position = UDim2.new(pos, -8, -0.5, -5)
         label.Text = text .. ": " .. tostring(value)
         Settings[settingKey] = value
         saveSettings()
@@ -355,12 +355,12 @@ local function makeSlider(parent, text, y, settingKey, default, min, max)
     end)
 end
 
-local cy = 2
+local cy = 0
 makeToggle(combatContent, "Silent Aim", cy, "SilentAim", Settings.SilentAim)
-cy = cy + 35
+cy = cy + 28
 makeSlider(combatContent, "FOV", cy, "FOV", Settings.FOV, 30, 300)
-cy = cy + 50
-combatContent.Size = UDim2.new(1, 0, 0, cy + 10)
+cy = cy + 44
+combatContent.Size = UDim2.new(1, 0, 0, cy + 5)
 
 -- ===== TOGGLE MENU =====
 toggleBtn.MouseButton1Click:Connect(function()
