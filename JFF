@@ -37,7 +37,7 @@ pcall(function()
 			if Toggles.AntiKick and Toggles.AntiKick.Value then
 				pcall(function()
 					Library:Notify({ Title = "Anti-Kick", Description = "Blocked an attempted kick call!", Time = 5 })
-				end)
+end
 				return nil
 			end
 		end
@@ -1372,8 +1372,8 @@ CombatReach:AddToggle("Reach", {
 CombatReach:AddSlider("ReachRange", {
 	Text = "Reach Range",
 	Default = 15,
-	Min = 5,
-	Max = 40,
+	Min = 10,
+	Max = 30,
 	Rounding = 1,
 })
 
@@ -1845,21 +1845,21 @@ end)
 
 local lastAutoSwing = 0
 Toggles.AutoSwing:OnChanged(function()
-	disconnect("AutoSwing")
-	if Toggles.AutoSwing.Value then
-		_G.T = true
-		track("AutoSwing", RunService.Heartbeat:Connect(function()
-			if _G.T and tick() - lastAutoSwing >= 0.05 then
-				local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
-				if tool then
-					tool:Activate()
-					lastAutoSwing = tick()
-				end
-			end
-		end))
-	else
-		_G.T = false
-	end
+   disconnect("AutoSwing")
+   if Toggles.AutoSwing.Value then
+           _G.T = true
+           track("AutoSwing", RunService.Heartbeat:Connect(function()
+                   if _G.T and tick() - lastAutoSwing >= 0.05 then
+                           local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
+                           if tool then
+                                   tool:Activate()
+                                   lastAutoSwing = tick()
+                           end
+                   end
+           end))
+   else
+           _G.T = false
+   end
 end)
 
 -- Phantom Mode Logic
