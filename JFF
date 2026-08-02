@@ -3641,6 +3641,11 @@ VisualLeft:AddToggle("ShowBox", {
 	Default = false,
 })
 
+VisualLeft:AddToggle("OutlineESP", {
+	Text = "Outline ESP",
+	Default = false,
+})
+
 local VisualEnv = Tabs.Visuals:AddLeftGroupbox("ENVIRONMENT", "sun")
 
 VisualEnv:AddToggle("AlwaysDay", {
@@ -3735,39 +3740,86 @@ local function createESP(player)
 		tracer.Visible = false
 	end
 
-	espObjects[player] = { box2d, billboard, label, tracer }
+	local highlight = Instance.new("Highlight")
+	highlight.FillColor = Color3.fromRGB(255, 255, 255)
+	highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+	highlight.FillTransparency = 1
+	highlight.OutlineTransparency = 0
+	highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+	highlight.Enabled = false
+	highlight.Adornee = character
+	highlight.Parent = character
+
+	local healthBg = nil
+	local healthBar = nil
+	if hasDrawing then
+		healthBg = Drawing.new("Line")
+		healthBg.Color = Color3.fromRGB(0, 0, 0)
+		healthBg.Thickness = 4
+		healthBg.Transparency = 1
+		healthBg.Visible = false
+
+		healthBar = Drawing.new("Line")
+		healthBar.Thickness = 2
+		healthBar.Transparency = 1
+		healthBar.Visible = false
+	end
+
+	espObjects[player] = { box2d, billboard, label, tracer, highlight, healthBg, healthBar }
 
 	local function update()
 		local myRoot = getRootPart()
 		if not myRoot or not character.Parent then
 			if tracer then tracer.Visible = false end
 			if box2d then box2d.Visible = false end
+			if highlight then highlight.Enabled = false end
+			if healthBg then healthBg.Visible = false end
+			if healthBar then healthBar.Visible = false end
 			return
 		end
 		local dist = (root.Position - myRoot.Position).Magnitude
 		local shouldShow = dist <= Options.ESPDistance.Value and Toggles.PlayerESP.Value
+		
+		local screenPos, onScreen = workspace.CurrentCamera:WorldToViewportPoint(root.Position)
+		local head = character:FindFirstChild("Head")
+		local topPos = head and head.Position + Vector3.new(0, 0.5, 0) or root.Position + Vector3.new(0, 3, 0)
+		local bottomPos = head and head.Position - Vector3.new(0, 6.5, 0) or root.Position - Vector3.new(0, 3.5, 0)
+		
+		local topCoords = workspace.CurrentCamera:WorldToViewportPoint(topPos)
+		local bottomCoords = workspace.CurrentCamera:WorldToViewportPoint(bottomPos)
+		
+		local height = math.abs(topCoords.Y - bottomCoords.Y)
+		local width = height * 0.6
+
 		if box2d then
-			if shouldShow and Toggles.ShowBox and Toggles.ShowBox.Value then
-				local screenPos, onScreen = workspace.CurrentCamera:WorldToViewportPoint(root.Position)
-				if onScreen then
-					local head = character:FindFirstChild("Head")
-					local topPos = head and head.Position + Vector3.new(0, 0.5, 0) or root.Position + Vector3.new(0, 3, 0)
-					local bottomPos = head and head.Position - Vector3.new(0, 6.5, 0) or root.Position - Vector3.new(0, 3.5, 0)
-					
-					local topCoords = workspace.CurrentCamera:WorldToViewportPoint(topPos)
-					local bottomCoords = workspace.CurrentCamera:WorldToViewportPoint(bottomPos)
-					
-					local height = math.abs(topCoords.Y - bottomCoords.Y)
-					local width = height * 0.6
-					
-					box2d.Position = Vector2.new(screenPos.X - width / 2, topCoords.Y)
-					box2d.Size = Vector2.new(width, height)
-					box2d.Visible = true
-				else
-					box2d.Visible = false
-				end
+			if shouldShow and onScreen and Toggles.ShowBox and Toggles.ShowBox.Value then
+				box2d.Position = Vector2.new(screenPos.X - width / 2, topCoords.Y)
+				box2d.Size = Vector2.new(width, height)
+				box2d.Visible = true
 			else
 				box2d.Visible = false
+			end
+		end
+
+		if healthBg and healthBar then
+			if shouldShow and onScreen and Toggles.ShowHealth and Toggles.ShowHealth.Value then
+				local barX = screenPos.X - width / 2 - 6
+				
+				healthBg.From = Vector2.new(barX, topCoords.Y)
+				healthBg.To = Vector2.new(barX, bottomCoords.Y)
+				healthBg.Visible = true
+				
+				local maxHealth = hum.MaxHealth > 0 and hum.MaxHealth or 100
+				local healthRatio = math.clamp(hum.Health / maxHealth, 0, 1)
+				local healthColor = Color3.fromRGB(255, 0, 0):Lerp(Color3.fromRGB(0, 255, 0), healthRatio)
+				
+				healthBar.From = Vector2.new(barX, bottomCoords.Y - (height * healthRatio))
+				healthBar.To = Vector2.new(barX, bottomCoords.Y)
+				healthBar.Color = healthColor
+				healthBar.Visible = true
+			else
+				healthBg.Visible = false
+				healthBar.Visible = false
 			end
 		end
 
@@ -3776,22 +3828,26 @@ local function createESP(player)
 		if Toggles.ShowDistance.Value then
 			text ..= string.format("\n%.0fm", dist)
 		end
-		if Toggles.ShowHealth.Value then
-			text ..= string.format("\nHP: %.0f", hum.Health)
-		end
 		label.Text = text
 
 		if tracer and Toggles.ShowTracers.Value then
-			local pos, onScreen = workspace.CurrentCamera:WorldToViewportPoint(root.Position)
 			if onScreen then
 				tracer.From = Vector2.new(workspace.CurrentCamera.ViewportSize.X / 2, workspace.CurrentCamera.ViewportSize.Y)
-				tracer.To = Vector2.new(pos.X, pos.Y)
+				tracer.To = Vector2.new(screenPos.X, screenPos.Y)
 				tracer.Visible = true
 			else
 				tracer.Visible = false
 			end
 		elseif tracer then
 			tracer.Visible = false
+		end
+
+		if highlight then
+			if shouldShow and Toggles.OutlineESP and Toggles.OutlineESP.Value then
+				highlight.Enabled = true
+			else
+				highlight.Enabled = false
+			end
 		end
 	end
 
