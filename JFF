@@ -1332,7 +1332,6 @@ CombatAutoSwing:AddSlider("AutoSwingSpeed", {
 	Min = 10,
 	Max = 35,
 	Rounding = 0,
-	Suffix = " swings/sec",
 })
 
 
