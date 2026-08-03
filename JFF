@@ -489,9 +489,9 @@ TeleportGroup:AddButton({
 		end
 	end,
 })
- 
-local LeftGroupBox2 = Tabs.Main:AddLeftGroupbox("URIEL Info")
-LeftGroupBox2:AddLabel(
+
+
+MainLeft:AddLabel(
 	"URIEL Paid Version\nVersion 1.0\nNo Matter How Slow Your Progress Is, You Are Still Ahead Of Anyone Not Trying",
 	true
 )
