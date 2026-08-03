@@ -372,7 +372,7 @@ end
 -- ==========================================
 -- MAIN
 -- ==========================================
-local MainLeft = Tabs.Player:AddLeftGroupbox("Player", "skull")
+local MainLeft = Tabs.Player:AddLeftGroupbox("Player", "user")
 local MainRight = Tabs.Player:AddRightGroupbox("Misc", "sparkles")
 
 -- ============================================================================
@@ -395,13 +395,6 @@ Toggles.KillswitchToggle:OnChanged(function()
 		Toggles.KillswitchToggle:SetValue(false)
 	end
 end)
-
-local URIELGroup = Tabs.Main:AddLeftGroupbox("URIEL", "gamepad")
-
-URIELGroup:AddLabel(
-	"URIEL Paid Version\nVersion 1.0\nNo Matter \nHow Slow Your Progress Is, You Are Still Ahead Of Anyone Not Trying",
-	true
-)
 
 local InvisibleFlyGroup = Tabs.Main:AddLeftGroupbox("Invisible Fly", "plane")
 
@@ -496,7 +489,6 @@ TeleportGroup:AddButton({
 		end
 	end,
 })
-
 
 MainLeft:AddToggle("InfiniteBackpack", {
 	Text = "Infinite Backpack",
@@ -1334,6 +1326,15 @@ CombatAutoSwing:AddToggle("AutoSwing", {
 	Default = false,
 })
 
+CombatAutoSwing:AddSlider("AutoSwingSpeed", {
+	Text = "Swing Speed",
+	Default = 20,
+	Min = 1,
+	Max = 35,
+	Rounding = 0,
+	Suffix = " swings/sec",
+})
+
 
 CombatRight:AddToggle("TargetPlayers", {
 	Text = "Target Players",
@@ -1844,7 +1845,9 @@ Toggles.AutoSwing:OnChanged(function()
 	if Toggles.AutoSwing.Value then
 		_G.T = true
 		track("AutoSwing", RunService.Heartbeat:Connect(function()
-			if _G.T and tick() - lastAutoSwing >= 0.05 then
+			local speed = Options.AutoSwingSpeed and Options.AutoSwingSpeed.Value or 20
+			local delay = 1 / (speed > 0 and speed or 20)
+			if _G.T and tick() - lastAutoSwing >= delay then
 				local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
 				if tool then
 					tool:Activate()
