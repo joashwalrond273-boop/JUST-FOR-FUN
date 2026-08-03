@@ -489,16 +489,12 @@ TeleportGroup:AddButton({
 		end
 	end,
 })
-
-local InfoLabel = MainLeft:AddLabel("UrielInfoLabel", {
-	Text = "URIEL Paid Version\nVersion 1.0\nNo Matter How Slow Your Progress Is, You Are Still Ahead Of Anyone Not Trying",
-	DoesWrap = true,
-})
-if InfoLabel.TextLabel then
-	InfoLabel.TextLabel.RichText = true
-	InfoLabel.TextLabel.Text = "URIEL Paid Version\n<font color=\"#ff0000\">Version 1.0</font>\nNo Matter How Slow Your Progress Is, You Are Still Ahead Of Anyone Not Trying"
-	InfoLabel.TextLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-end
+ 
+local LeftGroupBox2 = Tabs.Main:AddLeftGroupbox("URIEL Info")
+LeftGroupBox2:AddLabel(
+	"URIEL Paid Version\nVersion 1.0\nNo Matter How Slow Your Progress Is, You Are Still Ahead Of Anyone Not Trying",
+	true
+)
 
 MainLeft:AddToggle("InfiniteBackpack", {
 	Text = "Infinite Backpack",
