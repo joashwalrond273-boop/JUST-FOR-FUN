@@ -1329,7 +1329,7 @@ CombatAutoSwing:AddToggle("AutoSwing", {
 CombatAutoSwing:AddSlider("AutoSwingSpeed", {
 	Text = "Swing Speed",
 	Default = 20,
-	Min = 1,
+	Min = 10,
 	Max = 35,
 	Rounding = 0,
 	Suffix = " swings/sec",
