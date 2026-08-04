@@ -385,6 +385,11 @@ KillswitchGroup:AddToggle("KillswitchToggle", {
 	Default = false,
 })
 
+KillswitchGroup:AddToggle("InvisibilityToggle", {
+	Text = "Invisibility",
+	Default = false,
+})
+
 Toggles.KillswitchToggle:OnChanged(function()
 	if Toggles.KillswitchToggle.Value then
 		local humanoid = getHumanoid()
@@ -400,11 +405,6 @@ local InvisibleFlyGroup = Tabs.Main:AddLeftGroupbox("Invisible Fly", "plane")
 
 InvisibleFlyGroup:AddToggle("InvisibleFlyToggle", {
 	Text = "Invis Fly",
-	Default = false,
-})
-
-InvisibleFlyGroup:AddToggle("InvisToggle", {
-	Text = "+ Invis",
 	Default = false,
 })
 
@@ -4291,8 +4291,8 @@ local function onInvisibleFlyToggle(state)
 	invisibleFlyVars.invisiblefly = state
 
 	if state then
-		if Toggles.InvisToggle and Toggles.InvisToggle.Value then
-			Toggles.InvisToggle:SetValue(false)
+		if Toggles.InvisibilityToggle and Toggles.InvisibilityToggle.Value then
+			Toggles.InvisibilityToggle:SetValue(false)
 		end
 		invisibleFlyVars.wasInvisibleFlyEnabled = true
 		task.spawn(function()
@@ -4401,29 +4401,29 @@ end
 
 Toggles.InvisibleFlyToggle:OnChanged(onInvisibleFlyToggle)
 
--- Invis Only Script Logic
-local invisOnlyVars = {
-	invisOnly = false,
+-- Invisibility Script Logic (Under Map Y -20 Ground Invis)
+local invisibilityVars = {
+	invisibility = false,
 	playerClone = nil,
-	wasInvisOnlyEnabled = false,
+	wasInvisibilityEnabled = false,
 	highlight = nil
 }
 
-local function onInvisOnlyToggle(state)
-	invisOnlyVars.invisOnly = state
+local function onInvisibilityToggle(state)
+	invisibilityVars.invisibility = state
 
 	if state then
 		if Toggles.InvisibleFlyToggle and Toggles.InvisibleFlyToggle.Value then
 			Toggles.InvisibleFlyToggle:SetValue(false)
 		end
-		invisOnlyVars.wasInvisOnlyEnabled = true
+		invisibilityVars.wasInvisibilityEnabled = true
 		task.spawn(function()
 			repeat
 				task.wait()
 			until LocalPlayer.Character
 
-			invisOnlyVars.playerClone = LocalPlayer.Character:Clone()
-			invisOnlyVars.playerClone.Parent = workspace
+			invisibilityVars.playerClone = LocalPlayer.Character:Clone()
+			invisibilityVars.playerClone.Parent = workspace
 			
 			-- Create and apply highlight
 			local hl = Instance.new("Highlight")
@@ -4431,42 +4431,45 @@ local function onInvisOnlyToggle(state)
 			hl.OutlineColor = Options.InvisibleFlyOutlineColor.Value
 			hl.FillTransparency = 0.3
 			hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-			hl.Adornee = invisOnlyVars.playerClone
+			hl.Adornee = invisibilityVars.playerClone
 			hl.Enabled = true
 			hl.Parent = workspace
-			invisOnlyVars.highlight = hl
+			invisibilityVars.highlight = hl
 
-			while invisOnlyVars.invisOnly do
+			while invisibilityVars.invisibility do
 				RunService.Heartbeat:Wait()
-				if not invisOnlyVars.invisOnly then break end
+				if not invisibilityVars.invisibility then break end
 
-				if not (invisOnlyVars.playerClone and invisOnlyVars.playerClone:FindFirstChild("HumanoidRootPart")) then
+				if not (invisibilityVars.playerClone and invisibilityVars.playerClone:FindFirstChild("HumanoidRootPart")) then
 					break
 				end
 				
 				-- Update highlight colors in real-time
-				if invisOnlyVars.highlight then
-					invisOnlyVars.highlight.FillColor = Options.InvisibleFlyFillColor.Value
-					invisOnlyVars.highlight.OutlineColor = Options.InvisibleFlyOutlineColor.Value
+				if invisibilityVars.highlight then
+					invisibilityVars.highlight.FillColor = Options.InvisibleFlyFillColor.Value
+					invisibilityVars.highlight.OutlineColor = Options.InvisibleFlyOutlineColor.Value
 				end
 
 				local root = getRootPart()
 				local hum = getHumanoid()
 
-				if not (root and hum and invisOnlyVars.playerClone) then
+				if not (root and hum and invisibilityVars.playerClone) then
 					return
 				end
 
-				workspace.CurrentCamera.CameraSubject = invisOnlyVars.playerClone:FindFirstChild("Humanoid") or hum
+				workspace.CurrentCamera.CameraSubject = invisibilityVars.playerClone:FindFirstChild("Humanoid") or hum
 				hum:ChangeState("Climbing")
-				LocalPlayer.Character:PivotTo(invisOnlyVars.playerClone:GetPivot() + Vector3.new(0, 500, 0))
+				
+				-- Real body Y-Axis -20 following the clone's X and Z coordinates
+				local clonePivot = invisibilityVars.playerClone:GetPivot()
+				LocalPlayer.Character:PivotTo(CFrame.new(clonePivot.X, -20, clonePivot.Z))
 				root.Velocity = Vector3.zero
 
+				-- Rotate clone horizontally to match Camera orientation
 				local lookPosition = workspace.CurrentCamera.CFrame.Position + workspace.CurrentCamera.CFrame.LookVector * 9999
-
-				invisOnlyVars.playerClone.HumanoidRootPart.CFrame = CFrame.new(
-					invisOnlyVars.playerClone.HumanoidRootPart.Position,
-					Vector3.new(lookPosition.X, invisOnlyVars.playerClone.HumanoidRootPart.Position.Y, lookPosition.Z)
+				invisibilityVars.playerClone.HumanoidRootPart.CFrame = CFrame.new(
+					invisibilityVars.playerClone.HumanoidRootPart.Position,
+					Vector3.new(lookPosition.X, invisibilityVars.playerClone.HumanoidRootPart.Position.Y, lookPosition.Z)
 				)
 
 				-- Sync speed with clone
@@ -4476,49 +4479,49 @@ local function onInvisOnlyToggle(state)
 				else
 					currentSpeed = hum.WalkSpeed
 				end
-				invisOnlyVars.playerClone.Humanoid.WalkSpeed = currentSpeed
+				invisibilityVars.playerClone.Humanoid.WalkSpeed = currentSpeed
 
 				-- Move clone using character's MoveDirection
-				invisOnlyVars.playerClone.Humanoid:Move(hum.MoveDirection, false)
+				invisibilityVars.playerClone.Humanoid:Move(hum.MoveDirection, false)
 
 				-- Support jumping for the clone
 				if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
-					invisOnlyVars.playerClone.Humanoid.Jump = true
+					invisibilityVars.playerClone.Humanoid.Jump = true
 				end
 			end
 
 			workspace.CurrentCamera.CameraSubject = getHumanoid()
 
-			if invisOnlyVars.highlight then
-				invisOnlyVars.highlight:Destroy()
-				invisOnlyVars.highlight = nil
+			if invisibilityVars.highlight then
+				invisibilityVars.highlight:Destroy()
+				invisibilityVars.highlight = nil
 			end
 			
-			if invisOnlyVars.playerClone then
-				LocalPlayer.Character:PivotTo(invisOnlyVars.playerClone:GetPivot())
-				invisOnlyVars.playerClone:Destroy()
-				invisOnlyVars.playerClone = nil
+			if invisibilityVars.playerClone then
+				LocalPlayer.Character:PivotTo(invisibilityVars.playerClone:GetPivot())
+				invisibilityVars.playerClone:Destroy()
+				invisibilityVars.playerClone = nil
 			end
 		end)
 	else
-		if invisOnlyVars.wasInvisOnlyEnabled then
+		if invisibilityVars.wasInvisibilityEnabled then
 			local root = getRootPart()
 			if root then
-				local currentCFrame = root.CFrame
-				local newCFrame = CFrame.new(currentCFrame.Position.X, currentCFrame.Position.Y - 500, currentCFrame.Position.Z)
-				LocalPlayer.Character:PivotTo(newCFrame)
+				if invisibilityVars.playerClone then
+					LocalPlayer.Character:PivotTo(invisibilityVars.playerClone:GetPivot())
+				end
 			end
-			invisOnlyVars.wasInvisOnlyEnabled = false
+			invisibilityVars.wasInvisibilityEnabled = false
 			
-			if invisOnlyVars.highlight then
-				invisOnlyVars.highlight:Destroy()
-				invisOnlyVars.highlight = nil
+			if invisibilityVars.highlight then
+				invisibilityVars.highlight:Destroy()
+				invisibilityVars.highlight = nil
 			end
 		end
 	end
 end
 
-Toggles.InvisToggle:OnChanged(onInvisOnlyToggle)
+Toggles.InvisibilityToggle:OnChanged(onInvisibilityToggle)
 
 -- Crawler Script Logic
 local crawlerCharacterAddedConn = nil
