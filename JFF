@@ -546,10 +546,23 @@ MainLeft:AddToggle("AutoAirBubbles", {
 MainRight:AddButton({
 	Text = "Reset Character",
 	Func = function()
-		local humanoid = getHumanoid()
-		if humanoid then
-			humanoid.Health = 0
-		end
+            local root = getRootPart()
+            if root then
+                    lastDeathPosition = root.Position
+            end
+
+            local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
+            if remoteInterface then
+                    local characterFolder = remoteInterface:FindFirstChild("character")
+                    if characterFolder then
+                            local resetRemote = characterFolder:FindFirstChild("reset")
+                            if resetRemote then
+                                    pcall(function()
+                                            resetRemote:InvokeServer()
+                                    end)
+                            end
+                    end
+            end
 	end,
 })
 
