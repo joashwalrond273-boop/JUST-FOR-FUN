@@ -2672,29 +2672,6 @@ for i, loc in ipairs(goldLocations) do
 	table.insert(goldNames, loc.name)
 end
 
-local coalLocations = {}
-local coalNames = {}
-
-local function teleportToSelectedOre(optionKey, locations)
-   local selected = Options[optionKey] and Options[optionKey].Value
-   local targetPos = nil
-   for _, loc in ipairs(locations) do
-           if loc.name == selected then
-                   targetPos = loc.pos
-                   break
-           end
-   end
-   if targetPos then
-           local root = getRootPart()
-           if root then
-                   root.CFrame = CFrame.new(targetPos)
-                   Library:Notify({ Title = "Teleport", Description = "Teleported to " .. selected, Time = 1.5 })
-           else
-                   Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
-           end
-   end
-end
-
 OreFarm:AddDropdown("GoldLocationsDropdown", {
 	Text = "Select Gold Location",
 	Values = goldNames,
@@ -2704,20 +2681,31 @@ OreFarm:AddDropdown("GoldLocationsDropdown", {
 OreFarm:AddButton({
 	Text = "Teleport to Selected Gold",
 	Func = function()
-           teleportToSelectedOre("GoldLocationsDropdown", goldLocations)
-	end,
-})
-
-OreFarm:AddDropdown("CoalLocationsDropdown", {
-   Text = "Select Coal Location",
-   Values = coalNames,
-})
-
-OreFarm:AddButton({
-   Text = "Teleport to Selected Coal",
-   Func = function()
-           teleportToSelectedOre("CoalLocationsDropdown", coalLocations)
+           local selected = Options.GoldLocationsDropdown.Value
+           local targetPos = nil
+           for _, loc in ipairs(goldLocations) do
+                   if loc.name == selected then
+                           targetPos = loc.pos
+                           break
+                   end
+           end
+           if targetPos then
+                   local root = getRootPart()
+                   if root then
+                           root.CFrame = CFrame.new(targetPos)
+                           Library:Notify({ Title = "Teleport", Description = "Teleported to " .. selected, Time = 1.5 })
+                   else
+                           Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
+                   end
+           end
    end,
+})
+
+local FarmDupe = Tabs.Farming:AddRightGroupbox("DUPE ITEMS", "copy")
+
+FarmDupe:AddToggle("Multiplier", {
+   Text = "Multiplier",
+   Default = false,
 })
 
 -- ==========================================
@@ -3738,7 +3726,7 @@ local function createESP(player)
 	label.BackgroundTransparency = 1
 	label.TextColor3 = Color3.new(1, 1, 1)
 	label.TextStrokeTransparency = 0.5
-	label.Font = Enum.Font.GothamBold
+   label.Font = Enum.Font.Jura
 	label.TextSize = 14
 	label.Parent = billboard
 
@@ -4181,6 +4169,30 @@ Toggles.PlusFlingPlayerToggle:OnChanged(function()
 			end
 		end
 	end
+end)
+
+-- Dupe Items Script Logic
+Toggles.Multiplier:OnChanged(function()
+   disconnect("DupeDropTrack")
+   if Toggles.Multiplier.Value then
+           Library:Notify({ Title = "DUPE ITEMS", Description = "Multiplier Active! Drop any item in your hand to dupe it.", Time = 4 })
+
+           track("DupeDropTrack", CollectionService:GetInstanceAddedSignal("DROPPED_ITEM"):Connect(function(itemPart)
+                   if not Toggles.Multiplier.Value then return end
+                   task.wait()
+                   if itemPart:IsA("BasePart") then
+                           local root = getRootPart()
+                           if root and (itemPart.Position - root.Position).Magnitude < 15 then
+                                   for i = 1, 15 do
+                                           task.spawn(pcall, function()
+                                                   TSG.PickupRemote:FireServer(itemPart)
+                                           end)
+                                   end
+                                   Library:Notify({ Title = "DUPE ITEMS", Description = "Attempted to multiply item!", Time = 2 })
+                           end
+                   end
+           end))
+   end
 end)
 
 -- Spectate Script Logic
@@ -4912,6 +4924,9 @@ Library:OnUnload(function()
 	if Toggles.CrawlerToggle and Toggles.CrawlerToggle.Value then
 		Toggles.CrawlerToggle:SetValue(false)
 	end
+   if Toggles.Multiplier and Toggles.Multiplier.Value then
+           Toggles.Multiplier:SetValue(false)
+   end
 	if Toggles.ShadowTheGoat and Toggles.ShadowTheGoat.Value then
 		Toggles.ShadowTheGoat:SetValue(false)
 	end
