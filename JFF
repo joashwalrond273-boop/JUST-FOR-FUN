@@ -404,29 +404,32 @@ Toggles.KillswitchToggle:OnChanged(function()
 	end
 end)
 
-local InvisibleFlyGroup = Tabs.Main:AddLeftGroupbox("Invisible Fly", "plane")
+local FunAttach = Tabs.Main:AddLeftGroupbox("ATTACH", "link")
 
-InvisibleFlyGroup:AddToggle("InvisibleFlyToggle", {
-	Text = "Invis Fly",
-	Default = false,
+FunAttach:AddToggle("AttachToggle", {
+        Text = "Attach",
+        Default = false,
 })
 
-InvisibleFlyGroup:AddSlider("InvisibleFlySpeedSlider", {
-	Text = "Fly Speed",
-	Min = 1,
-	Max = 15,
-	Default = 5,
-	Rounding = 1,
+FunAttach:AddDropdown("AttachPlayerList", {
+        Text = "Target Player",
+        Values = {},
+        Default = "",
 })
 
-InvisibleFlyGroup:AddLabel("Highlight Fill Color"):AddColorPicker("InvisibleFlyFillColor", {
-	Default = Color3.fromRGB(0, 255, 0),
-	Title = "Invisible Fly Highlight Fill Color",
+FunAttach:AddToggle("HideBeneathToggle", {
+        Text = "Hide Beneath",
+        Default = false,
 })
 
-InvisibleFlyGroup:AddLabel("Highlight Outline Color"):AddColorPicker("InvisibleFlyOutlineColor", {
-	Default = Color3.fromRGB(255, 255, 255),
-	Title = "Invisible Fly Highlight Outline Color",
+FunAttach:AddToggle("FloatOverToggle", {
+        Text = "Float Over",
+        Default = false,
+})
+
+FunAttach:AddToggle("PlusFlingPlayerToggle", {
+        Text = "+ Fling Player(use with float)",
+        Default = false,
 })
 
 local SpectateGroup = Tabs.Main:AddRightGroupbox("SPECTATE", "eye")
@@ -2187,19 +2190,29 @@ MoveAntiAfk:AddToggle("AntiKick", {
 	Default = false,
 })
 
-local MoveLowGravity = Tabs.Movement:AddRightGroupbox("Low Gravity", "arrow-down")
+local InvisibleFlyGroup = Tabs.Movement:AddRightGroupbox("Invisible Fly", "plane")
 
-MoveLowGravity:AddToggle("LowGravity", {
-	Text = "Low Gravity",
-	Default = false,
+InvisibleFlyGroup:AddToggle("InvisibleFlyToggle", {
+        Text = "Invis Fly",
+        Default = false,
 })
 
-MoveLowGravity:AddSlider("LowGravityHeight", {
-	Text = "Low Gravity Height",
-	Default = 100,
-	Min = 0,
-   Max = 300,
-	Rounding = 0,
+InvisibleFlyGroup:AddSlider("InvisibleFlySpeedSlider", {
+        Text = "Fly Speed",
+        Min = 1,
+        Max = 15,
+        Default = 5,
+        Rounding = 1,
+})
+
+InvisibleFlyGroup:AddLabel("Highlight Fill Color"):AddColorPicker("InvisibleFlyFillColor", {
+        Default = Color3.fromRGB(0, 255, 0),
+        Title = "Invisible Fly Highlight Fill Color",
+})
+
+InvisibleFlyGroup:AddLabel("Highlight Outline Color"):AddColorPicker("InvisibleFlyOutlineColor", {
+        Default = Color3.fromRGB(255, 255, 255),
+        Title = "Invisible Fly Highlight Outline Color",
 })
 
 
@@ -3980,32 +3993,19 @@ FunCoolEmotes:AddButton({
 	end,
 })
 
-local FunAttach = Tabs["Fun Box"]:AddLeftGroupbox("ATTACH", "link")
+local MoveLowGravity = Tabs["Fun Box"]:AddLeftGroupbox("Low Gravity", "arrow-down")
 
-FunAttach:AddToggle("AttachToggle", {
-	Text = "Attach",
-	Default = false,
+MoveLowGravity:AddToggle("LowGravity", {
+        Text = "Low Gravity",
+        Default = false,
 })
 
-FunAttach:AddDropdown("AttachPlayerList", {
-	Text = "Target Player",
-	Values = {},
-	Default = "",
-})
-
-FunAttach:AddToggle("HideBeneathToggle", {
-	Text = "Hide Beneath",
-	Default = false,
-})
-
-FunAttach:AddToggle("FloatOverToggle", {
-	Text = "Float Over",
-	Default = false,
-})
-
-FunAttach:AddToggle("PlusFlingPlayerToggle", {
-	Text = "+ Fling Player(use with float)",
-	Default = false,
+MoveLowGravity:AddSlider("LowGravityHeight", {
+        Text = "Low Gravity Height",
+        Default = 100,
+        Min = 0,
+   Max = 300,
+        Rounding = 0,
 })
 
 local FunRight = Tabs["Fun Box"]:AddRightGroupbox("Show Cursor", "mouse-pointer")
