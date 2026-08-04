@@ -1769,9 +1769,10 @@ local function killAuraLoop()
 end
 
 -- Aimbot Script
+local aimbotHasDrawing = (typeof(Drawing) ~= "nil")
 local fovCircle = nil
 pcall(function()
-	if typeof(Drawing) ~= "nil" then
+   if aimbotHasDrawing then
 		fovCircle = Drawing.new("Circle")
            fovCircle.Thickness = 2.5
            fovCircle.Color = Color3.fromRGB(255, 255, 255)
@@ -1780,6 +1781,23 @@ pcall(function()
 		fovCircle.Visible = false
 	end
 end)
+
+local function updateAimbotFOVCircle()
+   if not aimbotHasDrawing or not fovCircle then return end
+
+   fovCircle.Visible = false
+
+   if not Toggles.AimbotLockOn or not Toggles.AimbotFOVCircle then return end
+   if not Toggles.AimbotLockOn.Value or not Toggles.AimbotFOVCircle.Value then return end
+
+   local camera = workspace.CurrentCamera
+   if not camera then return end
+
+   local viewportSize = camera.ViewportSize
+   fovCircle.Position = Vector2.new(viewportSize.X / 2, viewportSize.Y / 2)
+   fovCircle.Radius = (Options.AimbotCircleSize and Options.AimbotCircleSize.Value) or 100
+   fovCircle.Visible = true
+end
 
 local function getClosestPlayerToCenter()
 	local closestPlayer = nil
@@ -1810,19 +1828,9 @@ end
 
 Toggles.AimbotLockOn:OnChanged(function()
 	disconnect("AimbotLoop")
-	disconnect("AimbotFOVCircleUpdate")
-	if fovCircle then fovCircle.Visible = false end
+   updateAimbotFOVCircle()
 
 	if Toggles.AimbotLockOn.Value then
-		track("AimbotFOVCircleUpdate", RunService.RenderStepped:Connect(function()
-			if fovCircle then
-				local viewportSize = workspace.CurrentCamera.ViewportSize
-				fovCircle.Position = Vector2.new(viewportSize.X / 2, viewportSize.Y / 2)
-                           fovCircle.Radius = (Options.AimbotCircleSize and Options.AimbotCircleSize.Value) or 100
-                           fovCircle.Visible = Toggles.AimbotLockOn.Value and Toggles.AimbotFOVCircle and Toggles.AimbotFOVCircle.Value
-			end
-		end))
-
 		track("AimbotLoop", RunService.RenderStepped:Connect(function()
 			if Toggles.AimbotLockOn.Value then
 				local target = getClosestPlayerToCenter()
@@ -1837,16 +1845,14 @@ Toggles.AimbotLockOn:OnChanged(function()
 end)
 
 Toggles.AimbotFOVCircle:OnChanged(function()
-   if fovCircle then
-           fovCircle.Visible = Toggles.AimbotLockOn.Value and Toggles.AimbotFOVCircle.Value
-   end
+   updateAimbotFOVCircle()
 end)
 
 Options.AimbotCircleSize:OnChanged(function()
-   if fovCircle then
-           fovCircle.Radius = Options.AimbotCircleSize.Value
-   end
+   updateAimbotFOVCircle()
 end)
+
+track("AimbotFOVCirclePersistentUpdate", RunService.Heartbeat:Connect(updateAimbotFOVCircle))
 
 Toggles.KillAura:OnChanged(function()
 	disconnect("KillAura")
