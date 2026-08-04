@@ -10,7 +10,6 @@ getgenv().TSG_OBSIDIAN_LOADED = true
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local SoundService = game:GetService("SoundService")
 local UserInputService = game:GetService("UserInputService")
 local CollectionService = game:GetService("CollectionService")
 
@@ -235,52 +234,6 @@ pcall(function()
 	TSG.Items = require(resolvePath(ReplicatedStorage, "game", "Items"))
 	TSG.Sounds = require(resolvePath(ReplicatedStorage, "modules", "misc", "Sounds"))
 end)
-
-local function playSwingSound()
-        if not (Toggles.SwingSound and Toggles.SwingSound.Value) then
-                return
-        end
-
-        local soundSource = resolvePath(ReplicatedStorage, "modules", "misc", "Sounds", "GameSounds", "SwordSwing")
-        if not soundSource and TSG.Sounds and TSG.Sounds.GameSounds then
-                soundSource = TSG.Sounds.GameSounds.SwordSwing
-        end
-        if not soundSource then
-                return
-        end
-
-        local soundInstance
-        if typeof(soundSource) == "Instance" and soundSource:IsA("Sound") then
-                soundInstance = soundSource:Clone()
-        elseif typeof(soundSource) == "table" then
-                local soundId = soundSource.SoundId or soundSource.Id or soundSource.id or soundSource.AssetId
-                if soundId then
-                        soundInstance = Instance.new("Sound")
-                        soundInstance.SoundId = tostring(soundId)
-                end
-        elseif typeof(soundSource) == "string" or typeof(soundSource) == "number" then
-                soundInstance = Instance.new("Sound")
-                soundInstance.SoundId = tostring(soundSource)
-        end
-
-        if not soundInstance then
-                return
-        end
-
-        soundInstance.Volume = soundInstance.Volume > 0 and soundInstance.Volume or 1
-        soundInstance.Parent = SoundService
-        pcall(function()
-                soundInstance:Play()
-        end)
-        soundInstance.Ended:Connect(function()
-                soundInstance:Destroy()
-        end)
-        task.delay(3, function()
-                if soundInstance and soundInstance.Parent then
-                        soundInstance:Destroy()
-                end
-        end)
-end
 
 local keyedRemotes = getKeyedRemotes()
 local interactionsFolder = ReplicatedStorage:FindFirstChild("remoteInterface") and ReplicatedStorage.remoteInterface:FindFirstChild("interactions")
@@ -1436,11 +1389,6 @@ CombatReach:AddSlider("ReachRange", {
 	Rounding = 1,
 })
 
-CombatReach:AddToggle("SwingSound", {
-        Text = "Swing Sound",
-        Default = false,
-})
-
 
 
 local CombatAutoBlock = Tabs.Combat:AddRightGroupbox("Auto Block", "shield")
@@ -2103,24 +2051,16 @@ local function connectReachTool(tool)
 					local slot = tonumber(tool.Name) or 1
 					local targetPlayer = Players:GetPlayerFromCharacter(nearestTarget)
 					if targetPlayer then
-                                                local hitPlayer = false
 						if Crypt then
 							pcall(function()
 								local k1, k2, k3 = Crypt.checkpublickeys()
 								if k1 and k2 and k3 then
 									local encryptedUserId = Crypt.crypt(k1, math.abs(targetPlayer.UserId) + k3, k2)
 									TSG.MeleePlayerRemote:FireServer(slot, encryptedUserId)
-                                                                        hitPlayer = true
 								end
 							end)
 						else
-                                                        pcall(function()
-                                                                TSG.MeleePlayerRemote:FireServer(slot, targetPlayer)
-                                                                hitPlayer = true
-                                                        end)
-                                                end
-                                                if hitPlayer then
-                                                        playSwingSound()
+                                                        pcall(TSG.MeleePlayerRemote.FireServer, TSG.MeleePlayerRemote, slot, targetPlayer)
 						end
 					else
 						attackNPC(slot, nearestTarget)
