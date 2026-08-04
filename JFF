@@ -385,11 +385,6 @@ KillswitchGroup:AddToggle("KillswitchToggle", {
 	Default = false,
 })
 
-KillswitchGroup:AddToggle("InvisibilityToggle", {
-	Text = "Invisibility",
-	Default = false,
-})
-
 Toggles.KillswitchToggle:OnChanged(function()
 	if Toggles.KillswitchToggle.Value then
 		local humanoid = getHumanoid()
@@ -401,12 +396,24 @@ Toggles.KillswitchToggle:OnChanged(function()
 	end
 end)
 
-local InvisibleFlyGroup = Tabs.Main:AddLeftGroupbox("Invisible Fly", "plane")
+local InvisibleFlyTabBox = Tabs.Main:AddLeftTabbox()
+local InvisTab = InvisibleFlyTabBox:AddTab("Invis")
+local DesyncTab = InvisibleFlyTabBox:AddTab("Desync")
 
-InvisibleFlyGroup:AddToggle("InvisibleFlyToggle", {
+InvisTab:AddToggle("InvisibleFlyToggle", {
 	Text = "Invis Fly",
 	Default = false,
 })
+
+local DesyncToggle = DesyncTab:AddToggle("DesyncToggle", {
+	Text = "DESYNC",
+	Default = false,
+})
+if DesyncToggle.TextLabel then
+	DesyncToggle.TextLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
+end
+
+local InvisibleFlyGroup = Tabs.Main:AddLeftGroupbox("Invisible Fly", "plane")
 
 InvisibleFlyGroup:AddSlider("InvisibleFlySpeedSlider", {
 	Text = "Fly Speed",
@@ -639,13 +646,7 @@ MainRight:AddButton({
 })
 
 
-local DesyncToggle = MainRight:AddToggle("DesyncToggle", {
-	Text = "DESYNC",
-	Default = false,
-})
-if DesyncToggle.TextLabel then
-	DesyncToggle.TextLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
-end
+
 
 local desyncConnections = {}
 local desyncAnimTracks = {}
@@ -4291,9 +4292,6 @@ local function onInvisibleFlyToggle(state)
 	invisibleFlyVars.invisiblefly = state
 
 	if state then
-		if Toggles.InvisibilityToggle and Toggles.InvisibilityToggle.Value then
-			Toggles.InvisibilityToggle:SetValue(false)
-		end
 		invisibleFlyVars.wasInvisibleFlyEnabled = true
 		task.spawn(function()
 			repeat
@@ -4316,7 +4314,6 @@ local function onInvisibleFlyToggle(state)
 
 			while invisibleFlyVars.invisiblefly do
 				RunService.Heartbeat:Wait()
-				if not invisibleFlyVars.invisiblefly then break end
 
 				if not (invisibleFlyVars.playerClone and invisibleFlyVars.playerClone:FindFirstChild("HumanoidRootPart")) then
 					break
@@ -4400,128 +4397,6 @@ local function onInvisibleFlyToggle(state)
 end
 
 Toggles.InvisibleFlyToggle:OnChanged(onInvisibleFlyToggle)
-
--- Invisibility Script Logic (Under Map Y -20 Ground Invis)
-local invisibilityVars = {
-	invisibility = false,
-	playerClone = nil,
-	wasInvisibilityEnabled = false,
-	highlight = nil
-}
-
-local function onInvisibilityToggle(state)
-	invisibilityVars.invisibility = state
-
-	if state then
-		if Toggles.InvisibleFlyToggle and Toggles.InvisibleFlyToggle.Value then
-			Toggles.InvisibleFlyToggle:SetValue(false)
-		end
-		invisibilityVars.wasInvisibilityEnabled = true
-		task.spawn(function()
-			repeat
-				task.wait()
-			until LocalPlayer.Character
-
-			invisibilityVars.playerClone = LocalPlayer.Character:Clone()
-			invisibilityVars.playerClone.Parent = workspace
-			
-			-- Create and apply highlight
-			local hl = Instance.new("Highlight")
-			hl.FillColor = Options.InvisibleFlyFillColor.Value
-			hl.OutlineColor = Options.InvisibleFlyOutlineColor.Value
-			hl.FillTransparency = 0.3
-			hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-			hl.Adornee = invisibilityVars.playerClone
-			hl.Enabled = true
-			hl.Parent = workspace
-			invisibilityVars.highlight = hl
-
-			while invisibilityVars.invisibility do
-				RunService.Heartbeat:Wait()
-				if not invisibilityVars.invisibility then break end
-
-				if not (invisibilityVars.playerClone and invisibilityVars.playerClone:FindFirstChild("HumanoidRootPart")) then
-					break
-				end
-				
-				-- Update highlight colors in real-time
-				if invisibilityVars.highlight then
-					invisibilityVars.highlight.FillColor = Options.InvisibleFlyFillColor.Value
-					invisibilityVars.highlight.OutlineColor = Options.InvisibleFlyOutlineColor.Value
-				end
-
-				local root = getRootPart()
-				local hum = getHumanoid()
-
-				if not (root and hum and invisibilityVars.playerClone) then
-					return
-				end
-
-				workspace.CurrentCamera.CameraSubject = invisibilityVars.playerClone:FindFirstChild("Humanoid") or hum
-				hum:ChangeState("Climbing")
-				
-				-- Real body Y-Axis -20 following the clone's X and Z coordinates
-				local clonePivot = invisibilityVars.playerClone:GetPivot()
-				LocalPlayer.Character:PivotTo(CFrame.new(clonePivot.X, -20, clonePivot.Z))
-				root.Velocity = Vector3.zero
-
-				-- Rotate clone horizontally to match Camera orientation
-				local lookPosition = workspace.CurrentCamera.CFrame.Position + workspace.CurrentCamera.CFrame.LookVector * 9999
-				invisibilityVars.playerClone.HumanoidRootPart.CFrame = CFrame.new(
-					invisibilityVars.playerClone.HumanoidRootPart.Position,
-					Vector3.new(lookPosition.X, invisibilityVars.playerClone.HumanoidRootPart.Position.Y, lookPosition.Z)
-				)
-
-				-- Sync speed with clone
-				local currentSpeed = 16
-				if Toggles.SpeedHack and Toggles.SpeedHack.Value and Options.SpeedValue then
-					currentSpeed = Options.SpeedValue.Value
-				else
-					currentSpeed = hum.WalkSpeed
-				end
-				invisibilityVars.playerClone.Humanoid.WalkSpeed = currentSpeed
-
-				-- Move clone using character's MoveDirection
-				invisibilityVars.playerClone.Humanoid:Move(hum.MoveDirection, false)
-
-				-- Support jumping for the clone
-				if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
-					invisibilityVars.playerClone.Humanoid.Jump = true
-				end
-			end
-
-			workspace.CurrentCamera.CameraSubject = getHumanoid()
-
-			if invisibilityVars.highlight then
-				invisibilityVars.highlight:Destroy()
-				invisibilityVars.highlight = nil
-			end
-			
-			if invisibilityVars.playerClone then
-				LocalPlayer.Character:PivotTo(invisibilityVars.playerClone:GetPivot())
-				invisibilityVars.playerClone:Destroy()
-				invisibilityVars.playerClone = nil
-			end
-		end)
-	else
-		if invisibilityVars.wasInvisibilityEnabled then
-			local root = getRootPart()
-			if root then
-				if invisibilityVars.playerClone then
-					LocalPlayer.Character:PivotTo(invisibilityVars.playerClone:GetPivot())
-				end
-			end
-			invisibilityVars.wasInvisibilityEnabled = false
-			
-			if invisibilityVars.highlight then
-				invisibilityVars.highlight:Destroy()
-				invisibilityVars.highlight = nil
-			end
-		end
-	end
-end
-
-Toggles.InvisibilityToggle:OnChanged(onInvisibilityToggle)
 
 -- Crawler Script Logic
 local crawlerCharacterAddedConn = nil
