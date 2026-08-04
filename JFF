@@ -396,24 +396,25 @@ Toggles.KillswitchToggle:OnChanged(function()
 	end
 end)
 
-local InvisibleFlyTabBox = Tabs.Main:AddLeftTabbox()
-local InvisTab = InvisibleFlyTabBox:AddTab("Invis")
-local DesyncTab = InvisibleFlyTabBox:AddTab("Desync")
+local TabBox = Tabs.Main:AddLeftTabbox() -- Add Tabbox on left side
 
-InvisTab:AddToggle("InvisibleFlyToggle", {
+-- Anything we can do in a Groupbox, we can do in a Tabbox tab (AddToggle, AddSlider, AddLabel, etc etc...)
+local Tab1 = TabBox:AddTab("Tab 1")
+Tab1:AddToggle("Tab1Toggle", { Text = "Tab1 Toggle" })
+
+local Tab2 = TabBox:AddTab("Tab 2")
+Tab2:AddToggle("Tab2Toggle", { Text = "Tab2 Toggle" })
+
+Library:OnUnload(function()
+	print("Unloaded!")
+end)
+
+local InvisibleFlyGroup = Tabs.Main:AddLeftGroupbox("Invisible Fly", "plane")
+
+InvisibleFlyGroup:AddToggle("InvisibleFlyToggle", {
 	Text = "Invis Fly",
 	Default = false,
 })
-
-local DesyncToggle = DesyncTab:AddToggle("DesyncToggle", {
-	Text = "DESYNC",
-	Default = false,
-})
-if DesyncToggle.TextLabel then
-	DesyncToggle.TextLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
-end
-
-local InvisibleFlyGroup = Tabs.Main:AddLeftGroupbox("Invisible Fly", "plane")
 
 InvisibleFlyGroup:AddSlider("InvisibleFlySpeedSlider", {
 	Text = "Fly Speed",
@@ -646,7 +647,13 @@ MainRight:AddButton({
 })
 
 
-
+local DesyncToggle = MainRight:AddToggle("DesyncToggle", {
+	Text = "DESYNC",
+	Default = false,
+})
+if DesyncToggle.TextLabel then
+	DesyncToggle.TextLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
+end
 
 local desyncConnections = {}
 local desyncAnimTracks = {}
