@@ -386,7 +386,7 @@ KillswitchGroup:AddToggle("KillswitchToggle", {
 })
 
 local DesyncToggle = KillswitchGroup:AddToggle("DesyncToggle", {
-    Text = "+ DESYNC",
+    Text = "+ Desync",
     Default = false,
 })
 if DesyncToggle.TextLabel then
