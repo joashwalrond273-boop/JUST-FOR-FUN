@@ -1361,6 +1361,19 @@ CombatAimbot:AddToggle("AimbotLockOn", {
 	Default = false,
 })
 
+CombatAimbot:AddToggle("AimbotFOVCircle", {
+   Text = "FOV circle",
+   Default = false,
+})
+
+CombatAimbot:AddSlider("AimbotCircleSize", {
+   Text = "Circle Size",
+   Default = 100,
+   Min = 10,
+   Max = 600,
+   Rounding = 0,
+})
+
 CombatAimbot:AddSlider("AimbotFOV", {
 	Text = "FOV Slider",
 	Default = 100,
@@ -1760,8 +1773,8 @@ local fovCircle = nil
 pcall(function()
 	if typeof(Drawing) ~= "nil" then
 		fovCircle = Drawing.new("Circle")
-		fovCircle.Thickness = 1.5
-		fovCircle.Color = Color3.fromRGB(255, 0, 0)
+           fovCircle.Thickness = 2.5
+           fovCircle.Color = Color3.fromRGB(255, 255, 255)
 		fovCircle.Filled = false
 		fovCircle.Transparency = 1
 		fovCircle.Visible = false
@@ -1805,10 +1818,8 @@ Toggles.AimbotLockOn:OnChanged(function()
 			if fovCircle then
 				local viewportSize = workspace.CurrentCamera.ViewportSize
 				fovCircle.Position = Vector2.new(viewportSize.X / 2, viewportSize.Y / 2)
-				fovCircle.Radius = (Options.AimbotFOV and Options.AimbotFOV.Value) or 100
-				
-				local infiniteRange = Toggles.InfiniteDistance and Toggles.InfiniteDistance.Value
-				fovCircle.Visible = not infiniteRange
+                           fovCircle.Radius = (Options.AimbotCircleSize and Options.AimbotCircleSize.Value) or 100
+                           fovCircle.Visible = Toggles.AimbotLockOn.Value and Toggles.AimbotFOVCircle and Toggles.AimbotFOVCircle.Value
 			end
 		end))
 
@@ -1823,6 +1834,18 @@ Toggles.AimbotLockOn:OnChanged(function()
 		end))
 		Library:Notify({ Title = "AIMBOT", Description = "Aimbot Enabled (Locking to Torso)", Time = 2 })
 	end
+end)
+
+Toggles.AimbotFOVCircle:OnChanged(function()
+   if fovCircle then
+           fovCircle.Visible = Toggles.AimbotLockOn.Value and Toggles.AimbotFOVCircle.Value
+   end
+end)
+
+Options.AimbotCircleSize:OnChanged(function()
+   if fovCircle then
+           fovCircle.Radius = Options.AimbotCircleSize.Value
+   end
 end)
 
 Toggles.KillAura:OnChanged(function()
@@ -2198,7 +2221,7 @@ MoveLowGravity:AddSlider("LowGravityHeight", {
 	Text = "Low Gravity Height",
 	Default = 100,
 	Min = 0,
-	Max = 180,
+   Max = 300,
 	Rounding = 0,
 })
 
@@ -2401,7 +2424,7 @@ end)
 
 Toggles.LowGravity:OnChanged(function()
 	if Toggles.LowGravity.Value then
-		workspace.Gravity = 196.2 - Options.LowGravityHeight.Value
+           workspace.Gravity = math.max(0, 196.2 - Options.LowGravityHeight.Value)
 	else
 		workspace.Gravity = 196.2
 	end
@@ -2409,7 +2432,7 @@ end)
 
 Options.LowGravityHeight:OnChanged(function()
 	if Toggles.LowGravity.Value then
-		workspace.Gravity = 196.2 - Options.LowGravityHeight.Value
+           workspace.Gravity = math.max(0, 196.2 - Options.LowGravityHeight.Value)
 	end
 end)
 
