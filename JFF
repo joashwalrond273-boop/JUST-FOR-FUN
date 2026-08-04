@@ -490,19 +490,6 @@ TeleportGroup:AddButton({
 	end,
 })
 
-local TabBox = Tabs.Main:AddRightTabbox() -- Add Tabbox on right side
-
--- Anything we can do in a Groupbox, we can do in a Tabbox tab (AddToggle, AddSlider, AddLabel, etc etc...)
-local Tab1 = TabBox:AddTab("Tab 1")
-Tab1:AddToggle("Tab1Toggle", { Text = "Tab1 Toggle" })
-
-local Tab2 = TabBox:AddTab("Tab 2")
-Tab2:AddToggle("Tab2Toggle", { Text = "Tab2 Toggle" })
-
-Library:OnUnload(function()
-	print("Unloaded!")
-end)
-
 MainLeft:AddToggle("InfiniteBackpack", {
 	Text = "Infinite Backpack",
 	Default = false,
@@ -647,7 +634,9 @@ MainRight:AddButton({
 })
 
 
-local DesyncToggle = MainRight:AddToggle("DesyncToggle", {
+local DesyncGroup = Tabs.Player:AddRightGroupbox("DESYNC", "shield-alert")
+
+local DesyncToggle = DesyncGroup:AddToggle("DesyncToggle", {
 	Text = "DESYNC",
 	Default = false,
 })
@@ -1337,14 +1326,6 @@ local CombatAutoSwing = Tabs.Combat:AddLeftGroupbox("Auto Swing", "swords")
 CombatAutoSwing:AddToggle("AutoSwing", {
 	Text = "+ Auto Swing",
 	Default = false,
-})
-
-CombatAutoSwing:AddSlider("AutoSwingSpeed", {
-	Text = "Swing Speed",
-	Default = 20,
-	Min = 10,
-	Max = 35,
-	Rounding = 0,
 })
 
 
