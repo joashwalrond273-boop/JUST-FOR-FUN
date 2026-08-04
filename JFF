@@ -2412,22 +2412,6 @@ Toggles.Fly:OnChanged(function()
 	end
 end)
 
-Toggles.LowGravity:OnChanged(function()
-	if Toggles.LowGravity.Value then
-           workspace.Gravity = math.max(0, 196.2 - Options.LowGravityHeight.Value)
-	else
-		workspace.Gravity = 196.2
-	end
-end)
-
-Options.LowGravityHeight:OnChanged(function()
-	if Toggles.LowGravity.Value then
-           workspace.Gravity = math.max(0, 196.2 - Options.LowGravityHeight.Value)
-	end
-end)
-
-
-
 local antiAfkConn = nil
 local antiKickConn = nil
 
@@ -4007,6 +3991,20 @@ MoveLowGravity:AddSlider("LowGravityHeight", {
    Max = 300,
         Rounding = 0,
 })
+
+Toggles.LowGravity:OnChanged(function()
+        if Toggles.LowGravity.Value then
+           workspace.Gravity = math.max(0, 196.2 - Options.LowGravityHeight.Value)
+        else
+                workspace.Gravity = 196.2
+        end
+end)
+
+Options.LowGravityHeight:OnChanged(function()
+        if Toggles.LowGravity.Value then
+           workspace.Gravity = math.max(0, 196.2 - Options.LowGravityHeight.Value)
+        end
+end)
 
 local FunRight = Tabs["Fun Box"]:AddRightGroupbox("Show Cursor", "mouse-pointer")
 
