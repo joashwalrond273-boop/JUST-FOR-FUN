@@ -10,6 +10,7 @@ getgenv().TSG_OBSIDIAN_LOADED = true
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local SoundService = game:GetService("SoundService")
 local UserInputService = game:GetService("UserInputService")
 local CollectionService = game:GetService("CollectionService")
 
@@ -234,6 +235,52 @@ pcall(function()
 	TSG.Items = require(resolvePath(ReplicatedStorage, "game", "Items"))
 	TSG.Sounds = require(resolvePath(ReplicatedStorage, "modules", "misc", "Sounds"))
 end)
+
+local function playSwingSound()
+        if not (Toggles.SwingSound and Toggles.SwingSound.Value) then
+                return
+        end
+
+        local soundSource = resolvePath(ReplicatedStorage, "modules", "misc", "Sounds", "GameSounds", "SwordSwing")
+        if not soundSource and TSG.Sounds and TSG.Sounds.GameSounds then
+                soundSource = TSG.Sounds.GameSounds.SwordSwing
+        end
+        if not soundSource then
+                return
+        end
+
+        local soundInstance
+        if typeof(soundSource) == "Instance" and soundSource:IsA("Sound") then
+                soundInstance = soundSource:Clone()
+        elseif typeof(soundSource) == "table" then
+                local soundId = soundSource.SoundId or soundSource.Id or soundSource.id or soundSource.AssetId
+                if soundId then
+                        soundInstance = Instance.new("Sound")
+                        soundInstance.SoundId = tostring(soundId)
+                end
+        elseif typeof(soundSource) == "string" or typeof(soundSource) == "number" then
+                soundInstance = Instance.new("Sound")
+                soundInstance.SoundId = tostring(soundSource)
+        end
+
+        if not soundInstance then
+                return
+        end
+
+        soundInstance.Volume = soundInstance.Volume > 0 and soundInstance.Volume or 1
+        soundInstance.Parent = SoundService
+        pcall(function()
+                soundInstance:Play()
+        end)
+        soundInstance.Ended:Connect(function()
+                soundInstance:Destroy()
+        end)
+        task.delay(3, function()
+                if soundInstance and soundInstance.Parent then
+                        soundInstance:Destroy()
+                end
+        end)
+end
 
 local keyedRemotes = getKeyedRemotes()
 local interactionsFolder = ReplicatedStorage:FindFirstChild("remoteInterface") and ReplicatedStorage.remoteInterface:FindFirstChild("interactions")
@@ -1361,11 +1408,6 @@ CombatAimbot:AddToggle("AimbotLockOn", {
 	Default = false,
 })
 
-CombatAimbot:AddToggle("AimbotShowCircle", {
-   Text = "Show Circle",
-   Default = false,
-})
-
 CombatAimbot:AddSlider("AimbotFOV", {
 	Text = "FOV Slider",
 	Default = 100,
@@ -1392,6 +1434,11 @@ CombatReach:AddSlider("ReachRange", {
 	Min = 10,
 	Max = 30,
 	Rounding = 1,
+})
+
+CombatReach:AddToggle("SwingSound", {
+        Text = "Swing Sound",
+        Default = false,
 })
 
 
@@ -1765,27 +1812,13 @@ local fovCircle = nil
 pcall(function()
    if typeof(Drawing) ~= "nil" then
 		fovCircle = Drawing.new("Circle")
-           fovCircle.Thickness = 2.5
-           fovCircle.Color = Color3.fromRGB(255, 255, 255)
+           fovCircle.Thickness = 1.5
+           fovCircle.Color = Color3.fromRGB(255, 0, 0)
 		fovCircle.Filled = false
 		fovCircle.Transparency = 1
 		fovCircle.Visible = false
 	end
 end)
-
-local function updateAimbotCircle()
-   if not fovCircle then return end
-
-   local camera = workspace.CurrentCamera
-   if not camera then
-           fovCircle.Visible = false
-           return
-   end
-
-   fovCircle.Position = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
-   fovCircle.Radius = (Options.AimbotFOV and Options.AimbotFOV.Value) or 100
-   fovCircle.Visible = Toggles.AimbotShowCircle and Toggles.AimbotShowCircle.Value
-end
 
 local function getClosestPlayerToCenter()
 	local closestPlayer = nil
@@ -1816,9 +1849,21 @@ end
 
 Toggles.AimbotLockOn:OnChanged(function()
 	disconnect("AimbotLoop")
-   updateAimbotCircle()
+   disconnect("AimbotFOVCircleUpdate")
+   if fovCircle then fovCircle.Visible = false end
 
 	if Toggles.AimbotLockOn.Value then
+           track("AimbotFOVCircleUpdate", RunService.RenderStepped:Connect(function()
+                   if fovCircle then
+                           local viewportSize = workspace.CurrentCamera.ViewportSize
+                           fovCircle.Position = Vector2.new(viewportSize.X / 2, viewportSize.Y / 2)
+                           fovCircle.Radius = (Options.AimbotFOV and Options.AimbotFOV.Value) or 100
+
+                           local infiniteRange = Toggles.InfiniteDistance and Toggles.InfiniteDistance.Value
+                           fovCircle.Visible = not infiniteRange
+                   end
+           end))
+
 		track("AimbotLoop", RunService.RenderStepped:Connect(function()
 			if Toggles.AimbotLockOn.Value then
 				local target = getClosestPlayerToCenter()
@@ -1831,10 +1876,6 @@ Toggles.AimbotLockOn:OnChanged(function()
 		Library:Notify({ Title = "AIMBOT", Description = "Aimbot Enabled (Locking to Torso)", Time = 2 })
 	end
 end)
-
-Toggles.AimbotShowCircle:OnChanged(updateAimbotCircle)
-Options.AimbotFOV:OnChanged(updateAimbotCircle)
-track("AimbotCircleUpdate", RunService.Heartbeat:Connect(updateAimbotCircle))
 
 Toggles.KillAura:OnChanged(function()
 	disconnect("KillAura")
@@ -2062,16 +2103,24 @@ local function connectReachTool(tool)
 					local slot = tonumber(tool.Name) or 1
 					local targetPlayer = Players:GetPlayerFromCharacter(nearestTarget)
 					if targetPlayer then
+                                                local hitPlayer = false
 						if Crypt then
 							pcall(function()
 								local k1, k2, k3 = Crypt.checkpublickeys()
 								if k1 and k2 and k3 then
 									local encryptedUserId = Crypt.crypt(k1, math.abs(targetPlayer.UserId) + k3, k2)
 									TSG.MeleePlayerRemote:FireServer(slot, encryptedUserId)
+                                                                        hitPlayer = true
 								end
 							end)
 						else
-							pcall(TSG.MeleePlayerRemote.FireServer, TSG.MeleePlayerRemote, slot, targetPlayer)
+                                                        pcall(function()
+                                                                TSG.MeleePlayerRemote:FireServer(slot, targetPlayer)
+                                                                hitPlayer = true
+                                                        end)
+                                                end
+                                                if hitPlayer then
+                                                        playSwingSound()
 						end
 					else
 						attackNPC(slot, nearestTarget)
