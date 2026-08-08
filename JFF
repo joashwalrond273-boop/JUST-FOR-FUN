@@ -256,11 +256,16 @@ pcall(function()
 	local meleeRemote = TSG.MeleePlayerRemote
 	if not meleeRemote then return end
 
+	local function playHitSound()
+		local clone = sound:Clone()
+		clone.Parent = game:GetService("SoundService")
+		clone:Play()
+		game:GetService("Debris"):AddItem(clone, 2)
+	end
+
 	local mtHook; mtHook = hookmetamethod(game, "__namecall", function(self, ...)
 		if Toggles.HitSound and Toggles.HitSound.Value and rawequal(self, meleeRemote) and getnamecallmethod() == "FireServer" then
-			pcall(function()
-				sound:Play()
-			end)
+			pcall(playHitSound)
 		end
 		return mtHook(self, ...)
 	end)
@@ -268,9 +273,7 @@ pcall(function()
 	if typeof(hookfunction) == "function" and meleeRemote.FireServer then
 		local oldFireServer; oldFireServer = hookfunction(meleeRemote.FireServer, function(self, ...)
 			if Toggles.HitSound and Toggles.HitSound.Value and rawequal(self, meleeRemote) then
-				pcall(function()
-					sound:Play()
-				end)
+				pcall(playHitSound)
 			end
 			return oldFireServer(self, ...)
 		end)
