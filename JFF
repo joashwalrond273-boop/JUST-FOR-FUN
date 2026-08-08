@@ -456,10 +456,13 @@ FunAttach:AddToggle("AttachToggle", {
         Default = false,
 })
 
-FunAttach:AddToggle("PlusKillPlayerToggle", {
+local PlusKillPlayerToggle = FunAttach:AddToggle("PlusKillPlayerToggle", {
         Text = "+ Kill Player",
         Default = false,
 })
+if PlusKillPlayerToggle.TextLabel then
+        PlusKillPlayerToggle.TextLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
+end
 
 FunAttach:AddDropdown("AttachPlayerList", {
         Text = "Target Player",
@@ -4121,6 +4124,9 @@ end
 
 Toggles.AttachToggle:OnChanged(startAttach)
 Toggles.PlusKillPlayerToggle:OnChanged(function()
+	if Toggles.PlusKillPlayerToggle.TextLabel then
+		Toggles.PlusKillPlayerToggle.TextLabel.TextColor3 = Toggles.PlusKillPlayerToggle.Value and Color3.fromRGB(255, 100, 100) or Color3.fromRGB(255, 0, 0)
+	end
 	if Toggles.PlusKillPlayerToggle.Value then
 		Toggles.KillAura:SetValue(true)
 	else
