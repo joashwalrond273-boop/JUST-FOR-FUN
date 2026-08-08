@@ -456,6 +456,11 @@ FunAttach:AddToggle("AttachToggle", {
         Default = false,
 })
 
+FunAttach:AddToggle("PlusKillPlayerToggle", {
+        Text = "+ Kill Player",
+        Default = false,
+})
+
 FunAttach:AddDropdown("AttachPlayerList", {
         Text = "Target Player",
         Values = {},
@@ -4115,6 +4120,13 @@ local function startAttach()
 end
 
 Toggles.AttachToggle:OnChanged(startAttach)
+Toggles.PlusKillPlayerToggle:OnChanged(function()
+	if Toggles.PlusKillPlayerToggle.Value then
+		Toggles.KillAura:SetValue(true)
+	else
+		Toggles.KillAura:SetValue(false)
+	end
+end)
 Options.AttachPlayerList:OnChanged(function()
 	if Toggles.AttachToggle.Value then
 		startAttach()
@@ -4903,6 +4915,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.AttachToggle and Toggles.AttachToggle.Value then
 		Toggles.AttachToggle:SetValue(false)
+	end
+	if Toggles.PlusKillPlayerToggle and Toggles.PlusKillPlayerToggle.Value then
+		Toggles.PlusKillPlayerToggle:SetValue(false)
 	end
 	if Toggles.HideBeneathToggle and Toggles.HideBeneathToggle.Value then
 		Toggles.HideBeneathToggle:SetValue(false)
