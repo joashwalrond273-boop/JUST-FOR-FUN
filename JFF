@@ -25,6 +25,7 @@ local SaveManager = loadstring(game:HttpGet(repo .. "addons/SaveManager.lua"))()
 
 local Options = Library.Options
 local Toggles = Library.Toggles
+local lastDeathPosition = nil
 
 Library.ShowToggleFrameInKeybinds = true
 
@@ -2732,7 +2733,16 @@ local goldLocations = {
 	{ name = "Gold 16", pos = Vector3.new(1686.60, 41.64, -917.39)  },
 	{ name = "Gold 17", pos = Vector3.new(1566.16, 23.19, -946.35)  },
 	{ name = "Gold 18", pos = Vector3.new(252.14, 22.06, 811.69)    },
-	{ name = "Coal 1", pos = Vector3.new(1130.93, 24.94, -601.55) },
+	{ name = "Coal 1",  pos = Vector3.new(1130.93, 24.94, -601.55)  },
+	{ name = "Coal 2",  pos = Vector3.new(1319.54, 25.26, -1129.08) },
+	{ name = "Coal 3",  pos = Vector3.new(-681.19, 173.56, 657.90)  },
+	{ name = "Coal 4",  pos = Vector3.new(-886.51, 75.31, 192.70)   },
+	{ name = "Coal 5",  pos = Vector3.new(-1351.22, 31.18, -167.99) },
+	{ name = "Coal 6",  pos = Vector3.new(-1872.79, 30.78, 194.66)  },
+	{ name = "Coal 7",  pos = Vector3.new(-2255.10, 29.20, 964.32)  },
+	{ name = "Coal 8",  pos = Vector3.new(331.57, 47.36, 492.03)    },
+	{ name = "Coal 9",  pos = Vector3.new(264.71, 27.19, 267.24)    },
+	{ name = "Coal 10", pos = Vector3.new(-680.98, 26.07, 254.45)   },
 }
 
 local goldNames = {}
@@ -3158,138 +3168,32 @@ for _, loc in ipairs(extraLocations) do
 	})
 end
 
--- Instant Respawn Groupbox
-local InstantRespawnGroup = Tabs.Teleport:AddRightGroupbox("Instant Respawn", "map-pin")
+-- Merchants Groupbox
+local MerchantsGroup = Tabs.Teleport:AddRightGroupbox("Merchants", "map-pin")
 
-local respawnArgs = {5917762, 5, 5, 13, 13405801, 12950139, false}
-local lastDeathPosition = nil
-local respawnDebounce = false
-local isRespawnTeleporting = false
+local merchantTeleports = {
+	{ name = "Mainland",   pos = Vector3.new(-144.60, 25.26, 429.38)    },
+	{ name = "Desert",     pos = Vector3.new(1428.14, 25.26, -593.17)   },
+	{ name = "Asia",       pos = Vector3.new(-744.10, 329.20, 7134.18)  },
+	{ name = "Arctic",     pos = Vector3.new(-1251.90, 25.25, -1997.17) },
+	{ name = "Below Main", pos = Vector3.new(-166.28, 25.26, -1043.86)  },
+	{ name = "Secret",     pos = Vector3.new(-1171.82, 24.40, 90.70)    },
+}
 
-local function attemptRespawn()
-	if respawnDebounce then return end
-	respawnDebounce = true
-
-	local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
-	if not remoteInterface then
-		respawnDebounce = false
-		return
-	end
-
-	local characterFolder = remoteInterface:FindFirstChild("character")
-	if not characterFolder then
-		respawnDebounce = false
-		return
-	end
-
-	local resetRemote = characterFolder:FindFirstChild("reset")
-	if resetRemote then
-		resetRemote:InvokeServer()
-	end
-
-	local respawnRemote = characterFolder:FindFirstChild("respawn")
-	if respawnRemote then
-		respawnRemote:InvokeServer(unpack(respawnArgs))
-	end
-
-	respawnDebounce = false
-end
-
-local function respawnTeleport(cframe)
-	isRespawnTeleporting = true
-	local maxWaitTime = 0.5
-	local startTime = tick()
-
-	while not LocalPlayer.Character and tick() - startTime < maxWaitTime do
-		task.wait(0.2)
-	end
-
-	if not LocalPlayer.Character then
-		isRespawnTeleporting = false
-		return
-	end
-
-	local humanoidRootPart = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-	local waitTime = 0
-
-	while not humanoidRootPart and waitTime < maxWaitTime do
-		task.wait(0.2)
-		waitTime = waitTime + 0.01
-		humanoidRootPart = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-	end
-
-	if humanoidRootPart then
-		humanoidRootPart.CFrame = cframe
-	end
-	isRespawnTeleporting = false
-end
-
-local function checkAndRespawn()
-	if not Toggles.InstantRespawn.Value or isRespawnTeleporting then return end
-
-	if not LocalPlayer.Character or not workspace:FindFirstChild(LocalPlayer.Name) then
-		if lastDeathPosition then
-			task.wait(0.00014)
-			attemptRespawn()
-			destroyAvatarGUI()
-			task.wait(Options.TeleportDelaySlider.Value)
-			respawnTeleport(CFrame.new(lastDeathPosition))
-		end
-	end
-end
-
-InstantRespawnGroup:AddToggle("InstantRespawn", {
-	Text = "Instant Respawn",
-	Default = false,
-})
-
-InstantRespawnGroup:AddSlider("TeleportDelaySlider", {
-	Text = "Teleport Delay",
-	Min = 0.1,
-	Max = 5,
-	Default = 0.1,
-	Rounding = 1,
-})
-
-Toggles.InstantRespawn:OnChanged(function()
-	if Toggles.InstantRespawn.Value then
-		destroyAvatarGUI()
-	end
-end)
-
-task.spawn(function()
-	while true do
-		local character = LocalPlayer.Character
-
-		if character then
-			local humanoid = character:FindFirstChild("Humanoid")
-			if humanoid then
-				local rootPart = character:FindFirstChild("HumanoidRootPart")
-				if rootPart then
-					lastDeathPosition = rootPart.Position
-				end
-
-				if not humanoid:FindFirstChild("DeathTracker") then
-					local tracker = Instance.new("BoolValue")
-					tracker.Name = "DeathTracker"
-					tracker.Parent = humanoid
-
-					humanoid.Died:Connect(function()
-						local dyingRoot = character:FindFirstChild("HumanoidRootPart")
-						if dyingRoot then
-							lastDeathPosition = dyingRoot.Position
-						end
-						checkAndRespawn()
-					end)
-				end
+for _, merchant in ipairs(merchantTeleports) do
+	MerchantsGroup:AddButton({
+		Text = merchant.name,
+		Func = function()
+			local root = getRootPart()
+			if root then
+				root.CFrame = CFrame.new(merchant.pos)
+				Library:Notify({ Title = "Teleport", Description = "Teleported to " .. merchant.name, Time = 1.5 })
+			else
+				Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
 			end
-		else
-			checkAndRespawn()
-		end
-
-		task.wait(0.00014)
-	end
-end)
+		end,
+	})
+end
 
 -- Extra Locations Groupbox
 local TeleportRight = Tabs.Teleport:AddRightGroupbox("Extra Locations", "map-pin")
