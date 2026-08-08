@@ -2745,9 +2745,14 @@ local goldLocations = {
 	{ name = "Coal 10", pos = Vector3.new(-680.98, 26.07, 254.45)   },
 }
 
-local goldNames = {}
-for i, loc in ipairs(goldLocations) do
-	table.insert(goldNames, loc.name)
+local function filterLocations(prefix)
+	local names = {}
+	for _, loc in ipairs(goldLocations) do
+		if loc.name:sub(1, #prefix) == prefix then
+			table.insert(names, loc.name)
+		end
+	end
+	return names
 end
 
 OreFarm:AddDropdown("SelectOreDropdown", {
@@ -2758,12 +2763,14 @@ OreFarm:AddDropdown("SelectOreDropdown", {
 
 OreFarm:AddDropdown("GoldLocationsDropdown", {
 	Text = "Select Ore Location",
-	Values = goldNames,
+	Values = filterLocations("Gold"),
 	Default = "Gold 1",
 })
 
 Options.SelectOreDropdown:OnChanged(function()
 	local value = Options.SelectOreDropdown.Value
+	local filtered = filterLocations(value)
+	Options.GoldLocationsDropdown:SetValues(filtered)
 	if value == "Gold" then
 		Options.GoldLocationsDropdown:SetValue("Gold 1")
 	elseif value == "Coal" then
