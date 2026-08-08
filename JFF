@@ -250,6 +250,33 @@ TSG.MineRemote = (keyedRemotes and rawget(keyedRemotes, "mine")) or (interaction
 TSG.ChopRemote = (keyedRemotes and rawget(keyedRemotes, "chop")) or (interactionsFolder and interactionsFolder:FindFirstChild("chop"))
 TSG.MeleeAI = interactionsFolder and interactionsFolder:FindFirstChild("meleeAI")
 
+-- Hit Sound Remote Interception
+pcall(function()
+	local sound = game:GetService("ReplicatedStorage").modules.misc.Sounds.GameSounds.SwordSwing
+	local meleeRemote = TSG.MeleePlayerRemote
+	if not meleeRemote then return end
+
+	local mtHook; mtHook = hookmetamethod(game, "__namecall", function(self, ...)
+		if Toggles.HitSound and Toggles.HitSound.Value and rawequal(self, meleeRemote) and getnamecallmethod() == "FireServer" then
+			pcall(function()
+				sound:Play()
+			end)
+		end
+		return mtHook(self, ...)
+	end)
+
+	if typeof(hookfunction) == "function" and meleeRemote.FireServer then
+		local oldFireServer; oldFireServer = hookfunction(meleeRemote.FireServer, function(self, ...)
+			if Toggles.HitSound and Toggles.HitSound.Value and rawequal(self, meleeRemote) then
+				pcall(function()
+					sound:Play()
+				end)
+			end
+			return oldFireServer(self, ...)
+		end)
+	end
+end)
+
 -- No Bear Trap DMG Remote Interception
 pcall(function()
 	local Event = resolvePath(ReplicatedStorage, "remoteInterface", "traps", "Run") or (ReplicatedStorage:FindFirstChild("remoteInterface") and ReplicatedStorage.remoteInterface:FindFirstChild("traps") and ReplicatedStorage.remoteInterface.traps:FindFirstChild("Run"))
@@ -1407,6 +1434,11 @@ CombatAutoSwing:AddToggle("AutoSwing", {
 	Default = false,
 })
 
+CombatAutoSwing:AddToggle("HitSound", {
+	Text = "Hit Sound",
+	Default = false,
+})
+
 
 CombatRight:AddToggle("TargetPlayers", {
 	Text = "Target Players",
@@ -1928,6 +1960,14 @@ Toggles.AutoSwing:OnChanged(function()
 		end))
 	else
 		_G.T = false
+	end
+end)
+
+Toggles.HitSound:OnChanged(function()
+	if Toggles.HitSound.Value then
+		Library:Notify({ Title = "Hit Sound", Description = "Enabled", Time = 2 })
+	else
+		Library:Notify({ Title = "Hit Sound", Description = "Disabled", Time = 2 })
 	end
 end)
 
@@ -4924,6 +4964,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.PlusKillPlayerToggle and Toggles.PlusKillPlayerToggle.Value then
 		Toggles.PlusKillPlayerToggle:SetValue(false)
+	end
+	if Toggles.HitSound and Toggles.HitSound.Value then
+		Toggles.HitSound:SetValue(false)
 	end
 	if Toggles.HideBeneathToggle and Toggles.HideBeneathToggle.Value then
 		Toggles.HideBeneathToggle:SetValue(false)
