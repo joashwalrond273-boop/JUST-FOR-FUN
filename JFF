@@ -293,6 +293,50 @@ pcall(function()
 	end
 end)
 
+-- No Glider Cooldown Remote Interception
+pcall(function()
+	local Event = game:GetService("ReplicatedStorage").remoteInterface.Tools.ToggleGlider
+	if not Event then return end
+
+	local mtHook; mtHook = hookmetamethod(game, "__namecall", function(...)
+		local self = ...
+
+		if Toggles.NoGliderCooldown and Toggles.NoGliderCooldown.Value and rawequal(self, Event) and getnamecallmethod() == "InvokeServer" then
+			local Args = table.pack(...)
+
+			local Result = table.pack(
+				mtHook(self, table.unpack(Args, 1, Args.n))
+			)
+
+			print(`Intercepted (namecall) {Event.Name}:InvokeServer()`, ...)
+
+			return table.unpack(Result, 1, Result.n)
+		end
+
+		return mtHook(...)
+	end)
+
+	if typeof(hookfunction) == "function" and Event.InvokeServer then
+		local OldInvokeServer; OldInvokeServer = hookfunction(Event.InvokeServer, function(...)
+			local self = ...
+
+			if Toggles.NoGliderCooldown and Toggles.NoGliderCooldown.Value and rawequal(self, Event) then
+				local Args = table.pack(...)
+
+				local Result = table.pack(
+					OldInvokeServer(table.unpack(Args, 1, Args.n))
+				)
+
+				print(`Intercepted (__index) {Event.Name}:InvokeServer()`, self, table.unpack(Result, 1, Result.n))
+
+				return table.unpack(Result, 1, Result.n)
+			end
+
+			return OldInvokeServer(self, ...)
+		end)
+	end
+end)
+
 Library.Font = Enum.Font.Jura
 
 -- Window
@@ -518,6 +562,11 @@ MainLeft:AddToggle("InfiniteJump", {
 
 MainLeft:AddToggle("NoFallDamage", {
 	Text = "No Fall Damage",
+	Default = false,
+})
+
+MainLeft:AddToggle("NoGliderCooldown", {
+	Text = "No Glider Cooldown",
 	Default = false,
 })
 
@@ -1050,6 +1099,14 @@ Toggles.NoFallDamage:OnChanged(function()
 		Library:Notify({ Title = "No Fall Damage", Description = "Enabled", Time = 2 })
 	else
 		setBehaviorDisabled(getCharacterBehavior("fallDamage"), false)
+	end
+end)
+
+Toggles.NoGliderCooldown:OnChanged(function()
+	if Toggles.NoGliderCooldown.Value then
+		Library:Notify({ Title = "No Glider Cooldown", Description = "Enabled", Time = 2 })
+	else
+		Library:Notify({ Title = "No Glider Cooldown", Description = "Disabled", Time = 2 })
 	end
 end)
 
@@ -4946,6 +5003,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.NoBearTrapDMG and Toggles.NoBearTrapDMG.Value then
 		Toggles.NoBearTrapDMG:SetValue(false)
+	end
+	if Toggles.NoGliderCooldown and Toggles.NoGliderCooldown.Value then
+		Toggles.NoGliderCooldown:SetValue(false)
 	end
 	pcall(function()
 		if fovCircle then fovCircle:Remove() end
