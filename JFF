@@ -703,40 +703,43 @@ MainRight:AddButton({
 	end,
 })
 
--- Ping Spoofer Setup & Toggle
-getgenv().PingSpoofer = {
-    SpoofPing = false,
-    StartOfPingSpoofer = 31,
-    EndOfPingSpoofer = 69
-}
-
-pcall(function()
-    local Memory
-    for __, v in pairs(game.CoreGui.RobloxGui.PerformanceStats:GetChildren()) do
-        if v.Name == 'PS_Button' and v.StatsMiniTextPanelClass.TitleLabel.Text == 'Ping' then 
-            Memory = v.StatsMiniTextPanelClass.ValueLabel
-        end
-    end
-
-    if Memory then
-        Memory:GetPropertyChangedSignal('Text'):Connect(function()
-            if getgenv().PingSpoofer.SpoofPing then
-                local Random = math.random(getgenv().PingSpoofer.StartOfPingSpoofer, getgenv().PingSpoofer.EndOfPingSpoofer)
-                Random = Random * 1.23
-                Memory.Text = Random .. ' ms'
-            end
-        end)
-    end
-end)
-
-MainRight:AddToggle("PingSpooferToggle", {
+MainRight:AddButton({
 	Text = "Ping Spoofer",
-	Default = false,
-})
+	Func = function()
+		if getgenv().PingSpoofer then
+			getgenv().PingSpoofer.SpoofPing = true
+			Library:Notify({ Title = "Ping Spoofer", Description = "Ping spoofing activated!", Time = 2 })
+			return
+		end
 
-Toggles.PingSpooferToggle:OnChanged(function()
-	getgenv().PingSpoofer.SpoofPing = Toggles.PingSpooferToggle.Value
-end)
+		getgenv().PingSpoofer = {
+			SpoofPing = true,
+			StartOfPingSpoofer = 31,
+			EndOfPingSpoofer = 69
+		}
+
+		local Memory
+		pcall(function()
+			for __, v in pairs(game.CoreGui.RobloxGui.PerformanceStats:GetChildren()) do
+				if v.Name == 'PS_Button' and v.StatsMiniTextPanelClass.TitleLabel.Text == 'Ping' then 
+					Memory = v.StatsMiniTextPanelClass.ValueLabel
+				end
+			end
+		end)
+
+		if Memory then
+			Memory:GetPropertyChangedSignal('Text'):Connect(function()
+				if getgenv().PingSpoofer and getgenv().PingSpoofer.SpoofPing then
+					local Random = math.random(getgenv().PingSpoofer.StartOfPingSpoofer, getgenv().PingSpoofer.EndOfPingSpoofer)
+					Random = Random * 1.23
+					Memory.Text = Random .. ' ms'
+				end
+			end)
+		end
+
+		Library:Notify({ Title = "Ping Spoofer", Description = "Ping spoofing activated!", Time = 2 })
+	end,
+})
 
 MainRight:AddButton({
 	Text = "Rejoin Server",
@@ -5003,9 +5006,7 @@ Library:OnUnload(function()
 	if Toggles.NoGliderCooldown and Toggles.NoGliderCooldown.Value then
 		Toggles.NoGliderCooldown:SetValue(false)
 	end
-	if Toggles.PingSpooferToggle and Toggles.PingSpooferToggle.Value then
-		Toggles.PingSpooferToggle:SetValue(false)
-	end
+
 	pcall(function()
 		if fovCircle then fovCircle:Remove() end
 		if cursorDrawings then
