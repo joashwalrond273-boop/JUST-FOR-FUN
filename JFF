@@ -2732,6 +2732,7 @@ local goldLocations = {
 	{ name = "Gold 16", pos = Vector3.new(1686.60, 41.64, -917.39)  },
 	{ name = "Gold 17", pos = Vector3.new(1566.16, 23.19, -946.35)  },
 	{ name = "Gold 18", pos = Vector3.new(252.14, 22.06, 811.69)    },
+	{ name = "Coal 1", pos = Vector3.new(1130.93, 24.94, -601.55) },
 }
 
 local goldNames = {}
@@ -2739,14 +2740,29 @@ for i, loc in ipairs(goldLocations) do
 	table.insert(goldNames, loc.name)
 end
 
+OreFarm:AddDropdown("SelectOreDropdown", {
+	Text = "Select Ore",
+	Values = { "Gold", "Coal" },
+	Default = "Gold",
+})
+
 OreFarm:AddDropdown("GoldLocationsDropdown", {
-	Text = "Select Gold Location",
+	Text = "Select Ore Location",
 	Values = goldNames,
 	Default = "Gold 1",
 })
 
+Options.SelectOreDropdown:OnChanged(function()
+	local value = Options.SelectOreDropdown.Value
+	if value == "Gold" then
+		Options.GoldLocationsDropdown:SetValue("Gold 1")
+	elseif value == "Coal" then
+		Options.GoldLocationsDropdown:SetValue("Coal 1")
+	end
+end)
+
 OreFarm:AddButton({
-	Text = "Teleport to Selected Gold",
+	Text = "Teleport to Selected",
 	Func = function()
            local selected = Options.GoldLocationsDropdown.Value
            local targetPos = nil
