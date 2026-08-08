@@ -250,35 +250,7 @@ TSG.MineRemote = (keyedRemotes and rawget(keyedRemotes, "mine")) or (interaction
 TSG.ChopRemote = (keyedRemotes and rawget(keyedRemotes, "chop")) or (interactionsFolder and interactionsFolder:FindFirstChild("chop"))
 TSG.MeleeAI = interactionsFolder and interactionsFolder:FindFirstChild("meleeAI")
 
--- Hit Sound Remote Interception
-pcall(function()
-	local sound = game:GetService("ReplicatedStorage").modules.misc.Sounds.GameSounds.SwordSwing
-	local meleeRemote = TSG.MeleePlayerRemote
-	if not meleeRemote then return end
 
-	local function playHitSound()
-		local clone = sound:Clone()
-		clone.Parent = game:GetService("SoundService")
-		clone:Play()
-		game:GetService("Debris"):AddItem(clone, 2)
-	end
-
-	local mtHook; mtHook = hookmetamethod(game, "__namecall", function(self, ...)
-		if Toggles.HitSound and Toggles.HitSound.Value and rawequal(self, meleeRemote) and getnamecallmethod() == "FireServer" then
-			pcall(playHitSound)
-		end
-		return mtHook(self, ...)
-	end)
-
-	if typeof(hookfunction) == "function" and meleeRemote.FireServer then
-		local oldFireServer; oldFireServer = hookfunction(meleeRemote.FireServer, function(self, ...)
-			if Toggles.HitSound and Toggles.HitSound.Value and rawequal(self, meleeRemote) then
-				pcall(playHitSound)
-			end
-			return oldFireServer(self, ...)
-		end)
-	end
-end)
 
 -- No Bear Trap DMG Remote Interception
 pcall(function()
@@ -487,7 +459,7 @@ FunAttach:AddToggle("AttachToggle", {
 })
 
 local PlusKillPlayerToggle = FunAttach:AddToggle("PlusKillPlayerToggle", {
-        Text = "+ Kill Player",
+        Text = "+ Kill player",
         Default = false,
 })
 if PlusKillPlayerToggle.TextLabel then
@@ -675,7 +647,7 @@ MainRight:AddButton({
 })
 
 MainRight:AddButton({
-	Text = "LowPing Server",
+	Text = "Low Ping Server",
 	Func = function()
 		task.spawn(function()
 			local HttpService = game:GetService("HttpService")
@@ -689,7 +661,7 @@ MainRight:AddButton({
 			end)
 
 			if not success or not result then
-				Library:Notify({ Title = "LowPing Server", Description = "Failed to fetch server list.", Time = 3 })
+				Library:Notify({ Title = "Low Ping Server", Description = "Failed to fetch server list.", Time = 3 })
 				return
 			end
 
@@ -698,7 +670,7 @@ MainRight:AddButton({
 			end)
 
 			if not dataSuccess or not decoded or not decoded.data then
-				Library:Notify({ Title = "LowPing Server", Description = "Failed to parse server list.", Time = 3 })
+				Library:Notify({ Title = "Low Ping Server", Description = "Failed to parse server list.", Time = 3 })
 				return
 			end
 
@@ -712,7 +684,7 @@ MainRight:AddButton({
 			end
 
 			if #servers == 0 then
-				Library:Notify({ Title = "LowPing Server", Description = "No alternative servers found.", Time = 3 })
+				Library:Notify({ Title = "Low Ping Server", Description = "No alternative servers found.", Time = 3 })
 				return
 			end
 
@@ -721,7 +693,7 @@ MainRight:AddButton({
 			end)
 
 			local bestServer = servers[1]
-			Library:Notify({ Title = "LowPing Server", Description = "Teleporting to smallest server (" .. tostring(bestServer.playing) .. "/" .. tostring(bestServer.maxPlayers) .. " players)...", Time = 3 })
+			Library:Notify({ Title = "Low Ping Server", Description = "Teleporting to smallest server (" .. tostring(bestServer.playing) .. "/" .. tostring(bestServer.maxPlayers) .. " players)...", Time = 3 })
 
 			task.wait(0.5)
 			pcall(function()
@@ -1437,10 +1409,6 @@ CombatAutoSwing:AddToggle("AutoSwing", {
 	Default = false,
 })
 
-CombatAutoSwing:AddToggle("HitSound", {
-	Text = "Hit Sound",
-	Default = false,
-})
 
 
 CombatRight:AddToggle("TargetPlayers", {
@@ -1966,14 +1934,6 @@ Toggles.AutoSwing:OnChanged(function()
 	end
 end)
 
-Toggles.HitSound:OnChanged(function()
-	if Toggles.HitSound.Value then
-		Library:Notify({ Title = "Hit Sound", Description = "Enabled", Time = 2 })
-	else
-		Library:Notify({ Title = "Hit Sound", Description = "Disabled", Time = 2 })
-	end
-end)
-
 -- Phantom Mode Logic
 local phantomModeVars = {
 	active = false,
@@ -2287,7 +2247,7 @@ MoveRight:AddSlider("FlySpeed", {
 	Rounding = 0,
 })
 
-local MoveAntiAfk = Tabs.Movement:AddRightGroupbox("Anti-Afk", "clock")
+local MoveAntiAfk = Tabs.Movement:AddRightGroupbox("Anti-Idle", "clock")
 
 MoveAntiAfk:AddToggle("AntiAFK", {
 	Text = "Anti-AFK",
@@ -4049,7 +4009,7 @@ FunRight:AddToggle("CustomCursorActive", {
 })
 
 FunRight:AddDropdown("CustomCursorType", {
-	Values = { "Tiny Square", "Circle", "X", "Dot", "Mouse Arrow" },
+	Values = { "Tiny Square", "Circle", "X", "+", "Dot", "Mouse Arrow" },
 	Default = "X",
 	Text = "Cursor Type",
 })
@@ -4075,7 +4035,7 @@ FunAnimations:AddToggle("ShadowTheGoat", {
 })
 
 FunAnimations:AddToggle("DoNotTouch", {
-	Text = "DO NOT TOUCH",
+	Text = "Spawn Freddy",
 	Default = false,
 })
 
@@ -4772,6 +4732,15 @@ local function updateCursor()
 		cursorDrawings.xLine2.From = center - Vector2.new(-half, half)
 		cursorDrawings.xLine2.To = center + Vector2.new(-half, half)
 		cursorDrawings.xLine2.Visible = true
+	elseif cursorType == "+" then
+		local half = size / 2
+		cursorDrawings.xLine1.From = center - Vector2.new(half, 0)
+		cursorDrawings.xLine1.To = center + Vector2.new(half, 0)
+		cursorDrawings.xLine1.Visible = true
+		
+		cursorDrawings.xLine2.From = center - Vector2.new(0, half)
+		cursorDrawings.xLine2.To = center + Vector2.new(0, half)
+		cursorDrawings.xLine2.Visible = true
 	elseif cursorType == "Dot" then
 		cursorDrawings.dot.Radius = math.max(1, size / 4)
 		cursorDrawings.dot.Position = center
@@ -4968,9 +4937,7 @@ Library:OnUnload(function()
 	if Toggles.PlusKillPlayerToggle and Toggles.PlusKillPlayerToggle.Value then
 		Toggles.PlusKillPlayerToggle:SetValue(false)
 	end
-	if Toggles.HitSound and Toggles.HitSound.Value then
-		Toggles.HitSound:SetValue(false)
-	end
+
 	if Toggles.HideBeneathToggle and Toggles.HideBeneathToggle.Value then
 		Toggles.HideBeneathToggle:SetValue(false)
 	end
