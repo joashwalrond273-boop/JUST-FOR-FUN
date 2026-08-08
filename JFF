@@ -3650,6 +3650,11 @@ VisualLeft:AddToggle("OutlineESP", {
 	Default = false,
 })
 
+VisualLeft:AddToggle("EntityESP", {
+	Text = "Entity ESP",
+	Default = false,
+})
+
 local VisualEnv = Tabs.Visuals:AddLeftGroupbox("ENVIRONMENT", "sun")
 
 VisualEnv:AddToggle("AlwaysDay", {
@@ -3859,6 +3864,234 @@ local function createESP(player)
 	track("ESP_" .. player.Name, RunService.RenderStepped:Connect(update))
 end
 
+local entityEspObjects = {}
+local entityEspConnections = {}
+
+local function clearEntityESP()
+	for _, obj in pairs(entityEspObjects) do
+		if typeof(obj) == "table" then
+			for _, child in pairs(obj) do
+				if typeof(child) == "Instance" then
+					child:Destroy()
+				else
+					pcall(function() child:Remove() end)
+				end
+			end
+		end
+	end
+	table.clear(entityEspObjects)
+end
+
+local function createEntityESP(model, displayName)
+	if not model or not model.Parent then return end
+	local root = model:FindFirstChild("HumanoidRootPart") or model.PrimaryPart
+	local hum = model:FindFirstChildOfClass("Humanoid")
+	if not root then return end
+
+	local box2d = nil
+	if hasDrawing then
+		box2d = Drawing.new("Square")
+		box2d.Color = Color3.fromRGB(255, 165, 0)
+		box2d.Thickness = 1.5
+		box2d.Filled = false
+		box2d.Visible = false
+	end
+
+	local billboard = Instance.new("BillboardGui")
+	billboard.Size = UDim2.fromOffset(120, 40)
+	billboard.AlwaysOnTop = true
+	billboard.Adornee = root
+	billboard.Parent = root
+
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.fromScale(1, 1)
+	label.BackgroundTransparency = 1
+	label.TextColor3 = Color3.fromRGB(255, 165, 0)
+	label.TextStrokeTransparency = 0.5
+	label.Font = Enum.Font.Jura
+	label.TextSize = 14
+	label.Parent = billboard
+
+	local tracer = nil
+	if hasDrawing then
+		tracer = Drawing.new("Line")
+		tracer.Color = Color3.fromRGB(255, 165, 0)
+		tracer.Thickness = 1.5
+		tracer.Transparency = 1
+		tracer.Visible = false
+	end
+
+	local highlight = Instance.new("Highlight")
+	highlight.FillColor = Color3.fromRGB(255, 165, 0)
+	highlight.OutlineColor = Color3.fromRGB(255, 165, 0)
+	highlight.FillTransparency = 1
+	highlight.OutlineTransparency = 0
+	highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+	highlight.Adornee = model
+	highlight.Parent = model
+	highlight.Enabled = false
+
+	local healthBg = nil
+	local healthBar = nil
+	if hasDrawing and hum then
+		healthBg = Drawing.new("Line")
+		healthBg.Color = Color3.fromRGB(0, 0, 0)
+		healthBg.Thickness = 4
+		healthBg.Transparency = 1
+		healthBg.Visible = false
+
+		healthBar = Drawing.new("Line")
+		healthBar.Thickness = 2
+		healthBar.Transparency = 1
+		healthBar.Visible = false
+	end
+
+	entityEspObjects[model] = { box2d, billboard, label, tracer, highlight, healthBg, healthBar }
+
+	local function update()
+		local myRoot = getRootPart()
+		if not myRoot or not model.Parent or not root.Parent then
+			if tracer then tracer.Visible = false end
+			if box2d then box2d.Visible = false end
+			if highlight then highlight.Enabled = false end
+			if healthBg then healthBg.Visible = false end
+			if healthBar then healthBar.Visible = false end
+			return
+		end
+
+		local dist = (root.Position - myRoot.Position).Magnitude
+		local shouldShow = dist <= Options.ESPDistance.Value and Toggles.EntityESP.Value
+
+		local screenPos, onScreen = workspace.CurrentCamera:WorldToViewportPoint(root.Position)
+		local head = model:FindFirstChild("Head") or model:FindFirstChild("HeadPart")
+		local topPos = head and head.Position + Vector3.new(0, 0.5, 0) or root.Position + Vector3.new(0, 2, 0)
+		local bottomPos = head and head.Position - Vector3.new(0, 4.5, 0) or root.Position - Vector3.new(0, 2.5, 0)
+
+		local topCoords = workspace.CurrentCamera:WorldToViewportPoint(topPos)
+		local bottomCoords = workspace.CurrentCamera:WorldToViewportPoint(bottomPos)
+
+		local height = math.abs(topCoords.Y - bottomCoords.Y)
+		local width = height * 0.6
+
+		if box2d then
+			if shouldShow and onScreen and Toggles.ShowBox and Toggles.ShowBox.Value then
+				box2d.Position = Vector2.new(screenPos.X - width / 2, topCoords.Y)
+				box2d.Size = Vector2.new(width, height)
+				box2d.Visible = true
+			else
+				box2d.Visible = false
+			end
+		end
+
+		if healthBg and healthBar and hum then
+			if shouldShow and onScreen and Toggles.ShowHealth and Toggles.ShowHealth.Value then
+				local barX = screenPos.X - width / 2 - 6
+
+				healthBg.From = Vector2.new(barX, topCoords.Y)
+				healthBg.To = Vector2.new(barX, bottomCoords.Y)
+				healthBg.Visible = true
+
+				local maxHealth = hum.MaxHealth > 0 and hum.MaxHealth or 100
+				local healthRatio = math.clamp(hum.Health / maxHealth, 0, 1)
+				local healthColor = Color3.fromRGB(255, 0, 0):Lerp(Color3.fromRGB(0, 255, 0), healthRatio)
+
+				healthBar.From = Vector2.new(barX, bottomCoords.Y - (height * healthRatio))
+				healthBar.To = Vector2.new(barX, bottomCoords.Y)
+				healthBar.Color = healthColor
+				healthBar.Visible = true
+			else
+				healthBg.Visible = false
+				healthBar.Visible = false
+			end
+		end
+
+		billboard.Enabled = shouldShow
+		local text = displayName
+		if Toggles.ShowDistance.Value then
+			text ..= string.format("\n%.0fm", dist)
+		end
+		label.Text = text
+
+		if tracer and Toggles.ShowTracers.Value then
+			if onScreen then
+				tracer.From = Vector2.new(workspace.CurrentCamera.ViewportSize.X / 2, workspace.CurrentCamera.ViewportSize.Y)
+				tracer.To = Vector2.new(screenPos.X, screenPos.Y)
+				tracer.Visible = true
+			else
+				tracer.Visible = false
+			end
+		elseif tracer then
+			tracer.Visible = false
+		end
+
+		if highlight then
+			if shouldShow and Toggles.OutlineESP and Toggles.OutlineESP.Value then
+				highlight.Enabled = true
+			else
+				highlight.Enabled = false
+			end
+		end
+	end
+
+	update()
+	local connName = "EntityESP_" .. tostring(model:GetDebugId())
+	track(connName, RunService.RenderStepped:Connect(update))
+end
+
+local function startEntityESP()
+	clearEntityESP()
+	for _, conn in ipairs(entityEspConnections) do
+		pcall(function() conn:Disconnect() end)
+	end
+	table.clear(entityEspConnections)
+
+	local function addEntity(model)
+		task.spawn(function()
+			local root = model:WaitForChild("HumanoidRootPart", 5) or model.PrimaryPart
+			if root then
+				createEntityESP(model, model.Name)
+			end
+		end)
+	end
+
+	local aiClient = workspace:FindFirstChild("AI_Client")
+	if aiClient then
+		for _, npc in ipairs(aiClient:GetChildren()) do
+			addEntity(npc)
+		end
+		table.insert(entityEspConnections, aiClient.ChildAdded:Connect(addEntity))
+	end
+
+	local animals = resolvePath(workspace, "animals")
+	if animals then
+		for _, animal in ipairs(animals:GetChildren()) do
+			addEntity(animal)
+		end
+		table.insert(entityEspConnections, animals.ChildAdded:Connect(addEntity))
+	end
+end
+
+local function stopEntityESP()
+	clearEntityESP()
+	for _, conn in ipairs(entityEspConnections) do
+		pcall(function() conn:Disconnect() end)
+	end
+	table.clear(entityEspConnections)
+	for name in pairs(Connections) do
+		if name:sub(1, 10) == "EntityESP_" then
+			disconnect(name)
+		end
+	end
+end
+
+Toggles.EntityESP:OnChanged(function()
+	if Toggles.EntityESP.Value then
+		startEntityESP()
+	else
+		stopEntityESP()
+	end
+end)
+
 Toggles.PlayerESP:OnChanged(function()
 	if not Toggles.PlayerESP.Value then
 		clearESP()
@@ -4009,7 +4242,7 @@ FunRight:AddToggle("CustomCursorActive", {
 })
 
 FunRight:AddDropdown("CustomCursorType", {
-	Values = { "Tiny Square", "Circle", "X", "+", "♕", "Dot", "Mouse Arrow" },
+	Values = { "Tiny Square", "Circle", "X", "+", "Dot", "Mouse Arrow" },
 	Default = "X",
 	Text = "Cursor Type",
 })
@@ -4646,8 +4879,7 @@ local cursorDrawings = {
 	arrow2 = nil,
 	arrow3 = nil,
 	arrow4 = nil,
-	arrow5 = nil,
-	text = nil
+	arrow5 = nil
 }
 
 local function initCursorDrawings()
@@ -4693,13 +4925,6 @@ local function initCursorDrawings()
 			cursorDrawings[key].Visible = false
 		end
 	end
-	if not cursorDrawings.text then
-		cursorDrawings.text = Drawing.new("Text")
-		cursorDrawings.text.Color = Color3.fromRGB(255, 255, 255)
-		cursorDrawings.text.Center = true
-		cursorDrawings.text.Outline = true
-		cursorDrawings.text.Visible = false
-	end
 end
 
 local function updateCursor()
@@ -4711,7 +4936,6 @@ local function updateCursor()
 	cursorDrawings.xLine1.Visible = false
 	cursorDrawings.xLine2.Visible = false
 	if cursorDrawings.dot then cursorDrawings.dot.Visible = false end
-	if cursorDrawings.text then cursorDrawings.text.Visible = false end
 	for i = 1, 5 do
 		local key = "arrow" .. i
 		if cursorDrawings[key] then cursorDrawings[key].Visible = false end
@@ -4750,11 +4974,6 @@ local function updateCursor()
 		cursorDrawings.xLine2.From = center - Vector2.new(0, half)
 		cursorDrawings.xLine2.To = center + Vector2.new(0, half)
 		cursorDrawings.xLine2.Visible = true
-	elseif cursorType == "♕" then
-		cursorDrawings.text.Text = "♕"
-		cursorDrawings.text.Size = size
-		cursorDrawings.text.Position = center - Vector2.new(0, size / 2)
-		cursorDrawings.text.Visible = true
 	elseif cursorType == "Dot" then
 		cursorDrawings.dot.Radius = math.max(1, size / 4)
 		cursorDrawings.dot.Position = center
@@ -4990,7 +5209,6 @@ Library:OnUnload(function()
 			if cursorDrawings.xLine1 then cursorDrawings.xLine1:Remove() end
 			if cursorDrawings.xLine2 then cursorDrawings.xLine2:Remove() end
 			if cursorDrawings.dot then cursorDrawings.dot:Remove() end
-			if cursorDrawings.text then cursorDrawings.text:Remove() end
 			for i = 1, 5 do
 				local key = "arrow" .. i
 				if cursorDrawings[key] then cursorDrawings[key]:Remove() end
@@ -5001,6 +5219,7 @@ Library:OnUnload(function()
 		disconnect(name)
 	end
 	clearESP()
+	stopEntityESP()
 	highlightTarget:Destroy()
 	workspace.Gravity = 196.2
 	LocalPlayer.CameraMaxZoomDistance = 400
