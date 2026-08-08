@@ -4009,7 +4009,7 @@ FunRight:AddToggle("CustomCursorActive", {
 })
 
 FunRight:AddDropdown("CustomCursorType", {
-	Values = { "Tiny Square", "Circle", "X", "+", "Dot", "Mouse Arrow" },
+	Values = { "Tiny Square", "Circle", "X", "+", "♕", "Dot", "Mouse Arrow" },
 	Default = "X",
 	Text = "Cursor Type",
 })
@@ -4646,7 +4646,8 @@ local cursorDrawings = {
 	arrow2 = nil,
 	arrow3 = nil,
 	arrow4 = nil,
-	arrow5 = nil
+	arrow5 = nil,
+	text = nil
 }
 
 local function initCursorDrawings()
@@ -4692,6 +4693,13 @@ local function initCursorDrawings()
 			cursorDrawings[key].Visible = false
 		end
 	end
+	if not cursorDrawings.text then
+		cursorDrawings.text = Drawing.new("Text")
+		cursorDrawings.text.Color = Color3.fromRGB(255, 255, 255)
+		cursorDrawings.text.Center = true
+		cursorDrawings.text.Outline = true
+		cursorDrawings.text.Visible = false
+	end
 end
 
 local function updateCursor()
@@ -4703,6 +4711,7 @@ local function updateCursor()
 	cursorDrawings.xLine1.Visible = false
 	cursorDrawings.xLine2.Visible = false
 	if cursorDrawings.dot then cursorDrawings.dot.Visible = false end
+	if cursorDrawings.text then cursorDrawings.text.Visible = false end
 	for i = 1, 5 do
 		local key = "arrow" .. i
 		if cursorDrawings[key] then cursorDrawings[key].Visible = false end
@@ -4741,6 +4750,11 @@ local function updateCursor()
 		cursorDrawings.xLine2.From = center - Vector2.new(0, half)
 		cursorDrawings.xLine2.To = center + Vector2.new(0, half)
 		cursorDrawings.xLine2.Visible = true
+	elseif cursorType == "♕" then
+		cursorDrawings.text.Text = "♕"
+		cursorDrawings.text.Size = size
+		cursorDrawings.text.Position = center - Vector2.new(0, size / 2)
+		cursorDrawings.text.Visible = true
 	elseif cursorType == "Dot" then
 		cursorDrawings.dot.Radius = math.max(1, size / 4)
 		cursorDrawings.dot.Position = center
@@ -4976,6 +4990,7 @@ Library:OnUnload(function()
 			if cursorDrawings.xLine1 then cursorDrawings.xLine1:Remove() end
 			if cursorDrawings.xLine2 then cursorDrawings.xLine2:Remove() end
 			if cursorDrawings.dot then cursorDrawings.dot:Remove() end
+			if cursorDrawings.text then cursorDrawings.text:Remove() end
 			for i = 1, 5 do
 				local key = "arrow" .. i
 				if cursorDrawings[key] then cursorDrawings[key]:Remove() end
