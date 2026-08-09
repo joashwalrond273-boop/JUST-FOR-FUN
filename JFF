@@ -2971,6 +2971,90 @@ Toggles.AutoMine:OnChanged(function()
 	end
 end)
 
+local oreEspConnections = {}
+
+local function clearOreESP()
+	local folder = workspace:FindFirstChild("worldResources") and workspace.worldResources:FindFirstChild("mineable")
+	if not folder then return end
+	for _, subfolder in ipairs(folder:GetChildren()) do
+		if subfolder:IsA("Folder") then
+			for _, obj in ipairs(subfolder:GetChildren()) do
+				if obj.PrimaryPart then
+					local old = obj.PrimaryPart:FindFirstChild("OreESP_Billboard")
+					if old then
+						pcall(function() old:Destroy() end)
+					end
+				end
+			end
+		end
+	end
+end
+
+local function addOreESP(obj)
+	if not obj or not obj.PrimaryPart then return end
+	local old = obj.PrimaryPart:FindFirstChild("OreESP_Billboard")
+	if old then return end
+
+	local billboard = Instance.new("BillboardGui")
+	billboard.Name = "OreESP_Billboard"
+	billboard.Size = UDim2.fromOffset(100, 30)
+	billboard.AlwaysOnTop = true
+	billboard.Adornee = obj.PrimaryPart
+	billboard.MaxDistance = 1000
+	billboard.Parent = obj.PrimaryPart
+
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.fromScale(1, 1)
+	label.BackgroundTransparency = 1
+	label.TextColor3 = Color3.fromRGB(0, 255, 255)
+	label.TextStrokeTransparency = 0.5
+	label.Font = Enum.Font.Jura
+	label.TextSize = 12
+	label.Text = obj.Name
+	label.Parent = billboard
+end
+
+local function startOreESP()
+	clearOreESP()
+	for _, conn in ipairs(oreEspConnections) do
+		pcall(function() conn:Disconnect() end)
+	end
+	table.clear(oreEspConnections)
+
+	local folder = workspace:FindFirstChild("worldResources") and workspace.worldResources:FindFirstChild("mineable")
+	if not folder then return end
+
+	local function setupSubfolder(subfolder)
+		if not subfolder:IsA("Folder") then return end
+		for _, obj in ipairs(subfolder:GetChildren()) do
+			addOreESP(obj)
+		end
+		table.insert(oreEspConnections, subfolder.ChildAdded:Connect(addOreESP))
+	end
+
+	for _, subfolder in ipairs(folder:GetChildren()) do
+		setupSubfolder(subfolder)
+	end
+
+	table.insert(oreEspConnections, folder.ChildAdded:Connect(setupSubfolder))
+end
+
+local function stopOreESP()
+	clearOreESP()
+	for _, conn in ipairs(oreEspConnections) do
+		pcall(function() conn:Disconnect() end)
+	end
+	table.clear(oreEspConnections)
+end
+
+Toggles.OreESP:OnChanged(function()
+	if Toggles.OreESP.Value then
+		startOreESP()
+	else
+		stopOreESP()
+	end
+end)
+
 -- ==========================================
 local function chopObject(obj)
 	local slot = tonumber(Options.AutoChopSlot.Value) or 1
@@ -3685,6 +3769,11 @@ VisualLeft:AddToggle("ShowBox", {
 
 VisualLeft:AddToggle("OutlineESP", {
 	Text = "Outline ESP",
+	Default = false,
+})
+
+VisualLeft:AddToggle("OreESP", {
+	Text = "Ore ESP",
 	Default = false,
 })
 
@@ -5003,6 +5092,9 @@ Library:OnUnload(function()
 	if Toggles.NoBearTrapDMG and Toggles.NoBearTrapDMG.Value then
 		Toggles.NoBearTrapDMG:SetValue(false)
 	end
+	if Toggles.OreESP and Toggles.OreESP.Value then
+		Toggles.OreESP:SetValue(false)
+	end
 	if Toggles.NoGliderCooldown and Toggles.NoGliderCooldown.Value then
 		Toggles.NoGliderCooldown:SetValue(false)
 	end
@@ -5025,6 +5117,7 @@ Library:OnUnload(function()
 		disconnect(name)
 	end
 	clearESP()
+	stopOreESP()
 	highlightTarget:Destroy()
 	workspace.Gravity = 196.2
 	LocalPlayer.CameraMaxZoomDistance = 400
