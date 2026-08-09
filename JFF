@@ -2971,131 +2971,7 @@ Toggles.AutoMine:OnChanged(function()
 	end
 end)
 
-local oreEspConnections = {}
 
-local function clearOreESP()
-	local folder = workspace:FindFirstChild("worldResources") and workspace.worldResources:FindFirstChild("mineable")
-	if not folder then return end
-	for _, subfolder in ipairs(folder:GetChildren()) do
-		if subfolder:IsA("Folder") then
-			for _, obj in ipairs(subfolder:GetChildren()) do
-				pcall(function()
-					local primaryPart = obj.PrimaryPart or obj:FindFirstChildOfClass("Part") or obj:FindFirstChildOfClass("MeshPart")
-					if primaryPart then
-						local old = primaryPart:FindFirstChild("OreESP_Billboard")
-						if old then
-							old:Destroy()
-						end
-					end
-				end)
-			end
-		end
-	end
-end
-
-local function addOreESP(obj)
-	if not obj then return end
-	task.spawn(function()
-		local primaryPart = obj.PrimaryPart
-		if not primaryPart then
-			local start = tick()
-			while not obj.PrimaryPart and (tick() - start) < 5 do
-				task.wait()
-			end
-			primaryPart = obj.PrimaryPart or obj:FindFirstChildOfClass("Part") or obj:FindFirstChildOfClass("MeshPart")
-		end
-		if not primaryPart then return end
-
-		local old = primaryPart:FindFirstChild("OreESP_Billboard")
-		if old then return end
-
-		local billboard = Instance.new("BillboardGui")
-		billboard.Name = "OreESP_Billboard"
-		billboard.Size = UDim2.fromOffset(100, 30)
-		billboard.AlwaysOnTop = true
-		billboard.Adornee = primaryPart
-		billboard.Parent = primaryPart
-
-		local label = Instance.new("TextLabel")
-		label.Size = UDim2.fromScale(1, 1)
-		label.BackgroundTransparency = 1
-		label.TextColor3 = Color3.fromRGB(0, 255, 255)
-		label.TextStrokeTransparency = 0.5
-		label.Font = Enum.Font.Jura
-		label.TextSize = 12
-		
-		-- Resolve ore name
-		local subfolder = obj.Parent
-		local displayName = obj.Name
-		if subfolder and subfolder:IsA("Folder") then
-			if displayName == "Model" or displayName == "Part" or displayName == "MeshPart" or displayName == "node" or displayName == "Node" then
-				displayName = subfolder.Name:gsub("^%l", string.upper)
-			end
-		end
-		label.Text = displayName
-		
-		-- Professional Color Coding
-		local color = Color3.fromRGB(0, 255, 255) -- Default Cyan
-		local lowerName = displayName:lower()
-		if lowerName:find("gold") then
-			color = Color3.fromRGB(255, 215, 0) -- Gold
-		elseif lowerName:find("coal") then
-			color = Color3.fromRGB(169, 169, 169) -- Dark Gray
-		elseif lowerName:find("iron") then
-			color = Color3.fromRGB(211, 211, 211) -- Light Gray
-		elseif lowerName:find("copper") then
-			color = Color3.fromRGB(184, 115, 51) -- Copper
-		elseif lowerName:find("steel") then
-			color = Color3.fromRGB(176, 196, 222) -- Steel Blue
-		elseif lowerName:find("crystal") or lowerName:find("gem") then
-			color = Color3.fromRGB(255, 105, 180) -- Hot Pink
-		end
-		label.TextColor3 = color
-
-		label.Parent = billboard
-	end)
-end
-
-local function startOreESP()
-	clearOreESP()
-	for _, conn in ipairs(oreEspConnections) do
-		pcall(function() conn:Disconnect() end)
-	end
-	table.clear(oreEspConnections)
-
-	local folder = workspace:FindFirstChild("worldResources") and workspace.worldResources:FindFirstChild("mineable")
-	if not folder then return end
-
-	local function setupSubfolder(subfolder)
-		if not subfolder:IsA("Folder") then return end
-		for _, obj in ipairs(subfolder:GetChildren()) do
-			addOreESP(obj)
-		end
-		table.insert(oreEspConnections, subfolder.ChildAdded:Connect(addOreESP))
-	end
-
-	for _, subfolder in ipairs(folder:GetChildren()) do
-		setupSubfolder(subfolder)
-	end
-
-	table.insert(oreEspConnections, folder.ChildAdded:Connect(setupSubfolder))
-end
-
-local function stopOreESP()
-	clearOreESP()
-	for _, conn in ipairs(oreEspConnections) do
-		pcall(function() conn:Disconnect() end)
-	end
-	table.clear(oreEspConnections)
-end
-
-Toggles.OreESP:OnChanged(function()
-	if Toggles.OreESP.Value then
-		startOreESP()
-	else
-		stopOreESP()
-	end
-end)
 
 -- ==========================================
 local function chopObject(obj)
@@ -3814,10 +3690,6 @@ VisualLeft:AddToggle("OutlineESP", {
 	Default = false,
 })
 
-VisualLeft:AddToggle("OreESP", {
-	Text = "Ore ESP",
-	Default = false,
-})
 
 local VisualEnv = Tabs.Visuals:AddLeftGroupbox("ENVIRONMENT", "sun")
 
@@ -5134,9 +5006,7 @@ Library:OnUnload(function()
 	if Toggles.NoBearTrapDMG and Toggles.NoBearTrapDMG.Value then
 		Toggles.NoBearTrapDMG:SetValue(false)
 	end
-	if Toggles.OreESP and Toggles.OreESP.Value then
-		Toggles.OreESP:SetValue(false)
-	end
+
 	if Toggles.NoGliderCooldown and Toggles.NoGliderCooldown.Value then
 		Toggles.NoGliderCooldown:SetValue(false)
 	end
@@ -5159,7 +5029,6 @@ Library:OnUnload(function()
 		disconnect(name)
 	end
 	clearESP()
-	stopOreESP()
 	highlightTarget:Destroy()
 	workspace.Gravity = 196.2
 	LocalPlayer.CameraMaxZoomDistance = 400
