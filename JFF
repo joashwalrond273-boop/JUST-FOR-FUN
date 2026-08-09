@@ -2047,7 +2047,8 @@ Toggles.SwordBot:OnChanged(function()
 	disconnect("SwordBot")
 	if Toggles.SwordBot.Value then
 		local lastSwing = 0
-		track("SwordBot", RunService.Heartbeat:Connect(function()
+		local orbitAngle = 0
+		track("SwordBot", RunService.Heartbeat:Connect(function(dt)
 			if not isAlive() then return end
 			local root = getRootPart()
 			local hum = getHumanoid()
@@ -2063,15 +2064,25 @@ Toggles.SwordBot:OnChanged(function()
 				return
 			end
 
-			-- Force camera/body lock-on facing target on Y axis
 			local targetPos = targetRoot.Position
+			local myPos = root.Position
+			local dist = (targetPos - myPos).Magnitude
+
+			-- Force camera/body lock-on facing target on Y axis
 			root.CFrame = CFrame.lookAt(root.Position, Vector3.new(targetPos.X, root.Position.Y, targetPos.Z))
 
-			-- Move to target
-			hum:MoveTo(targetPos)
+			-- Determine movement position (orbit if <= 10 studs, otherwise run directly to target)
+			local movePos = targetPos
+			if dist <= 10 then
+				orbitAngle = orbitAngle + (dt * 8) -- Orbit speed
+				local offset = Vector3.new(math.cos(orbitAngle) * 9.5, 0, math.sin(orbitAngle) * 9.5)
+				movePos = targetPos + offset
+			end
+
+			-- Move to calculated position
+			hum:MoveTo(movePos)
 
 			-- Check distance for auto hop and attack
-			local dist = (targetPos - root.Position).Magnitude
 			if dist <= 20 then
 				-- Constantly Hop
 				if hum.FloorMaterial ~= Enum.Material.Air then
