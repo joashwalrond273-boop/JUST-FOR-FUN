@@ -1982,9 +1982,8 @@ Toggles.AutoHop:OnChanged(function()
 	if Toggles.AutoHop.Value then
 		track("AutoHop", RunService.Heartbeat:Connect(function()
 			if not isAlive() then return end
-			local char = LocalPlayer.Character
-			local root = char and char:FindFirstChild("HumanoidRootPart")
-			local hum = char and char:FindFirstChildOfClass("Humanoid")
+			local root = getRootPart()
+			local hum = getHumanoid()
 			if not root or not hum then return end
 			
 			local pos = root.Position
@@ -2004,7 +2003,12 @@ Toggles.AutoHop:OnChanged(function()
 			end
 			
 			if playerNearby then
-				hum.Jump = true
+				if hum.FloorMaterial ~= Enum.Material.Air then
+					hum.Jump = true
+					pcall(function()
+						hum:ChangeState(Enum.HumanoidStateType.Jumping)
+					end)
+				end
 			end
 		end))
 	end
