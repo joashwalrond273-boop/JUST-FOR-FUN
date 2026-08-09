@@ -1448,7 +1448,7 @@ CombatAutoSwing:AddToggle("AutoSwing", {
 })
 
 CombatAutoSwing:AddToggle("AutoHop", {
-	Text = "Auto Hop",
+	Text = "+ Auto Hop",
 	Default = false,
 })
 
@@ -1986,6 +1986,17 @@ Toggles.AutoHop:OnChanged(function()
 			local hum = getHumanoid()
 			if not root or not hum then return end
 			
+			if not hum:GetAttribute("JumpAdjusted") then
+				hum:SetAttribute("JumpAdjusted", true)
+				hum:SetAttribute("OrigJumpPower", hum.JumpPower)
+				hum:SetAttribute("OrigJumpHeight", hum.JumpHeight)
+				if hum.UseJumpPower then
+					hum.JumpPower = math.max(0, hum.JumpPower - 2)
+				else
+					hum.JumpHeight = math.max(0, hum.JumpHeight - 2)
+				end
+			end
+
 			local pos = root.Position
 			local playerNearby = false
 			for _, otherPlayer in ipairs(Players:GetPlayers()) do
@@ -1994,7 +2005,7 @@ Toggles.AutoHop:OnChanged(function()
 					local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
 					if otherRoot and otherHum and otherHum.Health > 0 then
 						local dist = (otherRoot.Position - pos).Magnitude
-						if dist <= 10 then
+						if dist <= 20 then
 							playerNearby = true
 							break
 						end
@@ -2011,6 +2022,13 @@ Toggles.AutoHop:OnChanged(function()
 				end
 			end
 		end))
+	else
+		local hum = getHumanoid()
+		if hum and hum:GetAttribute("JumpAdjusted") then
+			hum.JumpPower = hum:GetAttribute("OrigJumpPower") or hum.JumpPower
+			hum.JumpHeight = hum:GetAttribute("OrigJumpHeight") or hum.JumpHeight
+			hum:SetAttribute("JumpAdjusted", nil)
+		end
 	end
 end)
 
