@@ -1447,6 +1447,11 @@ CombatAutoSwing:AddToggle("AutoSwing", {
 	Default = false,
 })
 
+CombatAutoSwing:AddToggle("AutoHop", {
+	Text = "Auto Hop",
+	Default = false,
+})
+
 
 
 CombatRight:AddToggle("TargetPlayers", {
@@ -1969,6 +1974,39 @@ Toggles.AutoSwing:OnChanged(function()
 		end))
 	else
 		_G.T = false
+	end
+end)
+
+Toggles.AutoHop:OnChanged(function()
+	disconnect("AutoHop")
+	if Toggles.AutoHop.Value then
+		track("AutoHop", RunService.Heartbeat:Connect(function()
+			if not isAlive() then return end
+			local char = LocalPlayer.Character
+			local root = char and char:FindFirstChild("HumanoidRootPart")
+			local hum = char and char:FindFirstChildOfClass("Humanoid")
+			if not root or not hum then return end
+			
+			local pos = root.Position
+			local playerNearby = false
+			for _, otherPlayer in ipairs(Players:GetPlayers()) do
+				if otherPlayer ~= LocalPlayer and otherPlayer.Character then
+					local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
+					local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
+					if otherRoot and otherHum and otherHum.Health > 0 then
+						local dist = (otherRoot.Position - pos).Magnitude
+						if dist <= 10 then
+							playerNearby = true
+							break
+						end
+					end
+				end
+			end
+			
+			if playerNearby then
+				hum.Jump = true
+			end
+		end))
 	end
 end)
 
@@ -5005,6 +5043,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.NoBearTrapDMG and Toggles.NoBearTrapDMG.Value then
 		Toggles.NoBearTrapDMG:SetValue(false)
+	end
+	if Toggles.AutoHop and Toggles.AutoHop.Value then
+		Toggles.AutoHop:SetValue(false)
 	end
 
 	if Toggles.NoGliderCooldown and Toggles.NoGliderCooldown.Value then
