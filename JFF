@@ -1452,6 +1452,17 @@ CombatAutoSwing:AddToggle("AutoHop", {
 	Default = false,
 })
 
+CombatAutoSwing:AddToggle("SwordBot", {
+	Text = "Sword Bot (Use with caution)",
+	Default = false,
+})
+
+CombatAutoSwing:AddDropdown("ChooseVictim", {
+	Text = "Choose a Victim",
+	Values = {},
+	Default = "",
+})
+
 
 
 CombatRight:AddToggle("TargetPlayers", {
@@ -2031,6 +2042,78 @@ Toggles.AutoHop:OnChanged(function()
 		end
 	end
 end)
+
+Toggles.SwordBot:OnChanged(function()
+	disconnect("SwordBot")
+	if Toggles.SwordBot.Value then
+		local lastSwing = 0
+		track("SwordBot", RunService.Heartbeat:Connect(function()
+			if not isAlive() then return end
+			local root = getRootPart()
+			local hum = getHumanoid()
+			if not root or not hum then return end
+
+			local targetName = Options.ChooseVictim.Value
+			local targetPlayer = Players:FindFirstChild(targetName)
+			local targetChar = targetPlayer and targetPlayer.Character
+			local targetRoot = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
+			local targetHum = targetChar and targetChar:FindFirstChildOfClass("Humanoid")
+
+			if not targetRoot or not targetHum or targetHum.Health <= 0 then
+				return
+			end
+
+			-- Force camera/body lock-on facing target on Y axis
+			local targetPos = targetRoot.Position
+			root.CFrame = CFrame.lookAt(root.Position, Vector3.new(targetPos.X, root.Position.Y, targetPos.Z))
+
+			-- Move to target
+			hum:MoveTo(targetPos)
+
+			-- Check distance for auto hop and attack
+			local dist = (targetPos - root.Position).Magnitude
+			if dist <= 20 then
+				-- Constantly Hop
+				if hum.FloorMaterial ~= Enum.Material.Air then
+					hum.Jump = true
+					pcall(function()
+						hum:ChangeState(Enum.HumanoidStateType.Jumping)
+					end)
+				end
+
+				-- Constant auto swing
+				local delay = 1 / 20
+				if tick() - lastSwing >= delay then
+					local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
+					if tool then
+						tool:Activate()
+						lastSwing = tick()
+					end
+				end
+			end
+		end))
+	else
+		local hum = getHumanoid()
+		local root = getRootPart()
+		if hum and root then
+			hum:MoveTo(root.Position)
+		end
+	end
+end)
+
+local function updateVictimDropdown()
+	local names = {}
+	for _, player in ipairs(Players:GetPlayers()) do
+		if player ~= LocalPlayer then
+			table.insert(names, player.Name)
+		end
+	end
+	Options.ChooseVictim:SetValues(names)
+end
+
+track("VictimPlayerAdded", Players.PlayerAdded:Connect(updateVictimDropdown))
+track("VictimPlayerRemoving", Players.PlayerRemoving:Connect(updateVictimDropdown))
+task.spawn(updateVictimDropdown)
 
 -- Phantom Mode Logic
 local phantomModeVars = {
@@ -5068,6 +5151,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.AutoHop and Toggles.AutoHop.Value then
 		Toggles.AutoHop:SetValue(false)
+	end
+	if Toggles.SwordBot and Toggles.SwordBot.Value then
+		Toggles.SwordBot:SetValue(false)
 	end
 
 	if Toggles.NoGliderCooldown and Toggles.NoGliderCooldown.Value then
