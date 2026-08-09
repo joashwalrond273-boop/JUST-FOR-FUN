@@ -2979,39 +2979,81 @@ local function clearOreESP()
 	for _, subfolder in ipairs(folder:GetChildren()) do
 		if subfolder:IsA("Folder") then
 			for _, obj in ipairs(subfolder:GetChildren()) do
-				if obj.PrimaryPart then
-					local old = obj.PrimaryPart:FindFirstChild("OreESP_Billboard")
-					if old then
-						pcall(function() old:Destroy() end)
+				pcall(function()
+					local primaryPart = obj.PrimaryPart or obj:FindFirstChildOfClass("Part") or obj:FindFirstChildOfClass("MeshPart")
+					if primaryPart then
+						local old = primaryPart:FindFirstChild("OreESP_Billboard")
+						if old then
+							old:Destroy()
+						end
 					end
-				end
+				end)
 			end
 		end
 	end
 end
 
 local function addOreESP(obj)
-	if not obj or not obj.PrimaryPart then return end
-	local old = obj.PrimaryPart:FindFirstChild("OreESP_Billboard")
-	if old then return end
+	if not obj then return end
+	task.spawn(function()
+		local primaryPart = obj.PrimaryPart
+		if not primaryPart then
+			local start = tick()
+			while not obj.PrimaryPart and (tick() - start) < 5 do
+				task.wait()
+			end
+			primaryPart = obj.PrimaryPart or obj:FindFirstChildOfClass("Part") or obj:FindFirstChildOfClass("MeshPart")
+		end
+		if not primaryPart then return end
 
-	local billboard = Instance.new("BillboardGui")
-	billboard.Name = "OreESP_Billboard"
-	billboard.Size = UDim2.fromOffset(100, 30)
-	billboard.AlwaysOnTop = true
-	billboard.Adornee = obj.PrimaryPart
-	billboard.MaxDistance = 1000
-	billboard.Parent = obj.PrimaryPart
+		local old = primaryPart:FindFirstChild("OreESP_Billboard")
+		if old then return end
 
-	local label = Instance.new("TextLabel")
-	label.Size = UDim2.fromScale(1, 1)
-	label.BackgroundTransparency = 1
-	label.TextColor3 = Color3.fromRGB(0, 255, 255)
-	label.TextStrokeTransparency = 0.5
-	label.Font = Enum.Font.Jura
-	label.TextSize = 12
-	label.Text = obj.Name
-	label.Parent = billboard
+		local billboard = Instance.new("BillboardGui")
+		billboard.Name = "OreESP_Billboard"
+		billboard.Size = UDim2.fromOffset(100, 30)
+		billboard.AlwaysOnTop = true
+		billboard.Adornee = primaryPart
+		billboard.Parent = primaryPart
+
+		local label = Instance.new("TextLabel")
+		label.Size = UDim2.fromScale(1, 1)
+		label.BackgroundTransparency = 1
+		label.TextColor3 = Color3.fromRGB(0, 255, 255)
+		label.TextStrokeTransparency = 0.5
+		label.Font = Enum.Font.Jura
+		label.TextSize = 12
+		
+		-- Resolve ore name
+		local subfolder = obj.Parent
+		local displayName = obj.Name
+		if subfolder and subfolder:IsA("Folder") then
+			if displayName == "Model" or displayName == "Part" or displayName == "MeshPart" or displayName == "node" or displayName == "Node" then
+				displayName = subfolder.Name:gsub("^%l", string.upper)
+			end
+		end
+		label.Text = displayName
+		
+		-- Professional Color Coding
+		local color = Color3.fromRGB(0, 255, 255) -- Default Cyan
+		local lowerName = displayName:lower()
+		if lowerName:find("gold") then
+			color = Color3.fromRGB(255, 215, 0) -- Gold
+		elseif lowerName:find("coal") then
+			color = Color3.fromRGB(169, 169, 169) -- Dark Gray
+		elseif lowerName:find("iron") then
+			color = Color3.fromRGB(211, 211, 211) -- Light Gray
+		elseif lowerName:find("copper") then
+			color = Color3.fromRGB(184, 115, 51) -- Copper
+		elseif lowerName:find("steel") then
+			color = Color3.fromRGB(176, 196, 222) -- Steel Blue
+		elseif lowerName:find("crystal") or lowerName:find("gem") then
+			color = Color3.fromRGB(255, 105, 180) -- Hot Pink
+		end
+		label.TextColor3 = color
+
+		label.Parent = billboard
+	end)
 end
 
 local function startOreESP()
