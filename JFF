@@ -2071,27 +2071,19 @@ Toggles.SwordBot:OnChanged(function()
 			-- Force camera/body lock-on facing target on Y axis
 			root.CFrame = CFrame.lookAt(root.Position, Vector3.new(targetPos.X, root.Position.Y, targetPos.Z))
 
-			-- Determine movement position (orbit if <= 15 studs, otherwise run directly to target)
+			-- Determine movement position (orbit if <= 20 studs, otherwise run directly to target)
 			local movePos = targetPos
-			if dist <= 15 then
+			if dist <= 20 then
 				orbitAngle = orbitAngle + (dt * 5) -- Orbit speed
-				local offset = Vector3.new(math.cos(orbitAngle) * 12, 0, math.sin(orbitAngle) * 12)
+				local offset = Vector3.new(math.cos(orbitAngle) * 17, 0, math.sin(orbitAngle) * 17)
 				movePos = targetPos + offset
 			end
 
 			-- Move to calculated position
 			hum:MoveTo(movePos)
 
-			-- Check distance for auto hop and attack
-			if dist <= 20 then
-				-- Constantly Hop
-				if hum.FloorMaterial ~= Enum.Material.Air then
-					hum.Jump = true
-					pcall(function()
-						hum:ChangeState(Enum.HumanoidStateType.Jumping)
-					end)
-				end
-
+			-- Check distance for auto attack (staying on the ground, no hopping)
+			if dist <= 22 then
 				-- Constant auto swing
 				local delay = 1 / 20
 				if tick() - lastSwing >= delay then
