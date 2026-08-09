@@ -2071,11 +2071,11 @@ Toggles.SwordBot:OnChanged(function()
 			-- Force camera/body lock-on facing target on Y axis
 			root.CFrame = CFrame.lookAt(root.Position, Vector3.new(targetPos.X, root.Position.Y, targetPos.Z))
 
-			-- Determine movement position (orbit if <= 10 studs, otherwise run directly to target)
+			-- Determine movement position (orbit if <= 15 studs, otherwise run directly to target)
 			local movePos = targetPos
-			if dist <= 10 then
-				orbitAngle = orbitAngle + (dt * 8) -- Orbit speed
-				local offset = Vector3.new(math.cos(orbitAngle) * 9.5, 0, math.sin(orbitAngle) * 9.5)
+			if dist <= 15 then
+				orbitAngle = orbitAngle + (dt * 5) -- Orbit speed
+				local offset = Vector3.new(math.cos(orbitAngle) * 12, 0, math.sin(orbitAngle) * 12)
 				movePos = targetPos + offset
 			end
 
