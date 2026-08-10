@@ -2047,8 +2047,7 @@ Toggles.SwordBot:OnChanged(function()
 	disconnect("SwordBot")
 	if Toggles.SwordBot.Value then
 		local lastSwing = 0
-		local orbitAngle = 0
-		track("SwordBot", RunService.Heartbeat:Connect(function(dt)
+		track("SwordBot", RunService.Heartbeat:Connect(function()
 			if not isAlive() then return end
 			local root = getRootPart()
 			local hum = getHumanoid()
@@ -2064,36 +2063,16 @@ Toggles.SwordBot:OnChanged(function()
 				return
 			end
 
-			local targetPos = targetRoot.Position
-			local myPos = root.Position
-			local dist = (targetPos - myPos).Magnitude
-
 			-- Force camera/body lock-on facing target on Y axis
+			local targetPos = targetRoot.Position
 			root.CFrame = CFrame.lookAt(root.Position, Vector3.new(targetPos.X, root.Position.Y, targetPos.Z))
 
-			-- Determine movement position (prevent getting closer than 20 studs)
-			local movePos
-			if dist > 20.5 then
-				-- Head directly to the closest point on the 20-stud perimeter
-				local dir = (myPos - targetPos)
-				local flatDir = Vector3.new(dir.X, 0, dir.Z)
-				if flatDir.Magnitude > 0.1 then
-					movePos = targetPos + flatDir.Unit * 20
-				else
-					movePos = targetPos + Vector3.new(20, 0, 0)
-				end
-			else
-				-- Orbit smoothly at exactly 20 studs
-				orbitAngle = orbitAngle + (dt * 5)
-				local offset = Vector3.new(math.cos(orbitAngle) * 20, 0, math.sin(orbitAngle) * 20)
-				movePos = targetPos + offset
-			end
+			-- Move to target
+			hum:MoveTo(targetPos)
 
-			-- Move to calculated position
-			hum:MoveTo(movePos)
-
-			-- Check distance for auto hop and attack (jumping around their body in circles)
-			if dist <= 22 then
+			-- Check distance for auto hop and attack
+			local dist = (targetPos - root.Position).Magnitude
+			if dist <= 20 then
 				-- Constantly Hop
 				if hum.FloorMaterial ~= Enum.Material.Air then
 					hum.Jump = true
@@ -3014,6 +2993,13 @@ OreFarm:AddButton({
    end,
 })
 
+local FarmDupe = Tabs.Farming:AddRightGroupbox("DUPE ITEMS", "copy")
+
+FarmDupe:AddToggle("Multiplier", {
+   Text = "Multiplier",
+   Default = false,
+})
+
 -- ==========================================
 -- In Obsidian, AddColorPicker is chained off a Label or Toggle
 FarmRight:AddLabel("Fill Color"):AddColorPicker("AuraFillColor", {
@@ -3406,6 +3392,132 @@ for _, merchant in ipairs(merchantTeleports) do
 			else
 				Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
 			end
+		end,
+	})
+end
+
+-- Extra Locations Groupbox
+local TeleportRight = Tabs.Teleport:AddRightGroupbox("Extra Locations", "map-pin")
+
+local clickTpActive = false
+local clickTpBtn = nil
+
+local function toggleClickTp()
+	clickTpActive = not clickTpActive
+	disconnect("ClickTeleport")
+	
+	if clickTpActive then
+		pcall(function()
+			clickTpBtn.Label.Text = "Click Teleport: ON"
+		end)
+		
+		local Mouse = LocalPlayer:GetMouse()
+		track("ClickTeleport", Mouse.Button1Down:Connect(function()
+			local targetCF = Mouse.Hit
+			if targetCF then
+				local root = getRootPart()
+				if root then
+					root.CFrame = targetCF + Vector3.new(0, 3, 0)
+					Library:Notify({ Title = "Click Teleport", Description = "Teleported!", Time = 1 })
+				end
+			end
+		end))
+	else
+		pcall(function()
+			clickTpBtn.Label.Text = "Click Teleport: OFF"
+		end)
+	end
+end
+
+clickTpBtn = TeleportRight:AddButton({
+	Text = "Click Teleport",
+	Func = toggleClickTp,
+})
+
+pcall(function()
+	Library:RemoveFromRegistry(clickTpBtn.Label)
+	clickTpBtn.Label.TextColor3 = Color3.fromRGB(0, 120, 255)
+end)
+
+local TeleportWaypoint = Tabs.Teleport:AddRightGroupbox("Waypoint", "map-pin")
+
+TeleportWaypoint:AddInput("WaypointName", {
+	Text = "Waypoint Name",
+	Default = "",
+	Placeholder = "Enter waypoint name...",
+})
+
+TeleportWaypoint:AddDropdown("WaypointList", {
+	Values = {},
+	Default = "",
+	Text = "Saved Waypoints",
+})
+
+local waypoints = {}
+local function updateWaypointDropdown()
+	local list = {}
+	for name in pairs(waypoints) do
+		table.insert(list, "ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬ ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â°ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬ ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬ ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬ ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âµ " .. name)
+	end
+	table.sort(list)
+	Options.WaypointList:SetValues(list)
+	if #list > 0 then
+		Options.WaypointList:SetValue(list[1])
+	else
+		Options.WaypointList:SetValue("")
+	end
+end
+
+TeleportWaypoint:AddButton({
+	Text = "Add Waypoint",
+	Func = function()
+		local name = Options.WaypointName.Value
+		if not name or name == "" then
+			Library:Notify({ Title = "Waypoint", Description = "Please enter a name first.", Time = 3 })
+			return
+		end
+		local root = getRootPart()
+		if not root then
+			Library:Notify({ Title = "Waypoint", Description = "Character root not found.", Time = 3 })
+			return
+		end
+		waypoints[name] = root.CFrame
+		updateWaypointDropdown()
+		Library:Notify({ Title = "Waypoint", Description = "Added waypoint: " .. name, Time = 2 })
+	end,
+})
+
+TeleportWaypoint:AddButton({
+	Text = "Delete Waypoint",
+	Func = function()
+		local selected = Options.WaypointList.Value
+		if not selected or selected == "" then
+			Library:Notify({ Title = "Waypoint", Description = "No waypoint selected.", Time = 3 })
+			return
+		end
+		local name = selected:sub(5)
+		if waypoints[name] then
+			waypoints[name] = nil
+			updateWaypointDropdown()
+			Library:Notify({ Title = "Waypoint", Description = "Deleted waypoint: " .. name, Time = 2 })
+		end
+	end,
+})
+
+Options.WaypointList:OnChanged(function()
+	local selected = Options.WaypointList.Value
+	if not selected or selected == "" then return end
+	local name = selected:sub(5)
+	local cf = waypoints[name]
+	if cf then
+		local root = getRootPart()
+		if root then
+			root.CFrame = cf
+			Library:Notify({ Title = "Waypoint", Description = "Teleported to " .. name, Time = 2 })
+		end
+	end
+end)
+
 -- ==========================================
 -- VISUALS
 -- ==========================================
@@ -4259,6 +4371,30 @@ Toggles.PlusFlingPlayerToggle:OnChanged(function()
 	end
 end)
 
+-- Dupe Items Script Logic
+Toggles.Multiplier:OnChanged(function()
+   disconnect("DupeDropTrack")
+   if Toggles.Multiplier.Value then
+           Library:Notify({ Title = "DUPE ITEMS", Description = "Multiplier Active! Drop any item in your hand to dupe it.", Time = 4 })
+
+           track("DupeDropTrack", CollectionService:GetInstanceAddedSignal("DROPPED_ITEM"):Connect(function(itemPart)
+                   if not Toggles.Multiplier.Value then return end
+                   task.wait()
+                   if itemPart:IsA("BasePart") then
+                           local root = getRootPart()
+                           if root and (itemPart.Position - root.Position).Magnitude < 15 then
+                                   for i = 1, 15 do
+                                           task.spawn(pcall, function()
+                                                   TSG.PickupRemote:FireServer(itemPart)
+                                           end)
+                                   end
+                                   Library:Notify({ Title = "DUPE ITEMS", Description = "Attempted to multiply item!", Time = 2 })
+                           end
+                   end
+           end))
+   end
+end)
+
 -- Spectate Script Logic
 local function updateSpectatePlayerList()
 	local list = {}
@@ -5001,6 +5137,9 @@ Library:OnUnload(function()
 	if Toggles.CrawlerToggle and Toggles.CrawlerToggle.Value then
 		Toggles.CrawlerToggle:SetValue(false)
 	end
+   if Toggles.Multiplier and Toggles.Multiplier.Value then
+           Toggles.Multiplier:SetValue(false)
+   end
 	if Toggles.ShadowTheGoat and Toggles.ShadowTheGoat.Value then
 		Toggles.ShadowTheGoat:SetValue(false)
 	end
