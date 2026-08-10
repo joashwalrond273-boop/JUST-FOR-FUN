@@ -2047,7 +2047,8 @@ Toggles.SwordBot:OnChanged(function()
 	disconnect("SwordBot")
 	if Toggles.SwordBot.Value then
 		local lastSwing = 0
-		track("SwordBot", RunService.Heartbeat:Connect(function()
+		local orbitAngle = 0
+		track("SwordBot", RunService.Heartbeat:Connect(function(dt)
 			if not isAlive() then return end
 			local root = getRootPart()
 			local hum = getHumanoid()
@@ -2063,16 +2064,36 @@ Toggles.SwordBot:OnChanged(function()
 				return
 			end
 
-			-- Force camera/body lock-on facing target on Y axis
 			local targetPos = targetRoot.Position
+			local myPos = root.Position
+			local dist = (targetPos - myPos).Magnitude
+
+			-- Force camera/body lock-on facing target on Y axis
 			root.CFrame = CFrame.lookAt(root.Position, Vector3.new(targetPos.X, root.Position.Y, targetPos.Z))
 
-			-- Move to target
-			hum:MoveTo(targetPos)
+			-- Determine movement position (prevent getting closer than 20 studs)
+			local movePos
+			if dist > 20.5 then
+				-- Head directly to the closest point on the 20-stud perimeter
+				local dir = (myPos - targetPos)
+				local flatDir = Vector3.new(dir.X, 0, dir.Z)
+				if flatDir.Magnitude > 0.1 then
+					movePos = targetPos + flatDir.Unit * 20
+				else
+					movePos = targetPos + Vector3.new(20, 0, 0)
+				end
+			else
+				-- Orbit smoothly at exactly 20 studs
+				orbitAngle = orbitAngle + (dt * 5)
+				local offset = Vector3.new(math.cos(orbitAngle) * 20, 0, math.sin(orbitAngle) * 20)
+				movePos = targetPos + offset
+			end
 
-			-- Check distance for auto hop and attack
-			local dist = (targetPos - root.Position).Magnitude
-			if dist <= 20 then
+			-- Move to calculated position
+			hum:MoveTo(movePos)
+
+			-- Check distance for auto hop and attack (jumping around their body in circles)
+			if dist <= 22 then
 				-- Constantly Hop
 				if hum.FloorMaterial ~= Enum.Material.Air then
 					hum.Jump = true
