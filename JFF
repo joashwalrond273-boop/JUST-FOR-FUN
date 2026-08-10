@@ -26,6 +26,7 @@ local SaveManager = loadstring(game:HttpGet(repo .. "addons/SaveManager.lua"))()
 local Options = Library.Options
 local Toggles = Library.Toggles
 local lastDeathPosition = nil
+local shouldTeleportBack = false
 
 Library.ShowToggleFrameInKeybinds = true
 
@@ -458,6 +459,12 @@ FunAttach:AddToggle("AttachToggle", {
         Default = false,
 })
 
+FunAttach:AddDropdown("AttachPlayerList", {
+        Text = "Target Player",
+        Values = {},
+        Default = "",
+})
+
 local PlusKillPlayerToggle = FunAttach:AddToggle("PlusKillPlayerToggle", {
         Text = "+ Kill player",
         Default = false,
@@ -465,12 +472,6 @@ local PlusKillPlayerToggle = FunAttach:AddToggle("PlusKillPlayerToggle", {
 if PlusKillPlayerToggle.TextLabel then
         PlusKillPlayerToggle.TextLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
 end
-
-FunAttach:AddDropdown("AttachPlayerList", {
-        Text = "Target Player",
-        Values = {},
-        Default = "",
-})
 
 FunAttach:AddToggle("HideBeneathToggle", {
         Text = "Hide Beneath",
@@ -555,6 +556,41 @@ TeleportGroup:AddButton({
 		end
 	end,
 })
+
+local ResetTeleportGroup = Tabs.Main:AddRightGroupbox("Reset Character(reset then teleport)", "refresh-cw")
+
+ResetTeleportGroup:AddToggle("ResetCharacter", {
+	Text = "Reset Character",
+	Default = false,
+})
+
+Toggles.ResetCharacter:OnChanged(function()
+	if Toggles.ResetCharacter.Value then
+		local root = getRootPart()
+		if root then
+			lastDeathPosition = root.Position
+			shouldTeleportBack = true
+		end
+		
+		local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
+		if remoteInterface then
+			local characterFolder = remoteInterface:FindFirstChild("character")
+			if characterFolder then
+				local resetRemote = characterFolder:FindFirstChild("reset")
+				if resetRemote then
+					pcall(function()
+						resetRemote:InvokeServer()
+					end)
+				end
+			end
+		end
+		
+		task.spawn(function()
+			task.wait(0.5)
+			Toggles.ResetCharacter:SetValue(false)
+		end)
+	end
+end)
 
 MainLeft:AddToggle("InfiniteBackpack", {
 	Text = "Infinite Backpack",
@@ -1260,6 +1296,14 @@ end
 track("CharacterModuleRespawn", LocalPlayer.CharacterAdded:Connect(function()
 	task.wait(1)
 	applyCharacterModuleToggles()
+	if shouldTeleportBack and lastDeathPosition then
+		shouldTeleportBack = false
+		local root = getRootPart()
+		if root then
+			root.CFrame = CFrame.new(lastDeathPosition + Vector3.new(0, 3, 0))
+			Library:Notify({ Title = "Reset & Teleport", Description = "Teleported back to last location!", Time = 2 })
+		end
+	end
 end))
 
 -- No Boss Damage Hook Setup
@@ -1500,7 +1544,7 @@ CombatAimbot:AddToggle("InfiniteDistance", {
 	Default = false,
 })
 
-local CombatReach = Tabs.Combat:AddRightGroupbox("Reach", "expand")
+local CombatReach = Tabs.Combat:AddRightGroupbox("Advance Reach", "expand")
 
 CombatReach:AddToggle("Reach", {
 	Text = "Reach",
@@ -3778,6 +3822,9 @@ VisualLeft:AddToggle("ShowBox", {
 VisualLeft:AddToggle("OutlineESP", {
 	Text = "Outline ESP",
 	Default = false,
+}):AddColorPicker("OutlineESPColor", {
+	Default = Color3.fromRGB(255, 255, 255),
+	Title = "Outline ESP Color",
 })
 
 
@@ -3886,7 +3933,7 @@ local function createESP(player)
 
 	local highlight = Instance.new("Highlight")
 	highlight.FillColor = Color3.fromRGB(255, 255, 255)
-	highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+	highlight.OutlineColor = Options.OutlineESPColor.Value
 	highlight.FillTransparency = 1
 	highlight.OutlineTransparency = 0
 	highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
@@ -4024,6 +4071,16 @@ Toggles.PlayerESP:OnChanged(function()
 			end)
 		end
 	end))
+end)
+
+Options.OutlineESPColor:OnChanged(function()
+	local color = Options.OutlineESPColor.Value
+	for _, objects in pairs(espObjects) do
+		local highlight = objects[5]
+		if highlight and typeof(highlight) == "Instance" and highlight:IsA("Highlight") then
+			highlight.OutlineColor = color
+		end
+	end
 end)
 
 
