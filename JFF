@@ -3014,13 +3014,6 @@ OreFarm:AddButton({
    end,
 })
 
-local FarmDupe = Tabs.Farming:AddRightGroupbox("DUPE ITEMS", "copy")
-
-FarmDupe:AddToggle("Multiplier", {
-   Text = "Multiplier",
-   Default = false,
-})
-
 -- ==========================================
 -- In Obsidian, AddColorPicker is chained off a Label or Toggle
 FarmRight:AddLabel("Fill Color"):AddColorPicker("AuraFillColor", {
@@ -3413,85 +3406,6 @@ for _, merchant in ipairs(merchantTeleports) do
 			else
 				Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
 			end
-local TeleportWaypoint = Tabs.Teleport:AddRightGroupbox("Waypoint", "map-pin")
-
-TeleportWaypoint:AddInput("WaypointName", {
-	Text = "Waypoint Name",
-	Default = "",
-	Placeholder = "Enter waypoint name...",
-})
-
-TeleportWaypoint:AddDropdown("WaypointList", {
-	Values = {},
-	Default = "",
-	Text = "Saved Waypoints",
-})
-
-local waypoints = {}
-local function updateWaypointDropdown()
-	local list = {}
-	for name in pairs(waypoints) do
-		table.insert(list, "ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬ ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â°ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬ ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬ ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬ ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âµ " .. name)
-	end
-	table.sort(list)
-	Options.WaypointList:SetValues(list)
-	if #list > 0 then
-		Options.WaypointList:SetValue(list[1])
-	else
-		Options.WaypointList:SetValue("")
-	end
-end
-
-TeleportWaypoint:AddButton({
-	Text = "Add Waypoint",
-	Func = function()
-		local name = Options.WaypointName.Value
-		if not name or name == "" then
-			Library:Notify({ Title = "Waypoint", Description = "Please enter a name first.", Time = 3 })
-			return
-		end
-		local root = getRootPart()
-		if not root then
-			Library:Notify({ Title = "Waypoint", Description = "Character root not found.", Time = 3 })
-			return
-		end
-		waypoints[name] = root.CFrame
-		updateWaypointDropdown()
-		Library:Notify({ Title = "Waypoint", Description = "Added waypoint: " .. name, Time = 2 })
-	end,
-})
-
-TeleportWaypoint:AddButton({
-	Text = "Delete Waypoint",
-	Func = function()
-		local selected = Options.WaypointList.Value
-		if not selected or selected == "" then
-			Library:Notify({ Title = "Waypoint", Description = "No waypoint selected.", Time = 3 })
-			return
-		end
-		local name = selected:sub(5)
-		if waypoints[name] then
-			waypoints[name] = nil
-			updateWaypointDropdown()
-			Library:Notify({ Title = "Waypoint", Description = "Deleted waypoint: " .. name, Time = 2 })
-		end
-	end,
-})
-
-Options.WaypointList:OnChanged(function()
-	local selected = Options.WaypointList.Value
-	if not selected or selected == "" then return end
-	local name = selected:sub(5)
-	local cf = waypoints[name]
-	if cf then
-		local root = getRootPart()
-		if root then
-			root.CFrame = cf
-			Library:Notify({ Title = "Waypoint", Description = "Teleported to " .. name, Time = 2 })
-		end
-	end
-end)
-
 -- ==========================================
 -- VISUALS
 -- ==========================================
@@ -4345,30 +4259,6 @@ Toggles.PlusFlingPlayerToggle:OnChanged(function()
 	end
 end)
 
--- Dupe Items Script Logic
-Toggles.Multiplier:OnChanged(function()
-   disconnect("DupeDropTrack")
-   if Toggles.Multiplier.Value then
-           Library:Notify({ Title = "DUPE ITEMS", Description = "Multiplier Active! Drop any item in your hand to dupe it.", Time = 4 })
-
-           track("DupeDropTrack", CollectionService:GetInstanceAddedSignal("DROPPED_ITEM"):Connect(function(itemPart)
-                   if not Toggles.Multiplier.Value then return end
-                   task.wait()
-                   if itemPart:IsA("BasePart") then
-                           local root = getRootPart()
-                           if root and (itemPart.Position - root.Position).Magnitude < 15 then
-                                   for i = 1, 15 do
-                                           task.spawn(pcall, function()
-                                                   TSG.PickupRemote:FireServer(itemPart)
-                                           end)
-                                   end
-                                   Library:Notify({ Title = "DUPE ITEMS", Description = "Attempted to multiply item!", Time = 2 })
-                           end
-                   end
-           end))
-   end
-end)
-
 -- Spectate Script Logic
 local function updateSpectatePlayerList()
 	local list = {}
@@ -5111,9 +5001,6 @@ Library:OnUnload(function()
 	if Toggles.CrawlerToggle and Toggles.CrawlerToggle.Value then
 		Toggles.CrawlerToggle:SetValue(false)
 	end
-   if Toggles.Multiplier and Toggles.Multiplier.Value then
-           Toggles.Multiplier:SetValue(false)
-   end
 	if Toggles.ShadowTheGoat and Toggles.ShadowTheGoat.Value then
 		Toggles.ShadowTheGoat:SetValue(false)
 	end
