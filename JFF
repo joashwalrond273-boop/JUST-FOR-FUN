@@ -3407,7 +3407,7 @@ for _, loc in ipairs(extraLocations) do
 end
 
 -- Extra Locations Groupbox
-local ResetTeleportGroup = Tabs.Teleport:AddRightGroupbox("Reset the TP", "refresh-cw")
+local ResetTeleportGroup = Tabs.Teleport:AddRightGroupbox("Trick Spawn", "refresh-cw")
 
 ResetTeleportGroup:AddToggle("ResetCharacter", {
 	Text = "Reset Character",
@@ -3802,11 +3802,17 @@ VisualFPS:AddToggle("StretchedRES", {
 VisualLeft:AddToggle("PlayerESP", {
 	Text = "Player ESP",
 	Default = false,
+}):AddColorPicker("PlayerESPColor", {
+	Default = Color3.fromRGB(255, 255, 255),
+	Title = "Player ESP Color",
 })
 
 VisualLeft:AddToggle("ShowDistance", {
 	Text = "Show Distance",
 	Default = true,
+}):AddColorPicker("ShowDistanceColor", {
+	Default = Color3.fromRGB(255, 255, 255),
+	Title = "Show Distance Color",
 })
 
 VisualLeft:AddToggle("ShowHealth", {
@@ -3817,11 +3823,17 @@ VisualLeft:AddToggle("ShowHealth", {
 VisualLeft:AddToggle("ShowTracers", {
 	Text = "Show Tracers",
 	Default = false,
+}):AddColorPicker("ShowTracersColor", {
+	Default = Color3.fromRGB(192, 192, 192),
+	Title = "Show Tracers Color",
 })
 
 VisualLeft:AddToggle("ShowBox", {
 	Text = "Show Box",
 	Default = false,
+}):AddColorPicker("ShowBoxColor", {
+	Default = Color3.fromRGB(192, 192, 192),
+	Title = "Show Box Color",
 })
 
 VisualLeft:AddToggle("OutlineESP", {
@@ -3923,8 +3935,9 @@ local function createESP(player)
 	label.BackgroundTransparency = 1
 	label.TextColor3 = Color3.new(1, 1, 1)
 	label.TextStrokeTransparency = 0.5
-   label.Font = Enum.Font.Jura
+	label.Font = Enum.Font.Jura
 	label.TextSize = 14
+	label.RichText = true
 	label.Parent = billboard
 
 	local tracer = nil
@@ -3991,6 +4004,7 @@ local function createESP(player)
 			if shouldShow and onScreen and Toggles.ShowBox and Toggles.ShowBox.Value then
 				box2d.Position = Vector2.new(screenPos.X - width / 2, topCoords.Y)
 				box2d.Size = Vector2.new(width, height)
+				box2d.Color = Options.ShowBoxColor.Value
 				box2d.Visible = true
 			else
 				box2d.Visible = false
@@ -4020,9 +4034,15 @@ local function createESP(player)
 		end
 
 		billboard.Enabled = shouldShow
-		local text = player.Name
+		
+		local nameColor = Options.PlayerESPColor.Value
+		local nameHex = string.format("#%02X%02X%02X", math.floor(nameColor.R * 255), math.floor(nameColor.G * 255), math.floor(nameColor.B * 255))
+		local text = string.format("<font color=\"%s\">%s</font>", nameHex, player.Name)
+		
 		if Toggles.ShowDistance.Value then
-			text ..= string.format("\n%.0fm", dist)
+			local distColor = Options.ShowDistanceColor.Value
+			local distHex = string.format("#%02X%02X%02X", math.floor(distColor.R * 255), math.floor(distColor.G * 255), math.floor(distColor.B * 255))
+			text ..= string.format("\n<font color=\"%s\">%.0fm</font>", distHex, dist)
 		end
 		label.Text = text
 
@@ -4030,6 +4050,7 @@ local function createESP(player)
 			if onScreen then
 				tracer.From = Vector2.new(workspace.CurrentCamera.ViewportSize.X / 2, workspace.CurrentCamera.ViewportSize.Y)
 				tracer.To = Vector2.new(screenPos.X, screenPos.Y)
+				tracer.Color = Options.ShowTracersColor.Value
 				tracer.Visible = true
 			else
 				tracer.Visible = false
