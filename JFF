@@ -2386,6 +2386,15 @@ MoveFaze:AddToggle("FakeLag", {
 	Default = false,
 })
 
+MoveFaze:AddSlider("FakeLagValue", {
+	Text = "Fake Lag Limit",
+	Default = 50,
+	Min = 0,
+	Max = 100,
+	Rounding = 0,
+	Compact = false,
+})
+
 MoveFaze:AddToggle("Xray", {
 	Text = "Xray",
 	Default = false,
@@ -2523,8 +2532,9 @@ Toggles.FakeLag:OnChanged(function()
 			if not hrp then
 				return
 			end
-			-- Stutter fake lag: randomly anchor and unanchor
-			if math.random() > 0.5 then
+			-- Stutter fake lag: randomly anchor and unanchor based on the slider value
+			local limit = Options.FakeLagValue.Value / 100
+			if math.random() > (1 - limit) then
 				hrp.Anchored = true
 			else
 				hrp.Anchored = false
@@ -3383,35 +3393,8 @@ for _, loc in ipairs(extraLocations) do
 	})
 end
 
--- Merchants Groupbox
-local MerchantsGroup = Tabs.Teleport:AddRightGroupbox("Merchants", "map-pin")
-
-local merchantTeleports = {
-	{ name = "Mainland",   pos = Vector3.new(-144.60, 25.26, 429.38)    },
-	{ name = "Desert",     pos = Vector3.new(1428.14, 25.26, -593.17)   },
-	{ name = "Asia",       pos = Vector3.new(-744.10, 329.20, 7134.18)  },
-	{ name = "Arctic",     pos = Vector3.new(-1251.90, 25.25, -1997.17) },
-	{ name = "Below Main", pos = Vector3.new(-166.28, 25.26, -1043.86)  },
-	{ name = "Secret",     pos = Vector3.new(-1171.82, 24.40, 90.70)    },
-}
-
-for _, merchant in ipairs(merchantTeleports) do
-	MerchantsGroup:AddButton({
-		Text = merchant.name,
-		Func = function()
-			local root = getRootPart()
-			if root then
-				root.CFrame = CFrame.new(merchant.pos)
-				Library:Notify({ Title = "Teleport", Description = "Teleported to " .. merchant.name, Time = 1.5 })
-			else
-				Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
-			end
-		end,
-	})
-end
-
 -- Extra Locations Groupbox
-local TeleportRight = Tabs.Teleport:AddRightGroupbox("Extra Locations", "map-pin")
+local TeleportRight = Tabs.Teleport:AddRightGroupbox("Click Teleport", "map-pin")
 
 local clickTpActive = false
 local clickTpBtn = nil
@@ -3452,6 +3435,35 @@ pcall(function()
 	Library:RemoveFromRegistry(clickTpBtn.Label)
 	clickTpBtn.Label.TextColor3 = Color3.fromRGB(0, 120, 255)
 end)
+
+-- Merchants Groupbox
+local MerchantsGroup = Tabs.Teleport:AddRightGroupbox("Merchants", "map-pin")
+
+local merchantTeleports = {
+	{ name = "Mainland",   pos = Vector3.new(-144.60, 25.26, 429.38)    },
+	{ name = "Desert",     pos = Vector3.new(1428.14, 25.26, -593.17)   },
+	{ name = "Asia",       pos = Vector3.new(-744.10, 329.20, 7134.18)  },
+	{ name = "Arctic",     pos = Vector3.new(-1251.90, 25.25, -1997.17) },
+	{ name = "Below Main", pos = Vector3.new(-166.28, 25.26, -1043.86)  },
+	{ name = "Secret",     pos = Vector3.new(-1171.82, 24.40, 90.70)    },
+}
+
+for _, merchant in ipairs(merchantTeleports) do
+	MerchantsGroup:AddButton({
+		Text = merchant.name,
+		Func = function()
+			local root = getRootPart()
+			if root then
+				root.CFrame = CFrame.new(merchant.pos)
+				Library:Notify({ Title = "Teleport", Description = "Teleported to " .. merchant.name, Time = 1.5 })
+			else
+				Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
+			end
+		end,
+	})
+end
+
+
 
 -- ==========================================
 -- VISUALS
@@ -3791,6 +3803,15 @@ VisualEnv:AddToggle("InfiniteZoom", {
 	Default = false,
 })
 
+VisualEnv:AddSlider("ControlTheHours", {
+	Text = "Control The Hours",
+	Default = 12,
+	Min = 0,
+	Max = 24,
+	Rounding = 1,
+	Compact = false,
+})
+
 VisualRight:AddSlider("ESPDistance", {
 	Text = "Max Distance",
 	Default = 500,
@@ -4058,6 +4079,18 @@ Toggles.InfiniteZoom:OnChanged(function()
 		LocalPlayer.CameraMaxZoomDistance = 400
 		LocalPlayer.CameraMinZoomDistance = 0.5
 	end
+end)
+
+Options.ControlTheHours:OnChanged(function()
+	if Toggles.AlwaysDay.Value or Toggles.Midday.Value or Toggles.AlwaysNight.Value then
+		Toggles.AlwaysDay:SetValue(false)
+		Toggles.Midday:SetValue(false)
+		Toggles.AlwaysNight:SetValue(false)
+	end
+	disconnect("EnvironmentTime")
+	track("EnvironmentTime", RunService.Heartbeat:Connect(function()
+		game:GetService("Lighting").ClockTime = Options.ControlTheHours.Value
+	end))
 end)
  
 -- ==========================================
