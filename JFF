@@ -557,40 +557,7 @@ TeleportGroup:AddButton({
 	end,
 })
 
-local ResetTeleportGroup = Tabs.Main:AddRightGroupbox("Reset Character(reset then teleport)", "refresh-cw")
 
-ResetTeleportGroup:AddToggle("ResetCharacter", {
-	Text = "Reset Character",
-	Default = false,
-})
-
-Toggles.ResetCharacter:OnChanged(function()
-	if Toggles.ResetCharacter.Value then
-		local root = getRootPart()
-		if root then
-			lastDeathPosition = root.Position
-			shouldTeleportBack = true
-		end
-		
-		local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
-		if remoteInterface then
-			local characterFolder = remoteInterface:FindFirstChild("character")
-			if characterFolder then
-				local resetRemote = characterFolder:FindFirstChild("reset")
-				if resetRemote then
-					pcall(function()
-						resetRemote:InvokeServer()
-					end)
-				end
-			end
-		end
-		
-		task.spawn(function()
-			task.wait(0.5)
-			Toggles.ResetCharacter:SetValue(false)
-		end)
-	end
-end)
 
 MainLeft:AddToggle("InfiniteBackpack", {
 	Text = "Infinite Backpack",
@@ -1496,12 +1463,14 @@ CombatAutoSwing:AddToggle("AutoHop", {
 	Default = false,
 })
 
-CombatAutoSwing:AddToggle("SwordBot", {
-	Text = "Sword Bot (Use with caution)",
+local CombatSwordBot = Tabs.Combat:AddLeftGroupbox("Sword Bot", "swords")
+
+CombatSwordBot:AddToggle("SwordBot", {
+	Text = "Sword Hunter",
 	Default = false,
 })
 
-CombatAutoSwing:AddDropdown("ChooseVictim", {
+CombatSwordBot:AddDropdown("ChooseVictim", {
 	Text = "Choose a Victim",
 	Values = {},
 	Default = "",
@@ -3436,6 +3405,42 @@ for _, loc in ipairs(extraLocations) do
 		end,
 	})
 end
+
+-- Extra Locations Groupbox
+local ResetTeleportGroup = Tabs.Teleport:AddRightGroupbox("Reset the TP", "refresh-cw")
+
+ResetTeleportGroup:AddToggle("ResetCharacter", {
+	Text = "Reset Character",
+	Default = false,
+})
+
+Toggles.ResetCharacter:OnChanged(function()
+	if Toggles.ResetCharacter.Value then
+		local root = getRootPart()
+		if root then
+			lastDeathPosition = root.Position
+			shouldTeleportBack = true
+		end
+		
+		local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
+		if remoteInterface then
+			local characterFolder = remoteInterface:FindFirstChild("character")
+			if characterFolder then
+				local resetRemote = characterFolder:FindFirstChild("reset")
+				if resetRemote then
+					pcall(function()
+						resetRemote:InvokeServer()
+					end)
+				end
+			end
+		end
+		
+		task.spawn(function()
+			task.wait(0.5)
+			Toggles.ResetCharacter:SetValue(false)
+		end)
+	end
+end)
 
 -- Extra Locations Groupbox
 local TeleportRight = Tabs.Teleport:AddRightGroupbox("Click Teleport", "map-pin")
