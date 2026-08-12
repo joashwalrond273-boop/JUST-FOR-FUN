@@ -3766,6 +3766,91 @@ VisualFPS:AddToggle("LowTextures", {
 	end,
 })
 
+VisualFPS:AddToggle("PotatoGraphics", {
+	Text = "Potato Graphics",
+	Default = false,
+	Callback = function(state)
+		if state then
+			pcall(function()
+				local lighting = game:GetService("Lighting")
+				lighting.GlobalShadows = false
+				lighting.ShadowMapEnabled = false
+			end)
+			pcall(function()
+				for _, v in ipairs(game:GetService("Lighting"):GetChildren()) do
+					if v:IsA("Sky") or v:IsA("Atmosphere") or v:IsA("Clouds") or v:IsA("SunRaysEffect") then
+						v:Destroy()
+					end
+				end
+				local sky = Instance.new("Sky")
+				sky.Name = "PotatoSky"
+				sky.SkyboxBk = "rbxassetid://10143118933"
+				sky.SkyboxDn = "rbxassetid://10143118933"
+				sky.SkyboxFt = "rbxassetid://10143118933"
+				sky.SkyboxLf = "rbxassetid://10143118933"
+				sky.SkyboxRt = "rbxassetid://10143118933"
+				sky.SkyboxUp = "rbxassetid://10143118933"
+				sky.SunTextureId = ""
+				sky.MoonTextureId = ""
+				sky.Parent = game:GetService("Lighting")
+			end)
+			pcall(function()
+				setPlayerShadows(false)
+			end)
+			track("PotatoGraphicsShadows", game:GetService("Players").PlayerAdded:Connect(function(player)
+				player.CharacterAdded:Connect(function(char)
+					task.wait(1)
+					for _, part in ipairs(char:GetDescendants()) do
+						if part:IsA("BasePart") then
+							pcall(function() part.CastShadow = false end)
+						end
+					end
+				end)
+			end))
+			
+			local allDescendants = workspace:GetDescendants()
+			for i = 1, #allDescendants, 100 do
+				task.wait()
+				for j = i, math.min(i + 99, #allDescendants) do
+					local v = allDescendants[j]
+					if v then
+						if v:IsA("BasePart") or v:IsA("MeshPart") then
+							pcall(function() 
+								v.Material = Enum.Material.Plastic 
+								v.CastShadow = false
+							end)
+						elseif v:IsA("Texture") or v:IsA("Decal") then
+							pcall(function() v:Destroy() end)
+						end
+					end
+				end
+			end
+			track("PotatoGraphics", workspace.DescendantAdded:Connect(function(v)
+				if Toggles.PotatoGraphics.Value then
+					if v:IsA("BasePart") or v:IsA("MeshPart") then
+						pcall(function() 
+							v.Material = Enum.Material.Plastic 
+							v.CastShadow = false
+						end)
+					elseif v:IsA("Texture") or v:IsA("Decal") then
+						pcall(function() v:Destroy() end)
+					end
+				end
+			end))
+		else
+			disconnect("PotatoGraphics")
+			disconnect("PotatoGraphicsShadows")
+			pcall(function()
+				local lighting = game:GetService("Lighting")
+				lighting.GlobalShadows = true
+			end)
+			pcall(function()
+				setPlayerShadows(true)
+			end)
+		end
+	end,
+})
+
 
 
 VisualFPS:AddToggle("DisableEffects", {
