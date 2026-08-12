@@ -1463,6 +1463,11 @@ CombatAutoSwing:AddToggle("AutoHop", {
 	Default = false,
 })
 
+CombatAutoSwing:AddToggle("AutoShiftlock", {
+	Text = "+ Auto Shiftlock",
+	Default = false,
+})
+
 local CombatSwordBot = Tabs.Combat:AddLeftGroupbox("Sword Bot", "swords")
 
 CombatSwordBot:AddToggle("SwordBot", {
@@ -1565,37 +1570,38 @@ local function updateAutoShield()
 	local root = getRootPart()
 	if not root then return end
 	
-	-- Shield non-stop: continuously fire setShield(true)
-	if tick() - lastShieldFire > 0.1 then
-		lastShieldFire = tick()
-		pcall(function()
-			game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(true)
-		end)
-	end
-	isShielding = true
-
-	-- Find the closest enemy to face them (works behind us)
-	local closestPlayer = nil
-	local closestDist = 25 -- Radius for facing
-
+	local shouldShield = false
+	local checkDistance = 18
+	
 	for _, player in ipairs(Players:GetPlayers()) do
 		if player ~= LocalPlayer and player.Character then
 			local targetRoot = player.Character:FindFirstChild("HumanoidRootPart")
 			local hum = player.Character:FindFirstChildOfClass("Humanoid")
 			if targetRoot and hum and hum.Health > 0 then
 				local dist = (targetRoot.Position - root.Position).Magnitude
-				if dist <= closestDist then
-					closestDist = dist
-					closestPlayer = targetRoot
+				if dist <= checkDistance then
+					shouldShield = true
+					break
 				end
 			end
 		end
 	end
-
-	-- Face the attacker/closest player
-	if closestPlayer then
-		local flatTargetPos = Vector3.new(closestPlayer.Position.X, root.Position.Y, closestPlayer.Position.Z)
-		root.CFrame = CFrame.lookAt(root.Position, flatTargetPos)
+	
+	if shouldShield then
+		if tick() - lastShieldFire > 0.05 then
+			lastShieldFire = tick()
+			pcall(function()
+				game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(true)
+			end)
+		end
+		isShielding = true
+	else
+		if isShielding then
+			isShielding = false
+			pcall(function()
+				game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(false)
+			end)
+		end
 	end
 end
 
@@ -1993,7 +1999,7 @@ Toggles.AutoSwing:OnChanged(function()
 	if Toggles.AutoSwing.Value then
 		_G.T = true
 		track("AutoSwing", RunService.Heartbeat:Connect(function()
-                   local delay = 0.2
+                   local delay = 0.1
 			if _G.T and tick() - lastAutoSwing >= delay then
 				local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
 				if tool then
@@ -2059,6 +2065,37 @@ Toggles.AutoHop:OnChanged(function()
 			hum.JumpHeight = hum:GetAttribute("OrigJumpHeight") or hum.JumpHeight
 			hum:SetAttribute("JumpAdjusted", nil)
 		end
+	end
+end)
+
+Toggles.AutoShiftlock:OnChanged(function()
+	disconnect("AutoShiftlock")
+	if Toggles.AutoShiftlock.Value then
+		track("AutoShiftlock", RunService.Heartbeat:Connect(function()
+			if not isAlive() then return end
+			local root = getRootPart()
+			if not root then return end
+			
+			local playerNearby = false
+			local pos = root.Position
+			for _, otherPlayer in ipairs(Players:GetPlayers()) do
+				if otherPlayer ~= LocalPlayer and otherPlayer.Character then
+					local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
+					local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
+					if otherRoot and otherHum and otherHum.Health > 0 then
+						local dist = (otherRoot.Position - pos).Magnitude
+						if dist <= 20 then
+							playerNearby = true
+							break
+						end
+					end
+				end
+			end
+			
+			if playerNearby then
+				game:GetService("UserInputService").MouseBehavior = Enum.MouseBehavior.LockCenter
+			end
+		end))
 	end
 end)
 
@@ -4184,7 +4221,7 @@ local function createESP(player)
 
 		if tracer and Toggles.ShowTracers.Value then
 			if onScreen then
-				tracer.From = Vector2.new(workspace.CurrentCamera.ViewportSize.X / 2, workspace.CurrentCamera.ViewportSize.Y)
+				tracer.From = Vector2.new(workspace.CurrentCamera.ViewportSize.X / 2, workspace.CurrentCamera.ViewportSize.Y / 2)
 				tracer.To = Vector2.new(screenPos.X, screenPos.Y)
 				tracer.Color = Options.ShowTracersColor.Value
 				tracer.Visible = true
