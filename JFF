@@ -3784,12 +3784,12 @@ VisualFPS:AddToggle("PotatoGraphics", {
 				end
 				local sky = Instance.new("Sky")
 				sky.Name = "PotatoSky"
-				sky.SkyboxBk = "rbxassetid://10143118933"
-				sky.SkyboxDn = "rbxassetid://10143118933"
-				sky.SkyboxFt = "rbxassetid://10143118933"
-				sky.SkyboxLf = "rbxassetid://10143118933"
-				sky.SkyboxRt = "rbxassetid://10143118933"
-				sky.SkyboxUp = "rbxassetid://10143118933"
+				sky.SkyboxBk = "rbxassetid://256193683"
+				sky.SkyboxDn = "rbxassetid://256193683"
+				sky.SkyboxFt = "rbxassetid://256193683"
+				sky.SkyboxLf = "rbxassetid://256193683"
+				sky.SkyboxRt = "rbxassetid://256193683"
+				sky.SkyboxUp = "rbxassetid://256193683"
 				sky.SunTextureId = ""
 				sky.MoonTextureId = ""
 				sky.Parent = game:GetService("Lighting")
