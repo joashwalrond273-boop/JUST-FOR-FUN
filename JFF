@@ -1520,6 +1520,12 @@ CombatReach:AddToggle("Reach", {
 	Default = false,
 })
 
+CombatReach:AddDropdown("AdvancePreset", {
+	Text = "Advance PRESET",
+	Values = { "Sword", "Spear" },
+	Default = "",
+})
+
 
 CombatReach:AddSlider("ReachRange", {
 	Text = "Reach Range",
@@ -2272,6 +2278,20 @@ end)
 Toggles.Reach:OnChanged(function()
 	if Toggles.Reach.Value then
 		Library:Notify({ Title = "Reach", Description = "Enabled", Time = 2 })
+	end
+end)
+
+Options.AdvancePreset:OnChanged(function()
+	local val = Options.AdvancePreset.Value
+	local slider = Options.ReachRange
+	if slider then
+		if val == "Sword" then
+			slider:SetValue(11)
+			Library:Notify({ Title = "Advance Preset", Description = "Preset: Sword (11) applied!", Time = 2 })
+		elseif val == "Spear" then
+			slider:SetValue(13)
+			Library:Notify({ Title = "Advance Preset", Description = "Preset: Spear (13) applied!", Time = 2 })
+		end
 	end
 end)
 
