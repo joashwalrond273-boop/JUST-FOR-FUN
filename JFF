@@ -1565,38 +1565,37 @@ local function updateAutoShield()
 	local root = getRootPart()
 	if not root then return end
 	
-	local shouldShield = false
-	local checkDistance = 18
-	
+	-- Shield non-stop: continuously fire setShield(true)
+	if tick() - lastShieldFire > 0.1 then
+		lastShieldFire = tick()
+		pcall(function()
+			game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(true)
+		end)
+	end
+	isShielding = true
+
+	-- Find the closest enemy to face them (works behind us)
+	local closestPlayer = nil
+	local closestDist = 25 -- Radius for facing
+
 	for _, player in ipairs(Players:GetPlayers()) do
 		if player ~= LocalPlayer and player.Character then
 			local targetRoot = player.Character:FindFirstChild("HumanoidRootPart")
 			local hum = player.Character:FindFirstChildOfClass("Humanoid")
 			if targetRoot and hum and hum.Health > 0 then
 				local dist = (targetRoot.Position - root.Position).Magnitude
-				if dist <= checkDistance then
-					shouldShield = true
-					break
+				if dist <= closestDist then
+					closestDist = dist
+					closestPlayer = targetRoot
 				end
 			end
 		end
 	end
-	
-	if shouldShield then
-		if tick() - lastShieldFire > 0.05 then
-			lastShieldFire = tick()
-			pcall(function()
-				game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(true)
-			end)
-		end
-		isShielding = true
-	else
-		if isShielding then
-			isShielding = false
-			pcall(function()
-				game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(false)
-			end)
-		end
+
+	-- Face the attacker/closest player
+	if closestPlayer then
+		local flatTargetPos = Vector3.new(closestPlayer.Position.X, root.Position.Y, closestPlayer.Position.Z)
+		root.CFrame = CFrame.lookAt(root.Position, flatTargetPos)
 	end
 end
 
@@ -1994,7 +1993,7 @@ Toggles.AutoSwing:OnChanged(function()
 	if Toggles.AutoSwing.Value then
 		_G.T = true
 		track("AutoSwing", RunService.Heartbeat:Connect(function()
-                   local delay = 1 / 20
+                   local delay = 0.2
 			if _G.T and tick() - lastAutoSwing >= delay then
 				local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
 				if tool then
