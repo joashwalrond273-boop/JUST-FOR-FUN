@@ -2464,6 +2464,11 @@ MoveSwimBoost:AddSlider("SwimBoostValue", {
 	Max = 100,
 	Rounding = 1,
 })
+
+MoveSwimBoost:AddToggle("SinkFastPVP", {
+	Text = "Sink Fast PVP",
+	Default = false,
+})
 local MoveSwingSpeed = Tabs.Movement:AddLeftGroupbox("Swing Speed", "swords")
 
 MoveSwingSpeed:AddToggle("SwingSpeedToggle", {
@@ -2631,6 +2636,32 @@ end)
 Toggles.SwimBoost:OnChanged(function()
 	if Toggles.SwimBoost.Value then
 		Library:Notify({ Title = "Swim Boost", Description = "Enabled", Time = 2 })
+	end
+end)
+
+Toggles.SinkFastPVP:OnChanged(function()
+	disconnect("SinkFastPVP")
+	if Toggles.SinkFastPVP.Value then
+		track("SinkFastPVP", RunService.Heartbeat:Connect(function()
+			local character = getCharacter()
+			local root = character and character:FindFirstChild("HumanoidRootPart")
+			local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+			if root and humanoid then
+				local isSwimming = humanoid:GetState() == Enum.HumanoidStateType.Swimming or character:GetAttribute("inWater")
+				if isSwimming then
+					if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) or UserInputService:IsKeyDown(Enum.KeyCode.C) then
+						root.AssemblyLinearVelocity = Vector3.new(
+							root.AssemblyLinearVelocity.X,
+							-45,
+							root.AssemblyLinearVelocity.Z
+						)
+					end
+				end
+			end
+		end))
+		Library:Notify({ Title = "Sink Fast PVP", Description = "Enabled", Time = 2 })
+	else
+		Library:Notify({ Title = "Sink Fast PVP", Description = "Disabled", Time = 2 })
 	end
 end)
 
