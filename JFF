@@ -4149,7 +4149,7 @@ local function createESP(player)
 
 	espObjects[player] = { box2d, billboard, label, tracer, highlight, healthBg, healthBar }
 
-	local function update()
+local function update()
 		local myRoot = getRootPart()
 		if not myRoot or not character.Parent then
 			if tracer then tracer.Visible = false end
@@ -4177,7 +4177,6 @@ local function createESP(player)
 			if shouldShow and onScreen and Toggles.ShowBox and Toggles.ShowBox.Value then
 				box2d.Position = Vector2.new(screenPos.X - width / 2, topCoords.Y)
 				box2d.Size = Vector2.new(width, height)
-				box2d.Color = Options.ShowBoxColor.Value
 				box2d.Visible = true
 			else
 				box2d.Visible = false
@@ -4207,23 +4206,16 @@ local function createESP(player)
 		end
 
 		billboard.Enabled = shouldShow
-		
-		local nameColor = Options.PlayerESPColor.Value
-		local nameHex = string.format("#%02X%02X%02X", math.floor(nameColor.R * 255), math.floor(nameColor.G * 255), math.floor(nameColor.B * 255))
-		local text = string.format("<font color=\"%s\">%s</font>", nameHex, player.Name)
-		
+		local text = player.Name
 		if Toggles.ShowDistance.Value then
-			local distColor = Options.ShowDistanceColor.Value
-			local distHex = string.format("#%02X%02X%02X", math.floor(distColor.R * 255), math.floor(distColor.G * 255), math.floor(distColor.B * 255))
-			text ..= string.format("\n<font color=\"%s\">%.0fm</font>", distHex, dist)
+			text ..= string.format("\n%.0fm", dist)
 		end
 		label.Text = text
 
 		if tracer and Toggles.ShowTracers.Value then
 			if onScreen then
-				tracer.From = Vector2.new(workspace.CurrentCamera.ViewportSize.X / 2, workspace.CurrentCamera.ViewportSize.Y / 2)
+				tracer.From = Vector2.new(workspace.CurrentCamera.ViewportSize.X / 2, workspace.CurrentCamera.ViewportSize.Y)
 				tracer.To = Vector2.new(screenPos.X, screenPos.Y)
-				tracer.Color = Options.ShowTracersColor.Value
 				tracer.Visible = true
 			else
 				tracer.Visible = false
