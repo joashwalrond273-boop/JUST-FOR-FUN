@@ -1528,6 +1528,12 @@ CombatReach:AddSlider("ReachRange", {
 	Rounding = 1,
 })
 
+CombatReach:AddDropdown("AdvancePreset", {
+	Text = "Advance PRESET",
+	Values = { "Sword", "Spear" },
+	Default = "",
+})
+
 
 
 local CombatAutoBlock = Tabs.Combat:AddRightGroupbox("Auto Block", "shield")
@@ -2271,6 +2277,15 @@ end)
 Toggles.Reach:OnChanged(function()
 	if Toggles.Reach.Value then
 		Library:Notify({ Title = "Reach", Description = "Enabled", Time = 2 })
+	end
+end)
+
+Options.AdvancePreset:OnChanged(function()
+	local val = Options.AdvancePreset.Value
+	if val == "Sword" then
+		Options.ReachRange:SetValue(11.5)
+	elseif val == "Spear" then
+		Options.ReachRange:SetValue(12.7)
 	end
 end)
 
