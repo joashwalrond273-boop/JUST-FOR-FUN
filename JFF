@@ -2,7 +2,7 @@
 -- Docs: https://docs.mspaint.cc/obsidian
 
 if getgenv().TSG_OBSIDIAN_LOADED then
-	return warn("[TSG] Script already loaded ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬ ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â rejoin to re-execute.")
+	return warn("[TSG] Script already loaded ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â rejoin to re-execute.")
 end
 getgenv().TSG_OBSIDIAN_LOADED = true
 
@@ -445,48 +445,7 @@ TeleportGroup:AddDropdown("TeleportPlayerList", {
 TeleportGroup:AddButton({
 	Text = "Teleport",
 	Func = function()
-		local player = game.Players.LocalPlayer
-		local savedName = Options.TeleportPlayerList.Value
-
-		local function notify(title, content, duration)
-			if Fluent and Fluent.Notify then
-				Fluent:Notify({ Title = title, Content = content, Duration = duration })
-			elseif Library and Library.Notify then
-				Library:Notify({ Title = title, Description = content, Time = duration })
-			end
-		end
-
-		if savedName == "" or not savedName then
-			notify("Tp Error", "Write a player name.", 5)
-			return
-		end
-
-		local matchedPlayers = {}
-
-		for _, targetPlayer in ipairs(game.Players:GetPlayers()) do
-			if targetPlayer ~= player and (targetPlayer.Name:lower():sub(1, #savedName) == savedName:lower() or targetPlayer.DisplayName:lower():sub(1, #savedName) == savedName:lower()) then
-				table.insert(matchedPlayers, targetPlayer)
-			end
-		end
-
-		if #matchedPlayers == 0 then
-			notify("Tp Error", "This player cant found on the server.", 5)
-			return
-		elseif #matchedPlayers > 1 then
-			notify("Tp Error", "There is multiple players with the same name.", 5)
-			return
-		end
-
-		local targetCharacter = matchedPlayers[1].Character
-
-		if not targetCharacter or not targetCharacter:FindFirstChild("Humanoid") or targetCharacter:FindFirstChild("Humanoid").Health <= 0 then
-			notify("Tp Error", "This player is not alive.", 5)
-			return
-		end
-
-		if targetCharacter:FindFirstChild("HumanoidRootPart") and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-			player.Character.HumanoidRootPart.CFrame = targetCharacter.HumanoidRootPart.CFrame + Vector3.new(0, 3, 0)
-		end
+		task.spawn(resetAndTeleport, Options.TeleportPlayerList.Value)
 	end,
 })
 
@@ -2127,6 +2086,7 @@ MoveSwimBoost:AddSlider("SwimBoostValue", {
 	Max = 100,
 	Rounding = 1,
 })
+
 local MoveSwingSpeed = Tabs.Movement:AddLeftGroupbox("Swing Speed", "swords")
 
 MoveSwingSpeed:AddToggle("SwingSpeedToggle", {
@@ -2535,24 +2495,6 @@ end
 local FarmRight = Tabs.Farming:AddRightGroupbox("Highlight Settings", "palette")
 
 -- ==========================================
-local BossFarm = Tabs.Farming:AddLeftGroupbox("Boss Farm", "sword")
-
-BossFarm:AddToggle("TitanAura", {
-	Text = "Titan Aura",
-	Default = false,
-})
-
-BossFarm:AddToggle("SamuraiAura", {
-	Text = "Samurai Aura",
-	Default = false,
-})
-
-BossFarm:AddToggle("JuggernautAura", {
-	Text = "Juggernaut Aura",
-	Default = false,
-})
-
--- ==========================================
 local FarmMine = Tabs.Farming:AddLeftGroupbox("Auto Mine", "pickaxe")
 
 FarmMine:AddToggle("AutoMine", {
@@ -2945,74 +2887,6 @@ Toggles.AiAura:OnChanged(function()
 	end
 end)
 
-Toggles.TitanAura:OnChanged(function()
-	disconnect("TitanAuraFloat")
-	if Toggles.TitanAura.Value then
-		track("TitanAuraFloat", RunService.Heartbeat:Connect(function()
-			if not isAlive() then return end
-			local root = getRootPart()
-			if not root then return end
-			root.Velocity = Vector3.new(root.Velocity.X, 0, root.Velocity.Z)
-			root.CFrame = CFrame.new(root.Position.X, 35, root.Position.Z) * root.CFrame.Rotation
-		end))
-		if Toggles.AiAura and not Toggles.AiAura.Value then
-			Toggles.AiAura:SetValue(true)
-		end
-		Library:Notify({ Title = "Titan Aura", Description = "Enabled", Time = 2 })
-	else
-		if Toggles.AiAura and Toggles.AiAura.Value then
-			Toggles.AiAura:SetValue(false)
-		end
-		Library:Notify({ Title = "Titan Aura", Description = "Disabled", Time = 2 })
-	end
-end)
-
-Toggles.SamuraiAura:OnChanged(function()
-	disconnect("SamuraiAuraFloat")
-	if Toggles.SamuraiAura.Value then
-		track("SamuraiAuraFloat", RunService.Heartbeat:Connect(function()
-			if not isAlive() then return end
-			local root = getRootPart()
-			if not root then return end
-			root.Velocity = Vector3.new(root.Velocity.X, 0, root.Velocity.Z)
-			root.CFrame = CFrame.new(root.Position.X, 528, root.Position.Z) * root.CFrame.Rotation
-		end))
-		if Toggles.AiAura and not Toggles.AiAura.Value then
-			Toggles.AiAura:SetValue(true)
-		end
-		Library:Notify({ Title = "Samurai Aura", Description = "Enabled", Time = 2 })
-	else
-		if Toggles.AiAura and Toggles.AiAura.Value then
-			Toggles.AiAura:SetValue(false)
-		end
-		Library:Notify({ Title = "Samurai Aura", Description = "Disabled", Time = 2 })
-	end
-end)
-
-Toggles.JuggernautAura:OnChanged(function()
-	disconnect("JuggernautAuraFloat")
-	if Toggles.JuggernautAura.Value then
-		track("JuggernautAuraFloat", RunService.Heartbeat:Connect(function()
-			if not isAlive() then return end
-			local root = getRootPart()
-			if not root then return end
-			root.Velocity = Vector3.new(root.Velocity.X, 0, root.Velocity.Z)
-			root.CFrame = CFrame.new(root.Position.X, 118, root.Position.Z) * root.CFrame.Rotation
-		end))
-		if Toggles.AiAura and not Toggles.AiAura.Value then
-			Toggles.AiAura:SetValue(true)
-		end
-		Library:Notify({ Title = "Juggernaut Aura", Description = "Enabled", Time = 2 })
-	else
-		if Toggles.AiAura and Toggles.AiAura.Value then
-			Toggles.AiAura:SetValue(false)
-		end
-		Library:Notify({ Title = "Juggernaut Aura", Description = "Disabled", Time = 2 })
-	end
-end)
-
-
-
 -- ==========================================
 -- TELEPORT
 -- ==========================================
@@ -3021,7 +2895,7 @@ local TeleportLeft = Tabs.Teleport:AddLeftGroupbox("Boss Locations", "map-pin")
 local bossTeleports = {
 	{ name = "Juggernaut", pos = Vector3.new(-1601.49, 108.01, -2890.59) },
 	{ name = "Titan",      pos = Vector3.new(1654.57,  23.20,  2312.14)  },
-	{ name = "Samurai",    pos = Vector3.new(-1727.48, 517.20, 7305.50)  },
+	{ name = "Samurai",    pos = Vector3.new(-1683.00, 524.00, 7246.00)  },
 	{ name = "Kraken",     pos = Vector3.new(802.42,   19.35,  -1999.35) },
 	{ name = "Spider",     pos = Vector3.new(-319.00,  -81.00, 420.00)   },
     { name = "Desert",     pos = Vector3.new(1459.50, 26.26, -204.70)    },
@@ -3263,7 +3137,7 @@ local waypoints = {}
 local function updateWaypointDropdown()
 	local list = {}
 	for name in pairs(waypoints) do
-		table.insert(list, "ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬ ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â°ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬ ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬ ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬ ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âµ " .. name)
+		table.insert(list, "ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬ ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â°ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âµ " .. name)
 	end
 	table.sort(list)
 	Options.WaypointList:SetValues(list)
@@ -3544,28 +3418,431 @@ VisualFPS:AddToggle("RemovePBR", {
 	end,
 })
 
-VisualFPS:AddToggle("StretchedRES", {
-	Text = "Stretched RES",
+local savedLighting = {
+	FogEnd = game:GetService("Lighting").FogEnd,
+	FogStart = game:GetService("Lighting").FogStart,
+	OutdoorAmbient = game:GetService("Lighting").OutdoorAmbient,
+	Ambient = game:GetService("Lighting").Ambient,
+	GlobalShadows = game:GetService("Lighting").GlobalShadows -- just in case
+}
+
+VisualFPS:AddToggle("UltraFPSBoost", {
+	Text = "Ultra FPS Boost",
 	Default = false,
 	Callback = function(state)
 		if state then
-			local Camera = workspace.CurrentCamera
-
-			if getgenv().StretchActive == nil then
-				track("StretchedRES", game:GetService("RunService").RenderStepped:Connect(function()
-					Camera.CFrame = Camera.CFrame * CFrame.new(0, 0, 0, 1, 0, 0, 0, 0.67, 0, 0, 0, 1)
-				end))
+			-- Optimize Lighting
+			local Lighting = game:GetService("Lighting")
+			Lighting.FogEnd = 200 -- Reduce fog draw distance
+			Lighting.FogStart = 100
+			Lighting.OutdoorAmbient = Color3.fromRGB(120, 120, 120)
+			Lighting.Ambient = Color3.fromRGB(100, 100, 100)
+			
+			-- Disable all particles and effects
+			local function disableEffects(v)
+				if v:IsA("ParticleEmitter") or v:IsA("Fire") or v:IsA("Smoke") or v:IsA("Sparkles") or v:IsA("Explosion") or v:IsA("Trail") then
+					pcall(function() v.Enabled = false end)
+				end
 			end
-
-			getgenv().StretchActive = true
-			Library:Notify({ Title = "Stretched RES", Description = "Enabled", Time = 2 })
+			
+			-- Apply to existing instances
+			local allDescendants = workspace:GetDescendants()
+			for i = 1, #allDescendants, 100 do
+				task.wait()
+				for j = i, math.min(i + 99, #allDescendants) do
+					disableEffects(allDescendants[j])
+				end
+			end
+			
+			-- Connect for new instances
+			track("UltraFPSBoost", workspace.DescendantAdded:Connect(function(v)
+				if Toggles.UltraFPSBoost.Value then
+					disableEffects(v)
+				end
+			end))
+			
+			Library:Notify({ Title = "Ultra FPS Boost", Description = "Enabled", Time = 2 })
 		else
-			disconnect("StretchedRES")
-			getgenv().StretchActive = nil
-			Library:Notify({ Title = "Stretched RES", Description = "Disabled", Time = 2 })
-		end
+			-- Restore Lighting
+			local Lighting = game:GetService("Lighting")
+			Lighting.FogEnd = savedLighting.FogEnd
+			Lighting.FogStart = savedLighting.FogStart
+			Lighting.OutdoorAmbient = savedLighting.OutdoorAmbient
+			Lighting.Ambient = savedLighting.Ambient
+			
+			disconnect("UltraFPSBoost")
+			Library:Notify({ Title = "Ultra FPS Boost", Description = "Disabled", Time = 2 })
 	end,
 })
+
+local VisualShaders = Tabs.Visuals:AddRightGroupbox("SHADERS", "palette")
+
+local ssrActive = false
+local mirrorY = 0
+local ssrWrappedParts = {}
+local ssrBasePart
+
+local skyPresets = {
+	{
+		Name = "Golden Sunset (Золотой закат)",
+		Time = 17.7,
+		Exposure = 0.55,
+		Ambient = Color3.fromRGB(30, 20, 15),
+		OutdoorAmbient = Color3.fromRGB(40, 25, 20),
+		Skybox = {
+			Bk = "rbxassetid://171560994",
+			Dn = "rbxassetid://171561019",
+			Ft = "rbxassetid://171560968",
+			Lf = "rbxassetid://171561065",
+			Rt = "rbxassetid://171561026",
+			Up = "rbxassetid://171561009"
+		}
+	},
+	{
+		Name = "Bright Daylight (Светлый день)",
+		Time = 13.0,
+		Exposure = 0.35,
+		Ambient = Color3.fromRGB(140, 140, 140), 
+		OutdoorAmbient = Color3.fromRGB(220, 220, 220),
+		Skybox = nil
+	},
+	{
+		Name = "Purple Nebula (Фиолетовый космос)",
+		Time = 0,
+		Exposure = 0.7,
+		Ambient = Color3.fromRGB(20, 10, 25),
+		OutdoorAmbient = Color3.fromRGB(25, 15, 35),
+		Skybox = {
+			Bk = "rbxassetid://171410628",
+			Dn = "rbxassetid://171410649",
+			Ft = "rbxassetid://171410620",
+			Lf = "rbxassetid://171410666",
+			Rt = "rbxassetid://171410657",
+			Up = "rbxassetid://171410636"
+		}
+	},
+	{
+		Name = "Cyberpunk Red (Красный киберпанк)",
+		Time = 18.0,
+		Exposure = 0.6,
+		Ambient = Color3.fromRGB(35, 10, 15),
+		OutdoorAmbient = Color3.fromRGB(45, 15, 20),
+		Skybox = {
+			Bk = "rbxassetid://12064107",
+			Dn = "rbxassetid://12064107",
+			Ft = "rbxassetid://12064107",
+			Lf = "rbxassetid://12064107",
+			Rt = "rbxassetid://12064107",
+			Up = "rbxassetid://12064107"
+		}
+	}
+}
+local currentPresetIndex = 1
+
+local function cleanPreviousLeftovers()
+	for _, item in ipairs(Workspace:GetChildren()) do
+		if item.Name == "RoShade_Base" or item.Name == "RoShade_Glass" or item.Name == "Physical_Mirror_Folder" or item.Name == "Global_SSR_Mirror_Plane" then
+			pcall(function() item:Destroy() end)
+		end
+	end
+	for _, part in ipairs(Workspace:GetDescendants()) do
+		if part.Name == "SSR_Reflective_Layer" then
+			pcall(function() part:Destroy() end)
+		end
+	end
+end
+
+local function clearReflections()
+	for part, clone in pairs(ssrWrappedParts) do
+		pcall(function() if clone then clone:Destroy() end end)
+	end
+	table.clear(ssrWrappedParts)
+end
+
+local function updateFloorHeight()
+	local character = LocalPlayer.Character
+	if not character then return end
+	local root = character:FindFirstChild("HumanoidRootPart")
+	if not root then return end
+	
+	local raycastParams = RaycastParams.new()
+	raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+	raycastParams.FilterDescendantsInstances = {character, Workspace:FindFirstChild("RoShade_Glass")}
+	
+	local result = Workspace:Raycast(root.Position, Vector3.new(0, -150, 0), raycastParams)
+	if result then
+		mirrorY = result.Position.Y
+		local distanceToGround = math.abs(root.Position.Y - mirrorY)
+		
+		if distanceToGround > 35 then
+			if ssrBasePart then ssrBasePart.Transparency = 1 end
+		else
+			if ssrBasePart then ssrBasePart.Transparency = 5 end
+		end
+	else
+		if ssrBasePart then ssrBasePart.Transparency = 1 end
+	end
+end
+
+local function updateFloor()
+	if not ssrActive then return end
+	if not ssrBasePart or not ssrBasePart.Parent then
+		ssrBasePart = Instance.new("Part")
+		ssrBasePart.Name = "RoShade_Glass"
+		ssrBasePart.Size = Vector3.new(1000, 0.1, 1000)
+		ssrBasePart.Material = Enum.Material.Glass
+		ssrBasePart.Transparency = 5 
+		ssrBasePart.Anchored = true
+		ssrBasePart.CanCollide = false
+		ssrBasePart.CanTouch = false
+		ssrBasePart.CanQuery = false
+		ssrBasePart.CastShadow = false
+		
+		local hl = Instance.new("Highlight")
+		hl.Name = "SSR_Highlight"
+		hl.FillTransparency = 1
+		hl.OutlineTransparency = 1
+		hl.Parent = ssrBasePart
+		
+		ssrBasePart.Parent = Workspace
+	end
+end
+
+local function isCharacterPart(part)
+	local parent = part.Parent
+	while parent and parent ~= Workspace do
+		if parent:IsA("Model") then
+			if parent:FindFirstChildOfClass("Humanoid") or Players:GetPlayerFromCharacter(parent) or Players:FindFirstChild(parent.Name) then
+				return true
+			end
+		end
+		parent = parent.Parent
+	end
+	return false
+end
+
+local function wrapPart(part)
+	if not part:IsA("BasePart") then return end
+	if part.Transparency >= 1 then return end
+	if part.Name == "RoShade_Glass" or part.Name == "SSR_Reflective_Layer" then return end
+	if part:FindFirstChild("SSR_Reflective_Layer") then return end
+	if part.Name == "Terrain" then return end
+	if isCharacterPart(part) then return end
+	
+	pcall(function()
+		local oldArchivable = part.Archivable
+		part.Archivable = true
+		local clone = part:Clone()
+		part.Archivable = oldArchivable
+		
+		for _, child in ipairs(clone:GetChildren()) do
+			child:Destroy()
+		end
+		
+		clone.Name = "SSR_Reflective_Layer"
+		clone.Material = Enum.Material.Glass
+		clone.Transparency = 4
+		clone.CanCollide = false
+		clone.CanTouch = false
+		clone.CanQuery = false
+		clone.CastShadow = false
+		
+		if clone:IsA("MeshPart") then
+			clone.TextureID = ""
+		end
+		
+		clone.Size = part.Size + Vector3.new(0.015, 0.015, 0.015)
+		clone.CFrame = part.CFrame
+		
+		local hl = Instance.new("Highlight")
+		hl.Name = "SSR_Highlight"
+		hl.FillTransparency = 1
+		hl.OutlineTransparency = 1
+		hl.Parent = clone
+		
+		clone.Parent = part
+		ssrWrappedParts[part] = clone
+	end)
+end
+
+local function applySkyPreset(preset)
+	local sky = Lighting:FindFirstChildOfClass("Sky")
+	
+	if preset.Skybox then
+		if not sky then
+			sky = Instance.new("Sky")
+			sky.Parent = Lighting
+		end
+		sky.SkyboxBk = preset.Skybox.Bk
+		sky.SkyboxDn = preset.Skybox.Dn
+		sky.SkyboxFt = preset.Skybox.Ft
+		sky.SkyboxLf = preset.Skybox.Lf
+		sky.SkyboxRt = preset.Skybox.Rt
+		sky.SkyboxUp = preset.Skybox.Up
+	else
+		if sky then sky:Destroy() end
+	end
+	
+	Lighting.ClockTime = preset.Time
+	Lighting.ExposureCompensation = preset.Exposure
+	Lighting.Ambient = preset.Ambient
+	Lighting.OutdoorAmbient = preset.OutdoorAmbient
+	Lighting.GlobalShadows = true
+	
+	local isDay = preset.Name:find("Daylight")
+	
+	local bloom = Lighting:FindFirstChild("RoShade_Bloom") or Instance.new("BloomEffect")
+	bloom.Name = "RoShade_Bloom"
+	bloom.Intensity = isDay and 0.5 or 1.3
+	bloom.Size = isDay and 15 or 26
+	bloom.Threshold = 0.8
+	bloom.Parent = Lighting
+	
+	local cc = Lighting:FindFirstChild("RoShade_CC") or Instance.new("ColorCorrectionEffect")
+	cc.Name = "RoShade_CC"
+	cc.Contrast = isDay and 0.12 or 0.22
+	cc.Saturation = isDay and 0.15 or 0.25
+	cc.TintColor = Color3.fromRGB(255, 255, 255)
+	cc.Parent = Lighting
+	
+	local sunRays = Lighting:FindFirstChild("RoShade_SunRays") or Instance.new("SunRaysEffect")
+	sunRays.Name = "RoShade_SunRays"
+	sunRays.Intensity = isDay and 0.1 or 0.25
+	sunRays.Spread = 0.75
+	sunRays.Parent = Lighting
+	
+	local dof = Lighting:FindFirstChild("RoShade_DOF") or Instance.new("DepthOfFieldEffect")
+	dof.Name = "RoShade_DOF"
+	dof.FarIntensity = 0.15
+	dof.FocusDistance = 35
+	dof.InFocusRadius = 25
+	dof.NearIntensity = 0
+	dof.Parent = Lighting
+end
+
+local function removeShaders()
+	pcall(function()
+		if Workspace:FindFirstChild("RoShade_Glass") then Workspace.RoShade_Glass:Destroy() end
+		if Workspace:FindFirstChild("RoShade_Base") then Workspace.RoShade_Base:Destroy() end
+		if Workspace:FindFirstChild("Global_SSR_Mirror_Plane") then Workspace.Global_SSR_Mirror_Plane:Destroy() end
+		
+		local bloom = Lighting:FindFirstChild("RoShade_Bloom")
+		if bloom then bloom:Destroy() end
+		
+		local cc = Lighting:FindFirstChild("RoShade_CC")
+		if cc then cc:Destroy() end
+		
+		local sunRays = Lighting:FindFirstChild("RoShade_SunRays")
+		if sunRays then sunRays:Destroy() end
+		
+		local dof = Lighting:FindFirstChild("RoShade_DOF")
+		if dof then dof:Destroy() end
+		
+		local sky = Lighting:FindFirstChildOfClass("Sky")
+		if sky then sky:Destroy() end
+	end)
+	clearReflections()
+end
+
+task.spawn(function()
+	while true do
+		task.wait(1.5)
+		if not ssrActive then continue end
+		local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+		if root then
+			for part, clone in pairs(ssrWrappedParts) do
+				if part and part.Parent then
+					local dist = (part.Position - root.Position).Magnitude
+					if dist > 60 then
+						pcall(function() clone:Destroy() end)
+						ssrWrappedParts[part] = nil
+					end
+				else
+					ssrWrappedParts[part] = nil
+				end
+			end
+			
+			local count = 0
+			for _, descendant in ipairs(Workspace:GetDescendants()) do
+				if not ssrActive then break end
+				if descendant:IsA("BasePart") then
+					local dist = (descendant.Position - root.Position).Magnitude
+					if dist <= 55 then
+						wrapPart(descendant)
+					end
+				end
+				count = count + 1
+				if count % 150 == 0 then
+					task.wait()
+				end
+			end
+		end
+	end
+end)
+
+VisualShaders:AddToggle("SSRShaders", {
+	Text = "Enable Global SSR Shaders (Auto)",
+	Default = false,
+})
+
+VisualShaders:AddToggle("ChangeSkybox", {
+	Text = "Change Skybox: Golden Sunset",
+	Default = false,
+})
+
+Toggles.SSRShaders:OnChanged(function()
+	disconnect("SSRShaders_Render")
+	disconnect("SSRShaders_Added")
+	ssrActive = Toggles.SSRShaders.Value
+	if ssrActive then
+		cleanPreviousLeftovers()
+		updateFloorHeight()
+		updateFloor()
+		applySkyPreset(skyPresets[currentPresetIndex])
+		
+		track("SSRShaders_Added", Workspace.DescendantAdded:Connect(function(part)
+			if not ssrActive then return end
+			task.wait(0.5)
+			pcall(function()
+				wrapPart(part)
+			end)
+		end))
+		
+		track("SSRShaders_Render", RunService.RenderStepped:Connect(function()
+			if not ssrActive then return end
+			updateFloorHeight()
+			updateFloor()
+			
+			local character = LocalPlayer.Character
+			local root = character and character:FindFirstChild("HumanoidRootPart")
+			if root and ssrBasePart then
+				ssrBasePart.Position = Vector3.new(root.Position.X, mirrorY + 0.1, root.Position.Z)
+			end
+			
+			pcall(function()
+				local preset = skyPresets[currentPresetIndex]
+				if preset then
+					Lighting.ClockTime = preset.Time
+					Lighting.ExposureCompensation = preset.Exposure
+					Lighting.Ambient = preset.Ambient
+					Lighting.OutdoorAmbient = preset.OutdoorAmbient
+					Lighting.GlobalShadows = true
+				end
+			end)
+		end))
+	else
+		removeShaders()
+	end
+end)
+
+Toggles.ChangeSkybox:OnChanged(function()
+	currentPresetIndex = (currentPresetIndex % #skyPresets) + 1
+	local preset = skyPresets[currentPresetIndex]
+	Library:Notify({ Title = "Shaders", Description = "Skybox changed to: " .. preset.Name, Time = 3 })
+	if Toggles.SSRShaders.Value then
+		applySkyPreset(preset)
+	end
+end)
 
 
 VisualLeft:AddToggle("PlayerESP", {
@@ -3843,16 +4120,6 @@ FunLeft:AddToggle("TouchFling", {
 	Default = false,
 })
 
-FunLeft:AddToggle("Dropkick", {
-	Text = "Dropkick",
-	Default = false,
-	Callback = function(state)
-		if state then
-			loadstring(game:HttpGet("https://raw.githubusercontent.com/platinww/CrustyMain/refs/heads/main/universal/DropKick.lua"))()
-		end
-	end,
-})
-
 local FunCoolEmotes = Tabs["Fun Box"]:AddLeftGroupbox("COOL EMOTES", "smile")
 
 FunCoolEmotes:AddButton({
@@ -3925,10 +4192,18 @@ FunAnimations:AddToggle("ShadowTheGoat", {
 	Default = false,
 })
 
-FunAnimations:AddToggle("DoNotTouch", {
+FunFreddy:AddToggle("DoNotTouch", {
 	Text = "DO NOT TOUCH",
 	Default = false,
 })
+
+Toggles.DoNotTouch:OnChanged(function(Value)
+	if Value then
+		pcall(function()
+			loadstring(game:HttpGet("https://pastebin.com/raw/wbEc0ThZ"))()
+		end)
+	end
+end)
 
 local touchFlingActive = false
 local function touchFlingLoop()
@@ -4414,18 +4689,10 @@ Toggles.CrawlerToggle:OnChanged(function()
 	end
 end)
 
-Toggles.ShadowTheGoat:OnChanged(function(Value)
+Toggles.ShadowTheGoat:OnChanged(function()
 	if Toggles.ShadowTheGoat.Value then
 		pcall(function()
 			loadstring(game:HttpGet("https://raw.githubusercontent.com/sparksnaps/Lord-Shadow-Beta/refs/heads/main/Lua"))()
-		end)
-	end
-end)
-
-Toggles.DoNotTouch:OnChanged(function(Value)
-	if Toggles.DoNotTouch.Value then
-		pcall(function()
-			loadstring(game:HttpGet("https://pastebin.com/raw/wbEc0ThZ"))()
 		end)
 	end
 end)
@@ -4723,9 +4990,6 @@ Library:OnUnload(function()
 	if Toggles.TouchFling and Toggles.TouchFling.Value then
 		Toggles.TouchFling:SetValue(false)
 	end
-	if Toggles.Dropkick and Toggles.Dropkick.Value then
-		Toggles.Dropkick:SetValue(false)
-	end
 	if Toggles.AdminNearby and Toggles.AdminNearby.Value then
 		Toggles.AdminNearby:SetValue(false)
 	end
@@ -4753,17 +5017,8 @@ Library:OnUnload(function()
     if Toggles.AdamantiteFarm and Toggles.AdamantiteFarm.Value then
 		Toggles.AdamantiteFarm:SetValue(false)
 	end
-	if Toggles.TitanAura and Toggles.TitanAura.Value then
-		Toggles.TitanAura:SetValue(false)
-	end
-	if Toggles.SamuraiAura and Toggles.SamuraiAura.Value then
-		Toggles.SamuraiAura:SetValue(false)
-	end
-	if Toggles.JuggernautAura and Toggles.JuggernautAura.Value then
-		Toggles.JuggernautAura:SetValue(false)
-	end
-	if Toggles.StretchedRES and Toggles.StretchedRES.Value then
-		Toggles.StretchedRES:SetValue(false)
+	if Toggles.UltraFPSBoost and Toggles.UltraFPSBoost.Value then
+		Toggles.UltraFPSBoost:SetValue(false)
 	end
 	if Toggles.AntiAFK and Toggles.AntiAFK.Value then
 		Toggles.AntiAFK:SetValue(false)
@@ -4800,6 +5055,12 @@ Library:OnUnload(function()
 	end
 	if Toggles.DoNotTouch and Toggles.DoNotTouch.Value then
 		Toggles.DoNotTouch:SetValue(false)
+	end
+	if Toggles.SSRShaders and Toggles.SSRShaders.Value then
+		Toggles.SSRShaders:SetValue(false)
+	end
+	if Toggles.ChangeSkybox and Toggles.ChangeSkybox.Value then
+		Toggles.ChangeSkybox:SetValue(false)
 	end
 	if Toggles.NoBearTrapDMG and Toggles.NoBearTrapDMG.Value then
 		Toggles.NoBearTrapDMG:SetValue(false)
