@@ -1088,7 +1088,7 @@ AdvanceHealGroup:AddToggle("AutoEatCustom", {
 
 AdvanceHealGroup:AddDropdown("AutoEatFood", {
 	Text = "Food Type",
-	Values = {"Cabbage", "Banana", "Spicy Meal", "Hearty Stew", "Peppers", "Cabbage Meal"},
+	Values = {"Cabbage", "Banana", "Spicy Meal", "Hearty Stew", "Cabbage Meal"},
 	Default = "Cabbage",
 })
 
@@ -1421,7 +1421,6 @@ local FoodIdMap = {
 	["Banana"] = 367,
 	["Spicy Meal"] = 214,
 	["Hearty Stew"] = 217,
-	["Peppers"] = 211,
 	["Cabbage Meal"] = 213,
 }
 
@@ -4236,6 +4235,109 @@ VisualLeft:AddToggle("OutlineESP", {
 	Title = "Outline ESP Color",
 })
 
+VisualLeft:AddToggle("ArmorESP", {
+	Text = "Armor ESP",
+	Default = false,
+})
+
+Toggles.ArmorESP:OnChanged(function()
+	local ESP_Active = false 
+	local TextSize = 14 
+	local StrokeTransparency = 0 
+	local ESPObjects = {} 
+
+	local function getArmorName(player) 
+		if player.Character and player.Character:FindFirstChild("Shirt") and player.Character.Shirt:FindFirstChild("UpperTorso") then 
+			local upperTorso = player.Character.Shirt.UpperTorso 
+			if upperTorso:FindFirstChild("Meshes/Obsidian_SM_Chr_Captain_Male_01.054") then 
+				return "Ds Armor", Color3.new(0, 0, 0) 
+			elseif upperTorso:FindFirstChild("Meshes/Bluesteel_SM_Chr_Captain_Male_01.042") then 
+				return "Bs Armor", Color3.fromRGB(160, 200, 240) 
+			elseif upperTorso:FindFirstChild("Meshes/Atlantis_SM_Chr_Captain_Male_01.092") then 
+				return "Atl Armor", Color3.fromRGB(2, 79, 104) 
+			elseif upperTorso:FindFirstChild("EasternBossChestColor1") or 
+				   upperTorso:FindFirstChild("EasternBossChestColor2") or 
+				   upperTorso:FindFirstChild("EasternBossChestColor3") then 
+				return "Samurai Armor", Color3.fromRGB(74, 0, 0) 
+			elseif upperTorso:FindFirstChild("Meshes/Scuba_Diver.003") then 
+				return "Scuba Armor", Color3.fromRGB(170, 107, 62) 
+			end 
+		end 
+		return "No Armor", Color3.new(1, 1, 1) 
+	end 
+
+	local function createESP(player) 
+		if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then 
+			local billboard = Instance.new("BillboardGui") 
+			billboard.Adornee = player.Character.HumanoidRootPart 
+			billboard.Size = UDim2.new(0, 150, 0, 50) 
+			billboard.StudsOffset = Vector3.new(0, -1, 0) 
+			billboard.AlwaysOnTop = true 
+			billboard.Parent = player.Character 
+
+			local armorLabel = Instance.new("TextLabel") 
+			armorLabel.Size = UDim2.new(1, 0, 1, 0) 
+			armorLabel.BackgroundTransparency = 1 
+			armorLabel.TextStrokeTransparency = StrokeTransparency 
+			armorLabel.Font = Enum.Font.SourceSans 
+			armorLabel.TextSize = TextSize 
+			armorLabel.TextStrokeTransparency = 0.5 
+			armorLabel.Text, armorLabel.TextColor3 = getArmorName(player) 
+			armorLabel.Parent = billboard 
+
+			local function updateArmor() 
+				armorLabel.Text, armorLabel.TextColor3 = getArmorName(player) 
+			end 
+
+			player.Character.ChildAdded:Connect(updateArmor) 
+			player.Character.ChildRemoved:Connect(updateArmor) 
+
+			RunService.RenderStepped:Connect(function() 
+				if not ESP_Active or not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then 
+					billboard:Destroy() 
+				end 
+			end) 
+
+			ESPObjects[player] = billboard 
+		end 
+	end 
+
+	local function removeESP(player) 
+		if ESPObjects[player] then 
+			ESPObjects[player]:Destroy() 
+			ESPObjects[player] = nil 
+		end 
+	end 
+
+	local function toggleESP(state) 
+		ESP_Active = state 
+		if ESP_Active then 
+			for _, player in pairs(Players:GetPlayers()) do 
+				if player ~= LocalPlayer and player.Character then 
+					createESP(player) 
+				end 
+			end 
+			track("ArmorESP_PlayerAdded", Players.PlayerAdded:Connect(function(player) 
+				player.CharacterAdded:Connect(function(character) 
+					if ESP_Active then 
+						createESP(player) 
+					end 
+				end) 
+			end)) 
+			track("ArmorESP_PlayerRemoving", Players.PlayerRemoving:Connect(function(player) 
+				removeESP(player) 
+			end)) 
+		else 
+			disconnect("ArmorESP_PlayerAdded") 
+			disconnect("ArmorESP_PlayerRemoving") 
+			for _, player in pairs(Players:GetPlayers()) do 
+				removeESP(player) 
+			end 
+		end 
+	end 
+
+	toggleESP(Toggles.ArmorESP.Value)
+end)
 
 local VisualEnv = Tabs.Visuals:AddLeftGroupbox("ENVIRONMENT", "sun")
 
