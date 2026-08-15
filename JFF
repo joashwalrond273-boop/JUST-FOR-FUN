@@ -3714,6 +3714,47 @@ VisualFPS:AddToggle("NoWaterColor", {
 	end,
 })
 
+VisualFPS:AddToggle("NoWaterBlur", {
+	Text = "No Water Blur",
+	Default = false,
+	Callback = function(state)
+		if state then
+			local function disableBlur(child)
+				if child.Name == "waterBlur" then
+					pcall(function()
+						child.Enabled = false
+					end)
+				end
+			end
+			
+			local waterBlur = game:GetService("Lighting"):FindFirstChild("waterBlur")
+			if waterBlur then
+				disableBlur(waterBlur)
+			end
+			
+			track("NoWaterBlur_ChildAdded", game:GetService("Lighting").ChildAdded:Connect(disableBlur))
+			
+			track("NoWaterBlur_EnabledChange", RunService.Heartbeat:Connect(function()
+				local wb = game:GetService("Lighting"):FindFirstChild("waterBlur")
+				if wb and wb.Enabled then
+					pcall(function()
+						wb.Enabled = false
+					end)
+				end
+			end))
+		else
+			disconnect("NoWaterBlur_ChildAdded")
+			disconnect("NoWaterBlur_EnabledChange")
+			local waterBlur = game:GetService("Lighting"):FindFirstChild("waterBlur")
+			if waterBlur then
+				pcall(function()
+					waterBlur.Enabled = true
+				end)
+			end
+		end
+	end,
+})
+
 VisualFPS:AddToggle("NoGrass", {
 	Text = "No Grass",
 	Default = false,
@@ -5334,6 +5375,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.NoWaterColor and Toggles.NoWaterColor.Value then
 		Toggles.NoWaterColor:SetValue(false)
+	end
+	if Toggles.NoWaterBlur and Toggles.NoWaterBlur.Value then
+		Toggles.NoWaterBlur:SetValue(false)
 	end
 	if Toggles.RemovePBR and Toggles.RemovePBR.Value then
 		Toggles.RemovePBR:SetValue(false)
