@@ -5038,7 +5038,7 @@ local function initCursorDrawings()
 		cursorDrawings.square.Color = Color3.fromRGB(255, 255, 255)
 		cursorDrawings.square.Filled = true
 		cursorDrawings.square.Transparency = 1
-		cursorDrawings.square.Visible = false
+		cursorDrawings.square.Visible = true
 	end
 	if not cursorDrawings.circle then
 		cursorDrawings.circle = Drawing.new("Circle")
@@ -5046,28 +5046,28 @@ local function initCursorDrawings()
 		cursorDrawings.circle.Filled = false
 		cursorDrawings.circle.Thickness = 1.5
 		cursorDrawings.circle.Transparency = 1
-		cursorDrawings.circle.Visible = false
+		cursorDrawings.circle.Visible = true
 	end
 	if not cursorDrawings.xLine1 then
 		cursorDrawings.xLine1 = Drawing.new("Line")
 		cursorDrawings.xLine1.Color = Color3.fromRGB(255, 255, 255)
 		cursorDrawings.xLine1.Thickness = 1.5
 		cursorDrawings.xLine1.Transparency = 1
-		cursorDrawings.xLine1.Visible = false
+		cursorDrawings.xLine1.Visible = true
 	end
 	if not cursorDrawings.xLine2 then
 		cursorDrawings.xLine2 = Drawing.new("Line")
 		cursorDrawings.xLine2.Color = Color3.fromRGB(255, 255, 255)
 		cursorDrawings.xLine2.Thickness = 1.5
 		cursorDrawings.xLine2.Transparency = 1
-		cursorDrawings.xLine2.Visible = false
+		cursorDrawings.xLine2.Visible = true
 	end
 	if not cursorDrawings.dot then
 		cursorDrawings.dot = Drawing.new("Circle")
 		cursorDrawings.dot.Color = Color3.fromRGB(255, 255, 255)
 		cursorDrawings.dot.Filled = true
 		cursorDrawings.dot.Transparency = 1
-		cursorDrawings.dot.Visible = false
+		cursorDrawings.dot.Visible = true
 	end
 	for i = 1, 5 do
 		local key = "arrow" .. i
@@ -5076,7 +5076,7 @@ local function initCursorDrawings()
 			cursorDrawings[key].Color = Color3.fromRGB(255, 255, 255)
 			cursorDrawings[key].Thickness = 1.5
 			cursorDrawings[key].Transparency = 1
-			cursorDrawings[key].Visible = false
+			cursorDrawings[key].Visible = true
 		end
 	end
 end
@@ -5085,10 +5085,10 @@ local function updateCursor()
 	if not hasDrawing then return end
 	initCursorDrawings()
 	
-	cursorDrawings.square.Visible = false
-	cursorDrawings.circle.Visible = false
-	cursorDrawings.xLine1.Visible = false
-	cursorDrawings.xLine2.Visible = false
+	cursorDrawings.square.Visible = true
+	cursorDrawings.circle.Visible = true
+	cursorDrawings.xLine1.Visible = true
+	cursorDrawings.xLine2.Visible = true
 	if cursorDrawings.dot then cursorDrawings.dot.Visible = false end
 	for i = 1, 5 do
 		local key = "arrow" .. i
