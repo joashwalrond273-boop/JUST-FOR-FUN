@@ -2068,13 +2068,29 @@ Toggles.AutoHop:OnChanged(function()
 	end
 end)
 
+local wasShiftlocked = false
 Toggles.AutoShiftlock:OnChanged(function()
 	disconnect("AutoShiftlock")
 	if Toggles.AutoShiftlock.Value then
 		track("AutoShiftlock", RunService.Heartbeat:Connect(function()
-			if not isAlive() then return end
+			if not isAlive() then
+				if wasShiftlocked then
+					pcall(function()
+						local hum = getHumanoid()
+						if hum then
+							hum.AutoRotate = true
+							hum.CameraOffset = Vector3.new(0, 0, 0)
+						end
+						UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+					end)
+					wasShiftlocked = false
+				end
+				return
+			end
+			
 			local root = getRootPart()
-			if not root then return end
+			local hum = getHumanoid()
+			if not root or not hum then return end
 			
 			local playerNearby = false
 			local pos = root.Position
@@ -2093,9 +2109,41 @@ Toggles.AutoShiftlock:OnChanged(function()
 			end
 			
 			if playerNearby then
-				game:GetService("UserInputService").MouseBehavior = Enum.MouseBehavior.LockCenter
+				wasShiftlocked = true
+				UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
+				hum.AutoRotate = false
+				hum.CameraOffset = Vector3.new(1.7, 0, 0)
+				
+				local camera = workspace.CurrentCamera
+				if camera then
+					local look = camera.CFrame.LookVector
+					local yawVector = Vector3.new(look.X, 0, look.Z)
+					if yawVector.Magnitude > 0.01 then
+						yawVector = yawVector.Unit
+						root.CFrame = CFrame.lookAt(root.Position, root.Position + yawVector)
+					end
+				end
+			else
+				if wasShiftlocked then
+					UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+					hum.AutoRotate = true
+					hum.CameraOffset = Vector3.new(0, 0, 0)
+					wasShiftlocked = false
+				end
 			end
 		end))
+	else
+		if wasShiftlocked then
+			pcall(function()
+				local hum = getHumanoid()
+				if hum then
+					hum.AutoRotate = true
+					hum.CameraOffset = Vector3.new(0, 0, 0)
+				end
+			end)
+			wasShiftlocked = false
+		end
+		UserInputService.MouseBehavior = Enum.MouseBehavior.Default
 	end
 end)
 
@@ -3046,7 +3094,7 @@ local goldLocations = {
 	{ name = "Gold 5",  pos = Vector3.new(1188.42, 20.58,  -563.03) },
 	{ name = "Gold 6",  pos = Vector3.new(-651.84, 226.09, 654.28)  },
 	{ name = "Gold 7",  pos = Vector3.new(-540.20, 76.40,  297.97)  },
-	{ name = "Gold 8",  pos = Vector3.new(-639.61, -24.83, -83.22)  },
+	{ name = "Gold 8",  pos = Vector3.new(-2202.22, 51.01, 22.08)   },
 	{ name = "Gold 9",  pos = Vector3.new(-1182.86, 54.42, 6608.34) },
 	{ name = "Gold 10", pos = Vector3.new(-2015.67, 30.73, -39.95)  },
 	{ name = "Gold 11", pos = Vector3.new(-912.17, 125.72, -408.72) },
@@ -3477,6 +3525,11 @@ local extraLocations = {
 	{ name = "Below ML",    pos = Vector3.new(-177, 25.26, -1014.83)     },
 	{ name = "Arena",       pos = Vector3.new(-1315.59, 41.19, 1972.84)  },
 	{ name = "Bamboo",      pos = Vector3.new(-1330.92, 39.43, 5798.47)  },
+	{ name = "Volcano",     pos = Vector3.new(1769.70, 36.43, 1832.10)   },
+	{ name = "Asia Cave",   pos = Vector3.new(-2108.44, 201.04, 6823.05) },
+	{ name = "Juggernaut",  pos = Vector3.new(-1645.06, 336.32, -2874.34)},
+	{ name = "Waterfall",   pos = Vector3.new(-1949.89, 25.29, 345.83)   },
+	{ name = "Desert Maze", pos = Vector3.new(1529.42, 55.33, -938.31)   },
 }
 
 for _, loc in ipairs(extraLocations) do
@@ -5028,56 +5081,64 @@ local cursorDrawings = {
 local function initCursorDrawings()
 	if not hasDrawing then return end
 	
-	if not cursorDrawings.square then
-		cursorDrawings.square = Drawing.new("Square")
-		cursorDrawings.square.Color = Color3.fromRGB(255, 255, 255)
-		cursorDrawings.square.Filled = true
-		cursorDrawings.square.Visible = false
-	end
-	if not cursorDrawings.circle then
-		cursorDrawings.circle = Drawing.new("Circle")
-		cursorDrawings.circle.Color = Color3.fromRGB(255, 255, 255)
-		cursorDrawings.circle.Filled = false
-		cursorDrawings.circle.Thickness = 1.5
-		cursorDrawings.circle.Visible = false
-	end
-	if not cursorDrawings.xLine1 then
-		cursorDrawings.xLine1 = Drawing.new("Line")
-		cursorDrawings.xLine1.Color = Color3.fromRGB(255, 255, 255)
-		cursorDrawings.xLine1.Thickness = 1.5
-		cursorDrawings.xLine1.Visible = false
-	end
-	if not cursorDrawings.xLine2 then
-		cursorDrawings.xLine2 = Drawing.new("Line")
-		cursorDrawings.xLine2.Color = Color3.fromRGB(255, 255, 255)
-		cursorDrawings.xLine2.Thickness = 1.5
-		cursorDrawings.xLine2.Visible = false
-	end
-	if not cursorDrawings.dot then
-		cursorDrawings.dot = Drawing.new("Circle")
-		cursorDrawings.dot.Color = Color3.fromRGB(255, 255, 255)
-		cursorDrawings.dot.Filled = true
-		cursorDrawings.dot.Visible = false
-	end
-	for i = 1, 5 do
-		local key = "arrow" .. i
-		if not cursorDrawings[key] then
-			cursorDrawings[key] = Drawing.new("Line")
-			cursorDrawings[key].Color = Color3.fromRGB(255, 255, 255)
-			cursorDrawings[key].Thickness = 1.5
-			cursorDrawings[key].Visible = false
+	pcall(function()
+		if not cursorDrawings.square then
+			cursorDrawings.square = Drawing.new("Square")
+			cursorDrawings.square.Color = Color3.fromRGB(255, 255, 255)
+			cursorDrawings.square.Filled = true
+			cursorDrawings.square.Transparency = 1
+			cursorDrawings.square.Visible = false
 		end
-	end
+		if not cursorDrawings.circle then
+			cursorDrawings.circle = Drawing.new("Circle")
+			cursorDrawings.circle.Color = Color3.fromRGB(255, 255, 255)
+			cursorDrawings.circle.Filled = false
+			cursorDrawings.circle.Thickness = 1.5
+			cursorDrawings.circle.Transparency = 1
+			cursorDrawings.circle.Visible = false
+		end
+		if not cursorDrawings.xLine1 then
+			cursorDrawings.xLine1 = Drawing.new("Line")
+			cursorDrawings.xLine1.Color = Color3.fromRGB(255, 255, 255)
+			cursorDrawings.xLine1.Thickness = 1.5
+			cursorDrawings.xLine1.Transparency = 1
+			cursorDrawings.xLine1.Visible = false
+		end
+		if not cursorDrawings.xLine2 then
+			cursorDrawings.xLine2 = Drawing.new("Line")
+			cursorDrawings.xLine2.Color = Color3.fromRGB(255, 255, 255)
+			cursorDrawings.xLine2.Thickness = 1.5
+			cursorDrawings.xLine2.Transparency = 1
+			cursorDrawings.xLine2.Visible = false
+		end
+		if not cursorDrawings.dot then
+			cursorDrawings.dot = Drawing.new("Circle")
+			cursorDrawings.dot.Color = Color3.fromRGB(255, 255, 255)
+			cursorDrawings.dot.Filled = true
+			cursorDrawings.dot.Transparency = 1
+			cursorDrawings.dot.Visible = false
+		end
+		for i = 1, 5 do
+			local key = "arrow" .. i
+			if not cursorDrawings[key] then
+				cursorDrawings[key] = Drawing.new("Line")
+				cursorDrawings[key].Color = Color3.fromRGB(255, 255, 255)
+				cursorDrawings[key].Thickness = 1.5
+				cursorDrawings[key].Transparency = 1
+				cursorDrawings[key].Visible = false
+			end
+		end
+	end)
 end
 
 local function updateCursor()
 	if not hasDrawing then return end
 	initCursorDrawings()
 	
-	cursorDrawings.square.Visible = false
-	cursorDrawings.circle.Visible = false
-	cursorDrawings.xLine1.Visible = false
-	cursorDrawings.xLine2.Visible = false
+	if cursorDrawings.square then cursorDrawings.square.Visible = false end
+	if cursorDrawings.circle then cursorDrawings.circle.Visible = false end
+	if cursorDrawings.xLine1 then cursorDrawings.xLine1.Visible = false end
+	if cursorDrawings.xLine2 then cursorDrawings.xLine2.Visible = false end
 	if cursorDrawings.dot then cursorDrawings.dot.Visible = false end
 	for i = 1, 5 do
 		local key = "arrow" .. i
@@ -5091,15 +5152,15 @@ local function updateCursor()
 	local size = Options.CustomCursorSize.Value
 	local cursorType = Options.CustomCursorType.Value
 	
-	if cursorType == "Tiny Square" then
+	if cursorType == "Tiny Square" and cursorDrawings.square then
 		cursorDrawings.square.Size = Vector2.new(size, size)
 		cursorDrawings.square.Position = center - Vector2.new(size / 2, size / 2)
 		cursorDrawings.square.Visible = true
-	elseif cursorType == "Circle" then
+	elseif cursorType == "Circle" and cursorDrawings.circle then
 		cursorDrawings.circle.Radius = size / 2
 		cursorDrawings.circle.Position = center
 		cursorDrawings.circle.Visible = true
-	elseif cursorType == "X" then
+	elseif cursorType == "X" and cursorDrawings.xLine1 and cursorDrawings.xLine2 then
 		local half = size / 2
 		cursorDrawings.xLine1.From = center - Vector2.new(half, half)
 		cursorDrawings.xLine1.To = center + Vector2.new(half, half)
@@ -5108,7 +5169,7 @@ local function updateCursor()
 		cursorDrawings.xLine2.From = center - Vector2.new(-half, half)
 		cursorDrawings.xLine2.To = center + Vector2.new(-half, half)
 		cursorDrawings.xLine2.Visible = true
-	elseif cursorType == "+" then
+	elseif cursorType == "+" and cursorDrawings.xLine1 and cursorDrawings.xLine2 then
 		local half = size / 2
 		cursorDrawings.xLine1.From = center - Vector2.new(half, 0)
 		cursorDrawings.xLine1.To = center + Vector2.new(half, 0)
@@ -5117,11 +5178,11 @@ local function updateCursor()
 		cursorDrawings.xLine2.From = center - Vector2.new(0, half)
 		cursorDrawings.xLine2.To = center + Vector2.new(0, half)
 		cursorDrawings.xLine2.Visible = true
-	elseif cursorType == "Dot" then
+	elseif cursorType == "Dot" and cursorDrawings.dot then
 		cursorDrawings.dot.Radius = math.max(1, size / 4)
 		cursorDrawings.dot.Position = center
 		cursorDrawings.dot.Visible = true
-	elseif cursorType == "Mouse Arrow" then
+	elseif cursorType == "Mouse Arrow" and cursorDrawings.arrow1 and cursorDrawings.arrow2 and cursorDrawings.arrow3 and cursorDrawings.arrow4 and cursorDrawings.arrow5 then
 		local p0 = center
 		local p1 = center + Vector2.new(0, size)
 		local p2 = center + Vector2.new(size * 0.7, size * 0.7)
@@ -5270,6 +5331,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.CustomCursorActive and Toggles.CustomCursorActive.Value then
 		Toggles.CustomCursorActive:SetValue(false)
+	end
+	if Toggles.AutoShiftlock and Toggles.AutoShiftlock.Value then
+		Toggles.AutoShiftlock:SetValue(false)
 	end
 	if Toggles.RemovePBR and Toggles.RemovePBR.Value then
 		Toggles.RemovePBR:SetValue(false)
