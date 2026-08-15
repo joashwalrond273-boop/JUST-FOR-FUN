@@ -25,8 +25,6 @@ local SaveManager = loadstring(game:HttpGet(repo .. "addons/SaveManager.lua"))()
 
 local Options = Library.Options
 local Toggles = Library.Toggles
-local lastDeathPosition = nil
-local shouldTeleportBack = false
 
 Library.ShowToggleFrameInKeybinds = true
 
@@ -251,8 +249,6 @@ TSG.MineRemote = (keyedRemotes and rawget(keyedRemotes, "mine")) or (interaction
 TSG.ChopRemote = (keyedRemotes and rawget(keyedRemotes, "chop")) or (interactionsFolder and interactionsFolder:FindFirstChild("chop"))
 TSG.MeleeAI = interactionsFolder and interactionsFolder:FindFirstChild("meleeAI")
 
-
-
 -- No Bear Trap DMG Remote Interception
 pcall(function()
 	local Event = resolvePath(ReplicatedStorage, "remoteInterface", "traps", "Run") or (ReplicatedStorage:FindFirstChild("remoteInterface") and ReplicatedStorage.remoteInterface:FindFirstChild("traps") and ReplicatedStorage.remoteInterface.traps:FindFirstChild("Run"))
@@ -281,50 +277,6 @@ pcall(function()
 			local self = ...
 
 			if Toggles.NoBearTrapDMG and Toggles.NoBearTrapDMG.Value and rawequal(self, Event) then
-				local Args = table.pack(...)
-
-				local Result = table.pack(
-					OldInvokeServer(table.unpack(Args, 1, Args.n))
-				)
-
-				print(`Intercepted (__index) {Event.Name}:InvokeServer()`, self, table.unpack(Result, 1, Result.n))
-
-				return table.unpack(Result, 1, Result.n)
-			end
-
-			return OldInvokeServer(self, ...)
-		end)
-	end
-end)
-
--- No Glider Cooldown Remote Interception
-pcall(function()
-	local Event = game:GetService("ReplicatedStorage").remoteInterface.Tools.ToggleGlider
-	if not Event then return end
-
-	local mtHook; mtHook = hookmetamethod(game, "__namecall", function(...)
-		local self = ...
-
-		if Toggles.NoGliderCooldown and Toggles.NoGliderCooldown.Value and rawequal(self, Event) and getnamecallmethod() == "InvokeServer" then
-			local Args = table.pack(...)
-
-			local Result = table.pack(
-				mtHook(self, table.unpack(Args, 1, Args.n))
-			)
-
-			print(`Intercepted (namecall) {Event.Name}:InvokeServer()`, ...)
-
-			return table.unpack(Result, 1, Result.n)
-		end
-
-		return mtHook(...)
-	end)
-
-	if typeof(hookfunction) == "function" and Event.InvokeServer then
-		local OldInvokeServer; OldInvokeServer = hookfunction(Event.InvokeServer, function(...)
-			local self = ...
-
-			if Toggles.NoGliderCooldown and Toggles.NoGliderCooldown.Value and rawequal(self, Event) then
 				local Args = table.pack(...)
 
 				local Result = table.pack(
@@ -433,14 +385,6 @@ KillswitchGroup:AddToggle("KillswitchToggle", {
 	Default = false,
 })
 
-local DesyncToggle = KillswitchGroup:AddToggle("DesyncToggle", {
-    Text = "+ Desync",
-    Default = false,
-})
-if DesyncToggle.TextLabel then
-    DesyncToggle.TextLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
-end
-
 Toggles.KillswitchToggle:OnChanged(function()
 	if Toggles.KillswitchToggle.Value then
 		local humanoid = getHumanoid()
@@ -452,40 +396,29 @@ Toggles.KillswitchToggle:OnChanged(function()
 	end
 end)
 
-local FunAttach = Tabs.Main:AddLeftGroupbox("ATTACH", "link")
+local InvisibleFlyGroup = Tabs.Main:AddLeftGroupbox("Invisible Fly", "plane")
 
-FunAttach:AddToggle("AttachToggle", {
-        Text = "Attach",
-        Default = false,
+InvisibleFlyGroup:AddToggle("InvisibleFlyToggle", {
+	Text = "Invis Fly",
+	Default = false,
 })
 
-FunAttach:AddDropdown("AttachPlayerList", {
-        Text = "Target Player",
-        Values = {},
-        Default = "",
+InvisibleFlyGroup:AddSlider("InvisibleFlySpeedSlider", {
+	Text = "Fly Speed",
+	Min = 1,
+	Max = 15,
+	Default = 5,
+	Rounding = 1,
 })
 
-local PlusKillPlayerToggle = FunAttach:AddToggle("PlusKillPlayerToggle", {
-        Text = "+ Kill player",
-        Default = false,
-})
-if PlusKillPlayerToggle.TextLabel then
-        PlusKillPlayerToggle.TextLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
-end
-
-FunAttach:AddToggle("HideBeneathToggle", {
-        Text = "Hide Beneath",
-        Default = false,
+InvisibleFlyGroup:AddLabel("Highlight Fill Color"):AddColorPicker("InvisibleFlyFillColor", {
+	Default = Color3.fromRGB(0, 255, 0),
+	Title = "Invisible Fly Highlight Fill Color",
 })
 
-FunAttach:AddToggle("FloatOverToggle", {
-        Text = "Float Over",
-        Default = false,
-})
-
-FunAttach:AddToggle("PlusFlingPlayerToggle", {
-        Text = "+ Fling Player(use with float)",
-        Default = false,
+InvisibleFlyGroup:AddLabel("Highlight Outline Color"):AddColorPicker("InvisibleFlyOutlineColor", {
+	Default = Color3.fromRGB(255, 255, 255),
+	Title = "Invisible Fly Highlight Outline Color",
 })
 
 local SpectateGroup = Tabs.Main:AddRightGroupbox("SPECTATE", "eye")
@@ -557,8 +490,6 @@ TeleportGroup:AddButton({
 	end,
 })
 
-
-
 MainLeft:AddToggle("InfiniteBackpack", {
 	Text = "Infinite Backpack",
 	Default = false,
@@ -576,11 +507,6 @@ MainLeft:AddToggle("InfiniteJump", {
 
 MainLeft:AddToggle("NoFallDamage", {
 	Text = "No Fall Damage",
-	Default = false,
-})
-
-MainLeft:AddToggle("NoGliderCooldown", {
-	Text = "No Glider Cooldown",
 	Default = false,
 })
 
@@ -612,23 +538,10 @@ MainLeft:AddToggle("AutoAirBubbles", {
 MainRight:AddButton({
 	Text = "Reset Character",
 	Func = function()
-            local root = getRootPart()
-            if root then
-                    lastDeathPosition = root.Position
-            end
-
-            local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
-            if remoteInterface then
-                    local characterFolder = remoteInterface:FindFirstChild("character")
-                    if characterFolder then
-                            local resetRemote = characterFolder:FindFirstChild("reset")
-                            if resetRemote then
-                                    pcall(function()
-                                            resetRemote:InvokeServer()
-                                    end)
-                            end
-                    end
-            end
+		local humanoid = getHumanoid()
+		if humanoid then
+			humanoid.Health = 0
+		end
 	end,
 })
 
@@ -650,7 +563,7 @@ MainRight:AddButton({
 })
 
 MainRight:AddButton({
-	Text = "Low Ping Server",
+	Text = "LowPing Server",
 	Func = function()
 		task.spawn(function()
 			local HttpService = game:GetService("HttpService")
@@ -664,7 +577,7 @@ MainRight:AddButton({
 			end)
 
 			if not success or not result then
-				Library:Notify({ Title = "Low Ping Server", Description = "Failed to fetch server list.", Time = 3 })
+				Library:Notify({ Title = "LowPing Server", Description = "Failed to fetch server list.", Time = 3 })
 				return
 			end
 
@@ -673,7 +586,7 @@ MainRight:AddButton({
 			end)
 
 			if not dataSuccess or not decoded or not decoded.data then
-				Library:Notify({ Title = "Low Ping Server", Description = "Failed to parse server list.", Time = 3 })
+				Library:Notify({ Title = "LowPing Server", Description = "Failed to parse server list.", Time = 3 })
 				return
 			end
 
@@ -687,7 +600,7 @@ MainRight:AddButton({
 			end
 
 			if #servers == 0 then
-				Library:Notify({ Title = "Low Ping Server", Description = "No alternative servers found.", Time = 3 })
+				Library:Notify({ Title = "LowPing Server", Description = "No alternative servers found.", Time = 3 })
 				return
 			end
 
@@ -696,51 +609,13 @@ MainRight:AddButton({
 			end)
 
 			local bestServer = servers[1]
-			Library:Notify({ Title = "Low Ping Server", Description = "Teleporting to smallest server (" .. tostring(bestServer.playing) .. "/" .. tostring(bestServer.maxPlayers) .. " players)...", Time = 3 })
+			Library:Notify({ Title = "LowPing Server", Description = "Teleporting to smallest server (" .. tostring(bestServer.playing) .. "/" .. tostring(bestServer.maxPlayers) .. " players)...", Time = 3 })
 
 			task.wait(0.5)
 			pcall(function()
 				TeleportService:TeleportToPlaceInstance(PlaceId, bestServer.id, LocalPlayer)
 			end)
 		end)
-	end,
-})
-
-MainRight:AddButton({
-	Text = "Ping Spoofer",
-	Func = function()
-		if getgenv().PingSpoofer then
-			getgenv().PingSpoofer.SpoofPing = true
-			Library:Notify({ Title = "Ping Spoofer", Description = "Ping spoofing activated!", Time = 2 })
-			return
-		end
-
-		getgenv().PingSpoofer = {
-			SpoofPing = true,
-			StartOfPingSpoofer = 31,
-			EndOfPingSpoofer = 69
-		}
-
-		local Memory
-		pcall(function()
-			for __, v in pairs(game.CoreGui.RobloxGui.PerformanceStats:GetChildren()) do
-				if v.Name == 'PS_Button' and v.StatsMiniTextPanelClass.TitleLabel.Text == 'Ping' then 
-					Memory = v.StatsMiniTextPanelClass.ValueLabel
-				end
-			end
-		end)
-
-		if Memory then
-			Memory:GetPropertyChangedSignal('Text'):Connect(function()
-				if getgenv().PingSpoofer and getgenv().PingSpoofer.SpoofPing then
-					local Random = math.random(getgenv().PingSpoofer.StartOfPingSpoofer, getgenv().PingSpoofer.EndOfPingSpoofer)
-					Random = Random * 1.23
-					Memory.Text = Random .. ' ms'
-				end
-			end)
-		end
-
-		Library:Notify({ Title = "Ping Spoofer", Description = "Ping spoofing activated!", Time = 2 })
 	end,
 })
 
@@ -757,6 +632,15 @@ MainRight:AddButton({
 		task.spawn(joinLowPingServer)
 	end,
 })
+
+
+local DesyncToggle = MainRight:AddToggle("DesyncToggle", {
+	Text = "DESYNC",
+	Default = false,
+})
+if DesyncToggle.TextLabel then
+	DesyncToggle.TextLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
+end
 
 local desyncConnections = {}
 local desyncAnimTracks = {}
@@ -1154,14 +1038,6 @@ Toggles.NoFallDamage:OnChanged(function()
 	end
 end)
 
-Toggles.NoGliderCooldown:OnChanged(function()
-	if Toggles.NoGliderCooldown.Value then
-		Library:Notify({ Title = "No Glider Cooldown", Description = "Enabled", Time = 2 })
-	else
-		Library:Notify({ Title = "No Glider Cooldown", Description = "Disabled", Time = 2 })
-	end
-end)
-
 Toggles.NoBearTrapDMG:OnChanged(function()
 	if Toggles.NoBearTrapDMG.Value then
 		Library:Notify({ Title = "No Bear Trap DMG", Description = "Enabled", Time = 2 })
@@ -1263,14 +1139,6 @@ end
 track("CharacterModuleRespawn", LocalPlayer.CharacterAdded:Connect(function()
 	task.wait(1)
 	applyCharacterModuleToggles()
-	if shouldTeleportBack and lastDeathPosition then
-		shouldTeleportBack = false
-		local root = getRootPart()
-		if root then
-			root.CFrame = CFrame.new(lastDeathPosition + Vector3.new(0, 3, 0))
-			Library:Notify({ Title = "Reset & Teleport", Description = "Teleported back to last location!", Time = 2 })
-		end
-	end
 end))
 
 -- No Boss Damage Hook Setup
@@ -1458,30 +1326,6 @@ CombatAutoSwing:AddToggle("AutoSwing", {
 	Default = false,
 })
 
-CombatAutoSwing:AddToggle("AutoHop", {
-	Text = "+ Auto Hop",
-	Default = false,
-})
-
-CombatAutoSwing:AddToggle("AutoShiftlock", {
-	Text = "+ Auto Shiftlock",
-	Default = false,
-})
-
-local CombatSwordBot = Tabs.Combat:AddLeftGroupbox("Sword Bot", "swords")
-
-CombatSwordBot:AddToggle("SwordBot", {
-	Text = "Sword Hunter",
-	Default = false,
-})
-
-CombatSwordBot:AddDropdown("ChooseVictim", {
-	Text = "Choose a Victim",
-	Values = {},
-	Default = "",
-})
-
-
 
 CombatRight:AddToggle("TargetPlayers", {
 	Text = "Target Players",
@@ -1513,24 +1357,12 @@ CombatAimbot:AddSlider("AimbotFOV", {
 	Rounding = 0,
 })
 
-CombatAimbot:AddToggle("InfiniteDistance", {
-	Text = "Infinite Distance",
-	Default = false,
-})
-
-local CombatReach = Tabs.Combat:AddRightGroupbox("Advance Reach", "expand")
+local CombatReach = Tabs.Combat:AddRightGroupbox("Reach", "expand")
 
 CombatReach:AddToggle("Reach", {
 	Text = "Reach",
 	Default = false,
 })
-
-CombatReach:AddDropdown("AdvancePreset", {
-	Text = "Advance PRESET",
-	Values = { "Sword", "Spear" },
-	Default = "",
-})
-
 
 CombatReach:AddSlider("ReachRange", {
 	Text = "Reach Range",
@@ -1909,10 +1741,10 @@ end
 -- Aimbot Script
 local fovCircle = nil
 pcall(function()
-   if typeof(Drawing) ~= "nil" then
+	if typeof(Drawing) ~= "nil" then
 		fovCircle = Drawing.new("Circle")
-           fovCircle.Thickness = 1.5
-           fovCircle.Color = Color3.fromRGB(255, 0, 0)
+		fovCircle.Thickness = 1.5
+		fovCircle.Color = Color3.fromRGB(255, 0, 0)
 		fovCircle.Filled = false
 		fovCircle.Transparency = 1
 		fovCircle.Visible = false
@@ -1948,20 +1780,18 @@ end
 
 Toggles.AimbotLockOn:OnChanged(function()
 	disconnect("AimbotLoop")
-   disconnect("AimbotFOVCircleUpdate")
-   if fovCircle then fovCircle.Visible = false end
+	disconnect("AimbotFOVCircleUpdate")
+	if fovCircle then fovCircle.Visible = false end
 
 	if Toggles.AimbotLockOn.Value then
-           track("AimbotFOVCircleUpdate", RunService.RenderStepped:Connect(function()
-                   if fovCircle then
-                           local viewportSize = workspace.CurrentCamera.ViewportSize
-                           fovCircle.Position = Vector2.new(viewportSize.X / 2, viewportSize.Y / 2)
-                           fovCircle.Radius = (Options.AimbotFOV and Options.AimbotFOV.Value) or 100
-
-                           local infiniteRange = Toggles.InfiniteDistance and Toggles.InfiniteDistance.Value
-                           fovCircle.Visible = not infiniteRange
-                   end
-           end))
+		track("AimbotFOVCircleUpdate", RunService.RenderStepped:Connect(function()
+			if fovCircle then
+				local viewportSize = workspace.CurrentCamera.ViewportSize
+				fovCircle.Position = Vector2.new(viewportSize.X / 2, viewportSize.Y / 2)
+				fovCircle.Radius = (Options.AimbotFOV and Options.AimbotFOV.Value) or 100
+				fovCircle.Visible = true
+			end
+		end))
 
 		track("AimbotLoop", RunService.RenderStepped:Connect(function()
 			if Toggles.AimbotLockOn.Value then
@@ -1999,8 +1829,7 @@ Toggles.AutoSwing:OnChanged(function()
 	if Toggles.AutoSwing.Value then
 		_G.T = true
 		track("AutoSwing", RunService.Heartbeat:Connect(function()
-                   local delay = 0.1
-			if _G.T and tick() - lastAutoSwing >= delay then
+			if _G.T and tick() - lastAutoSwing >= 0.05 then
 				local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
 				if tool then
 					tool:Activate()
@@ -2012,185 +1841,6 @@ Toggles.AutoSwing:OnChanged(function()
 		_G.T = false
 	end
 end)
-
-Toggles.AutoHop:OnChanged(function()
-	disconnect("AutoHop")
-	if Toggles.AutoHop.Value then
-		track("AutoHop", RunService.Heartbeat:Connect(function()
-			if not isAlive() then return end
-			local root = getRootPart()
-			local hum = getHumanoid()
-			if not root or not hum then return end
-			
-			if not hum:GetAttribute("JumpAdjusted") then
-				hum:SetAttribute("JumpAdjusted", true)
-				hum:SetAttribute("OrigJumpPower", hum.JumpPower)
-				hum:SetAttribute("OrigJumpHeight", hum.JumpHeight)
-				if hum.UseJumpPower then
-					hum.JumpPower = math.max(0, hum.JumpPower - 2)
-				else
-					hum.JumpHeight = math.max(0, hum.JumpHeight - 2)
-				end
-			end
-
-			local pos = root.Position
-			local playerNearby = false
-			for _, otherPlayer in ipairs(Players:GetPlayers()) do
-				if otherPlayer ~= LocalPlayer and otherPlayer.Character then
-					local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
-					local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
-					if otherRoot and otherHum and otherHum.Health > 0 then
-						local dist = (otherRoot.Position - pos).Magnitude
-						if dist <= 20 then
-							playerNearby = true
-							break
-						end
-					end
-				end
-			end
-			
-			if playerNearby then
-				if hum.FloorMaterial ~= Enum.Material.Air then
-					hum.Jump = true
-					pcall(function()
-						hum:ChangeState(Enum.HumanoidStateType.Jumping)
-					end)
-				end
-			end
-		end))
-	else
-		local hum = getHumanoid()
-		if hum and hum:GetAttribute("JumpAdjusted") then
-			hum.JumpPower = hum:GetAttribute("OrigJumpPower") or hum.JumpPower
-			hum.JumpHeight = hum:GetAttribute("OrigJumpHeight") or hum.JumpHeight
-			hum:SetAttribute("JumpAdjusted", nil)
-		end
-	end
-end)
-
-Toggles.AutoShiftlock:OnChanged(function()
-	disconnect("AutoShiftlock")
-	if Toggles.AutoShiftlock.Value then
-		track("AutoShiftlock", RunService.Heartbeat:Connect(function()
-			if not isAlive() then return end
-			local root = getRootPart()
-			if not root then return end
-			
-			local playerNearby = false
-			local pos = root.Position
-			for _, otherPlayer in ipairs(Players:GetPlayers()) do
-				if otherPlayer ~= LocalPlayer and otherPlayer.Character then
-					local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
-					local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
-					if otherRoot and otherHum and otherHum.Health > 0 then
-						local dist = (otherRoot.Position - pos).Magnitude
-						if dist <= 20 then
-							playerNearby = true
-							break
-						end
-					end
-				end
-			end
-			
-			if playerNearby then
-				game:GetService("UserInputService").MouseBehavior = Enum.MouseBehavior.LockCenter
-			end
-		end))
-	end
-end)
-
-Toggles.SwordBot:OnChanged(function()
-	disconnect("SwordBot")
-	if Toggles.SwordBot.Value then
-		local lastSwing = 0
-		local orbitAngle = 0
-		track("SwordBot", RunService.Heartbeat:Connect(function(dt)
-			if not isAlive() then return end
-			local root = getRootPart()
-			local hum = getHumanoid()
-			if not root or not hum then return end
-
-			local targetName = Options.ChooseVictim.Value
-			local targetPlayer = Players:FindFirstChild(targetName)
-			local targetChar = targetPlayer and targetPlayer.Character
-			local targetRoot = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
-			local targetHum = targetChar and targetChar:FindFirstChildOfClass("Humanoid")
-
-			if not targetRoot or not targetHum or targetHum.Health <= 0 then
-				return
-			end
-
-			local targetPos = targetRoot.Position
-			local myPos = root.Position
-			local dist = (targetPos - myPos).Magnitude
-
-			-- Force camera/body lock-on facing target on Y axis
-			root.CFrame = CFrame.lookAt(root.Position, Vector3.new(targetPos.X, root.Position.Y, targetPos.Z))
-
-			-- Determine movement position (prevent getting closer than 20 studs)
-			local movePos
-			if dist > 20.5 then
-				-- Head directly to the closest point on the 20-stud perimeter
-				local dir = (myPos - targetPos)
-				local flatDir = Vector3.new(dir.X, 0, dir.Z)
-				if flatDir.Magnitude > 0.1 then
-					movePos = targetPos + flatDir.Unit * 20
-				else
-					movePos = targetPos + Vector3.new(20, 0, 0)
-				end
-			else
-				-- Orbit smoothly at exactly 20 studs
-				orbitAngle = orbitAngle + (dt * 5)
-				local offset = Vector3.new(math.cos(orbitAngle) * 20, 0, math.sin(orbitAngle) * 20)
-				movePos = targetPos + offset
-			end
-
-			-- Move to calculated position
-			hum:MoveTo(movePos)
-
-			-- Check distance for auto hop and attack (jumping around their body in circles)
-			if dist <= 22 then
-				-- Constantly Hop
-				if hum.FloorMaterial ~= Enum.Material.Air then
-					hum.Jump = true
-					pcall(function()
-						hum:ChangeState(Enum.HumanoidStateType.Jumping)
-					end)
-				end
-
-				-- Constant auto swing
-				local delay = 1 / 20
-				if tick() - lastSwing >= delay then
-					local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
-					if tool then
-						tool:Activate()
-						lastSwing = tick()
-					end
-				end
-			end
-		end))
-	else
-		local hum = getHumanoid()
-		local root = getRootPart()
-		if hum and root then
-			hum:MoveTo(root.Position)
-		end
-	end
-end)
-
-local function updateVictimDropdown()
-	local names = {}
-	for _, player in ipairs(Players:GetPlayers()) do
-		if player ~= LocalPlayer then
-			table.insert(names, player.Name)
-		end
-	end
-	Options.ChooseVictim:SetValues(names)
-end
-
-track("VictimPlayerAdded", Players.PlayerAdded:Connect(updateVictimDropdown))
-track("VictimPlayerRemoving", Players.PlayerRemoving:Connect(updateVictimDropdown))
-task.spawn(updateVictimDropdown)
 
 -- Phantom Mode Logic
 local phantomModeVars = {
@@ -2317,20 +1967,6 @@ Toggles.Reach:OnChanged(function()
 	end
 end)
 
-Options.AdvancePreset:OnChanged(function()
-	local val = Options.AdvancePreset.Value
-	local slider = Options.ReachRange
-	if slider then
-		if val == "Sword" then
-			slider:SetValue(11)
-			Library:Notify({ Title = "Advance Preset", Description = "Preset: Sword (11) applied!", Time = 2 })
-		elseif val == "Spear" then
-			slider:SetValue(13)
-			Library:Notify({ Title = "Advance Preset", Description = "Preset: Spear (13) applied!", Time = 2 })
-		end
-	end
-end)
-
 
 
 local reachToolConn = nil
@@ -2404,7 +2040,7 @@ local function connectReachTool(tool)
 								end
 							end)
 						else
-                                                        pcall(TSG.MeleePlayerRemote.FireServer, TSG.MeleePlayerRemote, slot, targetPlayer)
+							pcall(TSG.MeleePlayerRemote.FireServer, TSG.MeleePlayerRemote, slot, targetPlayer)
 						end
 					else
 						attackNPC(slot, nearestTarget)
@@ -2456,15 +2092,6 @@ MoveFaze:AddToggle("FakeLag", {
 	Default = false,
 })
 
-MoveFaze:AddSlider("FakeLagValue", {
-	Text = "Fake Lag Limit",
-	Default = 50,
-	Min = 0,
-	Max = 100,
-	Rounding = 0,
-	Compact = false,
-})
-
 MoveFaze:AddToggle("Xray", {
 	Text = "Xray",
 	Default = false,
@@ -2500,11 +2127,6 @@ MoveSwimBoost:AddSlider("SwimBoostValue", {
 	Max = 100,
 	Rounding = 1,
 })
-
-MoveSwimBoost:AddToggle("SinkFastPVP", {
-	Text = "Sink Fast PVP",
-	Default = false,
-})
 local MoveSwingSpeed = Tabs.Movement:AddLeftGroupbox("Swing Speed", "swords")
 
 MoveSwingSpeed:AddToggle("SwingSpeedToggle", {
@@ -2516,7 +2138,7 @@ MoveSwingSpeed:AddSlider("SwingSpeedVal", {
 	Text = "Swing Speed Value",
 	Default = 1,
 	Min = 1,
-	Max = 15,
+	Max = 10,
 	Rounding = 1,
 })
 
@@ -2533,7 +2155,7 @@ MoveRight:AddSlider("FlySpeed", {
 	Rounding = 0,
 })
 
-local MoveAntiAfk = Tabs.Movement:AddRightGroupbox("Anti-Idle", "clock")
+local MoveAntiAfk = Tabs.Movement:AddRightGroupbox("Anti-Afk", "clock")
 
 MoveAntiAfk:AddToggle("AntiAFK", {
 	Text = "Anti-AFK",
@@ -2545,29 +2167,19 @@ MoveAntiAfk:AddToggle("AntiKick", {
 	Default = false,
 })
 
-local InvisibleFlyGroup = Tabs.Movement:AddRightGroupbox("Invisible Fly", "plane")
+local MoveLowGravity = Tabs.Movement:AddRightGroupbox("Low Gravity", "arrow-down")
 
-InvisibleFlyGroup:AddToggle("InvisibleFlyToggle", {
-        Text = "Invis Fly",
-        Default = false,
+MoveLowGravity:AddToggle("LowGravity", {
+	Text = "Low Gravity",
+	Default = false,
 })
 
-InvisibleFlyGroup:AddSlider("InvisibleFlySpeedSlider", {
-        Text = "Fly Speed",
-        Min = 1,
-        Max = 15,
-        Default = 5,
-        Rounding = 1,
-})
-
-InvisibleFlyGroup:AddLabel("Highlight Fill Color"):AddColorPicker("InvisibleFlyFillColor", {
-        Default = Color3.fromRGB(0, 255, 0),
-        Title = "Invisible Fly Highlight Fill Color",
-})
-
-InvisibleFlyGroup:AddLabel("Highlight Outline Color"):AddColorPicker("InvisibleFlyOutlineColor", {
-        Default = Color3.fromRGB(255, 255, 255),
-        Title = "Invisible Fly Highlight Outline Color",
+MoveLowGravity:AddSlider("LowGravityHeight", {
+	Text = "Low Gravity Height",
+	Default = 100,
+	Min = 0,
+	Max = 180,
+	Rounding = 0,
 })
 
 
@@ -2607,9 +2219,8 @@ Toggles.FakeLag:OnChanged(function()
 			if not hrp then
 				return
 			end
-			-- Stutter fake lag: randomly anchor and unanchor based on the slider value
-			local limit = Options.FakeLagValue.Value / 100
-			if math.random() > (1 - limit) then
+			-- Stutter fake lag: randomly anchor and unanchor
+			if math.random() > 0.5 then
 				hrp.Anchored = true
 			else
 				hrp.Anchored = false
@@ -2672,32 +2283,6 @@ end)
 Toggles.SwimBoost:OnChanged(function()
 	if Toggles.SwimBoost.Value then
 		Library:Notify({ Title = "Swim Boost", Description = "Enabled", Time = 2 })
-	end
-end)
-
-Toggles.SinkFastPVP:OnChanged(function()
-	disconnect("SinkFastPVP")
-	if Toggles.SinkFastPVP.Value then
-		track("SinkFastPVP", RunService.Heartbeat:Connect(function()
-			local character = getCharacter()
-			local root = character and character:FindFirstChild("HumanoidRootPart")
-			local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-			if root and humanoid then
-				local isSwimming = humanoid:GetState() == Enum.HumanoidStateType.Swimming or character:GetAttribute("inWater")
-				if isSwimming then
-					if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) or UserInputService:IsKeyDown(Enum.KeyCode.C) then
-						root.AssemblyLinearVelocity = Vector3.new(
-							root.AssemblyLinearVelocity.X,
-							-45,
-							root.AssemblyLinearVelocity.Z
-						)
-					end
-				end
-			end
-		end))
-		Library:Notify({ Title = "Sink Fast PVP", Description = "Enabled", Time = 2 })
-	else
-		Library:Notify({ Title = "Sink Fast PVP", Description = "Disabled", Time = 2 })
 	end
 end)
 
@@ -2793,6 +2378,22 @@ Toggles.Fly:OnChanged(function()
 		end))
 	end
 end)
+
+Toggles.LowGravity:OnChanged(function()
+	if Toggles.LowGravity.Value then
+		workspace.Gravity = 196.2 - Options.LowGravityHeight.Value
+	else
+		workspace.Gravity = 196.2
+	end
+end)
+
+Options.LowGravityHeight:OnChanged(function()
+	if Toggles.LowGravity.Value then
+		workspace.Gravity = 196.2 - Options.LowGravityHeight.Value
+	end
+end)
+
+
 
 local antiAfkConn = nil
 local antiKickConn = nil
@@ -2905,6 +2506,7 @@ local function setupAnimationSpeedHacks(char)
 end
 
 track("SwingCharacterAdded", LocalPlayer.CharacterAdded:Connect(function(char)
+	task.wait(1)
 	setupAnimationSpeedHacks(char)
 end))
 
@@ -3046,7 +2648,7 @@ local goldLocations = {
 	{ name = "Gold 5",  pos = Vector3.new(1188.42, 20.58,  -563.03) },
 	{ name = "Gold 6",  pos = Vector3.new(-651.84, 226.09, 654.28)  },
 	{ name = "Gold 7",  pos = Vector3.new(-540.20, 76.40,  297.97)  },
-	{ name = "Gold 8",  pos = Vector3.new(-2202.22, 51.01, 22.08)   },
+	{ name = "Gold 8",  pos = Vector3.new(-639.61, -24.83, -83.22)  },
 	{ name = "Gold 9",  pos = Vector3.new(-1182.86, 54.42, 6608.34) },
 	{ name = "Gold 10", pos = Vector3.new(-2015.67, 30.73, -39.95)  },
 	{ name = "Gold 11", pos = Vector3.new(-912.17, 125.72, -408.72) },
@@ -3057,72 +2659,47 @@ local goldLocations = {
 	{ name = "Gold 16", pos = Vector3.new(1686.60, 41.64, -917.39)  },
 	{ name = "Gold 17", pos = Vector3.new(1566.16, 23.19, -946.35)  },
 	{ name = "Gold 18", pos = Vector3.new(252.14, 22.06, 811.69)    },
-	{ name = "Coal 1",  pos = Vector3.new(1130.93, 24.94, -601.55)  },
-	{ name = "Coal 2",  pos = Vector3.new(1319.54, 25.26, -1129.08) },
-	{ name = "Coal 3",  pos = Vector3.new(-681.19, 173.56, 657.90)  },
-	{ name = "Coal 4",  pos = Vector3.new(-886.51, 75.31, 192.70)   },
-	{ name = "Coal 5",  pos = Vector3.new(-1351.22, 31.18, -167.99) },
-	{ name = "Coal 6",  pos = Vector3.new(-1872.79, 30.78, 194.66)  },
-	{ name = "Coal 7",  pos = Vector3.new(-2255.10, 29.20, 964.32)  },
-	{ name = "Coal 8",  pos = Vector3.new(331.57, 47.36, 492.03)    },
-	{ name = "Coal 9",  pos = Vector3.new(264.71, 27.19, 267.24)    },
-	{ name = "Coal 10", pos = Vector3.new(-680.98, 26.07, 254.45)   },
 }
 
-local function filterLocations(prefix)
-	local names = {}
-	for _, loc in ipairs(goldLocations) do
-		if loc.name:sub(1, #prefix) == prefix then
-			table.insert(names, loc.name)
-		end
-	end
-	return names
+local goldNames = {}
+for i, loc in ipairs(goldLocations) do
+	table.insert(goldNames, loc.name)
 end
 
-OreFarm:AddDropdown("SelectOreDropdown", {
-	Text = "Select Ore",
-	Values = { "Gold", "Coal" },
-	Default = "Gold",
-})
-
 OreFarm:AddDropdown("GoldLocationsDropdown", {
-	Text = "Select Ore Location",
-	Values = filterLocations("Gold"),
+	Text = "Select Gold Location",
+	Values = goldNames,
 	Default = "Gold 1",
 })
 
-Options.SelectOreDropdown:OnChanged(function()
-	local value = Options.SelectOreDropdown.Value
-	local filtered = filterLocations(value)
-	Options.GoldLocationsDropdown:SetValues(filtered)
-	if value == "Gold" then
-		Options.GoldLocationsDropdown:SetValue("Gold 1")
-	elseif value == "Coal" then
-		Options.GoldLocationsDropdown:SetValue("Coal 1")
-	end
-end)
-
 OreFarm:AddButton({
-	Text = "Teleport to Selected",
+	Text = "Teleport to Selected Gold",
 	Func = function()
-           local selected = Options.GoldLocationsDropdown.Value
-           local targetPos = nil
-           for _, loc in ipairs(goldLocations) do
-                   if loc.name == selected then
-                           targetPos = loc.pos
-                           break
-                   end
-           end
-           if targetPos then
-                   local root = getRootPart()
-                   if root then
-                           root.CFrame = CFrame.new(targetPos)
-                           Library:Notify({ Title = "Teleport", Description = "Teleported to " .. selected, Time = 1.5 })
-                   else
-                           Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
-                   end
-           end
-   end,
+		local selected = Options.GoldLocationsDropdown.Value
+		local targetPos = nil
+		for _, loc in ipairs(goldLocations) do
+			if loc.name == selected then
+				targetPos = loc.pos
+				break
+			end
+		end
+		if targetPos then
+			local root = getRootPart()
+			if root then
+				root.CFrame = CFrame.new(targetPos)
+				Library:Notify({ Title = "Teleport", Description = "Teleported to " .. selected, Time = 1.5 })
+			else
+				Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
+			end
+		end
+	end,
+})
+
+local FarmDupe = Tabs.Farming:AddRightGroupbox("DUPE ITEMS", "copy")
+
+FarmDupe:AddToggle("Multiplier", {
+	Text = "Multiplier",
+	Default = false,
 })
 
 -- ==========================================
@@ -3238,8 +2815,6 @@ Toggles.AutoMine:OnChanged(function()
 		updateHighlight(hlMine, nil, false)
 	end
 end)
-
-
 
 -- ==========================================
 local function chopObject(obj)
@@ -3477,11 +3052,6 @@ local extraLocations = {
 	{ name = "Below ML",    pos = Vector3.new(-177, 25.26, -1014.83)     },
 	{ name = "Arena",       pos = Vector3.new(-1315.59, 41.19, 1972.84)  },
 	{ name = "Bamboo",      pos = Vector3.new(-1330.92, 39.43, 5798.47)  },
-	{ name = "Volcano",     pos = Vector3.new(1769.70, 36.43, 1832.10)   },
-	{ name = "Asia Cave",   pos = Vector3.new(-2108.44, 201.04, 6823.05) },
-	{ name = "Juggernaut",  pos = Vector3.new(-1645.06, 336.32, -2874.34)},
-	{ name = "Waterfall",   pos = Vector3.new(-1949.89, 25.29, 345.83)   },
-	{ name = "Desert Maze", pos = Vector3.new(1529.42, 55.33, -938.31)   },
 }
 
 for _, loc in ipairs(extraLocations) do
@@ -3499,44 +3069,141 @@ for _, loc in ipairs(extraLocations) do
 	})
 end
 
--- Extra Locations Groupbox
-local ResetTeleportGroup = Tabs.Teleport:AddRightGroupbox("Trick Spawn", "refresh-cw")
+-- Instant Respawn Groupbox
+local InstantRespawnGroup = Tabs.Teleport:AddRightGroupbox("Instant Respawn", "map-pin")
 
-ResetTeleportGroup:AddToggle("ResetCharacter", {
-	Text = "Reset Character",
+local respawnArgs = {5917762, 5, 5, 13, 13405801, 12950139, false}
+local lastDeathPosition = nil
+local respawnDebounce = false
+local isRespawnTeleporting = false
+
+local function attemptRespawn()
+	if respawnDebounce then return end
+	respawnDebounce = true
+
+	local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
+	if not remoteInterface then
+		respawnDebounce = false
+		return
+	end
+
+	local characterFolder = remoteInterface:FindFirstChild("character")
+	if not characterFolder then
+		respawnDebounce = false
+		return
+	end
+
+	local resetRemote = characterFolder:FindFirstChild("reset")
+	if resetRemote then
+		resetRemote:InvokeServer()
+	end
+
+	local respawnRemote = characterFolder:FindFirstChild("respawn")
+	if respawnRemote then
+		respawnRemote:InvokeServer(unpack(respawnArgs))
+	end
+
+	respawnDebounce = false
+end
+
+local function respawnTeleport(cframe)
+	isRespawnTeleporting = true
+	local maxWaitTime = 0.5
+	local startTime = tick()
+
+	while not LocalPlayer.Character and tick() - startTime < maxWaitTime do
+		task.wait(0.2)
+	end
+
+	if not LocalPlayer.Character then
+		isRespawnTeleporting = false
+		return
+	end
+
+	local humanoidRootPart = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+	local waitTime = 0
+
+	while not humanoidRootPart and waitTime < maxWaitTime do
+		task.wait(0.2)
+		waitTime = waitTime + 0.01
+		humanoidRootPart = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+	end
+
+	if humanoidRootPart then
+		humanoidRootPart.CFrame = cframe
+	end
+	isRespawnTeleporting = false
+end
+
+local function checkAndRespawn()
+	if not Toggles.InstantRespawn.Value or isRespawnTeleporting then return end
+
+	if not LocalPlayer.Character or not workspace:FindFirstChild(LocalPlayer.Name) then
+		if lastDeathPosition then
+			task.wait(0.00014)
+			attemptRespawn()
+			destroyAvatarGUI()
+			task.wait(Options.TeleportDelaySlider.Value)
+			respawnTeleport(CFrame.new(lastDeathPosition))
+		end
+	end
+end
+
+InstantRespawnGroup:AddToggle("InstantRespawn", {
+	Text = "Instant Respawn",
 	Default = false,
 })
 
-Toggles.ResetCharacter:OnChanged(function()
-	if Toggles.ResetCharacter.Value then
-		local root = getRootPart()
-		if root then
-			lastDeathPosition = root.Position
-			shouldTeleportBack = true
-		end
-		
-		local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
-		if remoteInterface then
-			local characterFolder = remoteInterface:FindFirstChild("character")
-			if characterFolder then
-				local resetRemote = characterFolder:FindFirstChild("reset")
-				if resetRemote then
-					pcall(function()
-						resetRemote:InvokeServer()
+InstantRespawnGroup:AddSlider("TeleportDelaySlider", {
+	Text = "Teleport Delay",
+	Min = 0.1,
+	Max = 5,
+	Default = 0.1,
+	Rounding = 1,
+})
+
+Toggles.InstantRespawn:OnChanged(function()
+	if Toggles.InstantRespawn.Value then
+		destroyAvatarGUI()
+	end
+end)
+
+task.spawn(function()
+	while true do
+		local character = LocalPlayer.Character
+
+		if character then
+			local humanoid = character:FindFirstChild("Humanoid")
+			if humanoid then
+				local rootPart = character:FindFirstChild("HumanoidRootPart")
+				if rootPart then
+					lastDeathPosition = rootPart.Position
+				end
+
+				if not humanoid:FindFirstChild("DeathTracker") then
+					local tracker = Instance.new("BoolValue")
+					tracker.Name = "DeathTracker"
+					tracker.Parent = humanoid
+
+					humanoid.Died:Connect(function()
+						local dyingRoot = character:FindFirstChild("HumanoidRootPart")
+						if dyingRoot then
+							lastDeathPosition = dyingRoot.Position
+						end
+						checkAndRespawn()
 					end)
 				end
 			end
+		else
+			checkAndRespawn()
 		end
-		
-		task.spawn(function()
-			task.wait(0.5)
-			Toggles.ResetCharacter:SetValue(false)
-		end)
+
+		task.wait(0.00014)
 	end
 end)
 
 -- Extra Locations Groupbox
-local TeleportRight = Tabs.Teleport:AddRightGroupbox("Click Teleport", "map-pin")
+local TeleportRight = Tabs.Teleport:AddRightGroupbox("Extra Locations", "map-pin")
 
 local clickTpActive = false
 local clickTpBtn = nil
@@ -3578,34 +3245,84 @@ pcall(function()
 	clickTpBtn.Label.TextColor3 = Color3.fromRGB(0, 120, 255)
 end)
 
--- Merchants Groupbox
-local MerchantsGroup = Tabs.Teleport:AddRightGroupbox("Merchants", "map-pin")
+local TeleportWaypoint = Tabs.Teleport:AddRightGroupbox("Waypoint", "map-pin")
 
-local merchantTeleports = {
-	{ name = "Mainland",   pos = Vector3.new(-144.60, 25.26, 429.38)    },
-	{ name = "Desert",     pos = Vector3.new(1428.14, 25.26, -593.17)   },
-	{ name = "Asia",       pos = Vector3.new(-744.10, 329.20, 7134.18)  },
-	{ name = "Arctic",     pos = Vector3.new(-1251.90, 25.25, -1997.17) },
-	{ name = "Below Main", pos = Vector3.new(-166.28, 25.26, -1043.86)  },
-	{ name = "Secret",     pos = Vector3.new(-1171.82, 24.40, 90.70)    },
-}
+TeleportWaypoint:AddInput("WaypointName", {
+	Text = "Waypoint Name",
+	Default = "",
+	Placeholder = "Enter waypoint name...",
+})
 
-for _, merchant in ipairs(merchantTeleports) do
-	MerchantsGroup:AddButton({
-		Text = merchant.name,
-		Func = function()
-			local root = getRootPart()
-			if root then
-				root.CFrame = CFrame.new(merchant.pos)
-				Library:Notify({ Title = "Teleport", Description = "Teleported to " .. merchant.name, Time = 1.5 })
-			else
-				Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
-			end
-		end,
-	})
+TeleportWaypoint:AddDropdown("WaypointList", {
+	Values = {},
+	Default = "",
+	Text = "Saved Waypoints",
+})
+
+local waypoints = {}
+local function updateWaypointDropdown()
+	local list = {}
+	for name in pairs(waypoints) do
+		table.insert(list, "ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬ ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â°ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬ ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬ ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬ ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âµ " .. name)
+	end
+	table.sort(list)
+	Options.WaypointList:SetValues(list)
+	if #list > 0 then
+		Options.WaypointList:SetValue(list[1])
+	else
+		Options.WaypointList:SetValue("")
+	end
 end
 
+TeleportWaypoint:AddButton({
+	Text = "Add Waypoint",
+	Func = function()
+		local name = Options.WaypointName.Value
+		if not name or name == "" then
+			Library:Notify({ Title = "Waypoint", Description = "Please enter a name first.", Time = 3 })
+			return
+		end
+		local root = getRootPart()
+		if not root then
+			Library:Notify({ Title = "Waypoint", Description = "Character root not found.", Time = 3 })
+			return
+		end
+		waypoints[name] = root.CFrame
+		updateWaypointDropdown()
+		Library:Notify({ Title = "Waypoint", Description = "Added waypoint: " .. name, Time = 2 })
+	end,
+})
 
+TeleportWaypoint:AddButton({
+	Text = "Delete Waypoint",
+	Func = function()
+		local selected = Options.WaypointList.Value
+		if not selected or selected == "" then
+			Library:Notify({ Title = "Waypoint", Description = "No waypoint selected.", Time = 3 })
+			return
+		end
+		local name = selected:sub(5)
+		if waypoints[name] then
+			waypoints[name] = nil
+			updateWaypointDropdown()
+			Library:Notify({ Title = "Waypoint", Description = "Deleted waypoint: " .. name, Time = 2 })
+		end
+	end,
+})
+
+Options.WaypointList:OnChanged(function()
+	local selected = Options.WaypointList.Value
+	if not selected or selected == "" then return end
+	local name = selected:sub(5)
+	local cf = waypoints[name]
+	if cf then
+		local root = getRootPart()
+		if root then
+			root.CFrame = cf
+			Library:Notify({ Title = "Waypoint", Description = "Teleported to " .. name, Time = 2 })
+		end
+	end
+end)
 
 -- ==========================================
 -- VISUALS
@@ -3668,47 +3385,6 @@ VisualFPS:AddToggle("DisableShadows", {
 			disconnect("DisableShadows_PlayerAdded")
 			for _, player in ipairs(Players:GetPlayers()) do
 				disconnect("DisableShadows_CharAdded_" .. player.Name)
-			end
-		end
-	end,
-})
-
-VisualFPS:AddToggle("NoWaterBlur", {
-	Text = "No Water Blur",
-	Default = false,
-	Callback = function(state)
-		if state then
-			local function disableBlur(child)
-				if child.Name == "waterBlur" then
-					pcall(function()
-						child.Enabled = false
-					end)
-				end
-			end
-			
-			local waterBlur = game:GetService("Lighting"):FindFirstChild("waterBlur")
-			if waterBlur then
-				disableBlur(waterBlur)
-			end
-			
-			track("NoWaterBlur_ChildAdded", game:GetService("Lighting").ChildAdded:Connect(disableBlur))
-			
-			track("NoWaterBlur_EnabledChange", RunService.Heartbeat:Connect(function()
-				local wb = game:GetService("Lighting"):FindFirstChild("waterBlur")
-				if wb and wb.Enabled then
-					pcall(function()
-						wb.Enabled = false
-					end)
-				end
-			end))
-		else
-			disconnect("NoWaterBlur_ChildAdded")
-			disconnect("NoWaterBlur_EnabledChange")
-			local waterBlur = game:GetService("Lighting"):FindFirstChild("waterBlur")
-			if waterBlur then
-				pcall(function()
-					waterBlur.Enabled = true
-				end)
 			end
 		end
 	end,
@@ -3807,91 +3483,6 @@ VisualFPS:AddToggle("LowTextures", {
 	end,
 })
 
-VisualFPS:AddToggle("PotatoGraphics", {
-	Text = "Potato Graphics",
-	Default = false,
-	Callback = function(state)
-		if state then
-			pcall(function()
-				local lighting = game:GetService("Lighting")
-				lighting.GlobalShadows = false
-				lighting.ShadowMapEnabled = false
-			end)
-			pcall(function()
-				for _, v in ipairs(game:GetService("Lighting"):GetChildren()) do
-					if v:IsA("Sky") or v:IsA("Atmosphere") or v:IsA("Clouds") or v:IsA("SunRaysEffect") then
-						v:Destroy()
-					end
-				end
-				local sky = Instance.new("Sky")
-				sky.Name = "PotatoSky"
-				sky.SkyboxBk = "rbxassetid://256193683"
-				sky.SkyboxDn = "rbxassetid://256193683"
-				sky.SkyboxFt = "rbxassetid://256193683"
-				sky.SkyboxLf = "rbxassetid://256193683"
-				sky.SkyboxRt = "rbxassetid://256193683"
-				sky.SkyboxUp = "rbxassetid://256193683"
-				sky.SunTextureId = ""
-				sky.MoonTextureId = ""
-				sky.Parent = game:GetService("Lighting")
-			end)
-			pcall(function()
-				setPlayerShadows(false)
-			end)
-			track("PotatoGraphicsShadows", game:GetService("Players").PlayerAdded:Connect(function(player)
-				player.CharacterAdded:Connect(function(char)
-					task.wait(1)
-					for _, part in ipairs(char:GetDescendants()) do
-						if part:IsA("BasePart") then
-							pcall(function() part.CastShadow = false end)
-						end
-					end
-				end)
-			end))
-			
-			local allDescendants = workspace:GetDescendants()
-			for i = 1, #allDescendants, 100 do
-				task.wait()
-				for j = i, math.min(i + 99, #allDescendants) do
-					local v = allDescendants[j]
-					if v then
-						if v:IsA("BasePart") or v:IsA("MeshPart") then
-							pcall(function() 
-								v.Material = Enum.Material.Plastic 
-								v.CastShadow = false
-							end)
-						elseif v:IsA("Texture") or v:IsA("Decal") then
-							pcall(function() v:Destroy() end)
-						end
-					end
-				end
-			end
-			track("PotatoGraphics", workspace.DescendantAdded:Connect(function(v)
-				if Toggles.PotatoGraphics.Value then
-					if v:IsA("BasePart") or v:IsA("MeshPart") then
-						pcall(function() 
-							v.Material = Enum.Material.Plastic 
-							v.CastShadow = false
-						end)
-					elseif v:IsA("Texture") or v:IsA("Decal") then
-						pcall(function() v:Destroy() end)
-					end
-				end
-			end))
-		else
-			disconnect("PotatoGraphics")
-			disconnect("PotatoGraphicsShadows")
-			pcall(function()
-				local lighting = game:GetService("Lighting")
-				lighting.GlobalShadows = true
-			end)
-			pcall(function()
-				setPlayerShadows(true)
-			end)
-		end
-	end,
-})
-
 
 
 VisualFPS:AddToggle("DisableEffects", {
@@ -3980,17 +3571,11 @@ VisualFPS:AddToggle("StretchedRES", {
 VisualLeft:AddToggle("PlayerESP", {
 	Text = "Player ESP",
 	Default = false,
-}):AddColorPicker("PlayerESPColor", {
-	Default = Color3.fromRGB(255, 255, 255),
-	Title = "Player ESP Color",
 })
 
 VisualLeft:AddToggle("ShowDistance", {
 	Text = "Show Distance",
 	Default = true,
-}):AddColorPicker("ShowDistanceColor", {
-	Default = Color3.fromRGB(255, 255, 255),
-	Title = "Show Distance Color",
 })
 
 VisualLeft:AddToggle("ShowHealth", {
@@ -4001,27 +3586,12 @@ VisualLeft:AddToggle("ShowHealth", {
 VisualLeft:AddToggle("ShowTracers", {
 	Text = "Show Tracers",
 	Default = false,
-}):AddColorPicker("ShowTracersColor", {
-	Default = Color3.fromRGB(192, 192, 192),
-	Title = "Show Tracers Color",
 })
 
 VisualLeft:AddToggle("ShowBox", {
 	Text = "Show Box",
 	Default = false,
-}):AddColorPicker("ShowBoxColor", {
-	Default = Color3.fromRGB(192, 192, 192),
-	Title = "Show Box Color",
 })
-
-VisualLeft:AddToggle("OutlineESP", {
-	Text = "Outline ESP",
-	Default = false,
-}):AddColorPicker("OutlineESPColor", {
-	Default = Color3.fromRGB(255, 255, 255),
-	Title = "Outline ESP Color",
-})
-
 
 local VisualEnv = Tabs.Visuals:AddLeftGroupbox("ENVIRONMENT", "sun")
 
@@ -4043,15 +3613,6 @@ VisualEnv:AddToggle("AlwaysNight", {
 VisualEnv:AddToggle("InfiniteZoom", {
 	Text = "Infinite Zoom",
 	Default = false,
-})
-
-VisualEnv:AddSlider("ControlTheHours", {
-	Text = "Control The Hours",
-	Default = 12,
-	Min = 0,
-	Max = 24,
-	Rounding = 1,
-	Compact = false,
 })
 
 VisualRight:AddSlider("ESPDistance", {
@@ -4113,9 +3674,8 @@ local function createESP(player)
 	label.BackgroundTransparency = 1
 	label.TextColor3 = Color3.new(1, 1, 1)
 	label.TextStrokeTransparency = 0.5
-	label.Font = Enum.Font.Jura
+	label.Font = Enum.Font.GothamBold
 	label.TextSize = 14
-	label.RichText = true
 	label.Parent = billboard
 
 	local tracer = nil
@@ -4127,86 +3687,39 @@ local function createESP(player)
 		tracer.Visible = false
 	end
 
-	local highlight = Instance.new("Highlight")
-	highlight.FillColor = Color3.fromRGB(255, 255, 255)
-	highlight.OutlineColor = Options.OutlineESPColor.Value
-	highlight.FillTransparency = 1
-	highlight.OutlineTransparency = 0
-	highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-	highlight.Adornee = character
-	highlight.Parent = character
-	highlight.Enabled = false
+	espObjects[player] = { box2d, billboard, label, tracer }
 
-	local healthBg = nil
-	local healthBar = nil
-	if hasDrawing then
-		healthBg = Drawing.new("Line")
-		healthBg.Color = Color3.fromRGB(0, 0, 0)
-		healthBg.Thickness = 4
-		healthBg.Transparency = 1
-		healthBg.Visible = false
-
-		healthBar = Drawing.new("Line")
-		healthBar.Thickness = 2
-		healthBar.Transparency = 1
-		healthBar.Visible = false
-	end
-
-	espObjects[player] = { box2d, billboard, label, tracer, highlight, healthBg, healthBar }
-
-local function update()
+	local function update()
 		local myRoot = getRootPart()
 		if not myRoot or not character.Parent then
 			if tracer then tracer.Visible = false end
 			if box2d then box2d.Visible = false end
-			if highlight then highlight.Enabled = false end
-			if healthBg then healthBg.Visible = false end
-			if healthBar then healthBar.Visible = false end
 			return
 		end
 		local dist = (root.Position - myRoot.Position).Magnitude
 		local shouldShow = dist <= Options.ESPDistance.Value and Toggles.PlayerESP.Value
-		
-		local screenPos, onScreen = workspace.CurrentCamera:WorldToViewportPoint(root.Position)
-		local head = character:FindFirstChild("Head")
-		local topPos = head and head.Position + Vector3.new(0, 0.5, 0) or root.Position + Vector3.new(0, 3, 0)
-		local bottomPos = head and head.Position - Vector3.new(0, 6.5, 0) or root.Position - Vector3.new(0, 3.5, 0)
-		
-		local topCoords = workspace.CurrentCamera:WorldToViewportPoint(topPos)
-		local bottomCoords = workspace.CurrentCamera:WorldToViewportPoint(bottomPos)
-		
-		local height = math.abs(topCoords.Y - bottomCoords.Y)
-		local width = height * 0.6
-
 		if box2d then
-			if shouldShow and onScreen and Toggles.ShowBox and Toggles.ShowBox.Value then
-				box2d.Position = Vector2.new(screenPos.X - width / 2, topCoords.Y)
-				box2d.Size = Vector2.new(width, height)
-				box2d.Visible = true
+			if shouldShow and Toggles.ShowBox and Toggles.ShowBox.Value then
+				local screenPos, onScreen = workspace.CurrentCamera:WorldToViewportPoint(root.Position)
+				if onScreen then
+					local head = character:FindFirstChild("Head")
+					local topPos = head and head.Position + Vector3.new(0, 0.5, 0) or root.Position + Vector3.new(0, 3, 0)
+					local bottomPos = head and head.Position - Vector3.new(0, 6.5, 0) or root.Position - Vector3.new(0, 3.5, 0)
+					
+					local topCoords = workspace.CurrentCamera:WorldToViewportPoint(topPos)
+					local bottomCoords = workspace.CurrentCamera:WorldToViewportPoint(bottomPos)
+					
+					local height = math.abs(topCoords.Y - bottomCoords.Y)
+					local width = height * 0.6
+					
+					box2d.Position = Vector2.new(screenPos.X - width / 2, topCoords.Y)
+					box2d.Size = Vector2.new(width, height)
+					box2d.Visible = true
+				else
+					box2d.Visible = false
+				end
 			else
 				box2d.Visible = false
-			end
-		end
-
-		if healthBg and healthBar then
-			if shouldShow and onScreen and Toggles.ShowHealth and Toggles.ShowHealth.Value then
-				local barX = screenPos.X - width / 2 - 6
-				
-				healthBg.From = Vector2.new(barX, topCoords.Y)
-				healthBg.To = Vector2.new(barX, bottomCoords.Y)
-				healthBg.Visible = true
-				
-				local maxHealth = hum.MaxHealth > 0 and hum.MaxHealth or 100
-				local healthRatio = math.clamp(hum.Health / maxHealth, 0, 1)
-				local healthColor = Color3.fromRGB(255, 0, 0):Lerp(Color3.fromRGB(0, 255, 0), healthRatio)
-				
-				healthBar.From = Vector2.new(barX, bottomCoords.Y - (height * healthRatio))
-				healthBar.To = Vector2.new(barX, bottomCoords.Y)
-				healthBar.Color = healthColor
-				healthBar.Visible = true
-			else
-				healthBg.Visible = false
-				healthBar.Visible = false
 			end
 		end
 
@@ -4215,26 +3728,22 @@ local function update()
 		if Toggles.ShowDistance.Value then
 			text ..= string.format("\n%.0fm", dist)
 		end
+		if Toggles.ShowHealth.Value then
+			text ..= string.format("\nHP: %.0f", hum.Health)
+		end
 		label.Text = text
 
 		if tracer and Toggles.ShowTracers.Value then
+			local pos, onScreen = workspace.CurrentCamera:WorldToViewportPoint(root.Position)
 			if onScreen then
 				tracer.From = Vector2.new(workspace.CurrentCamera.ViewportSize.X / 2, workspace.CurrentCamera.ViewportSize.Y)
-				tracer.To = Vector2.new(screenPos.X, screenPos.Y)
+				tracer.To = Vector2.new(pos.X, pos.Y)
 				tracer.Visible = true
 			else
 				tracer.Visible = false
 			end
 		elseif tracer then
 			tracer.Visible = false
-		end
-
-		if highlight then
-			if shouldShow and Toggles.OutlineESP and Toggles.OutlineESP.Value then
-				highlight.Enabled = true
-			else
-				highlight.Enabled = false
-			end
 		end
 	end
 
@@ -4267,16 +3776,6 @@ Toggles.PlayerESP:OnChanged(function()
 			end)
 		end
 	end))
-end)
-
-Options.OutlineESPColor:OnChanged(function()
-	local color = Options.OutlineESPColor.Value
-	for _, objects in pairs(espObjects) do
-		local highlight = objects[5]
-		if highlight and typeof(highlight) == "Instance" and highlight:IsA("Highlight") then
-			highlight.OutlineColor = color
-		end
-	end
 end)
 
 
@@ -4333,18 +3832,6 @@ Toggles.InfiniteZoom:OnChanged(function()
 		LocalPlayer.CameraMinZoomDistance = 0.5
 	end
 end)
-
-Options.ControlTheHours:OnChanged(function()
-	if Toggles.AlwaysDay.Value or Toggles.Midday.Value or Toggles.AlwaysNight.Value then
-		Toggles.AlwaysDay:SetValue(false)
-		Toggles.Midday:SetValue(false)
-		Toggles.AlwaysNight:SetValue(false)
-	end
-	disconnect("EnvironmentTime")
-	track("EnvironmentTime", RunService.Heartbeat:Connect(function()
-		game:GetService("Lighting").ClockTime = Options.ControlTheHours.Value
-	end))
-end)
  
 -- ==========================================
 -- FUN BOX
@@ -4377,34 +3864,33 @@ FunCoolEmotes:AddButton({
 	end,
 })
 
-local MoveLowGravity = Tabs["Fun Box"]:AddLeftGroupbox("Low Gravity", "arrow-down")
+local FunAttach = Tabs["Fun Box"]:AddLeftGroupbox("ATTACH", "link")
 
-MoveLowGravity:AddToggle("LowGravity", {
-        Text = "Low Gravity",
-        Default = false,
+FunAttach:AddToggle("AttachToggle", {
+	Text = "Attach",
+	Default = false,
 })
 
-MoveLowGravity:AddSlider("LowGravityHeight", {
-        Text = "Low Gravity Height",
-        Default = 100,
-        Min = 0,
-   Max = 300,
-        Rounding = 0,
+FunAttach:AddDropdown("AttachPlayerList", {
+	Text = "Target Player",
+	Values = {},
+	Default = "",
 })
 
-Toggles.LowGravity:OnChanged(function()
-        if Toggles.LowGravity.Value then
-           workspace.Gravity = math.max(0, 196.2 - Options.LowGravityHeight.Value)
-        else
-                workspace.Gravity = 196.2
-        end
-end)
+FunAttach:AddToggle("HideBeneathToggle", {
+	Text = "Hide Beneath",
+	Default = false,
+})
 
-Options.LowGravityHeight:OnChanged(function()
-        if Toggles.LowGravity.Value then
-           workspace.Gravity = math.max(0, 196.2 - Options.LowGravityHeight.Value)
-        end
-end)
+FunAttach:AddToggle("FloatOverToggle", {
+	Text = "Float Over",
+	Default = false,
+})
+
+FunAttach:AddToggle("PlusFlingPlayerToggle", {
+	Text = "+ Fling Player(use with float)",
+	Default = false,
+})
 
 local FunRight = Tabs["Fun Box"]:AddRightGroupbox("Show Cursor", "mouse-pointer")
 
@@ -4414,7 +3900,7 @@ FunRight:AddToggle("CustomCursorActive", {
 })
 
 FunRight:AddDropdown("CustomCursorType", {
-	Values = { "Tiny Square", "Circle", "X", "+", "Dot", "Mouse Arrow" },
+	Values = { "Tiny Square", "Circle", "X", "Dot", "Mouse Arrow" },
 	Default = "X",
 	Text = "Cursor Type",
 })
@@ -4440,7 +3926,7 @@ FunAnimations:AddToggle("ShadowTheGoat", {
 })
 
 FunAnimations:AddToggle("DoNotTouch", {
-	Text = "Spawn Freddy",
+	Text = "DO NOT TOUCH",
 	Default = false,
 })
 
@@ -4531,16 +4017,6 @@ local function startAttach()
 end
 
 Toggles.AttachToggle:OnChanged(startAttach)
-Toggles.PlusKillPlayerToggle:OnChanged(function()
-	if Toggles.PlusKillPlayerToggle.TextLabel then
-		Toggles.PlusKillPlayerToggle.TextLabel.TextColor3 = Toggles.PlusKillPlayerToggle.Value and Color3.fromRGB(255, 100, 100) or Color3.fromRGB(255, 0, 0)
-	end
-	if Toggles.PlusKillPlayerToggle.Value then
-		Toggles.KillAura:SetValue(true)
-	else
-		Toggles.KillAura:SetValue(false)
-	end
-end)
 Options.AttachPlayerList:OnChanged(function()
 	if Toggles.AttachToggle.Value then
 		startAttach()
@@ -4592,6 +4068,29 @@ Toggles.PlusFlingPlayerToggle:OnChanged(function()
 	end
 end)
 
+-- Dupe Items Script Logic
+Toggles.Multiplier:OnChanged(function()
+	disconnect("DupeDropTrack")
+	if Toggles.Multiplier.Value then
+		Library:Notify({ Title = "DUPE ITEMS", Description = "Multiplier Active! Drop any item in your hand to dupe it.", Time = 4 })
+		
+		track("DupeDropTrack", CollectionService:GetInstanceAddedSignal("DROPPED_ITEM"):Connect(function(itemPart)
+			if not Toggles.Multiplier.Value then return end
+			task.wait()
+			if itemPart:IsA("BasePart") then
+				local root = getRootPart()
+				if root and (itemPart.Position - root.Position).Magnitude < 15 then
+					for i = 1, 15 do
+						task.spawn(pcall, function()
+							TSG.PickupRemote:FireServer(itemPart)
+						end)
+					end
+					Library:Notify({ Title = "DUPE ITEMS", Description = "Attempted to multiply item!", Time = 2 })
+				end
+			end
+		end))
+	end
+end)
 -- Spectate Script Logic
 local function updateSpectatePlayerList()
 	local list = {}
@@ -5037,37 +4536,32 @@ local function initCursorDrawings()
 		cursorDrawings.square = Drawing.new("Square")
 		cursorDrawings.square.Color = Color3.fromRGB(255, 255, 255)
 		cursorDrawings.square.Filled = true
-		cursorDrawings.square.Transparency = 1
-		cursorDrawings.square.Visible = true
+		cursorDrawings.square.Visible = false
 	end
 	if not cursorDrawings.circle then
 		cursorDrawings.circle = Drawing.new("Circle")
 		cursorDrawings.circle.Color = Color3.fromRGB(255, 255, 255)
 		cursorDrawings.circle.Filled = false
 		cursorDrawings.circle.Thickness = 1.5
-		cursorDrawings.circle.Transparency = 1
-		cursorDrawings.circle.Visible = true
+		cursorDrawings.circle.Visible = false
 	end
 	if not cursorDrawings.xLine1 then
 		cursorDrawings.xLine1 = Drawing.new("Line")
 		cursorDrawings.xLine1.Color = Color3.fromRGB(255, 255, 255)
 		cursorDrawings.xLine1.Thickness = 1.5
-		cursorDrawings.xLine1.Transparency = 1
-		cursorDrawings.xLine1.Visible = true
+		cursorDrawings.xLine1.Visible = false
 	end
 	if not cursorDrawings.xLine2 then
 		cursorDrawings.xLine2 = Drawing.new("Line")
 		cursorDrawings.xLine2.Color = Color3.fromRGB(255, 255, 255)
 		cursorDrawings.xLine2.Thickness = 1.5
-		cursorDrawings.xLine2.Transparency = 1
-		cursorDrawings.xLine2.Visible = true
+		cursorDrawings.xLine2.Visible = false
 	end
 	if not cursorDrawings.dot then
 		cursorDrawings.dot = Drawing.new("Circle")
 		cursorDrawings.dot.Color = Color3.fromRGB(255, 255, 255)
 		cursorDrawings.dot.Filled = true
-		cursorDrawings.dot.Transparency = 1
-		cursorDrawings.dot.Visible = true
+		cursorDrawings.dot.Visible = false
 	end
 	for i = 1, 5 do
 		local key = "arrow" .. i
@@ -5075,8 +4569,7 @@ local function initCursorDrawings()
 			cursorDrawings[key] = Drawing.new("Line")
 			cursorDrawings[key].Color = Color3.fromRGB(255, 255, 255)
 			cursorDrawings[key].Thickness = 1.5
-			cursorDrawings[key].Transparency = 1
-			cursorDrawings[key].Visible = true
+			cursorDrawings[key].Visible = false
 		end
 	end
 end
@@ -5085,10 +4578,10 @@ local function updateCursor()
 	if not hasDrawing then return end
 	initCursorDrawings()
 	
-	cursorDrawings.square.Visible = true
-	cursorDrawings.circle.Visible = true
-	cursorDrawings.xLine1.Visible = true
-	cursorDrawings.xLine2.Visible = true
+	cursorDrawings.square.Visible = false
+	cursorDrawings.circle.Visible = false
+	cursorDrawings.xLine1.Visible = false
+	cursorDrawings.xLine2.Visible = false
 	if cursorDrawings.dot then cursorDrawings.dot.Visible = false end
 	for i = 1, 5 do
 		local key = "arrow" .. i
@@ -5118,15 +4611,6 @@ local function updateCursor()
 		
 		cursorDrawings.xLine2.From = center - Vector2.new(-half, half)
 		cursorDrawings.xLine2.To = center + Vector2.new(-half, half)
-		cursorDrawings.xLine2.Visible = true
-	elseif cursorType == "+" then
-		local half = size / 2
-		cursorDrawings.xLine1.From = center - Vector2.new(half, 0)
-		cursorDrawings.xLine1.To = center + Vector2.new(half, 0)
-		cursorDrawings.xLine1.Visible = true
-		
-		cursorDrawings.xLine2.From = center - Vector2.new(0, half)
-		cursorDrawings.xLine2.To = center + Vector2.new(0, half)
 		cursorDrawings.xLine2.Visible = true
 	elseif cursorType == "Dot" then
 		cursorDrawings.dot.Radius = math.max(1, size / 4)
@@ -5196,31 +4680,6 @@ MenuGroup:AddDropdown("NotificationSide", {
 	Callback = function(value)
 		Library:SetNotifySide(value)
 	end,
-})
-
-MenuGroup:AddDropdown("DPIDropdown", {
-	Values = { "50%", "75%", "100%", "125%", "150%", "175%", "200%" },
-	Default = "100%",
-
-	Text = "DPI Scale",
-
-	Callback = function(Value)
-		Value = Value:gsub("%%", "")
-		local DPI = tonumber(Value)
-
-		Library:SetDPIScale(DPI)
-	end,
-})
-
-MenuGroup:AddSlider("UICornerSlider", {
-	Text = "Corner Radius",
-	Default = Library.CornerRadius,
-	Min = 0,
-	Max = 20,
-	Rounding = 0,
-	Callback = function(value)
-		Window:SetCornerRadius(value)
-	end
 })
 
 MenuGroup:AddLabel("Menu bind"):AddKeyPicker("MenuKeybind", {
@@ -5315,16 +4774,9 @@ Library:OnUnload(function()
 	if Toggles.AimbotLockOn and Toggles.AimbotLockOn.Value then
 		Toggles.AimbotLockOn:SetValue(false)
 	end
-	if Toggles.InfiniteDistance and Toggles.InfiniteDistance.Value then
-		Toggles.InfiniteDistance:SetValue(false)
-	end
 	if Toggles.AttachToggle and Toggles.AttachToggle.Value then
 		Toggles.AttachToggle:SetValue(false)
 	end
-	if Toggles.PlusKillPlayerToggle and Toggles.PlusKillPlayerToggle.Value then
-		Toggles.PlusKillPlayerToggle:SetValue(false)
-	end
-
 	if Toggles.HideBeneathToggle and Toggles.HideBeneathToggle.Value then
 		Toggles.HideBeneathToggle:SetValue(false)
 	end
@@ -5333,6 +4785,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.PlusFlingPlayerToggle and Toggles.PlusFlingPlayerToggle.Value then
 		Toggles.PlusFlingPlayerToggle:SetValue(false)
+	end
+	if Toggles.Multiplier and Toggles.Multiplier.Value then
+		Toggles.Multiplier:SetValue(false)
 	end
 	if Toggles.SpectateToggle and Toggles.SpectateToggle.Value then
 		Toggles.SpectateToggle:SetValue(false)
@@ -5349,17 +4804,6 @@ Library:OnUnload(function()
 	if Toggles.NoBearTrapDMG and Toggles.NoBearTrapDMG.Value then
 		Toggles.NoBearTrapDMG:SetValue(false)
 	end
-	if Toggles.AutoHop and Toggles.AutoHop.Value then
-		Toggles.AutoHop:SetValue(false)
-	end
-	if Toggles.SwordBot and Toggles.SwordBot.Value then
-		Toggles.SwordBot:SetValue(false)
-	end
-
-	if Toggles.NoGliderCooldown and Toggles.NoGliderCooldown.Value then
-		Toggles.NoGliderCooldown:SetValue(false)
-	end
-
 	pcall(function()
 		if fovCircle then fovCircle:Remove() end
 		if cursorDrawings then
