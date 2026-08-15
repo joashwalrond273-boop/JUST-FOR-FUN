@@ -26,6 +26,7 @@ local SaveManager = loadstring(game:HttpGet(repo .. "addons/SaveManager.lua"))()
 local Options = Library.Options
 local Toggles = Library.Toggles
 local lastDeathPosition = nil
+local shouldTeleportBack = false
 
 Library.ShowToggleFrameInKeybinds = true
 
@@ -458,6 +459,12 @@ FunAttach:AddToggle("AttachToggle", {
         Default = false,
 })
 
+FunAttach:AddDropdown("AttachPlayerList", {
+        Text = "Target Player",
+        Values = {},
+        Default = "",
+})
+
 local PlusKillPlayerToggle = FunAttach:AddToggle("PlusKillPlayerToggle", {
         Text = "+ Kill player",
         Default = false,
@@ -465,12 +472,6 @@ local PlusKillPlayerToggle = FunAttach:AddToggle("PlusKillPlayerToggle", {
 if PlusKillPlayerToggle.TextLabel then
         PlusKillPlayerToggle.TextLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
 end
-
-FunAttach:AddDropdown("AttachPlayerList", {
-        Text = "Target Player",
-        Values = {},
-        Default = "",
-})
 
 FunAttach:AddToggle("HideBeneathToggle", {
         Text = "Hide Beneath",
@@ -555,6 +556,8 @@ TeleportGroup:AddButton({
 		end
 	end,
 })
+
+
 
 MainLeft:AddToggle("InfiniteBackpack", {
 	Text = "Infinite Backpack",
@@ -1260,6 +1263,14 @@ end
 track("CharacterModuleRespawn", LocalPlayer.CharacterAdded:Connect(function()
 	task.wait(1)
 	applyCharacterModuleToggles()
+	if shouldTeleportBack and lastDeathPosition then
+		shouldTeleportBack = false
+		local root = getRootPart()
+		if root then
+			root.CFrame = CFrame.new(lastDeathPosition + Vector3.new(0, 3, 0))
+			Library:Notify({ Title = "Reset & Teleport", Description = "Teleported back to last location!", Time = 2 })
+		end
+	end
 end))
 
 -- No Boss Damage Hook Setup
@@ -1452,12 +1463,19 @@ CombatAutoSwing:AddToggle("AutoHop", {
 	Default = false,
 })
 
-CombatAutoSwing:AddToggle("SwordBot", {
-	Text = "Sword Bot (Use with caution)",
+CombatAutoSwing:AddToggle("AutoShiftlock", {
+	Text = "+ Auto Shiftlock",
 	Default = false,
 })
 
-CombatAutoSwing:AddDropdown("ChooseVictim", {
+local CombatSwordBot = Tabs.Combat:AddLeftGroupbox("Sword Bot", "swords")
+
+CombatSwordBot:AddToggle("SwordBot", {
+	Text = "Sword Hunter",
+	Default = false,
+})
+
+CombatSwordBot:AddDropdown("ChooseVictim", {
 	Text = "Choose a Victim",
 	Values = {},
 	Default = "",
@@ -1500,12 +1518,19 @@ CombatAimbot:AddToggle("InfiniteDistance", {
 	Default = false,
 })
 
-local CombatReach = Tabs.Combat:AddRightGroupbox("Reach", "expand")
+local CombatReach = Tabs.Combat:AddRightGroupbox("Advance Reach", "expand")
 
 CombatReach:AddToggle("Reach", {
 	Text = "Reach",
 	Default = false,
 })
+
+CombatReach:AddDropdown("AdvancePreset", {
+	Text = "Advance PRESET",
+	Values = { "Sword", "Spear" },
+	Default = "",
+})
+
 
 CombatReach:AddSlider("ReachRange", {
 	Text = "Reach Range",
@@ -1974,7 +1999,7 @@ Toggles.AutoSwing:OnChanged(function()
 	if Toggles.AutoSwing.Value then
 		_G.T = true
 		track("AutoSwing", RunService.Heartbeat:Connect(function()
-                   local delay = 1 / 20
+                   local delay = 0.1
 			if _G.T and tick() - lastAutoSwing >= delay then
 				local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
 				if tool then
@@ -2040,6 +2065,37 @@ Toggles.AutoHop:OnChanged(function()
 			hum.JumpHeight = hum:GetAttribute("OrigJumpHeight") or hum.JumpHeight
 			hum:SetAttribute("JumpAdjusted", nil)
 		end
+	end
+end)
+
+Toggles.AutoShiftlock:OnChanged(function()
+	disconnect("AutoShiftlock")
+	if Toggles.AutoShiftlock.Value then
+		track("AutoShiftlock", RunService.Heartbeat:Connect(function()
+			if not isAlive() then return end
+			local root = getRootPart()
+			if not root then return end
+			
+			local playerNearby = false
+			local pos = root.Position
+			for _, otherPlayer in ipairs(Players:GetPlayers()) do
+				if otherPlayer ~= LocalPlayer and otherPlayer.Character then
+					local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
+					local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
+					if otherRoot and otherHum and otherHum.Health > 0 then
+						local dist = (otherRoot.Position - pos).Magnitude
+						if dist <= 20 then
+							playerNearby = true
+							break
+						end
+					end
+				end
+			end
+			
+			if playerNearby then
+				game:GetService("UserInputService").MouseBehavior = Enum.MouseBehavior.LockCenter
+			end
+		end))
 	end
 end)
 
@@ -2261,6 +2317,20 @@ Toggles.Reach:OnChanged(function()
 	end
 end)
 
+Options.AdvancePreset:OnChanged(function()
+	local val = Options.AdvancePreset.Value
+	local slider = Options.ReachRange
+	if slider then
+		if val == "Sword" then
+			slider:SetValue(11)
+			Library:Notify({ Title = "Advance Preset", Description = "Preset: Sword (11) applied!", Time = 2 })
+		elseif val == "Spear" then
+			slider:SetValue(13)
+			Library:Notify({ Title = "Advance Preset", Description = "Preset: Spear (13) applied!", Time = 2 })
+		end
+	end
+end)
+
 
 
 local reachToolConn = nil
@@ -2386,6 +2456,15 @@ MoveFaze:AddToggle("FakeLag", {
 	Default = false,
 })
 
+MoveFaze:AddSlider("FakeLagValue", {
+	Text = "Fake Lag Limit",
+	Default = 50,
+	Min = 0,
+	Max = 100,
+	Rounding = 0,
+	Compact = false,
+})
+
 MoveFaze:AddToggle("Xray", {
 	Text = "Xray",
 	Default = false,
@@ -2420,6 +2499,11 @@ MoveSwimBoost:AddSlider("SwimBoostValue", {
 	Min = 16,
 	Max = 100,
 	Rounding = 1,
+})
+
+MoveSwimBoost:AddToggle("SinkFastPVP", {
+	Text = "Sink Fast PVP",
+	Default = false,
 })
 local MoveSwingSpeed = Tabs.Movement:AddLeftGroupbox("Swing Speed", "swords")
 
@@ -2523,8 +2607,9 @@ Toggles.FakeLag:OnChanged(function()
 			if not hrp then
 				return
 			end
-			-- Stutter fake lag: randomly anchor and unanchor
-			if math.random() > 0.5 then
+			-- Stutter fake lag: randomly anchor and unanchor based on the slider value
+			local limit = Options.FakeLagValue.Value / 100
+			if math.random() > (1 - limit) then
 				hrp.Anchored = true
 			else
 				hrp.Anchored = false
@@ -2587,6 +2672,32 @@ end)
 Toggles.SwimBoost:OnChanged(function()
 	if Toggles.SwimBoost.Value then
 		Library:Notify({ Title = "Swim Boost", Description = "Enabled", Time = 2 })
+	end
+end)
+
+Toggles.SinkFastPVP:OnChanged(function()
+	disconnect("SinkFastPVP")
+	if Toggles.SinkFastPVP.Value then
+		track("SinkFastPVP", RunService.Heartbeat:Connect(function()
+			local character = getCharacter()
+			local root = character and character:FindFirstChild("HumanoidRootPart")
+			local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+			if root and humanoid then
+				local isSwimming = humanoid:GetState() == Enum.HumanoidStateType.Swimming or character:GetAttribute("inWater")
+				if isSwimming then
+					if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) or UserInputService:IsKeyDown(Enum.KeyCode.C) then
+						root.AssemblyLinearVelocity = Vector3.new(
+							root.AssemblyLinearVelocity.X,
+							-45,
+							root.AssemblyLinearVelocity.Z
+						)
+					end
+				end
+			end
+		end))
+		Library:Notify({ Title = "Sink Fast PVP", Description = "Enabled", Time = 2 })
+	else
+		Library:Notify({ Title = "Sink Fast PVP", Description = "Disabled", Time = 2 })
 	end
 end)
 
@@ -2935,7 +3046,7 @@ local goldLocations = {
 	{ name = "Gold 5",  pos = Vector3.new(1188.42, 20.58,  -563.03) },
 	{ name = "Gold 6",  pos = Vector3.new(-651.84, 226.09, 654.28)  },
 	{ name = "Gold 7",  pos = Vector3.new(-540.20, 76.40,  297.97)  },
-	{ name = "Gold 8",  pos = Vector3.new(-639.61, -24.83, -83.22)  },
+	{ name = "Gold 8",  pos = Vector3.new(-2202.22, 51.01, 22.08)   },
 	{ name = "Gold 9",  pos = Vector3.new(-1182.86, 54.42, 6608.34) },
 	{ name = "Gold 10", pos = Vector3.new(-2015.67, 30.73, -39.95)  },
 	{ name = "Gold 11", pos = Vector3.new(-912.17, 125.72, -408.72) },
@@ -3366,6 +3477,11 @@ local extraLocations = {
 	{ name = "Below ML",    pos = Vector3.new(-177, 25.26, -1014.83)     },
 	{ name = "Arena",       pos = Vector3.new(-1315.59, 41.19, 1972.84)  },
 	{ name = "Bamboo",      pos = Vector3.new(-1330.92, 39.43, 5798.47)  },
+	{ name = "Volcano",     pos = Vector3.new(1769.70, 36.43, 1832.10)   },
+	{ name = "Asia Cave",   pos = Vector3.new(-2108.44, 201.04, 6823.05) },
+	{ name = "Juggernaut",  pos = Vector3.new(-1645.06, 336.32, -2874.34)},
+	{ name = "Waterfall",   pos = Vector3.new(-1949.89, 25.29, 345.83)   },
+	{ name = "Desert Maze", pos = Vector3.new(1529.42, 55.33, -938.31)   },
 }
 
 for _, loc in ipairs(extraLocations) do
@@ -3382,6 +3498,85 @@ for _, loc in ipairs(extraLocations) do
 		end,
 	})
 end
+
+-- Extra Locations Groupbox
+local ResetTeleportGroup = Tabs.Teleport:AddRightGroupbox("Trick Spawn", "refresh-cw")
+
+ResetTeleportGroup:AddToggle("ResetCharacter", {
+	Text = "Reset Character",
+	Default = false,
+})
+
+Toggles.ResetCharacter:OnChanged(function()
+	if Toggles.ResetCharacter.Value then
+		local root = getRootPart()
+		if root then
+			lastDeathPosition = root.Position
+			shouldTeleportBack = true
+		end
+		
+		local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
+		if remoteInterface then
+			local characterFolder = remoteInterface:FindFirstChild("character")
+			if characterFolder then
+				local resetRemote = characterFolder:FindFirstChild("reset")
+				if resetRemote then
+					pcall(function()
+						resetRemote:InvokeServer()
+					end)
+				end
+			end
+		end
+		
+		task.spawn(function()
+			task.wait(0.5)
+			Toggles.ResetCharacter:SetValue(false)
+		end)
+	end
+end)
+
+-- Extra Locations Groupbox
+local TeleportRight = Tabs.Teleport:AddRightGroupbox("Click Teleport", "map-pin")
+
+local clickTpActive = false
+local clickTpBtn = nil
+
+local function toggleClickTp()
+	clickTpActive = not clickTpActive
+	disconnect("ClickTeleport")
+	
+	if clickTpActive then
+		pcall(function()
+			clickTpBtn.Label.Text = "Click Teleport: ON"
+		end)
+		
+		local Mouse = LocalPlayer:GetMouse()
+		track("ClickTeleport", Mouse.Button1Down:Connect(function()
+			local targetCF = Mouse.Hit
+			if targetCF then
+				local root = getRootPart()
+				if root then
+					root.CFrame = targetCF + Vector3.new(0, 3, 0)
+					Library:Notify({ Title = "Click Teleport", Description = "Teleported!", Time = 1 })
+				end
+			end
+		end))
+	else
+		pcall(function()
+			clickTpBtn.Label.Text = "Click Teleport: OFF"
+		end)
+	end
+end
+
+clickTpBtn = TeleportRight:AddButton({
+	Text = "Click Teleport",
+	Func = toggleClickTp,
+})
+
+pcall(function()
+	Library:RemoveFromRegistry(clickTpBtn.Label)
+	clickTpBtn.Label.TextColor3 = Color3.fromRGB(0, 120, 255)
+end)
 
 -- Merchants Groupbox
 local MerchantsGroup = Tabs.Teleport:AddRightGroupbox("Merchants", "map-pin")
@@ -3406,6 +3601,12 @@ for _, merchant in ipairs(merchantTeleports) do
 			else
 				Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
 			end
+		end,
+	})
+end
+
+
+
 -- ==========================================
 -- VISUALS
 -- ==========================================
@@ -3606,6 +3807,91 @@ VisualFPS:AddToggle("LowTextures", {
 	end,
 })
 
+VisualFPS:AddToggle("PotatoGraphics", {
+	Text = "Potato Graphics",
+	Default = false,
+	Callback = function(state)
+		if state then
+			pcall(function()
+				local lighting = game:GetService("Lighting")
+				lighting.GlobalShadows = false
+				lighting.ShadowMapEnabled = false
+			end)
+			pcall(function()
+				for _, v in ipairs(game:GetService("Lighting"):GetChildren()) do
+					if v:IsA("Sky") or v:IsA("Atmosphere") or v:IsA("Clouds") or v:IsA("SunRaysEffect") then
+						v:Destroy()
+					end
+				end
+				local sky = Instance.new("Sky")
+				sky.Name = "PotatoSky"
+				sky.SkyboxBk = "rbxassetid://256193683"
+				sky.SkyboxDn = "rbxassetid://256193683"
+				sky.SkyboxFt = "rbxassetid://256193683"
+				sky.SkyboxLf = "rbxassetid://256193683"
+				sky.SkyboxRt = "rbxassetid://256193683"
+				sky.SkyboxUp = "rbxassetid://256193683"
+				sky.SunTextureId = ""
+				sky.MoonTextureId = ""
+				sky.Parent = game:GetService("Lighting")
+			end)
+			pcall(function()
+				setPlayerShadows(false)
+			end)
+			track("PotatoGraphicsShadows", game:GetService("Players").PlayerAdded:Connect(function(player)
+				player.CharacterAdded:Connect(function(char)
+					task.wait(1)
+					for _, part in ipairs(char:GetDescendants()) do
+						if part:IsA("BasePart") then
+							pcall(function() part.CastShadow = false end)
+						end
+					end
+				end)
+			end))
+			
+			local allDescendants = workspace:GetDescendants()
+			for i = 1, #allDescendants, 100 do
+				task.wait()
+				for j = i, math.min(i + 99, #allDescendants) do
+					local v = allDescendants[j]
+					if v then
+						if v:IsA("BasePart") or v:IsA("MeshPart") then
+							pcall(function() 
+								v.Material = Enum.Material.Plastic 
+								v.CastShadow = false
+							end)
+						elseif v:IsA("Texture") or v:IsA("Decal") then
+							pcall(function() v:Destroy() end)
+						end
+					end
+				end
+			end
+			track("PotatoGraphics", workspace.DescendantAdded:Connect(function(v)
+				if Toggles.PotatoGraphics.Value then
+					if v:IsA("BasePart") or v:IsA("MeshPart") then
+						pcall(function() 
+							v.Material = Enum.Material.Plastic 
+							v.CastShadow = false
+						end)
+					elseif v:IsA("Texture") or v:IsA("Decal") then
+						pcall(function() v:Destroy() end)
+					end
+				end
+			end))
+		else
+			disconnect("PotatoGraphics")
+			disconnect("PotatoGraphicsShadows")
+			pcall(function()
+				local lighting = game:GetService("Lighting")
+				lighting.GlobalShadows = true
+			end)
+			pcall(function()
+				setPlayerShadows(true)
+			end)
+		end
+	end,
+})
+
 
 
 VisualFPS:AddToggle("DisableEffects", {
@@ -3694,11 +3980,17 @@ VisualFPS:AddToggle("StretchedRES", {
 VisualLeft:AddToggle("PlayerESP", {
 	Text = "Player ESP",
 	Default = false,
+}):AddColorPicker("PlayerESPColor", {
+	Default = Color3.fromRGB(255, 255, 255),
+	Title = "Player ESP Color",
 })
 
 VisualLeft:AddToggle("ShowDistance", {
 	Text = "Show Distance",
 	Default = true,
+}):AddColorPicker("ShowDistanceColor", {
+	Default = Color3.fromRGB(255, 255, 255),
+	Title = "Show Distance Color",
 })
 
 VisualLeft:AddToggle("ShowHealth", {
@@ -3709,16 +4001,25 @@ VisualLeft:AddToggle("ShowHealth", {
 VisualLeft:AddToggle("ShowTracers", {
 	Text = "Show Tracers",
 	Default = false,
+}):AddColorPicker("ShowTracersColor", {
+	Default = Color3.fromRGB(192, 192, 192),
+	Title = "Show Tracers Color",
 })
 
 VisualLeft:AddToggle("ShowBox", {
 	Text = "Show Box",
 	Default = false,
+}):AddColorPicker("ShowBoxColor", {
+	Default = Color3.fromRGB(192, 192, 192),
+	Title = "Show Box Color",
 })
 
 VisualLeft:AddToggle("OutlineESP", {
 	Text = "Outline ESP",
 	Default = false,
+}):AddColorPicker("OutlineESPColor", {
+	Default = Color3.fromRGB(255, 255, 255),
+	Title = "Outline ESP Color",
 })
 
 
@@ -3742,6 +4043,15 @@ VisualEnv:AddToggle("AlwaysNight", {
 VisualEnv:AddToggle("InfiniteZoom", {
 	Text = "Infinite Zoom",
 	Default = false,
+})
+
+VisualEnv:AddSlider("ControlTheHours", {
+	Text = "Control The Hours",
+	Default = 12,
+	Min = 0,
+	Max = 24,
+	Rounding = 1,
+	Compact = false,
 })
 
 VisualRight:AddSlider("ESPDistance", {
@@ -3803,8 +4113,9 @@ local function createESP(player)
 	label.BackgroundTransparency = 1
 	label.TextColor3 = Color3.new(1, 1, 1)
 	label.TextStrokeTransparency = 0.5
-   label.Font = Enum.Font.Jura
+	label.Font = Enum.Font.Jura
 	label.TextSize = 14
+	label.RichText = true
 	label.Parent = billboard
 
 	local tracer = nil
@@ -3818,7 +4129,7 @@ local function createESP(player)
 
 	local highlight = Instance.new("Highlight")
 	highlight.FillColor = Color3.fromRGB(255, 255, 255)
-	highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+	highlight.OutlineColor = Options.OutlineESPColor.Value
 	highlight.FillTransparency = 1
 	highlight.OutlineTransparency = 0
 	highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
@@ -3843,7 +4154,7 @@ local function createESP(player)
 
 	espObjects[player] = { box2d, billboard, label, tracer, highlight, healthBg, healthBar }
 
-	local function update()
+local function update()
 		local myRoot = getRootPart()
 		if not myRoot or not character.Parent then
 			if tracer then tracer.Visible = false end
@@ -3958,6 +4269,16 @@ Toggles.PlayerESP:OnChanged(function()
 	end))
 end)
 
+Options.OutlineESPColor:OnChanged(function()
+	local color = Options.OutlineESPColor.Value
+	for _, objects in pairs(espObjects) do
+		local highlight = objects[5]
+		if highlight and typeof(highlight) == "Instance" and highlight:IsA("Highlight") then
+			highlight.OutlineColor = color
+		end
+	end
+end)
+
 
 
 Toggles.AlwaysDay:OnChanged(function()
@@ -4011,6 +4332,18 @@ Toggles.InfiniteZoom:OnChanged(function()
 		LocalPlayer.CameraMaxZoomDistance = 400
 		LocalPlayer.CameraMinZoomDistance = 0.5
 	end
+end)
+
+Options.ControlTheHours:OnChanged(function()
+	if Toggles.AlwaysDay.Value or Toggles.Midday.Value or Toggles.AlwaysNight.Value then
+		Toggles.AlwaysDay:SetValue(false)
+		Toggles.Midday:SetValue(false)
+		Toggles.AlwaysNight:SetValue(false)
+	end
+	disconnect("EnvironmentTime")
+	track("EnvironmentTime", RunService.Heartbeat:Connect(function()
+		game:GetService("Lighting").ClockTime = Options.ControlTheHours.Value
+	end))
 end)
  
 -- ==========================================
