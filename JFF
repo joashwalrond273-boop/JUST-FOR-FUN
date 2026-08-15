@@ -530,7 +530,7 @@ FastArmorGroup:AddButton({
 		end
 		
 		local itemsToCraft = {
-			{446, "Bluesteel Spear"},
+			{197, "Bluesteel Sword"},
 			{201, "Bluesteel Chestplate"},
 			{202, "Bluesteel Pants"},
 			{200, "Bluesteel Helmet"}
@@ -549,7 +549,7 @@ FastArmorGroup:AddButton({
 		end
 		
 		local itemsToEquip = {
-			{446, "inventory", 1, "equipHotbar"},
+			{197, "inventory", 1, "equipHotbar"},
 			{200, "inventory", 1, "equipClothing"},
 			{201, "inventory", 2, "equipClothing"},
 			{202, "inventory", 3, "equipClothing"}
@@ -2573,6 +2573,76 @@ MoveSwimBoost:AddSlider("SwimBoostValue", {
 	Max = 100,
 	Rounding = 1,
 })
+
+MoveSwimBoost:AddToggle("BoatSpeedToggle", {
+	Text = "Boat Speed",
+	Default = false,
+})
+
+Toggles.BoatSpeedToggle:OnChanged(function()
+	local function getCurrentBoat() 
+		local humanoid = getHumanoid() 
+		if humanoid and humanoid.SeatPart then 
+			local folder = humanoid.SeatPart:FindFirstAncestorOfClass("Folder") 
+			if folder and folder == workspace.boats then 
+				return humanoid.SeatPart:FindFirstAncestorOfClass("Model") 
+			end 
+		end 
+	end 
+
+	local originalY = nil 
+	local boatCFrame = nil 
+
+	local function enableBoatSpeed() 
+		disconnect("boat_hover") 
+		originalY = nil 
+		boatCFrame = nil 
+		track("boat_hover", 
+			RunService.Stepped:Connect( 
+				function() 
+					local humanoid = getHumanoid() 
+					local boat = getCurrentBoat() 
+					if not boat or not humanoid then 
+						originalY = nil 
+						boatCFrame = nil 
+						return 
+					end 
+					if not boatCFrame then 
+						boatCFrame = boat:GetPivot() 
+					end 
+					if not originalY then 
+						originalY = boatCFrame.Position.Y 
+					end 
+					for _, v in pairs(boat:GetDescendants()) do 
+						if v:IsA("Part") or v:IsA("MeshPart") or v:IsA("Union") then 
+							v.Velocity = Vector3.new(0, 0, 0) 
+						end 
+					end 
+					boat:PivotTo(boatCFrame) 
+					local extraY = 0 
+					if humanoid.Parent:GetAttribute("inTerrain") then 
+						extraY = 0 
+					else 
+						extraY = 0 
+						boatCFrame = 
+							boatCFrame - Vector3.new(0, boatCFrame.Position.Y - originalY, 0) 
+					end 
+					boatCFrame = boatCFrame + Vector3.new(0, extraY, 0) + humanoid.MoveDirection * 0.9 
+				end 
+			) 
+		) 
+	end 
+
+	local function disableBoatSpeed() 
+		disconnect("boat_hover") 
+	end 
+
+	if Toggles.BoatSpeedToggle.Value then 
+		enableBoatSpeed() 
+	else 
+		disableBoatSpeed() 
+	end 
+end)
 
 MoveSwimBoost:AddToggle("SinkFastPVP", {
 	Text = "Sink Fast PVP",
