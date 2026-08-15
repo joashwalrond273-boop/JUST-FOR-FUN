@@ -501,6 +501,78 @@ SpectateGroup:AddDropdown("SpectatePlayerList", {
 	Default = "",
 })
 
+SpectateGroup:AddLabel("Fast Armor up")
+SpectateGroup:AddButton({
+	Text = "Bluesteel",
+	Func = function()
+		local character = LocalPlayer.Character
+		local root = character and character:FindFirstChild("HumanoidRootPart")
+		if not root then return end
+		local playerPosition = root.Position
+		
+		local argsPlaceFurnace = {
+			[1] = 199,
+			[2] = CFrame.new(playerPosition.X, playerPosition.Y - 3, playerPosition.Z) * CFrame.Angles(0, 0, 0),
+			[3] = -3.141592653589793
+		}
+		
+		pcall(function()
+			game:GetService("ReplicatedStorage").remoteInterface.interactions.build:InvokeServer(unpack(argsPlaceFurnace))
+		end)
+		
+		local furnace = nil
+		for _, structure in pairs(workspace.placedStructures:GetChildren()) do
+			if structure:FindFirstChild("Bluesteel Furnace") then
+				furnace = structure:FindFirstChild("Bluesteel Furnace")
+				break
+			end
+		end
+		
+		local itemsToCraft = {
+			{197, "Bluesteel Sword"},
+			{201, "Bluesteel Chestplate"},
+			{202, "Bluesteel Pants"},
+			{200, "Bluesteel Helmet"}
+		}
+		
+		for _, item in ipairs(itemsToCraft) do
+			local argsCraft = {
+				[1] = item[1],
+				[2] = furnace,
+				[3] = 1,
+				[4] = 0
+			}
+			pcall(function()
+				game:GetService("ReplicatedStorage").remoteInterface.interactions.craft:InvokeServer(unpack(argsCraft))
+			end)
+		end
+		
+		local itemsToEquip = {
+			{197, "inventory", 1, "equipHotbar"},
+			{200, "inventory", 1, "equipClothing"},
+			{201, "inventory", 2, "equipClothing"},
+			{202, "inventory", 3, "equipClothing"}
+		}
+		
+		for _, equip in ipairs(itemsToEquip) do
+			local argsEquip = {
+				equip[2],
+				equip[3],
+				equip[1]
+			}
+			pcall(function()
+				game:GetService("ReplicatedStorage").remoteInterface.inventory[equip[4]]:InvokeServer(unpack(argsEquip))
+			end)
+		end
+		
+		if furnace then
+			pcall(function()
+				game:GetService("ReplicatedStorage").remoteInterface.interactions.deleteStructure:FireServer(furnace)
+			end)
+		end
+	end,
+})
+
 local TeleportGroup = Tabs.Main:AddRightGroupbox("TELEPORT", "map-pin")
 
 TeleportGroup:AddDropdown("TeleportPlayerList", {
@@ -3057,6 +3129,8 @@ local goldLocations = {
 	{ name = "Gold 16", pos = Vector3.new(1686.60, 41.64, -917.39)  },
 	{ name = "Gold 17", pos = Vector3.new(1566.16, 23.19, -946.35)  },
 	{ name = "Gold 18", pos = Vector3.new(252.14, 22.06, 811.69)    },
+	{ name = "Gold 19", pos = Vector3.new(50.11, 125.73, -1040.40)  },
+	{ name = "Gold 20", pos = Vector3.new(462.81, 100.69, -455.26)  },
 	{ name = "Coal 1",  pos = Vector3.new(1130.93, 24.94, -601.55)  },
 	{ name = "Coal 2",  pos = Vector3.new(1319.54, 25.26, -1129.08) },
 	{ name = "Coal 3",  pos = Vector3.new(-681.19, 173.56, 657.90)  },
@@ -3067,6 +3141,8 @@ local goldLocations = {
 	{ name = "Coal 8",  pos = Vector3.new(331.57, 47.36, 492.03)    },
 	{ name = "Coal 9",  pos = Vector3.new(264.71, 27.19, 267.24)    },
 	{ name = "Coal 10", pos = Vector3.new(-680.98, 26.07, 254.45)   },
+	{ name = "Coal 11", pos = Vector3.new(182.10, 25.26, -934.94)   },
+	{ name = "Coal 12", pos = Vector3.new(11.22, 36.86, -1008.32)   },
 }
 
 local function filterLocations(prefix)
