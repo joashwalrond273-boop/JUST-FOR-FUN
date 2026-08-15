@@ -4357,6 +4357,11 @@ VisualRight:AddSlider("ESPDistance", {
 	Rounding = 0,
 })
 
+VisualRight:AddToggle("ESPInfiniteDistance", {
+	Text = "Infinite Distance",
+	Default = false,
+})
+
 local espObjects = {}
 local hasDrawing = (typeof(Drawing) ~= "nil")
 
@@ -4423,7 +4428,7 @@ local function createESP(player)
 			return
 		end
 		local dist = (root.Position - myRoot.Position).Magnitude
-		local shouldShow = dist <= Options.ESPDistance.Value and Toggles.PlayerESP.Value
+		local shouldShow = (Toggles.ESPInfiniteDistance.Value or dist <= Options.ESPDistance.Value) and Toggles.PlayerESP.Value
 
 		local screenPos, onScreen = workspace.CurrentCamera:WorldToViewportPoint(root.Position)
 
@@ -4500,6 +4505,19 @@ end)
 Options.ShowDistanceColor:OnChanged(function()
 end)
 
+Toggles.ESPInfiniteDistance:OnChanged(function()
+	if Toggles.ESPInfiniteDistance.Value then
+		LocalPlayer.CameraMaxZoomDistance = 100000
+		LocalPlayer.CameraMinZoomDistance = 0.5
+		Library:Notify({ Title = "Infinite Distance", Description = "Enabled - ESP now shows players from anywhere on the map", Time = 3 })
+	else
+		if not Toggles.InfiniteZoom.Value then
+			LocalPlayer.CameraMaxZoomDistance = 400
+		end
+		Library:Notify({ Title = "Infinite Distance", Description = "Disabled - ESP respects Max Distance slider", Time = 2 })
+	end
+end)
+
 
 
 Toggles.AlwaysDay:OnChanged(function()
@@ -4550,7 +4568,9 @@ Toggles.InfiniteZoom:OnChanged(function()
 		LocalPlayer.CameraMinZoomDistance = 0.5
 		Library:Notify({ Title = "Infinite Zoom", Description = "Enabled", Time = 2 })
 	else
-		LocalPlayer.CameraMaxZoomDistance = 400
+		if not Toggles.ESPInfiniteDistance.Value then
+			LocalPlayer.CameraMaxZoomDistance = 400
+		end
 		LocalPlayer.CameraMinZoomDistance = 0.5
 	end
 end)
