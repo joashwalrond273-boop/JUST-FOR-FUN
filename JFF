@@ -2,7 +2,7 @@
 -- Docs: https://docs.mspaint.cc/obsidian
 
 if getgenv().TSG_OBSIDIAN_LOADED then
-	return warn("[TSG] Script already loaded ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â rejoin to re-execute.")
+	return warn("[TSG] Script already loaded â€” rejoin to re-execute.")
 end
 getgenv().TSG_OBSIDIAN_LOADED = true
 
@@ -249,51 +249,7 @@ TSG.MineRemote = (keyedRemotes and rawget(keyedRemotes, "mine")) or (interaction
 TSG.ChopRemote = (keyedRemotes and rawget(keyedRemotes, "chop")) or (interactionsFolder and interactionsFolder:FindFirstChild("chop"))
 TSG.MeleeAI = interactionsFolder and interactionsFolder:FindFirstChild("meleeAI")
 
--- No Bear Trap DMG Remote Interception
-pcall(function()
-	local Event = resolvePath(ReplicatedStorage, "remoteInterface", "traps", "Run") or (ReplicatedStorage:FindFirstChild("remoteInterface") and ReplicatedStorage.remoteInterface:FindFirstChild("traps") and ReplicatedStorage.remoteInterface.traps:FindFirstChild("Run"))
-	if not Event then return end
-
-	local mtHook; mtHook = hookmetamethod(game, "__namecall", function(...)
-		local self = ...
-
-		if Toggles.NoBearTrapDMG and Toggles.NoBearTrapDMG.Value and rawequal(self, Event) and getnamecallmethod() == "InvokeServer" then
-			local Args = table.pack(...)
-			
-			local Result = table.pack(
-				mtHook(self, table.unpack(Args, 1, Args.n))
-			)
-
-			print(`Intercepted (__namecall) {Event.Name}:InvokeServer()`, ...)
-
-			return table.unpack(Result, 1, Result.n)
-		end
-
-		return mtHook(...)
-	end)
-
-	if typeof(hookfunction) == "function" and Event.InvokeServer then
-		local OldInvokeServer; OldInvokeServer = hookfunction(Event.InvokeServer, function(...)
-			local self = ...
-
-			if Toggles.NoBearTrapDMG and Toggles.NoBearTrapDMG.Value and rawequal(self, Event) then
-				local Args = table.pack(...)
-
-				local Result = table.pack(
-					OldInvokeServer(table.unpack(Args, 1, Args.n))
-				)
-
-				print(`Intercepted (__index) {Event.Name}:InvokeServer()`, self, table.unpack(Result, 1, Result.n))
-
-				return table.unpack(Result, 1, Result.n)
-			end
-
-			return OldInvokeServer(self, ...)
-		end)
-	end
-end)
-
-Library.Font = Enum.Font.Jura
+Library.Font = Enum.Font.Gotham
 
 -- Window
 local Window = Library:CreateWindow({
@@ -469,11 +425,6 @@ MainLeft:AddToggle("NoFallDamage", {
 	Default = false,
 })
 
-MainLeft:AddToggle("NoBearTrapDMG", {
-	Text = "No Bear Trap DMG",
-	Default = false,
-})
-
 MainLeft:AddToggle("FastPickup", {
 	Text = "Auto Pickup",
 	Default = false,
@@ -522,63 +473,6 @@ MainRight:AddButton({
 })
 
 MainRight:AddButton({
-	Text = "LowPing Server",
-	Func = function()
-		task.spawn(function()
-			local HttpService = game:GetService("HttpService")
-			local TeleportService = game:GetService("TeleportService")
-			local PlaceId = game.PlaceId
-			local JobId = game.JobId
-
-			local url = "https://games.roblox.com/v1/games/" .. PlaceId .. "/servers/Public?limit=100"
-			local success, result = pcall(function()
-				return game:HttpGet(url)
-			end)
-
-			if not success or not result then
-				Library:Notify({ Title = "LowPing Server", Description = "Failed to fetch server list.", Time = 3 })
-				return
-			end
-
-			local dataSuccess, decoded = pcall(function()
-				return HttpService:JSONDecode(result)
-			end)
-
-			if not dataSuccess or not decoded or not decoded.data then
-				Library:Notify({ Title = "LowPing Server", Description = "Failed to parse server list.", Time = 3 })
-				return
-			end
-
-			local servers = {}
-			for _, server in ipairs(decoded.data) do
-				if typeof(server) == "table" and server.id and server.id ~= JobId and server.playing and server.maxPlayers then
-					if server.playing < server.maxPlayers and server.playing > 0 then
-						table.insert(servers, server)
-					end
-				end
-			end
-
-			if #servers == 0 then
-				Library:Notify({ Title = "LowPing Server", Description = "No alternative servers found.", Time = 3 })
-				return
-			end
-
-			table.sort(servers, function(a, b)
-				return a.playing < b.playing
-			end)
-
-			local bestServer = servers[1]
-			Library:Notify({ Title = "LowPing Server", Description = "Teleporting to smallest server (" .. tostring(bestServer.playing) .. "/" .. tostring(bestServer.maxPlayers) .. " players)...", Time = 3 })
-
-			task.wait(0.5)
-			pcall(function()
-				TeleportService:TeleportToPlaceInstance(PlaceId, bestServer.id, LocalPlayer)
-			end)
-		end)
-	end,
-})
-
-MainRight:AddButton({
 	Text = "Rejoin Server",
 	Func = function()
 		game:GetService("TeleportService"):TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer)
@@ -598,7 +492,7 @@ local DesyncToggle = MainRight:AddToggle("DesyncToggle", {
 	Default = false,
 })
 if DesyncToggle.TextLabel then
-	DesyncToggle.TextLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
+	DesyncToggle.TextLabel.TextColor3 = Color3.fromRGB(0, 120, 215)
 end
 
 local desyncConnections = {}
@@ -814,7 +708,7 @@ end
 
 DesyncToggle:OnChanged(function(Value)
 	if DesyncToggle.TextLabel then
-		DesyncToggle.TextLabel.TextColor3 = Value and Color3.fromRGB(255, 100, 100) or Color3.fromRGB(255, 0, 0)
+		DesyncToggle.TextLabel.TextColor3 = Value and Color3.fromRGB(0, 200, 255) or Color3.fromRGB(0, 120, 215)
 	end
 	if Value then
 		startDesync()
@@ -994,14 +888,6 @@ Toggles.NoFallDamage:OnChanged(function()
 		Library:Notify({ Title = "No Fall Damage", Description = "Enabled", Time = 2 })
 	else
 		setBehaviorDisabled(getCharacterBehavior("fallDamage"), false)
-	end
-end)
-
-Toggles.NoBearTrapDMG:OnChanged(function()
-	if Toggles.NoBearTrapDMG.Value then
-		Library:Notify({ Title = "No Bear Trap DMG", Description = "Enabled", Time = 2 })
-	else
-		Library:Notify({ Title = "No Bear Trap DMG", Description = "Disabled", Time = 2 })
 	end
 end)
 
@@ -1263,14 +1149,12 @@ CombatLeft:AddSlider("KillAuraAngle", {
 	Rounding = 0,
 })
 
-local CombatPhantomAura = Tabs.Combat:AddLeftGroupbox("Phantom Aura", "ghost")
-
-CombatPhantomAura:AddToggle("PhantomMode", {
+CombatLeft:AddToggle("PhantomMode", {
 	Text = "Phantom Mode",
 	Default = false,
 })
 
-CombatPhantomAura:AddSlider("RangeAura", {
+CombatLeft:AddSlider("RangeAura", {
 	Text = "Range Aura",
 	Default = 20,
 	Min = 5,
@@ -1278,11 +1162,24 @@ CombatPhantomAura:AddSlider("RangeAura", {
 	Rounding = 1,
 })
 
-local CombatAutoSwing = Tabs.Combat:AddLeftGroupbox("Auto Swing", "swords")
-
-CombatAutoSwing:AddToggle("AutoSwing", {
-	Text = "+ Auto Swing",
+CombatLeft:AddToggle("AutoSwing", {
+	Text = "Auto Swing",
 	Default = false,
+})
+
+local CombatAutoSpin = Tabs.Combat:AddLeftGroupbox("Auto Spin", "refresh-cw")
+
+CombatAutoSpin:AddToggle("AutoSpin", {
+	Text = "Auto Spin",
+	Default = false,
+})
+
+CombatAutoSpin:AddSlider("SpinSpeed", {
+	Text = "Spin Speed",
+	Default = 50,
+	Min = 10,
+	Max = 150,
+	Rounding = 0,
 })
 
 
@@ -1500,8 +1397,6 @@ Toggles.DodgeAttack:OnChanged(function()
 		track("DodgeAttack", RunService.Heartbeat:Connect(checkDodge))
 	end
 end)
-
-
 
 local function updateHighlight(hl, target, toggleValue)
 	if target and toggleValue then
@@ -1788,7 +1683,7 @@ Toggles.AutoSwing:OnChanged(function()
 	if Toggles.AutoSwing.Value then
 		_G.T = true
 		track("AutoSwing", RunService.Heartbeat:Connect(function()
-			if _G.T and tick() - lastAutoSwing >= 0.05 then
+			if _G.T and tick() - lastAutoSwing >= 0.1 then
 				local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
 				if tool then
 					tool:Activate()
@@ -1798,6 +1693,20 @@ Toggles.AutoSwing:OnChanged(function()
 		end))
 	else
 		_G.T = false
+	end
+end)
+
+Toggles.AutoSpin:OnChanged(function()
+	disconnect("AutoSpin")
+	if Toggles.AutoSpin.Value then
+		track("AutoSpin", RunService.Heartbeat:Connect(function(dt)
+			if not isAlive() then return end
+			local root = getRootPart()
+			if root then
+				local speed = Options.SpinSpeed.Value
+				root.CFrame = root.CFrame * CFrame.Angles(0, math.rad(speed * dt * 10), 0)
+			end
+		end))
 	end
 end)
 
@@ -2046,11 +1955,6 @@ MoveFaze:AddToggle("Noclip", {
 	Default = false,
 })
 
-MoveFaze:AddToggle("FakeLag", {
-	Text = "Fake Lag",
-	Default = false,
-})
-
 MoveFaze:AddToggle("Xray", {
 	Text = "Xray",
 	Default = false,
@@ -2098,7 +2002,7 @@ MoveSwingSpeed:AddSlider("SwingSpeedVal", {
 	Text = "Swing Speed Value",
 	Default = 1,
 	Min = 1,
-	Max = 10,
+	Max = 5,
 	Rounding = 1,
 })
 
@@ -2166,31 +2070,6 @@ Toggles.Noclip:OnChanged(function()
 			if part.Parent then
 				part.CanCollide = true
 			end
-		end
-	end
-end)
-
-Toggles.FakeLag:OnChanged(function()
-	disconnect("FakeLag")
-	if Toggles.FakeLag.Value then
-		track("FakeLag", RunService.RenderStepped:Connect(function()
-			local character = getCharacter()
-			local hrp = character and character:FindFirstChild("HumanoidRootPart")
-			if not hrp then
-				return
-			end
-			-- Stutter fake lag: randomly anchor and unanchor
-			if math.random() > 0.5 then
-				hrp.Anchored = true
-			else
-				hrp.Anchored = false
-			end
-		end))
-	else
-		local character = getCharacter()
-		local hrp = character and character:FindFirstChild("HumanoidRootPart")
-		if hrp then
-			hrp.Anchored = false
 		end
 	end
 end)
@@ -2560,81 +2439,24 @@ FarmAI:AddToggle("HighlightAI", {
 })
 
 -- ==========================================
-local OreFarm = Tabs.Farming:AddRightGroupbox("Ore Farm", "gem")
+local FarmPlant = Tabs.Farming:AddRightGroupbox("Auto Plant", "sprout")
 
-OreFarm:AddButton("Reset Character", function()
-	local root = getRootPart()
-	if root then
-		lastDeathPosition = root.Position
-	end
-	
-	local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
-	if remoteInterface then
-		local characterFolder = remoteInterface:FindFirstChild("character")
-		if characterFolder then
-			local resetRemote = characterFolder:FindFirstChild("reset")
-			if resetRemote then
-				pcall(function()
-					resetRemote:InvokeServer()
-				end)
-			end
-		end
-	end
-end)
-
-local goldLocations = {
-	{ name = "Gold 1",  pos = Vector3.new(1732.94, 113.13, 2295.19) },
-	{ name = "Gold 2",  pos = Vector3.new(1447.98, 39.83,  2400.27) },
-	{ name = "Gold 3",  pos = Vector3.new(1837.06, 29.36,  2471.74) },
-	{ name = "Gold 4",  pos = Vector3.new(1177.61, 29.01,  -609.47) },
-	{ name = "Gold 5",  pos = Vector3.new(1188.42, 20.58,  -563.03) },
-	{ name = "Gold 6",  pos = Vector3.new(-651.84, 226.09, 654.28)  },
-	{ name = "Gold 7",  pos = Vector3.new(-540.20, 76.40,  297.97)  },
-	{ name = "Gold 8",  pos = Vector3.new(-639.61, -24.83, -83.22)  },
-	{ name = "Gold 9",  pos = Vector3.new(-1182.86, 54.42, 6608.34) },
-	{ name = "Gold 10", pos = Vector3.new(-2015.67, 30.73, -39.95)  },
-	{ name = "Gold 11", pos = Vector3.new(-912.17, 125.72, -408.72) },
-	{ name = "Gold 12", pos = Vector3.new(-264.65, 47.32,  1427.81) },
-    { name = "Gold 13", pos = Vector3.new(245.51,  45.00,  460.77)  },
-	{ name = "Gold 14", pos = Vector3.new(-1261.77, 43.72, 6281.94) },
-	{ name = "Gold 15", pos = Vector3.new(-1765.08, 95.91, 7158.15) },
-	{ name = "Gold 16", pos = Vector3.new(1686.60, 41.64, -917.39)  },
-	{ name = "Gold 17", pos = Vector3.new(1566.16, 23.19, -946.35)  },
-	{ name = "Gold 18", pos = Vector3.new(252.14, 22.06, 811.69)    },
-}
-
-local goldNames = {}
-for i, loc in ipairs(goldLocations) do
-	table.insert(goldNames, loc.name)
-end
-
-OreFarm:AddDropdown("GoldLocationsDropdown", {
-	Text = "Select Gold Location",
-	Values = goldNames,
-	Default = "Gold 1",
+local AutoPlantToggle = FarmPlant:AddToggle("AutoPlant", {
+	Text = "Auto Plant",
+	Default = false,
 })
 
-OreFarm:AddButton({
-	Text = "Teleport to Selected Gold",
-	Func = function()
-		local selected = Options.GoldLocationsDropdown.Value
-		local targetPos = nil
-		for _, loc in ipairs(goldLocations) do
-			if loc.name == selected then
-				targetPos = loc.pos
-				break
-			end
-		end
-		if targetPos then
-			local root = getRootPart()
-			if root then
-				root.CFrame = CFrame.new(targetPos)
-				Library:Notify({ Title = "Teleport", Description = "Teleported to " .. selected, Time = 1.5 })
-			else
-				Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
-			end
-		end
-	end,
+local PlantRawCropsToggle = FarmPlant:AddToggle("PlantRawCrops", {
+	Text = "Plant Raw Crops",
+	Default = false,
+})
+
+local PlantThresholdSlider = FarmPlant:AddSlider("PlantThreshold", {
+	Text = "Plant Threshold",
+	Default = 50,
+	Min = 0,
+	Max = 100,
+	Rounding = 0,
 })
 
 local FarmDupe = Tabs.Farming:AddRightGroupbox("DUPE ITEMS", "copy")
@@ -2662,7 +2484,9 @@ FarmRight:AddLabel("Outline Color"):AddColorPicker("AuraOutlineColor", {
 	end,
 })
 
-
+Toggles.AutoPlant:OnChanged(function()
+	-- Auto Plant placeholder
+end)
 
 -- Aura highlights (one per aura type, created after makeAuraHighlight is defined)
 local hlMine = makeAuraHighlight()
@@ -3137,7 +2961,7 @@ local waypoints = {}
 local function updateWaypointDropdown()
 	local list = {}
 	for name in pairs(waypoints) do
-		table.insert(list, "ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬ ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â°ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âµ " .. name)
+		table.insert(list, "Ã°Å¸â€Âµ " .. name)
 	end
 	table.sort(list)
 	Options.WaypointList:SetValues(list)
@@ -3264,69 +3088,6 @@ VisualFPS:AddToggle("DisableShadows", {
 	end,
 })
 
-VisualFPS:AddToggle("NoGrass", {
-	Text = "No Grass",
-	Default = false,
-	Callback = function(state)
-		if state then
-			pcall(function()
-				loadstring(game:HttpGet("https://raw.githubusercontent.com/joashwalrond273-boop/Silent-Aim/refs/heads/main/No%20grass"))()
-			end)
-		else
-			pcall(function()
-				local terrain = workspace:FindFirstChildOfClass("Terrain")
-				if terrain then
-					if sethiddenproperty then
-						sethiddenproperty(terrain, "Decoration", true)
-					else
-						terrain.Decoration = true
-					end
-				end
-			end)
-		end
-	end,
-})
-
-VisualFPS:AddToggle("FullBright", {
-	Text = "Full Bright",
-	Default = false,
-	Callback = function(state)
-		pcall(function()
-			local lighting = game:GetService("Lighting")
-			if state then
-				lighting.Brightness = 2
-				lighting.GlobalShadows = false
-				lighting.Ambient = Color3.new(1, 1, 1)
-				lighting.OutdoorAmbient = Color3.new(1, 1, 1)
-			else
-				lighting.Brightness = 1
-				lighting.GlobalShadows = true
-				lighting.Ambient = Color3.new(0.4, 0.4, 0.4)
-				lighting.OutdoorAmbient = Color3.new(0.6, 0.6, 0.6)
-			end
-		end)
-	end,
-})
-
-VisualFPS:AddToggle("NoFog", {
-	Text = "No Fog",
-	Default = false,
-	Callback = function(state)
-		pcall(function()
-			local lighting = game:GetService("Lighting")
-			if state then
-				lighting.FogEnd = 100000
-				lighting.FogStart = 0
-				lighting.FogColor = Color3.new(1, 1, 1)
-			else
-				lighting.FogEnd = 1000
-				lighting.FogStart = 50
-				lighting.FogColor = Color3.new(0.5, 0.6, 0.7)
-			end
-		end)
-	end,
-})
-
 VisualFPS:AddToggle("LowTextures", {
 	Text = "Low Textures",
 	Default = false,
@@ -3356,8 +3117,6 @@ VisualFPS:AddToggle("LowTextures", {
 		end
 	end,
 })
-
-
 
 VisualFPS:AddToggle("DisableEffects", {
 	Text = "Disable Effects",
@@ -3776,21 +3535,6 @@ FunAttach:AddDropdown("AttachPlayerList", {
 	Default = "",
 })
 
-FunAttach:AddToggle("HideBeneathToggle", {
-	Text = "Hide Beneath",
-	Default = false,
-})
-
-FunAttach:AddToggle("FloatOverToggle", {
-	Text = "Float Over",
-	Default = false,
-})
-
-FunAttach:AddToggle("PlusFlingPlayerToggle", {
-	Text = "+ Fling Player(use with float)",
-	Default = false,
-})
-
 local FunRight = Tabs["Fun Box"]:AddRightGroupbox("Show Cursor", "mouse-pointer")
 
 FunRight:AddToggle("CustomCursorActive", {
@@ -3799,7 +3543,7 @@ FunRight:AddToggle("CustomCursorActive", {
 })
 
 FunRight:AddDropdown("CustomCursorType", {
-	Values = { "Tiny Square", "Circle", "X", "Dot", "Mouse Arrow" },
+	Values = { "Tiny Square", "Circle", "X" },
 	Default = "X",
 	Text = "Cursor Type",
 })
@@ -3816,16 +3560,6 @@ local FunAnimations = Tabs["Fun Box"]:AddRightGroupbox("ANIMATIONS", "activity")
 
 FunAnimations:AddToggle("CrawlerToggle", {
 	Text = "Crawler",
-	Default = false,
-})
-
-FunAnimations:AddToggle("ShadowTheGoat", {
-	Text = "Shadow The Goat",
-	Default = false,
-})
-
-FunAnimations:AddToggle("DoNotTouch", {
-	Text = "DO NOT TOUCH",
 	Default = false,
 })
 
@@ -3902,13 +3636,7 @@ local function startAttach()
 						part.CanCollide = false
 					end
 				end
-				if Toggles.FloatOverToggle.Value then
-					myRoot.CFrame = targetRoot.CFrame * CFrame.new(0, 6, 0) -- Over head
-				elseif Toggles.HideBeneathToggle.Value then
-					myRoot.CFrame = targetRoot.CFrame * CFrame.new(0, -6, 0) -- Below feet
-				else
-					myRoot.CFrame = targetRoot.CFrame * CFrame.new(0, 0, 2.5) -- Behind player
-				end
+				myRoot.CFrame = targetRoot.CFrame * CFrame.new(0, 0, 2.5)
 				myRoot.Velocity = Vector3.zero
 			end
 		end))
@@ -3919,51 +3647,6 @@ Toggles.AttachToggle:OnChanged(startAttach)
 Options.AttachPlayerList:OnChanged(function()
 	if Toggles.AttachToggle.Value then
 		startAttach()
-	end
-end)
-Toggles.HideBeneathToggle:OnChanged(function()
-	if Toggles.AttachToggle.Value then
-		startAttach()
-	end
-end)
-Toggles.FloatOverToggle:OnChanged(function()
-	if Toggles.AttachToggle.Value then
-		startAttach()
-	end
-end)
-
--- + Fling Player Script Logic
-Toggles.PlusFlingPlayerToggle:OnChanged(function()
-	if Toggles.PlusFlingPlayerToggle.Value then
-		local char = LocalPlayer.Character
-		local player = LocalPlayer
-		local mouse = player:GetMouse()
-		local uis = game:GetService("UserInputService")
-		local bp = Instance.new("BodyPosition")
-
-		for _, v in next, game:GetDescendants() do
-			if v:IsA("Part") and v.Anchored == false and v.Parent ~= char and v.Parent.ClassName ~= "Accessory" then
-				RunService.Heartbeat:Connect(function()
-					v.CustomPhysicalProperties = PhysicalProperties.new(0,0,0,0,0)
-					v.Velocity = Vector3.new(25.70,0,0)
-					v.RotVelocity = Vector3.new(9e9,9e9,9e9)
-					v.CanCollide = false
-				end)
-			end
-		end
-		for _, v in next, game.workspace:GetDescendants() do
-			if v:IsA("Part") and v.Anchored == false and v.Parent ~= char and v.Parent.ClassName ~= "Accessory" then
-				local bp = Instance.new("BodyPosition")
-				bp.Parent = v
-				bp.Position = char.HumanoidRootPart.Position + Vector3.new(0,5,0)
-				bind = "t" -- has to be lowercase
-				mouse.KeyDown:connect(function(key)
-					if key == bind then
-						bp.Position = mouse.Target.Position + Vector3.new(0,math.sin(10/10))
-					end
-				end)
-			end
-		end
 	end
 end)
 
@@ -4313,22 +3996,6 @@ Toggles.CrawlerToggle:OnChanged(function()
 	end
 end)
 
-Toggles.ShadowTheGoat:OnChanged(function(Value)
-	if Toggles.ShadowTheGoat.Value then
-		pcall(function()
-			loadstring(game:HttpGet("https://raw.githubusercontent.com/sparksnaps/Lord-Shadow-Beta/refs/heads/main/Lua"))()
-		end)
-	end
-end)
-
-Toggles.DoNotTouch:OnChanged(function(Value)
-	if Toggles.DoNotTouch.Value then
-		pcall(function()
-			loadstring(game:HttpGet("https://pastebin.com/raw/wbEc0ThZ"))()
-		end)
-	end
-end)
-
 -- Teleport Script Logic
 local function resetAndTeleport(targetName)
 	if not targetName or targetName == "" then
@@ -4419,13 +4086,7 @@ local cursorDrawings = {
 	square = nil,
 	circle = nil,
 	xLine1 = nil,
-	xLine2 = nil,
-	dot = nil,
-	arrow1 = nil,
-	arrow2 = nil,
-	arrow3 = nil,
-	arrow4 = nil,
-	arrow5 = nil
+	xLine2 = nil
 }
 
 local function initCursorDrawings()
@@ -4456,21 +4117,6 @@ local function initCursorDrawings()
 		cursorDrawings.xLine2.Thickness = 1.5
 		cursorDrawings.xLine2.Visible = false
 	end
-	if not cursorDrawings.dot then
-		cursorDrawings.dot = Drawing.new("Circle")
-		cursorDrawings.dot.Color = Color3.fromRGB(255, 255, 255)
-		cursorDrawings.dot.Filled = true
-		cursorDrawings.dot.Visible = false
-	end
-	for i = 1, 5 do
-		local key = "arrow" .. i
-		if not cursorDrawings[key] then
-			cursorDrawings[key] = Drawing.new("Line")
-			cursorDrawings[key].Color = Color3.fromRGB(255, 255, 255)
-			cursorDrawings[key].Thickness = 1.5
-			cursorDrawings[key].Visible = false
-		end
-	end
 end
 
 local function updateCursor()
@@ -4481,11 +4127,6 @@ local function updateCursor()
 	cursorDrawings.circle.Visible = false
 	cursorDrawings.xLine1.Visible = false
 	cursorDrawings.xLine2.Visible = false
-	if cursorDrawings.dot then cursorDrawings.dot.Visible = false end
-	for i = 1, 5 do
-		local key = "arrow" .. i
-		if cursorDrawings[key] then cursorDrawings[key].Visible = false end
-	end
 	
 	if not Toggles.CustomCursorActive or not Toggles.CustomCursorActive.Value then return end
 	
@@ -4511,36 +4152,6 @@ local function updateCursor()
 		cursorDrawings.xLine2.From = center - Vector2.new(-half, half)
 		cursorDrawings.xLine2.To = center + Vector2.new(-half, half)
 		cursorDrawings.xLine2.Visible = true
-	elseif cursorType == "Dot" then
-		cursorDrawings.dot.Radius = math.max(1, size / 4)
-		cursorDrawings.dot.Position = center
-		cursorDrawings.dot.Visible = true
-	elseif cursorType == "Mouse Arrow" then
-		local p0 = center
-		local p1 = center + Vector2.new(0, size)
-		local p2 = center + Vector2.new(size * 0.7, size * 0.7)
-		local p3 = center + Vector2.new(size * 0.3, size * 0.7)
-		local p4 = center + Vector2.new(size * 0.6, size * 1.0)
-		
-		cursorDrawings.arrow1.From = p0
-		cursorDrawings.arrow1.To = p1
-		cursorDrawings.arrow1.Visible = true
-		
-		cursorDrawings.arrow2.From = p0
-		cursorDrawings.arrow2.To = p2
-		cursorDrawings.arrow2.Visible = true
-		
-		cursorDrawings.arrow3.From = p1
-		cursorDrawings.arrow3.To = p3
-		cursorDrawings.arrow3.Visible = true
-		
-		cursorDrawings.arrow4.From = p2
-		cursorDrawings.arrow4.To = p3
-		cursorDrawings.arrow4.Visible = true
-		
-		cursorDrawings.arrow5.From = p3
-		cursorDrawings.arrow5.To = p4
-		cursorDrawings.arrow5.Visible = true
 	end
 end
 
@@ -4594,10 +4205,6 @@ end)
 Library.ToggleKeybind = Options.MenuKeybind
 
 ThemeManager:SetLibrary(Library)
--- Set default accent color to red
-ThemeManager:SetDefaultTheme({
-	AccentColor = "ff0000" -- Red
-})
 SaveManager:SetLibrary(Library)
 SaveManager:IgnoreThemeSettings()
 SaveManager:SetIgnoreIndexes({ "MenuKeybind" })
@@ -4609,7 +4216,6 @@ ThemeManager:ApplyToTab(Tabs["UI Settings"])
 SaveManager:LoadAutoloadConfig()
 
 Library:OnUnload(function()
-
 	if Toggles.DesyncToggle and Toggles.DesyncToggle.Value then
 		Toggles.DesyncToggle:SetValue(false)
 	end
@@ -4628,9 +4234,6 @@ Library:OnUnload(function()
 	if Toggles.InfiniteBackpack and Toggles.InfiniteBackpack.Value then
 		Toggles.InfiniteBackpack:SetValue(false)
 	end
-	if Toggles.FakeLag and Toggles.FakeLag.Value then
-		Toggles.FakeLag:SetValue(false)
-	end
 	if Toggles.Xray and Toggles.Xray.Value then
 		Toggles.Xray:SetValue(false)
 	end
@@ -4643,10 +4246,7 @@ Library:OnUnload(function()
 	if Toggles.DisableShadows and Toggles.DisableShadows.Value then
 		Toggles.DisableShadows:SetValue(false)
 	end
-	if Toggles.NoGrass and Toggles.NoGrass.Value then
-		Toggles.NoGrass:SetValue(false)
-	end
-    if Toggles.AdamantiteFarm and Toggles.AdamantiteFarm.Value then
+	if Toggles.AdamantiteFarm and Toggles.AdamantiteFarm.Value then
 		Toggles.AdamantiteFarm:SetValue(false)
 	end
 	if Toggles.UltraFPSBoost and Toggles.UltraFPSBoost.Value then
@@ -4664,15 +4264,6 @@ Library:OnUnload(function()
 	if Toggles.AttachToggle and Toggles.AttachToggle.Value then
 		Toggles.AttachToggle:SetValue(false)
 	end
-	if Toggles.HideBeneathToggle and Toggles.HideBeneathToggle.Value then
-		Toggles.HideBeneathToggle:SetValue(false)
-	end
-	if Toggles.FloatOverToggle and Toggles.FloatOverToggle.Value then
-		Toggles.FloatOverToggle:SetValue(false)
-	end
-	if Toggles.PlusFlingPlayerToggle and Toggles.PlusFlingPlayerToggle.Value then
-		Toggles.PlusFlingPlayerToggle:SetValue(false)
-	end
 	if Toggles.Multiplier and Toggles.Multiplier.Value then
 		Toggles.Multiplier:SetValue(false)
 	end
@@ -4682,15 +4273,6 @@ Library:OnUnload(function()
 	if Toggles.CrawlerToggle and Toggles.CrawlerToggle.Value then
 		Toggles.CrawlerToggle:SetValue(false)
 	end
-	if Toggles.ShadowTheGoat and Toggles.ShadowTheGoat.Value then
-		Toggles.ShadowTheGoat:SetValue(false)
-	end
-	if Toggles.DoNotTouch and Toggles.DoNotTouch.Value then
-		Toggles.DoNotTouch:SetValue(false)
-	end
-	if Toggles.NoBearTrapDMG and Toggles.NoBearTrapDMG.Value then
-		Toggles.NoBearTrapDMG:SetValue(false)
-	end
 	pcall(function()
 		if fovCircle then fovCircle:Remove() end
 		if cursorDrawings then
@@ -4698,11 +4280,6 @@ Library:OnUnload(function()
 			if cursorDrawings.circle then cursorDrawings.circle:Remove() end
 			if cursorDrawings.xLine1 then cursorDrawings.xLine1:Remove() end
 			if cursorDrawings.xLine2 then cursorDrawings.xLine2:Remove() end
-			if cursorDrawings.dot then cursorDrawings.dot:Remove() end
-			for i = 1, 5 do
-				local key = "arrow" .. i
-				if cursorDrawings[key] then cursorDrawings[key]:Remove() end
-			end
 		end
 	end)
 	for name in pairs(Connections) do
