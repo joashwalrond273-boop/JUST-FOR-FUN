@@ -3477,11 +3477,6 @@ local extraLocations = {
 	{ name = "Below ML",    pos = Vector3.new(-177, 25.26, -1014.83)     },
 	{ name = "Arena",       pos = Vector3.new(-1315.59, 41.19, 1972.84)  },
 	{ name = "Bamboo",      pos = Vector3.new(-1330.92, 39.43, 5798.47)  },
-	{ name = "Volcano",     pos = Vector3.new(1769.70, 36.43, 1832.10)   },
-	{ name = "Asia Cave",   pos = Vector3.new(-2108.44, 201.04, 6823.05) },
-	{ name = "Juggernaut",  pos = Vector3.new(-1645.06, 336.32, -2874.34)},
-	{ name = "Waterfall",   pos = Vector3.new(-1949.89, 25.29, 345.83)   },
-	{ name = "Desert Maze", pos = Vector3.new(1529.42, 55.33, -938.31)   },
 }
 
 for _, loc in ipairs(extraLocations) do
