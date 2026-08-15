@@ -4198,6 +4198,11 @@ VisualLeft:AddToggle("PlayerESP", {
 	Title = "Player ESP Color",
 })
 
+VisualLeft:AddToggle("HealthBox", {
+	Text = "Health Box",
+	Default = false,
+})
+
 VisualLeft:AddToggle("ShowDistance", {
 	Text = "Show Distance",
 	Default = true,
@@ -4388,6 +4393,16 @@ local function createESP(player)
 		return
 	end
 
+	local box2d = nil
+	if hasDrawing then
+		box2d = Drawing.new("Square")
+		box2d.Color = Color3.fromRGB(192, 192, 192)
+		box2d.Thickness = 1.5
+		box2d.Transparency = 0
+		box2d.Filled = false
+		box2d.Visible = false
+	end
+
 	local billboard = Instance.new("BillboardGui")
 	billboard.Size = UDim2.fromOffset(120, 40)
 	billboard.AlwaysOnTop = true
@@ -4414,18 +4429,77 @@ local function createESP(player)
 	highlight.Parent = character
 	highlight.Enabled = false
 
-	espObjects[player] = { billboard, label, highlight }
+	local healthBg = nil
+	local healthBar = nil
+	if hasDrawing then
+		healthBg = Drawing.new("Line")
+		healthBg.Color = Color3.fromRGB(0, 0, 0)
+		healthBg.Thickness = 4
+		healthBg.Transparency = 0
+		healthBg.Visible = false
+
+		healthBar = Drawing.new("Line")
+		healthBar.Thickness = 2
+		healthBar.Transparency = 0
+		healthBar.Visible = false
+	end
+
+	espObjects[player] = { box2d, healthBg, healthBar, billboard, label, highlight }
 
 	local function update()
 		local myRoot = getRootPart()
 		if not myRoot or not character.Parent then
+			if box2d then box2d.Visible = false end
 			if highlight then highlight.Enabled = false end
+			if healthBg then healthBg.Visible = false end
+			if healthBar then healthBar.Visible = false end
 			return
 		end
 		local dist = (root.Position - myRoot.Position).Magnitude
 		local shouldShow = dist <= Options.ESPDistance.Value and Toggles.PlayerESP.Value
 
 		local screenPos, onScreen = workspace.CurrentCamera:WorldToViewportPoint(root.Position)
+		local head = character:FindFirstChild("Head")
+		local topPos = head and head.Position + Vector3.new(0, 0.5, 0) or root.Position + Vector3.new(0, 3, 0)
+		local bottomPos = head and head.Position - Vector3.new(0, 6.5, 0) or root.Position - Vector3.new(0, 3.5, 0)
+
+		local topCoords = workspace.CurrentCamera:WorldToViewportPoint(topPos)
+		local bottomCoords = workspace.CurrentCamera:WorldToViewportPoint(bottomPos)
+
+		local height = math.abs(topCoords.Y - bottomCoords.Y)
+		local width = height * 0.6
+
+		if box2d then
+			if shouldShow and onScreen and Toggles.HealthBox and Toggles.HealthBox.Value then
+				box2d.Position = Vector2.new(screenPos.X - width / 2, topCoords.Y)
+				box2d.Size = Vector2.new(width, height)
+				box2d.Visible = true
+			else
+				box2d.Visible = false
+			end
+		end
+
+		if healthBg and healthBar then
+			if shouldShow and onScreen and Toggles.HealthBox and Toggles.HealthBox.Value then
+				local barX = screenPos.X - width / 2 - 6
+
+				healthBg.From = Vector2.new(barX, topCoords.Y)
+				healthBg.To = Vector2.new(barX, bottomCoords.Y)
+				healthBg.Visible = true
+
+				local maxHealth = hum.MaxHealth > 0 and hum.MaxHealth or 100
+				local healthRatio = math.clamp(hum.Health / maxHealth, 0, 1)
+				local healthColor = Color3.fromRGB(0, 255, 0):Lerp(Color3.fromRGB(255, 0, 0), 1 - healthRatio)
+
+				healthBar.From = Vector2.new(barX, bottomCoords.Y - (height * healthRatio))
+				healthBar.To = Vector2.new(barX, bottomCoords.Y)
+				healthBar.Color = healthColor
+				healthBar.Visible = true
+			else
+				healthBg.Visible = false
+				healthBar.Visible = false
+			end
+		end
 
 		billboard.Enabled = shouldShow
 		local nameColor = Options and Options.PlayerESPColor and Options.PlayerESPColor.Value or Color3.new(1, 1, 1)
@@ -4481,7 +4555,7 @@ end)
 Options.OutlineESPColor:OnChanged(function()
 	local color = Options.OutlineESPColor.Value
 	for _, objects in pairs(espObjects) do
-		local highlight = objects[3]
+		local highlight = objects[6]
 		if highlight and typeof(highlight) == "Instance" and highlight:IsA("Highlight") then
 			highlight.OutlineColor = color
 		end
@@ -4490,7 +4564,7 @@ end)
 
 Options.PlayerESPColor:OnChanged(function()
 	for _, objects in pairs(espObjects) do
-		local label = objects[2]
+		local label = objects[5]
 		if label and typeof(label) == "Instance" and label:IsA("TextLabel") then
 			label.TextColor3 = Options.PlayerESPColor.Value
 		end
