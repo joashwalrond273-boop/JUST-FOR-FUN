@@ -1463,17 +1463,9 @@ CombatAutoSwing:AddToggle("AutoHop", {
 	Default = false,
 })
 
-CombatAutoSpin:AddToggle("AutoSpin", {
-	Text = "+ Auto Spin",
+CombatAutoSwing:AddToggle("AutoShiftlock", {
+	Text = "+ Auto Shiftlock",
 	Default = false,
-})
-
-CombatAutoSpin:AddSlider("SpinSpeed", {
-	Text = "Spin Speed",
-	Default = 50,
-	Min = 10,
-	Max = 150,
-	Rounding = 0,
 })
 
 local CombatSwordBot = Tabs.Combat:AddLeftGroupbox("Sword Bot", "swords")
@@ -2021,20 +2013,6 @@ Toggles.AutoSwing:OnChanged(function()
 	end
 end)
 
-Toggles.AutoSpin:OnChanged(function()
-	disconnect("AutoSpin")
-	if Toggles.AutoSpin.Value then
-		track("AutoSpin", RunService.Heartbeat:Connect(function(dt)
-			if not isAlive() then return end
-			local root = getRootPart()
-			if root then
-				local speed = Options.SpinSpeed.Value
-				root.CFrame = root.CFrame * CFrame.Angles(0, math.rad(speed * dt * 10), 0)
-			end
-		end))
-	end
-end)
-
 Toggles.AutoHop:OnChanged(function()
 	disconnect("AutoHop")
 	if Toggles.AutoHop.Value then
@@ -2087,6 +2065,37 @@ Toggles.AutoHop:OnChanged(function()
 			hum.JumpHeight = hum:GetAttribute("OrigJumpHeight") or hum.JumpHeight
 			hum:SetAttribute("JumpAdjusted", nil)
 		end
+	end
+end)
+
+Toggles.AutoShiftlock:OnChanged(function()
+	disconnect("AutoShiftlock")
+	if Toggles.AutoShiftlock.Value then
+		track("AutoShiftlock", RunService.Heartbeat:Connect(function()
+			if not isAlive() then return end
+			local root = getRootPart()
+			if not root then return end
+			
+			local playerNearby = false
+			local pos = root.Position
+			for _, otherPlayer in ipairs(Players:GetPlayers()) do
+				if otherPlayer ~= LocalPlayer and otherPlayer.Character then
+					local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
+					local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
+					if otherRoot and otherHum and otherHum.Health > 0 then
+						local dist = (otherRoot.Position - pos).Magnitude
+						if dist <= 20 then
+							playerNearby = true
+							break
+						end
+					end
+				end
+			end
+			
+			if playerNearby then
+				game:GetService("UserInputService").MouseBehavior = Enum.MouseBehavior.LockCenter
+			end
+		end))
 	end
 end)
 
