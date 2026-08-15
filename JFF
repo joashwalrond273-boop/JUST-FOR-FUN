@@ -667,11 +667,6 @@ MainLeft:AddToggle("FastPickup", {
 	Default = false,
 })
 
-MainLeft:AddToggle("AutoEatCustom", {
-	Text = "Auto Eat",
-	Default = false,
-})
-
 MainLeft:AddToggle("AntiLava", {
 	Text = "Anti Fire / Lava",
 	Default = false,
@@ -680,6 +675,35 @@ MainLeft:AddToggle("AntiLava", {
 MainLeft:AddToggle("AutoAirBubbles", {
 	Text = "Auto Air Bubbles",
 	Default = false,
+})
+
+MainRight:AddButton({
+	Text = "Admin Nearby",
+	Func = function()
+		local myRoot = getRootPart()
+		for _, player in ipairs(Players:GetPlayers()) do
+			if player ~= LocalPlayer then
+				if isAdmin(player) then
+					local nearby = false
+					local adminRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+					if myRoot and adminRoot then
+						local dist = (myRoot.Position - adminRoot.Position).Magnitude
+						if dist < 150 then
+							nearby = true
+						end
+					end
+					Library:Notify({
+						Title = "ADMIN " .. (nearby and "NEARBY" or "DETECTED"),
+						Description = player.Name .. " is " .. (nearby and "close to you!" or "in the server!") .. " Server hopping...",
+						Time = 5,
+					})
+					task.wait(2)
+					task.spawn(joinLowPingServer)
+					break
+				end
+			end
+		end
+	end,
 })
 
 MainRight:AddButton({
@@ -1055,11 +1079,17 @@ DesyncToggle:OnChanged(function(Value)
 	end
 end)
 
-local DetectionGroup = Tabs.Player:AddRightGroupbox("DETECTION", "shield-alert")
+local AdvanceHealGroup = Tabs.Player:AddRightGroupbox("Advance Heal", "heart")
 
-local AdminNearbyToggle = DetectionGroup:AddToggle("AdminNearby", {
-	Text = "Admin Nearby",
+AdvanceHealGroup:AddToggle("AutoEatCustom", {
+	Text = "Auto Eat",
 	Default = false,
+})
+
+AdvanceHealGroup:AddDropdown("AutoEatFood", {
+	Text = "Food Type",
+	Values = {"Cabbage", "Banana", "Spicy Meal", "Hearty Stew"},
+	Default = "Cabbage",
 })
 
 local NoBossDamageGroup = Tabs.Player:AddRightGroupbox("No Boss Damage", "shield")
@@ -1097,71 +1127,6 @@ local function isAdmin(player)
 	
 	return false
 end
-
-local function handleAdminNearby(player)
-	if not Toggles.AdminNearby.Value then return end
-	if player == LocalPlayer then return end
-	
-	task.spawn(function()
-		if isAdmin(player) then
-			Library:Notify({
-				Title = "ADMIN DETECTED",
-				Description = player.Name .. " is in the server! Server hopping...",
-				Time = 5,
-			})
-			task.wait(2)
-			task.spawn(joinLowPingServer)
-		end
-	end)
-end
-
-local lastAdminCheck = 0
-local function checkAdminPresence()
-	if not Toggles.AdminNearby.Value then return end
-	if tick() - lastAdminCheck < 2 then return end
-	lastAdminCheck = tick()
-	
-	local myRoot = getRootPart()
-	
-	for _, player in ipairs(Players:GetPlayers()) do
-		if player ~= LocalPlayer then
-			if isAdmin(player) then
-				local nearby = false
-				local adminRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-				if myRoot and adminRoot then
-					local dist = (myRoot.Position - adminRoot.Position).Magnitude
-					if dist < 150 then
-						nearby = true
-					end
-				end
-				
-				Library:Notify({
-					Title = "ADMIN " .. (nearby and "NEARBY" or "DETECTED"),
-					Description = player.Name .. " is " .. (nearby and "close to you!" or "in the server!") .. " Server hopping...",
-					Time = 5,
-				})
-				task.wait(2)
-				task.spawn(joinLowPingServer)
-				break
-			end
-		end
-	end
-end
-
-Toggles.AdminNearby:OnChanged(function()
-	disconnect("AdminNearby")
-	disconnect("AdminNearbyPlayerAdded")
-	if Toggles.AdminNearby.Value then
-		track("AdminNearby", RunService.Heartbeat:Connect(checkAdminPresence))
-		
-		local conn = Players.PlayerAdded:Connect(handleAdminNearby)
-		track("AdminNearbyPlayerAdded", conn)
-		
-		for _, player in ipairs(Players:GetPlayers()) do
-			handleAdminNearby(player)
-		end
-	end
-end)
 
 -- Infinite stamina, no fall damage, anti lava (Behavior > Disabled on workspace.Characters.[name] or Character itself)
 local function applyCharacterModuleToggles()
@@ -1451,6 +1416,13 @@ Toggles.FastPickup:OnChanged(function()
 	end
 end)
 
+local FoodIdMap = {
+	["Cabbage"] = 210,
+	["Banana"] = 367,
+	["Spicy Meal"] = 214,
+	["Hearty Stew"] = 217,
+}
+
 local lastEatCustom = 0
 local function tryEatCustom()
 	if tick() - lastEatCustom < 1 then
@@ -1458,10 +1430,12 @@ local function tryEatCustom()
 	end
 	local humanoid = getHumanoid()
 	if humanoid and humanoid.Health < 100 then
+		local selectedFood = Options and Options.AutoEatFood and Options.AutoEatFood.Value
+		local foodId = FoodIdMap[selectedFood] or 210
 		lastEatCustom = tick()
 		pcall(function()
 			local args = {
-				210
+				foodId
 			}
 			game:GetService("ReplicatedStorage"):WaitForChild("remoteInterface"):WaitForChild("interactions"):WaitForChild("eat"):FireServer(unpack(args))
 		end)
@@ -2575,7 +2549,7 @@ MoveSwimBoost:AddSlider("SwimBoostValue", {
 })
 
 MoveSwimBoost:AddToggle("BoatSpeedToggle", {
-	Text = "Boat Speed",
+	Text = "+ Boat Speed",
 	Default = false,
 })
 
