@@ -4309,8 +4309,9 @@ local function createESP(player)
 	local box2d = nil
 	if hasDrawing then
 		box2d = Drawing.new("Square")
-		box2d.Color = Color3.fromRGB(192, 192, 192)
+		box2d.Color = Options and Options.ShowBoxColor and Options.ShowBoxColor.Value or Color3.fromRGB(192, 192, 192)
 		box2d.Thickness = 1.5
+		box2d.Transparency = 0
 		box2d.Filled = false
 		box2d.Visible = false
 	end
@@ -4324,7 +4325,7 @@ local function createESP(player)
 	local label = Instance.new("TextLabel")
 	label.Size = UDim2.fromScale(1, 1)
 	label.BackgroundTransparency = 1
-	label.TextColor3 = Color3.new(1, 1, 1)
+	label.TextColor3 = Options and Options.PlayerESPColor and Options.PlayerESPColor.Value or Color3.new(1, 1, 1)
 	label.TextStrokeTransparency = 0.5
 	label.Font = Enum.Font.Jura
 	label.TextSize = 14
@@ -4334,9 +4335,9 @@ local function createESP(player)
 	local tracer = nil
 	if hasDrawing then
 		tracer = Drawing.new("Line")
-		tracer.Color = Color3.fromRGB(192, 192, 192)
+		tracer.Color = Options and Options.ShowTracersColor and Options.ShowTracersColor.Value or Color3.fromRGB(192, 192, 192)
 		tracer.Thickness = 1.5
-		tracer.Transparency = 1
+		tracer.Transparency = 0
 		tracer.Visible = false
 	end
 
@@ -4356,12 +4357,12 @@ local function createESP(player)
 		healthBg = Drawing.new("Line")
 		healthBg.Color = Color3.fromRGB(0, 0, 0)
 		healthBg.Thickness = 4
-		healthBg.Transparency = 1
+		healthBg.Transparency = 0
 		healthBg.Visible = false
 
 		healthBar = Drawing.new("Line")
 		healthBar.Thickness = 2
-		healthBar.Transparency = 1
+		healthBar.Transparency = 0
 		healthBar.Visible = false
 	end
 
@@ -4424,20 +4425,19 @@ local function update()
 		end
 
 		billboard.Enabled = shouldShow
-		local text = player.Name
+		local nameColor = Options and Options.PlayerESPColor and Options.PlayerESPColor.Value or Color3.new(1, 1, 1)
+		local distColor = Options and Options.ShowDistanceColor and Options.ShowDistanceColor.Value or Color3.new(1, 1, 1)
+		local text = '<font color="#' .. nameColor:ToHex() .. '">' .. player.Name .. '</font>'
 		if Toggles.ShowDistance.Value then
-			text ..= string.format("\n%.0fm", dist)
+			text ..= '\n<font color="#' .. distColor:ToHex() .. '">' .. string.format("%.0fm", dist) .. '</font>'
 		end
 		label.Text = text
 
-		if tracer and Toggles.ShowTracers.Value then
-			if onScreen then
-				tracer.From = Vector2.new(workspace.CurrentCamera.ViewportSize.X / 2, workspace.CurrentCamera.ViewportSize.Y)
-				tracer.To = Vector2.new(screenPos.X, screenPos.Y)
-				tracer.Visible = true
-			else
-				tracer.Visible = false
-			end
+		if tracer and shouldShow and Toggles.ShowTracers and Toggles.ShowTracers.Value then
+			local vpx, vpy = workspace.CurrentCamera.ViewportSize.X, workspace.CurrentCamera.ViewportSize.Y
+			tracer.From = Vector2.new(vpx / 2, vpy)
+			tracer.To = Vector2.new(math.clamp(screenPos.X, 0, vpx), math.clamp(screenPos.Y, 0, vpy))
+			tracer.Visible = true
 		elseif tracer then
 			tracer.Visible = false
 		end
@@ -4465,6 +4465,8 @@ Toggles.PlayerESP:OnChanged(function()
 		end
 		return
 	end
+	disconnect("ESP_PlayerAdded")
+	clearESP()
 	for _, player in ipairs(Players:GetPlayers()) do
 		if player ~= LocalPlayer then
 			createESP(player)
@@ -4488,6 +4490,38 @@ Options.OutlineESPColor:OnChanged(function()
 		local highlight = objects[5]
 		if highlight and typeof(highlight) == "Instance" and highlight:IsA("Highlight") then
 			highlight.OutlineColor = color
+		end
+	end
+end)
+
+Options.PlayerESPColor:OnChanged(function()
+	for _, objects in pairs(espObjects) do
+		local label = objects[3]
+		if label and typeof(label) == "Instance" and label:IsA("TextLabel") then
+			label.TextColor3 = Options.PlayerESPColor.Value
+		end
+	end
+end)
+
+Options.ShowDistanceColor:OnChanged(function()
+end)
+
+Options.ShowTracersColor:OnChanged(function()
+	local color = Options.ShowTracersColor.Value
+	for _, objects in pairs(espObjects) do
+		local tracer = objects[4]
+		if tracer and typeof(tracer) == "userdata" then
+			pcall(function() tracer.Color = color end)
+		end
+	end
+end)
+
+Options.ShowBoxColor:OnChanged(function()
+	local color = Options.ShowBoxColor.Value
+	for _, objects in pairs(espObjects) do
+		local box2d = objects[1]
+		if box2d and typeof(box2d) == "userdata" then
+			pcall(function() box2d.Color = color end)
 		end
 	end
 end)
