@@ -577,71 +577,118 @@ FastArmorGroup:AddButton({
 FastArmorGroup:AddButton({
 	Text = "Darksteel",
 	Func = function()
-		local character = LocalPlayer.Character
-		local root = character and character:FindFirstChild("HumanoidRootPart")
-		if not root then return end
-		local playerPosition = root.Position
-		
-		local argsPlaceFurnace = {
-			[1] = 269,
-			[2] = CFrame.new(playerPosition.X, playerPosition.Y - 3, playerPosition.Z) * CFrame.Angles(0, 0, 0),
-			[3] = -3.141592653589793
-		}
-		
-		pcall(function()
-			game:GetService("ReplicatedStorage").remoteInterface.interactions.build:InvokeServer(unpack(argsPlaceFurnace))
-		end)
-		
-		local furnace = nil
-		for _, structure in pairs(workspace.placedStructures:GetChildren()) do
-			if structure:FindFirstChild("Darksteel Furnace") then
-				furnace = structure:FindFirstChild("Darksteel Furnace")
-				break
-			end
-		end
-		
-		local itemsToCraft = {
-			{267, "Darksteel Sword"},
-			{261, "Darksteel Chestplate"},
-			{260, "Darksteel Pants"},
-			{262, "Darksteel Helmet"}
-		}
-		
-		for _, item in ipairs(itemsToCraft) do
-			local argsCraft = {
-				[1] = item[1],
-				[2] = furnace,
-				[3] = 1,
-				[4] = 0
-			}
-			pcall(function()
-				game:GetService("ReplicatedStorage").remoteInterface.interactions.craft:InvokeServer(unpack(argsCraft))
-			end)
-		end
-		
-		local itemsToEquip = {
-			{267, "inventory", 1, "equipHotbar"},
-			{261, "inventory", 1, "equipClothing"},
-			{260, "inventory", 2, "equipClothing"},
-			{262, "inventory", 3, "equipClothing"}
-		}
-		
-		for _, equip in ipairs(itemsToEquip) do
-			local argsEquip = {
-				equip[2],
-				equip[3],
-				equip[1]
-			}
-			pcall(function()
-				game:GetService("ReplicatedStorage").remoteInterface.inventory[equip[4]]:InvokeServer(unpack(argsEquip))
-			end)
-		end
-		
-		if furnace then
-			pcall(function()
-				game:GetService("ReplicatedStorage").remoteInterface.interactions.deleteStructure:FireServer(furnace)
-			end)
-		end
+		local function findNearestStructure(playerPosition) 
+			local nearest = nil 
+			local nearestDistance = math.huge 
+			for _, structure in pairs(workspace.placedStructures:GetChildren()) do 
+				if structure:IsA("Model") then 
+					local distance = (playerPosition - structure.PrimaryPart.Position).Magnitude 
+					if distance < nearestDistance then 
+						nearest = structure 
+						nearestDistance = distance 
+					end 
+				end 
+			end 
+			return nearest 
+		end 
+
+		local player = game.Players.LocalPlayer 
+		local character = player.Character or player.CharacterAdded:Wait() 
+		local playerPosition = character.HumanoidRootPart.Position 
+		local nearestStructure = findNearestStructure(playerPosition) 
+
+		if not nearestStructure then 
+			warn("") 
+			return 
+		end 
+
+		local argsPlaceForge = { 
+			[1] = 269, 
+			[2] = CFrame.new(playerPosition.X, playerPosition.Y - 3, playerPosition.Z) * CFrame.Angles(0, 0, 0), 
+			[3] = -2.356194490192345 
+		} 
+
+		game:GetService("ReplicatedStorage").remoteInterface.interactions.build:InvokeServer(unpack(argsPlaceForge)) 
+
+		local forge = nil 
+		for _, structure in pairs(workspace.placedStructures:GetChildren()) do 
+			if structure:FindFirstChild("Darksteel Forge") then 
+				forge = structure:FindFirstChild("Darksteel Forge") 
+				break 
+			end 
+		end 
+
+		local argsSword = { 
+			[1] = 267, 
+			[2] = forge, 
+			[3] = 1, 
+			[4] = 0 
+		} 
+
+		game:GetService("ReplicatedStorage").remoteInterface.interactions.craft:InvokeServer(unpack(argsSword)) 
+
+		local argsChest = { 
+			[1] = 261, 
+			[2] = forge, 
+			[3] = 1, 
+			[4] = 0 
+		} 
+
+		game:GetService("ReplicatedStorage").remoteInterface.interactions.craft:InvokeServer(unpack(argsChest)) 
+
+		local argsPants = { 
+			[1] = 260, 
+			[2] = forge, 
+			[3] = 1, 
+			[4] = 0 
+		} 
+
+		game:GetService("ReplicatedStorage").remoteInterface.interactions.craft:InvokeServer(unpack(argsPants)) 
+
+		local argsHelmet = { 
+			[1] = 262, 
+			[2] = forge, 
+			[3] = 1, 
+			[4] = 0 
+		} 
+
+		game:GetService("ReplicatedStorage").remoteInterface.interactions.craft:InvokeServer(unpack(argsHelmet)) 
+
+		local argsEquipSword = { 
+			[1] = "inventory", 
+			[2] = 1, 
+			[3] = 267 
+		} 
+
+		game:GetService("ReplicatedStorage").remoteInterface.inventory.equipHotbar:InvokeServer(unpack(argsEquipSword)) 
+
+		local argsWearHelmet = { 
+			[1] = "inventory", 
+			[2] = 1, 
+			[3] = 262 
+		} 
+
+		game:GetService("ReplicatedStorage").remoteInterface.inventory.equipClothing:InvokeServer(unpack(argsWearHelmet)) 
+
+		local argsWearChest = { 
+			[1] = "inventory", 
+			[2] = 2, 
+			[3] = 261 
+		} 
+
+		game:GetService("ReplicatedStorage").remoteInterface.inventory.equipClothing:InvokeServer(unpack(argsWearChest)) 
+
+		local argsWearPants = { 
+			[1] = "inventory", 
+			[2] = 3, 
+			[3] = 260 
+		} 
+
+		game:GetService("ReplicatedStorage").remoteInterface.inventory.equipClothing:InvokeServer(unpack(argsWearPants)) 
+
+		if forge then 
+			game:GetService("ReplicatedStorage").remoteInterface.interactions.deleteStructure:FireServer(forge) 
+		end 
 	end,
 })
 
