@@ -1088,7 +1088,7 @@ AdvanceHealGroup:AddToggle("AutoEatCustom", {
 
 AdvanceHealGroup:AddDropdown("AutoEatFood", {
 	Text = "Food Type",
-	Values = {"Cabbage", "Banana", "Spicy Meal", "Hearty Stew"},
+	Values = {"Cabbage", "Banana", "Spicy Meal", "Hearty Stew", "Peppers", "Cabbage Meal"},
 	Default = "Cabbage",
 })
 
@@ -1421,6 +1421,8 @@ local FoodIdMap = {
 	["Banana"] = 367,
 	["Spicy Meal"] = 214,
 	["Hearty Stew"] = 217,
+	["Peppers"] = 211,
+	["Cabbage Meal"] = 213,
 }
 
 local lastEatCustom = 0
