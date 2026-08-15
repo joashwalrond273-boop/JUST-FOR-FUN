@@ -5037,6 +5037,7 @@ local function initCursorDrawings()
 		cursorDrawings.square = Drawing.new("Square")
 		cursorDrawings.square.Color = Color3.fromRGB(255, 255, 255)
 		cursorDrawings.square.Filled = true
+		cursorDrawings.square.Transparency = 1
 		cursorDrawings.square.Visible = false
 	end
 	if not cursorDrawings.circle then
@@ -5044,24 +5045,28 @@ local function initCursorDrawings()
 		cursorDrawings.circle.Color = Color3.fromRGB(255, 255, 255)
 		cursorDrawings.circle.Filled = false
 		cursorDrawings.circle.Thickness = 1.5
+		cursorDrawings.circle.Transparency = 1
 		cursorDrawings.circle.Visible = false
 	end
 	if not cursorDrawings.xLine1 then
 		cursorDrawings.xLine1 = Drawing.new("Line")
 		cursorDrawings.xLine1.Color = Color3.fromRGB(255, 255, 255)
 		cursorDrawings.xLine1.Thickness = 1.5
+		cursorDrawings.xLine1.Transparency = 1
 		cursorDrawings.xLine1.Visible = false
 	end
 	if not cursorDrawings.xLine2 then
 		cursorDrawings.xLine2 = Drawing.new("Line")
 		cursorDrawings.xLine2.Color = Color3.fromRGB(255, 255, 255)
 		cursorDrawings.xLine2.Thickness = 1.5
+		cursorDrawings.xLine2.Transparency = 1
 		cursorDrawings.xLine2.Visible = false
 	end
 	if not cursorDrawings.dot then
 		cursorDrawings.dot = Drawing.new("Circle")
 		cursorDrawings.dot.Color = Color3.fromRGB(255, 255, 255)
 		cursorDrawings.dot.Filled = true
+		cursorDrawings.dot.Transparency = 1
 		cursorDrawings.dot.Visible = false
 	end
 	for i = 1, 5 do
@@ -5070,6 +5075,7 @@ local function initCursorDrawings()
 			cursorDrawings[key] = Drawing.new("Line")
 			cursorDrawings[key].Color = Color3.fromRGB(255, 255, 255)
 			cursorDrawings[key].Thickness = 1.5
+			cursorDrawings[key].Transparency = 1
 			cursorDrawings[key].Visible = false
 		end
 	end
