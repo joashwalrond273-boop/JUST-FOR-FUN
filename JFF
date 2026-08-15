@@ -4206,27 +4206,6 @@ VisualLeft:AddToggle("ShowDistance", {
 	Title = "Show Distance Color",
 })
 
-VisualLeft:AddToggle("ShowHealth", {
-	Text = "Show Health",
-	Default = true,
-})
-
-VisualLeft:AddToggle("ShowTracers", {
-	Text = "Show Tracers",
-	Default = false,
-}):AddColorPicker("ShowTracersColor", {
-	Default = Color3.fromRGB(192, 192, 192),
-	Title = "Show Tracers Color",
-})
-
-VisualLeft:AddToggle("ShowBox", {
-	Text = "Show Box",
-	Default = false,
-}):AddColorPicker("ShowBoxColor", {
-	Default = Color3.fromRGB(192, 192, 192),
-	Title = "Show Box Color",
-})
-
 VisualLeft:AddToggle("OutlineESP", {
 	Text = "Outline ESP",
 	Default = false,
