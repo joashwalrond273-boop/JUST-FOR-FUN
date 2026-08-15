@@ -4235,6 +4235,109 @@ VisualLeft:AddToggle("OutlineESP", {
 	Title = "Outline ESP Color",
 })
 
+VisualLeft:AddToggle("ArmorESP", {
+	Text = "Armor ESP",
+	Default = false,
+})
+
+Toggles.ArmorESP:OnChanged(function()
+	local ESP_Active = false 
+	local TextSize = 14 
+	local StrokeTransparency = 0 
+	local ESPObjects = {} 
+
+	local function getArmorName(player) 
+		if player.Character and player.Character:FindFirstChild("Shirt") and player.Character.Shirt:FindFirstChild("UpperTorso") then 
+			local upperTorso = player.Character.Shirt.UpperTorso 
+			if upperTorso:FindFirstChild("Meshes/Obsidian_SM_Chr_Captain_Male_01.054") then 
+				return "Ds Armor", Color3.new(0, 0, 0) 
+			elseif upperTorso:FindFirstChild("Meshes/Bluesteel_SM_Chr_Captain_Male_01.042") then 
+				return "Bs Armor", Color3.fromRGB(160, 200, 240) 
+			elseif upperTorso:FindFirstChild("Meshes/Atlantis_SM_Chr_Captain_Male_01.092") then 
+				return "Atl Armor", Color3.fromRGB(2, 79, 104) 
+			elseif upperTorso:FindFirstChild("EasternBossChestColor1") or 
+				   upperTorso:FindFirstChild("EasternBossChestColor2") or 
+				   upperTorso:FindFirstChild("EasternBossChestColor3") then 
+				return "Samurai Armor", Color3.fromRGB(74, 0, 0) 
+			elseif upperTorso:FindFirstChild("Meshes/Scuba_Diver.003") then 
+				return "Scuba Armor", Color3.fromRGB(170, 107, 62) 
+			end 
+		end 
+		return "No Armor", Color3.new(1, 1, 1) 
+	end 
+
+	local function createESP(player) 
+		if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then 
+			local billboard = Instance.new("BillboardGui") 
+			billboard.Adornee = player.Character.HumanoidRootPart 
+			billboard.Size = UDim2.new(0, 150, 0, 50) 
+			billboard.StudsOffset = Vector3.new(0, -1, 0) 
+			billboard.AlwaysOnTop = true 
+			billboard.Parent = player.Character 
+
+			local armorLabel = Instance.new("TextLabel") 
+			armorLabel.Size = UDim2.new(1, 0, 1, 0) 
+			armorLabel.BackgroundTransparency = 1 
+			armorLabel.TextStrokeTransparency = StrokeTransparency 
+			armorLabel.Font = Enum.Font.SourceSans 
+			armorLabel.TextSize = TextSize 
+			armorLabel.TextStrokeTransparency = 0.5 
+			armorLabel.Text, armorLabel.TextColor3 = getArmorName(player) 
+			armorLabel.Parent = billboard 
+
+			local function updateArmor() 
+				armorLabel.Text, armorLabel.TextColor3 = getArmorName(player) 
+			end 
+
+			player.Character.ChildAdded:Connect(updateArmor) 
+			player.Character.ChildRemoved:Connect(updateArmor) 
+
+			RunService.RenderStepped:Connect(function() 
+				if not ESP_Active or not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then 
+					billboard:Destroy() 
+				end 
+			end) 
+
+			ESPObjects[player] = billboard 
+		end 
+	end 
+
+	local function removeESP(player) 
+		if ESPObjects[player] then 
+			ESPObjects[player]:Destroy() 
+			ESPObjects[player] = nil 
+		end 
+	end 
+
+	local function toggleESP(state) 
+		ESP_Active = state 
+		if ESP_Active then 
+			for _, player in pairs(Players:GetPlayers()) do 
+				if player ~= LocalPlayer and player.Character then 
+					createESP(player) 
+				end 
+			end 
+			track("ArmorESP_PlayerAdded", Players.PlayerAdded:Connect(function(player) 
+				player.CharacterAdded:Connect(function(character) 
+					if ESP_Active then 
+						createESP(player) 
+					end 
+				end) 
+			end)) 
+			track("ArmorESP_PlayerRemoving", Players.PlayerRemoving:Connect(function(player) 
+				removeESP(player) 
+			end)) 
+		else 
+			disconnect("ArmorESP_PlayerAdded") 
+			disconnect("ArmorESP_PlayerRemoving") 
+			for _, player in pairs(Players:GetPlayers()) do 
+				removeESP(player) 
+			end 
+		end 
+	end 
+
+	toggleESP(Toggles.ArmorESP.Value)
+end)
 
 local VisualEnv = Tabs.Visuals:AddLeftGroupbox("ENVIRONMENT", "sun")
 
@@ -4306,16 +4409,6 @@ local function createESP(player)
 		return
 	end
 
-	local box2d = nil
-	if hasDrawing then
-		box2d = Drawing.new("Square")
-		box2d.Color = Options and Options.ShowBoxColor and Options.ShowBoxColor.Value or Color3.fromRGB(192, 192, 192)
-		box2d.Thickness = 1.5
-		box2d.Transparency = 0
-		box2d.Filled = false
-		box2d.Visible = false
-	end
-
 	local billboard = Instance.new("BillboardGui")
 	billboard.Size = UDim2.fromOffset(120, 40)
 	billboard.AlwaysOnTop = true
@@ -4332,15 +4425,6 @@ local function createESP(player)
 	label.RichText = true
 	label.Parent = billboard
 
-	local tracer = nil
-	if hasDrawing then
-		tracer = Drawing.new("Line")
-		tracer.Color = Options and Options.ShowTracersColor and Options.ShowTracersColor.Value or Color3.fromRGB(192, 192, 192)
-		tracer.Thickness = 1.5
-		tracer.Transparency = 0
-		tracer.Visible = false
-	end
-
 	local highlight = Instance.new("Highlight")
 	highlight.FillColor = Color3.fromRGB(255, 255, 255)
 	highlight.OutlineColor = Options.OutlineESPColor.Value
@@ -4351,78 +4435,18 @@ local function createESP(player)
 	highlight.Parent = character
 	highlight.Enabled = false
 
-	local healthBg = nil
-	local healthBar = nil
-	if hasDrawing then
-		healthBg = Drawing.new("Line")
-		healthBg.Color = Color3.fromRGB(0, 0, 0)
-		healthBg.Thickness = 4
-		healthBg.Transparency = 0
-		healthBg.Visible = false
+	espObjects[player] = { billboard, label, highlight }
 
-		healthBar = Drawing.new("Line")
-		healthBar.Thickness = 2
-		healthBar.Transparency = 0
-		healthBar.Visible = false
-	end
-
-	espObjects[player] = { box2d, billboard, label, tracer, highlight, healthBg, healthBar }
-
-local function update()
+	local function update()
 		local myRoot = getRootPart()
 		if not myRoot or not character.Parent then
-			if tracer then tracer.Visible = false end
-			if box2d then box2d.Visible = false end
 			if highlight then highlight.Enabled = false end
-			if healthBg then healthBg.Visible = false end
-			if healthBar then healthBar.Visible = false end
 			return
 		end
 		local dist = (root.Position - myRoot.Position).Magnitude
 		local shouldShow = dist <= Options.ESPDistance.Value and Toggles.PlayerESP.Value
-		
+
 		local screenPos, onScreen = workspace.CurrentCamera:WorldToViewportPoint(root.Position)
-		local head = character:FindFirstChild("Head")
-		local topPos = head and head.Position + Vector3.new(0, 0.5, 0) or root.Position + Vector3.new(0, 3, 0)
-		local bottomPos = head and head.Position - Vector3.new(0, 6.5, 0) or root.Position - Vector3.new(0, 3.5, 0)
-		
-		local topCoords = workspace.CurrentCamera:WorldToViewportPoint(topPos)
-		local bottomCoords = workspace.CurrentCamera:WorldToViewportPoint(bottomPos)
-		
-		local height = math.abs(topCoords.Y - bottomCoords.Y)
-		local width = height * 0.6
-
-		if box2d then
-			if shouldShow and onScreen and Toggles.ShowBox and Toggles.ShowBox.Value then
-				box2d.Position = Vector2.new(screenPos.X - width / 2, topCoords.Y)
-				box2d.Size = Vector2.new(width, height)
-				box2d.Visible = true
-			else
-				box2d.Visible = false
-			end
-		end
-
-		if healthBg and healthBar then
-			if shouldShow and onScreen and Toggles.ShowHealth and Toggles.ShowHealth.Value then
-				local barX = screenPos.X - width / 2 - 6
-				
-				healthBg.From = Vector2.new(barX, topCoords.Y)
-				healthBg.To = Vector2.new(barX, bottomCoords.Y)
-				healthBg.Visible = true
-				
-				local maxHealth = hum.MaxHealth > 0 and hum.MaxHealth or 100
-				local healthRatio = math.clamp(hum.Health / maxHealth, 0, 1)
-				local healthColor = Color3.fromRGB(255, 0, 0):Lerp(Color3.fromRGB(0, 255, 0), healthRatio)
-				
-				healthBar.From = Vector2.new(barX, bottomCoords.Y - (height * healthRatio))
-				healthBar.To = Vector2.new(barX, bottomCoords.Y)
-				healthBar.Color = healthColor
-				healthBar.Visible = true
-			else
-				healthBg.Visible = false
-				healthBar.Visible = false
-			end
-		end
 
 		billboard.Enabled = shouldShow
 		local nameColor = Options and Options.PlayerESPColor and Options.PlayerESPColor.Value or Color3.new(1, 1, 1)
@@ -4432,15 +4456,6 @@ local function update()
 			text ..= '\n<font color="#' .. distColor:ToHex() .. '">' .. string.format("%.0fm", dist) .. '</font>'
 		end
 		label.Text = text
-
-		if tracer and shouldShow and Toggles.ShowTracers and Toggles.ShowTracers.Value then
-			local vpx, vpy = workspace.CurrentCamera.ViewportSize.X, workspace.CurrentCamera.ViewportSize.Y
-			tracer.From = Vector2.new(vpx / 2, vpy)
-			tracer.To = Vector2.new(math.clamp(screenPos.X, 0, vpx), math.clamp(screenPos.Y, 0, vpy))
-			tracer.Visible = true
-		elseif tracer then
-			tracer.Visible = false
-		end
 
 		if highlight then
 			if shouldShow and Toggles.OutlineESP and Toggles.OutlineESP.Value then
@@ -4487,7 +4502,7 @@ end)
 Options.OutlineESPColor:OnChanged(function()
 	local color = Options.OutlineESPColor.Value
 	for _, objects in pairs(espObjects) do
-		local highlight = objects[5]
+		local highlight = objects[3]
 		if highlight and typeof(highlight) == "Instance" and highlight:IsA("Highlight") then
 			highlight.OutlineColor = color
 		end
@@ -4496,7 +4511,7 @@ end)
 
 Options.PlayerESPColor:OnChanged(function()
 	for _, objects in pairs(espObjects) do
-		local label = objects[3]
+		local label = objects[2]
 		if label and typeof(label) == "Instance" and label:IsA("TextLabel") then
 			label.TextColor3 = Options.PlayerESPColor.Value
 		end
@@ -4504,26 +4519,6 @@ Options.PlayerESPColor:OnChanged(function()
 end)
 
 Options.ShowDistanceColor:OnChanged(function()
-end)
-
-Options.ShowTracersColor:OnChanged(function()
-	local color = Options.ShowTracersColor.Value
-	for _, objects in pairs(espObjects) do
-		local tracer = objects[4]
-		if tracer and typeof(tracer) == "userdata" then
-			pcall(function() tracer.Color = color end)
-		end
-	end
-end)
-
-Options.ShowBoxColor:OnChanged(function()
-	local color = Options.ShowBoxColor.Value
-	for _, objects in pairs(espObjects) do
-		local box2d = objects[1]
-		if box2d and typeof(box2d) == "userdata" then
-			pcall(function() box2d.Color = color end)
-		end
-	end
 end)
 
 
