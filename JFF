@@ -501,8 +501,9 @@ SpectateGroup:AddDropdown("SpectatePlayerList", {
 	Default = "",
 })
 
-SpectateGroup:AddLabel("Fast Armor up")
-SpectateGroup:AddButton({
+local FastArmorGroup = Tabs.Main:AddRightGroupbox("FAST ARMOR UP", "shield")
+
+FastArmorGroup:AddButton({
 	Text = "Bluesteel",
 	Func = function()
 		local character = LocalPlayer.Character
