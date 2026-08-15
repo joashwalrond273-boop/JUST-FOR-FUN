@@ -3046,7 +3046,7 @@ local goldLocations = {
 	{ name = "Gold 5",  pos = Vector3.new(1188.42, 20.58,  -563.03) },
 	{ name = "Gold 6",  pos = Vector3.new(-651.84, 226.09, 654.28)  },
 	{ name = "Gold 7",  pos = Vector3.new(-540.20, 76.40,  297.97)  },
-	{ name = "Gold 8",  pos = Vector3.new(-639.61, -24.83, -83.22)  },
+	{ name = "Gold 8",  pos = Vector3.new(-2202.22, 51.01, 22.08)   },
 	{ name = "Gold 9",  pos = Vector3.new(-1182.86, 54.42, 6608.34) },
 	{ name = "Gold 10", pos = Vector3.new(-2015.67, 30.73, -39.95)  },
 	{ name = "Gold 11", pos = Vector3.new(-912.17, 125.72, -408.72) },
@@ -3477,6 +3477,11 @@ local extraLocations = {
 	{ name = "Below ML",    pos = Vector3.new(-177, 25.26, -1014.83)     },
 	{ name = "Arena",       pos = Vector3.new(-1315.59, 41.19, 1972.84)  },
 	{ name = "Bamboo",      pos = Vector3.new(-1330.92, 39.43, 5798.47)  },
+	{ name = "Volcano",     pos = Vector3.new(1769.70, 36.43, 1832.10)   },
+	{ name = "Asia Cave",   pos = Vector3.new(-2108.44, 201.04, 6823.05) },
+	{ name = "Juggernaut",  pos = Vector3.new(-1645.06, 336.32, -2874.34)},
+	{ name = "Waterfall",   pos = Vector3.new(-1949.89, 25.29, 345.83)   },
+	{ name = "Desert Maze", pos = Vector3.new(1529.42, 55.33, -938.31)   },
 }
 
 for _, loc in ipairs(extraLocations) do
