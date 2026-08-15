@@ -3673,41 +3673,41 @@ VisualFPS:AddToggle("DisableShadows", {
 	end,
 })
 
-VisualFPS:AddToggle("NoWaterBlur", {
-	Text = "No Water Blur",
+VisualFPS:AddToggle("NoWaterColor", {
+	Text = "No Water Color",
 	Default = false,
 	Callback = function(state)
 		if state then
-			local function disableBlur(child)
-				if child.Name == "waterBlur" then
+			local function disableWaterColor(child)
+				if child.Name == "water" then
 					pcall(function()
 						child.Enabled = false
 					end)
 				end
 			end
 			
-			local waterBlur = game:GetService("Lighting"):FindFirstChild("waterBlur")
-			if waterBlur then
-				disableBlur(waterBlur)
+			local water = game:GetService("Lighting"):FindFirstChild("water")
+			if water then
+				disableWaterColor(water)
 			end
 			
-			track("NoWaterBlur_ChildAdded", game:GetService("Lighting").ChildAdded:Connect(disableBlur))
+			track("NoWaterColor_ChildAdded", game:GetService("Lighting").ChildAdded:Connect(disableWaterColor))
 			
-			track("NoWaterBlur_EnabledChange", RunService.Heartbeat:Connect(function()
-				local wb = game:GetService("Lighting"):FindFirstChild("waterBlur")
-				if wb and wb.Enabled then
+			track("NoWaterColor_EnabledChange", RunService.Heartbeat:Connect(function()
+				local wc = game:GetService("Lighting"):FindFirstChild("water")
+				if wc and wc.Enabled then
 					pcall(function()
-						wb.Enabled = false
+						wc.Enabled = false
 					end)
 				end
 			end))
 		else
-			disconnect("NoWaterBlur_ChildAdded")
-			disconnect("NoWaterBlur_EnabledChange")
-			local waterBlur = game:GetService("Lighting"):FindFirstChild("waterBlur")
-			if waterBlur then
+			disconnect("NoWaterColor_ChildAdded")
+			disconnect("NoWaterColor_EnabledChange")
+			local water = game:GetService("Lighting"):FindFirstChild("water")
+			if water then
 				pcall(function()
-					waterBlur.Enabled = true
+					water.Enabled = true
 				end)
 			end
 		end
@@ -5331,6 +5331,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.CustomCursorActive and Toggles.CustomCursorActive.Value then
 		Toggles.CustomCursorActive:SetValue(false)
+	end
+	if Toggles.NoWaterColor and Toggles.NoWaterColor.Value then
+		Toggles.NoWaterColor:SetValue(false)
 	end
 	if Toggles.RemovePBR and Toggles.RemovePBR.Value then
 		Toggles.RemovePBR:SetValue(false)
