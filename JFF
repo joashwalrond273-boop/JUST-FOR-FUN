@@ -4525,37 +4525,35 @@ VisualRight:AddSlider("ESPDistance", {
 })
 
 local espObjects = {}
-local playerConnections = {}
 local hasDrawing = (typeof(Drawing) ~= "nil")
 
-local function removeESP(player)
-	local objects = espObjects[player]
-	if objects then
-		for _, child in ipairs(objects) do
-			if typeof(child) == "Instance" then
-				pcall(function() child:Destroy() end)
+local function clearESP()
+	for _, obj in pairs(espObjects) do
+		if typeof(obj) == "Instance" then
+			obj:Destroy()
+		elseif typeof(obj) == "table" then
+			for _, child in pairs(obj) do
+				if typeof(child) == "Instance" then
+					child:Destroy()
+				else
+					pcall(function() child:Remove() end)
+				end
 			end
 		end
-		espObjects[player] = nil
-	end
-end
-
-local function clearESP()
-	for player in pairs(espObjects) do
-		removeESP(player)
 	end
 	table.clear(espObjects)
 end
 
 local function createESP(player)
-	removeESP(player)
-	
 	local character = player.Character
-	if not character then return end
-	
+	if not character then
+		return
+	end
 	local root = character:FindFirstChild("HumanoidRootPart")
 	local hum = character:FindFirstChildOfClass("Humanoid")
-	if not root or not hum then return end
+	if not root or not hum then
+		return
+	end
 
 	local billboard = Instance.new("BillboardGui")
 	billboard.Size = UDim2.fromOffset(120, 40)
@@ -4583,101 +4581,68 @@ local function createESP(player)
 	highlight.Parent = character
 	highlight.Enabled = false
 
-	espObjects[player] = { billboard, label, highlight, root, character }
-end
+	espObjects[player] = { billboard, label, highlight }
 
-local function monitorPlayer(player)
-	if player == LocalPlayer then return end
-	if playerConnections[player] then
-		pcall(function() playerConnections[player]:Disconnect() end)
-		playerConnections[player] = nil
-	end
-	if player.Character then
-		task.spawn(createESP, player)
-	end
-	playerConnections[player] = player.CharacterAdded:Connect(function(char)
-		char:WaitForChild("HumanoidRootPart", 5)
-		char:WaitForChild("Humanoid", 5)
-		if Toggles.PlayerESP and Toggles.PlayerESP.Value then
-			createESP(player)
+	local function update()
+		local myRoot = getRootPart()
+		if not myRoot or not character.Parent then
+			if highlight then highlight.Enabled = false end
+			return
 		end
-	end)
-end
+		local dist = (root.Position - myRoot.Position).Magnitude
+		local shouldShow = dist <= Options.ESPDistance.Value and Toggles.PlayerESP.Value
 
-local function unmonitorPlayer(player)
-	if playerConnections[player] then
-		pcall(function() playerConnections[player]:Disconnect() end)
-		playerConnections[player] = nil
-	end
-	removeESP(player)
-end
-
-local function espUpdateLoop()
-	local myRoot = getRootPart()
-	local showESP = Toggles.PlayerESP and Toggles.PlayerESP.Value
-	local showOutline = Toggles.OutlineESP and Toggles.OutlineESP.Value
-	local showDistance = Toggles.ShowDistance and Toggles.ShowDistance.Value
-	local maxDistance = Options.ESPDistance and Options.ESPDistance.Value or 500
-	local nameColor = Options and Options.PlayerESPColor and Options.PlayerESPColor.Value or Color3.new(1, 1, 1)
-	local distColor = Options and Options.ShowDistanceColor and Options.ShowDistanceColor.Value or Color3.new(1, 1, 1)
-
-	local nameColorHex = nameColor:ToHex()
-	local distColorHex = distColor:ToHex()
-
-	for player, data in pairs(espObjects) do
-		local billboard, label, highlight, root, character = data[1], data[2], data[3], data[4], data[5]
-		if not player or not player.Parent or not character or not character.Parent or not root or not root.Parent then
-			removeESP(player)
-			continue
-		end
-
-		local myPos = myRoot and myRoot.Position
-		local targetPos = root.Position
-		local dist = myPos and (targetPos - myPos).Magnitude or 999999
-		local shouldShow = showESP and (dist <= maxDistance)
+		local screenPos, onScreen = workspace.CurrentCamera:WorldToViewportPoint(root.Position)
 
 		billboard.Enabled = shouldShow
-		if shouldShow then
-			local text = '<font color="#' .. nameColorHex .. '">' .. player.Name .. '</font>'
-			if showDistance then
-				text = text .. '\n<font color="#' .. distColorHex .. '">' .. string.format("%.0fm", dist) .. '</font>'
-			end
-			label.Text = text
+		local nameColor = Options and Options.PlayerESPColor and Options.PlayerESPColor.Value or Color3.new(1, 1, 1)
+		local distColor = Options and Options.ShowDistanceColor and Options.ShowDistanceColor.Value or Color3.new(1, 1, 1)
+		local text = '<font color="#' .. nameColor:ToHex() .. '">' .. player.Name .. '</font>'
+		if Toggles.ShowDistance.Value then
+			text ..= '\n<font color="#' .. distColor:ToHex() .. '">' .. string.format("%.0fm", dist) .. '</font>'
 		end
+		label.Text = text
 
-		if highlight and highlight.Parent then
-			highlight.Enabled = shouldShow and showOutline
+		if highlight then
+			if shouldShow and Toggles.OutlineESP and Toggles.OutlineESP.Value then
+				highlight.Enabled = true
+			else
+				highlight.Enabled = false
+			end
 		end
 	end
+
+	update()
+	track("ESP_" .. player.Name, RunService.RenderStepped:Connect(update))
 end
 
 Toggles.PlayerESP:OnChanged(function()
 	if not Toggles.PlayerESP.Value then
 		clearESP()
-		disconnect("ESP_PlayerAdded")
-		disconnect("ESP_PlayerRemoving")
-		disconnect("ESP_Update")
-		for player in pairs(playerConnections) do
-			unmonitorPlayer(player)
+		for name in pairs(Connections) do
+			if name:sub(1, 4) == "ESP_" then
+				disconnect(name)
+			end
 		end
 		return
 	end
-	
+	disconnect("ESP_PlayerAdded")
 	clearESP()
-	
 	for _, player in ipairs(Players:GetPlayers()) do
-		monitorPlayer(player)
+		if player ~= LocalPlayer then
+			createESP(player)
+		end
 	end
-	
 	track("ESP_PlayerAdded", Players.PlayerAdded:Connect(function(player)
-		monitorPlayer(player)
+		if Toggles.PlayerESP.Value then
+			player.CharacterAdded:Connect(function()
+				task.wait(1)
+				if Toggles.PlayerESP.Value then
+					createESP(player)
+				end
+			end)
+		end
 	end))
-	
-	track("ESP_PlayerRemoving", Players.PlayerRemoving:Connect(function(player)
-		unmonitorPlayer(player)
-	end))
-	
-	track("ESP_Update", RunService.RenderStepped:Connect(espUpdateLoop))
 end)
 
 Options.OutlineESPColor:OnChanged(function()
