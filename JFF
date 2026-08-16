@@ -4409,6 +4409,13 @@ Toggles.ArmorESP:OnChanged(function()
 						billboard.Parent = rootPart
 					end
 				end
+				local myRoot = getRootPart()
+				local shouldShow = false
+				if myRoot then
+					local dist = (rootPart.Position - myRoot.Position).Magnitude
+					shouldShow = (dist <= 3000)
+				end
+				billboard.Enabled = shouldShow
 				if refreshArmor then
 					local label = billboard:FindFirstChildWhichIsA("TextLabel")
 					if label then
