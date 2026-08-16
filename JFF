@@ -1516,6 +1516,11 @@ CombatAutoSwing:AddToggle("AutoShiftlock", {
 	Default = false,
 })
 
+CombatAutoSwing:AddToggle("Camlock", {
+	Text = "+ Camlock",
+	Default = false,
+})
+
 local CombatSwordBot = Tabs.Combat:AddLeftGroupbox("Sword Bot", "swords")
 
 CombatSwordBot:AddToggle("SwordBot", {
@@ -2116,34 +2121,97 @@ Toggles.AutoHop:OnChanged(function()
 	end
 end)
 
+local autoShiftlockVars = {
+	origCameraOffset = nil
+}
+
 Toggles.AutoShiftlock:OnChanged(function()
 	disconnect("AutoShiftlock")
 	if Toggles.AutoShiftlock.Value then
+		local hum = getHumanoid()
+		if hum then
+			autoShiftlockVars.origCameraOffset = hum.CameraOffset
+			hum.CameraOffset = Vector3.new(1.75, 0, 0)
+		end
 		track("AutoShiftlock", RunService.Heartbeat:Connect(function()
 			if not isAlive() then return end
 			local root = getRootPart()
-			if not root then return end
-			
-			local playerNearby = false
-			local pos = root.Position
+			local hum = getHumanoid()
+			if not root or not hum then return end
+
+			UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
+			UserInputService.MouseIconEnabled = false
+
+			local camera = workspace.CurrentCamera
+			if camera then
+				local camCFrame = camera.CFrame
+				local lookDir = Vector3.new(camCFrame.LookVector.X, 0, camCFrame.LookVector.Z).Unit
+				if lookDir.Magnitude > 0 then
+					hum.AutoRotate = false
+					root.CFrame = CFrame.new(root.Position, root.Position + lookDir)
+				end
+			end
+		end))
+	else
+		UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+		UserInputService.MouseIconEnabled = true
+		local hum = getHumanoid()
+		if hum then
+			hum.AutoRotate = true
+			hum.CameraOffset = autoShiftlockVars.origCameraOffset or Vector3.zero
+		end
+	end
+end)
+
+Toggles.Camlock:OnChanged(function()
+	disconnect("Camlock")
+	if Toggles.Camlock.Value then
+		track("Camlock", RunService.Heartbeat:Connect(function()
+			if not isAlive() then return end
+			local root = getRootPart()
+			local hum = getHumanoid()
+			if not root or not hum then return end
+
+			UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
+			UserInputService.MouseIconEnabled = false
+
+			local myPos = root.Position
+			local closestPlayer = nil
+			local closestDist = math.huge
+
 			for _, otherPlayer in ipairs(Players:GetPlayers()) do
 				if otherPlayer ~= LocalPlayer and otherPlayer.Character then
 					local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
 					local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
 					if otherRoot and otherHum and otherHum.Health > 0 then
-						local dist = (otherRoot.Position - pos).Magnitude
-						if dist <= 20 then
-							playerNearby = true
-							break
+						local dist = (otherRoot.Position - myPos).Magnitude
+						if dist < closestDist then
+							closestDist = dist
+							closestPlayer = otherPlayer
 						end
 					end
 				end
 			end
-			
-			if playerNearby then
-				game:GetService("UserInputService").MouseBehavior = Enum.MouseBehavior.LockCenter
+
+			if closestPlayer then
+				local targetRoot = closestPlayer.Character:FindFirstChild("HumanoidRootPart")
+				if targetRoot then
+					local targetPos = targetRoot.Position
+					local lookDir = Vector3.new(targetPos.X - myPos.X, 0, targetPos.Z - myPos.Z).Unit
+					if lookDir.Magnitude > 0 then
+						hum.AutoRotate = false
+						root.CFrame = CFrame.new(myPos, myPos + lookDir)
+					end
+				end
 			end
 		end))
+	else
+		UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+		UserInputService.MouseIconEnabled = true
+		local hum = getHumanoid()
+		if hum then
+			hum.AutoRotate = true
+		end
 	end
 end)
 
@@ -4944,8 +5012,29 @@ local invisibleFlyVars = {
 	playerClone = nil,
 	wasInvisibleFlyEnabled = false,
 	connection = nil,
-	highlight = nil
+	highlight = nil,
+	originalTransparency = {},
+	characterAddedConn = nil
 }
+
+local function applyInvisFlyTransparency(character)
+	if not character then return end
+	for _, desc in ipairs(character:GetDescendants()) do
+		if desc:IsA("BasePart") or desc:IsA("Decal") or desc:IsA("Texture") then
+			invisibleFlyVars.originalTransparency[desc] = desc.Transparency
+			desc.Transparency = 1
+		end
+	end
+end
+
+local function restoreInvisFlyTransparency()
+	for obj, transp in pairs(invisibleFlyVars.originalTransparency) do
+		if obj and obj.Parent then
+			obj.Transparency = transp
+		end
+	end
+	table.clear(invisibleFlyVars.originalTransparency)
+end
 
 local function onInvisibleFlyToggle(state)
 	invisibleFlyVars.invisiblefly = state
@@ -4956,6 +5045,13 @@ local function onInvisibleFlyToggle(state)
 			repeat
 				task.wait()
 			until LocalPlayer.Character
+
+			invisibleFlyVars.characterAddedConn = LocalPlayer.CharacterAdded:Connect(function(newChar)
+				task.wait(0.1)
+				applyInvisFlyTransparency(newChar)
+			end)
+
+			applyInvisFlyTransparency(LocalPlayer.Character)
 
 			invisibleFlyVars.playerClone = LocalPlayer.Character:Clone()
 			invisibleFlyVars.playerClone.Parent = workspace
@@ -5026,6 +5122,12 @@ local function onInvisibleFlyToggle(state)
 
 			workspace.CurrentCamera.CameraSubject = getHumanoid()
 
+			if invisibleFlyVars.characterAddedConn then
+				invisibleFlyVars.characterAddedConn:Disconnect()
+				invisibleFlyVars.characterAddedConn = nil
+			end
+			restoreInvisFlyTransparency()
+
 			if invisibleFlyVars.highlight then
 				invisibleFlyVars.highlight:Destroy()
 				invisibleFlyVars.highlight = nil
@@ -5039,6 +5141,12 @@ local function onInvisibleFlyToggle(state)
 		end)
 	else
 		if invisibleFlyVars.wasInvisibleFlyEnabled then
+			if invisibleFlyVars.characterAddedConn then
+				invisibleFlyVars.characterAddedConn:Disconnect()
+				invisibleFlyVars.characterAddedConn = nil
+			end
+			restoreInvisFlyTransparency()
+
 			local root = getRootPart()
 			if root then
 				local currentCFrame = root.CFrame
@@ -5640,6 +5748,15 @@ Library:OnUnload(function()
 	end
 	if Toggles.SwordBot and Toggles.SwordBot.Value then
 		Toggles.SwordBot:SetValue(false)
+	end
+	if Toggles.AutoShiftlock and Toggles.AutoShiftlock.Value then
+		Toggles.AutoShiftlock:SetValue(false)
+	end
+	if Toggles.Camlock and Toggles.Camlock.Value then
+		Toggles.Camlock:SetValue(false)
+	end
+	if Toggles.InvisibleFlyToggle and Toggles.InvisibleFlyToggle.Value then
+		Toggles.InvisibleFlyToggle:SetValue(false)
 	end
 
 	if Toggles.NoGliderCooldown and Toggles.NoGliderCooldown.Value then
