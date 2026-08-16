@@ -919,6 +919,7 @@ local function startDesync()
 		Run   = "rbxassetid://507767714",
 		Jump  = "rbxassetid://507765000",
 		Fall  = "rbxassetid://507767968",
+		Swim  = "rbxassetid://507784064",
 	}
 
 	desyncAnimTracks.Idle  = LoadAnim(fakeHum, OfficialIDs.Idle)
@@ -926,6 +927,7 @@ local function startDesync()
 	desyncAnimTracks.Run   = LoadAnim(fakeHum, OfficialIDs.Run)
 	desyncAnimTracks.Jump  = LoadAnim(fakeHum, OfficialIDs.Jump)
 	desyncAnimTracks.Fall  = LoadAnim(fakeHum, OfficialIDs.Fall)
+	desyncAnimTracks.Swim  = LoadAnim(fakeHum, OfficialIDs.Swim)
 
 	local function StopAll()
 		for _, trackObj in pairs(desyncAnimTracks) do
@@ -950,6 +952,12 @@ local function startDesync()
 		elseif newState == Enum.HumanoidStateType.Landed then
 			StopAll()
 			if desyncAnimTracks.Idle then pcall(function() desyncAnimTracks.Idle:Play() end) end
+		elseif newState == Enum.HumanoidStateType.Swimming then
+			StopAll()
+			if desyncAnimTracks.Swim then pcall(function() desyncAnimTracks.Swim:Play(0.1) end) end
+		elseif oldState == Enum.HumanoidStateType.Swimming then
+			StopAll()
+			if desyncAnimTracks.Idle then pcall(function() desyncAnimTracks.Idle:Play(0.1) end) end
 		end
 	end))
 
@@ -957,6 +965,17 @@ local function startDesync()
 	if realHum then
 		table.insert(desyncConnections, realHum.Died:Connect(function()
 			Toggles.DesyncToggle:SetValue(false)
+		end))
+		table.insert(desyncConnections, RunService.Heartbeat:Connect(function()
+			if not Toggles.DesyncToggle.Value then return end
+			local realCharNow = LocalPlayer.Character
+			if not realCharNow then return end
+			local inWater = realCharNow:GetAttribute("inWater")
+			local rh = realCharNow:FindFirstChildOfClass("Humanoid")
+			local swimmingState = rh and rh:GetState() == Enum.HumanoidStateType.Swimming
+			if inWater or swimmingState then
+				Toggles.DesyncToggle:SetValue(false)
+			end
 		end))
 	end
 	table.insert(desyncConnections, fakeHum.Died:Connect(function()
@@ -2462,6 +2481,7 @@ local function connectReachTool(tool)
 			local root = getRootPart()
 			if root then
 				local pos = root.Position
+				local forward = Vector3.new(root.CFrame.LookVector.X, 0, root.CFrame.LookVector.Z).Unit
 				local nearestTarget = nil
 				local nearestDist = range
 
@@ -2473,8 +2493,11 @@ local function connectReachTool(tool)
 						if otherHum and otherHum.Health > 0 and otherRoot then
 							local d = (otherRoot.Position - pos).Magnitude
 							if d < nearestDist then
-								nearestDist = d
-								nearestTarget = otherPlayer.Character
+								local dir = Vector3.new(otherRoot.Position.X - pos.X, 0, otherRoot.Position.Z - pos.Z).Unit
+								if dir.Magnitude > 0 and forward:Dot(dir) >= 0.5 then
+									nearestDist = d
+									nearestTarget = otherPlayer.Character
+								end
 							end
 						end
 					end
@@ -2489,8 +2512,11 @@ local function connectReachTool(tool)
 						if npcHum and npcHum.Health > 0 and npcRoot then
 							local d = (npcRoot.Position - pos).Magnitude
 							if d < nearestDist then
-								nearestDist = d
-								nearestTarget = npc
+								local dir = Vector3.new(npcRoot.Position.X - pos.X, 0, npcRoot.Position.Z - pos.Z).Unit
+								if dir.Magnitude > 0 and forward:Dot(dir) >= 0.5 then
+									nearestDist = d
+									nearestTarget = npc
+								end
 							end
 						end
 					end
@@ -2504,8 +2530,11 @@ local function connectReachTool(tool)
 						if (not npcHum or npcHum.Health > 0) and npcRoot then
 							local d = (npcRoot.Position - pos).Magnitude
 							if d < nearestDist then
-								nearestDist = d
-								nearestTarget = npc
+								local dir = Vector3.new(npcRoot.Position.X - pos.X, 0, npcRoot.Position.Z - pos.Z).Unit
+								if dir.Magnitude > 0 and forward:Dot(dir) >= 0.5 then
+									nearestDist = d
+									nearestTarget = npc
+								end
 							end
 						end
 					end
@@ -2875,10 +2904,14 @@ Toggles.SinkFastPVP:OnChanged(function()
 			if root and humanoid then
 				local isSwimming = humanoid:GetState() == Enum.HumanoidStateType.Swimming or character:GetAttribute("inWater")
 				if isSwimming then
-					if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) or UserInputService:IsKeyDown(Enum.KeyCode.C) then
+					local cam = workspace.CurrentCamera
+					local lookY = cam and cam.CFrame.LookVector.Y or 0
+					if lookY < -0.2 then
+						-- Sinks even faster: starts at -60 and reaches -90 when looking straight down
+						local sinkSpeed = math.min(lookY * 90, -60)
 						root.AssemblyLinearVelocity = Vector3.new(
 							root.AssemblyLinearVelocity.X,
-							-45,
+							sinkSpeed,
 							root.AssemblyLinearVelocity.Z
 						)
 					end
