@@ -4220,102 +4220,158 @@ VisualLeft:AddToggle("ArmorESP", {
 })
 
 Toggles.ArmorESP:OnChanged(function()
-	local ESP_Active = false 
-	local TextSize = 14 
-	local StrokeTransparency = 0 
-	local ESPObjects = {} 
+	local TextSize = 14
+	local ESPObjects = {}
+	local lastArmorRefresh = 0
+	local ARMOR_REFRESH_INTERVAL = 0.5
 
-	local function getArmorName(player) 
-		if player.Character and player.Character:FindFirstChild("Shirt") and player.Character.Shirt:FindFirstChild("UpperTorso") then 
-			local upperTorso = player.Character.Shirt.UpperTorso 
-			if upperTorso:FindFirstChild("Meshes/Obsidian_SM_Chr_Captain_Male_01.054") then 
-				return "Ds Armor", Color3.new(0, 0, 0) 
-			elseif upperTorso:FindFirstChild("Meshes/Bluesteel_SM_Chr_Captain_Male_01.042") then 
-				return "Bs Armor", Color3.fromRGB(160, 200, 240) 
-			elseif upperTorso:FindFirstChild("Meshes/Atlantis_SM_Chr_Captain_Male_01.092") then 
-				return "Atl Armor", Color3.fromRGB(2, 79, 104) 
-			elseif upperTorso:FindFirstChild("EasternBossChestColor1") or 
-				   upperTorso:FindFirstChild("EasternBossChestColor2") or 
-				   upperTorso:FindFirstChild("EasternBossChestColor3") then 
-				return "Samurai Armor", Color3.fromRGB(74, 0, 0) 
-			elseif upperTorso:FindFirstChild("Meshes/Scuba_Diver.003") then 
-				return "Scuba Armor", Color3.fromRGB(170, 107, 62) 
-			end 
-		end 
-		return "No Armor", Color3.new(1, 1, 1) 
-	end 
+	local function getArmorName(player)
+		if player.Character and player.Character:FindFirstChild("Shirt") and player.Character.Shirt:FindFirstChild("UpperTorso") then
+			local upperTorso = player.Character.Shirt.UpperTorso
+			if upperTorso:FindFirstChild("Meshes/Obsidian_SM_Chr_Captain_Male_01.054") then
+				return "Ds Armor", Color3.new(0, 0, 0)
+			elseif upperTorso:FindFirstChild("Meshes/Bluesteel_SM_Chr_Captain_Male_01.042") then
+				return "Bs Armor", Color3.fromRGB(160, 200, 240)
+			elseif upperTorso:FindFirstChild("Meshes/Atlantis_SM_Chr_Captain_Male_01.092") then
+				return "Atl Armor", Color3.fromRGB(2, 79, 104)
+			elseif upperTorso:FindFirstChild("EasternBossChestColor1") or
+				   upperTorso:FindFirstChild("EasternBossChestColor2") or
+				   upperTorso:FindFirstChild("EasternBossChestColor3") then
+				return "Samurai Armor", Color3.fromRGB(74, 0, 0)
+			elseif upperTorso:FindFirstChild("Meshes/Scuba_Diver.003") then
+				return "Scuba Armor", Color3.fromRGB(170, 107, 62)
+			end
+		end
+		return "No Armor", Color3.new(1, 1, 1)
+	end
 
-	local function createESP(player) 
-		if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then 
-			local billboard = Instance.new("BillboardGui") 
-			billboard.Adornee = player.Character.HumanoidRootPart 
-			billboard.Size = UDim2.new(0, 150, 0, 50) 
-			billboard.StudsOffset = Vector3.new(0, -1, 0) 
-			billboard.AlwaysOnTop = true 
-			billboard.Parent = player.Character 
+	local function createArmorBillboard(player)
+		if player == LocalPlayer or ESPObjects[player] then return end
+		local character = player.Character
+		if not character then return end
+		local rootPart = character:FindFirstChild("HumanoidRootPart")
+		if not rootPart then return end
 
-			local armorLabel = Instance.new("TextLabel") 
-			armorLabel.Size = UDim2.new(1, 0, 1, 0) 
-			armorLabel.BackgroundTransparency = 1 
-			armorLabel.TextStrokeTransparency = StrokeTransparency 
-			armorLabel.Font = Enum.Font.SourceSans 
-			armorLabel.TextSize = TextSize 
-			armorLabel.TextStrokeTransparency = 0.5 
-			armorLabel.Text, armorLabel.TextColor3 = getArmorName(player) 
-			armorLabel.Parent = billboard 
+		local billboard = Instance.new("BillboardGui")
+		billboard.Name = "ArmorESP_Billboard"
+		billboard.Adornee = rootPart
+		billboard.Size = UDim2.new(0, 150, 0, 50)
+		billboard.StudsOffset = Vector3.new(0, -1, 0)
+		billboard.AlwaysOnTop = true
+		billboard.Parent = rootPart
 
-			local function updateArmor() 
-				armorLabel.Text, armorLabel.TextColor3 = getArmorName(player) 
-			end 
+		local armorLabel = Instance.new("TextLabel")
+		armorLabel.Size = UDim2.new(1, 0, 1, 0)
+		armorLabel.BackgroundTransparency = 1
+		armorLabel.TextStrokeTransparency = 0
+		armorLabel.Font = Enum.Font.SourceSans
+		armorLabel.TextSize = TextSize
+		armorLabel.TextStrokeTransparency = 0.5
+		armorLabel.Text, armorLabel.TextColor3 = getArmorName(player)
+		armorLabel.Parent = billboard
 
-			player.Character.ChildAdded:Connect(updateArmor) 
-			player.Character.ChildRemoved:Connect(updateArmor) 
+		ESPObjects[player] = billboard
+	end
 
-			RunService.RenderStepped:Connect(function() 
-				if not ESP_Active or not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then 
-					billboard:Destroy() 
-				end 
-			end) 
+	local function removeArmorBillboard(player)
+		local billboard = ESPObjects[player]
+		if billboard then
+			pcall(function() billboard:Destroy() end)
+			ESPObjects[player] = nil
+		end
+	end
 
-			ESPObjects[player] = billboard 
-		end 
-	end 
+	local function armorUpdateLoop()
+		local now = tick()
+		local refreshArmor = (now - lastArmorRefresh) >= ARMOR_REFRESH_INTERVAL
+		if refreshArmor then
+			lastArmorRefresh = now
+		end
 
-	local function removeESP(player) 
-		if ESPObjects[player] then 
-			ESPObjects[player]:Destroy() 
-			ESPObjects[player] = nil 
-		end 
-	end 
+		for player, billboard in pairs(ESPObjects) do
+			local ok, err = pcall(function()
+				if not player or not player.Parent then
+					removeArmorBillboard(player)
+					return
+				end
+				local character = player.Character
+				local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+				if not character or not rootPart then
+					removeArmorBillboard(player)
+					return
+				end
+				if not billboard.Parent or billboard.Adornee ~= rootPart then
+					billboard.Adornee = rootPart
+					if not billboard.Parent then
+						billboard.Parent = rootPart
+					end
+				end
+				if refreshArmor then
+					local label = billboard:FindFirstChildWhichIsA("TextLabel")
+					if label then
+						label.Text, label.TextColor3 = getArmorName(player)
+					end
+				end
+			end)
+			if not ok then
+				removeArmorBillboard(player)
+			end
+		end
 
-	local function toggleESP(state) 
-		ESP_Active = state 
-		if ESP_Active then 
-			for _, player in pairs(Players:GetPlayers()) do 
-				if player ~= LocalPlayer and player.Character then 
-					createESP(player) 
-				end 
-			end 
-			track("ArmorESP_PlayerAdded", Players.PlayerAdded:Connect(function(player) 
-				player.CharacterAdded:Connect(function(character) 
-					if ESP_Active then 
-						createESP(player) 
-					end 
-				end) 
-			end)) 
-			track("ArmorESP_PlayerRemoving", Players.PlayerRemoving:Connect(function(player) 
-				removeESP(player) 
-			end)) 
-		else 
-			disconnect("ArmorESP_PlayerAdded") 
-			disconnect("ArmorESP_PlayerRemoving") 
-			for _, player in pairs(Players:GetPlayers()) do 
-				removeESP(player) 
-			end 
-		end 
-	end 
+		if refreshArmor then
+			for _, player in ipairs(Players:GetPlayers()) do
+				if player ~= LocalPlayer and not ESPObjects[player] then
+					createArmorBillboard(player)
+				end
+			end
+		end
+	end
 
-	toggleESP(Toggles.ArmorESP.Value)
+	local function cleanUpAll()
+		disconnect("ArmorESP_Update")
+		disconnect("ArmorESP_PlayerAdded")
+		disconnect("ArmorESP_PlayerRemoving")
+		disconnect("ArmorESP_CharacterAdded")
+		for player in pairs(ESPObjects) do
+			removeArmorBillboard(player)
+		end
+		table.clear(ESPObjects)
+	end
+
+	local function enableArmorESP()
+		for _, player in ipairs(Players:GetPlayers()) do
+			if player ~= LocalPlayer then
+				createArmorBillboard(player)
+			end
+		end
+
+		track("ArmorESP_Update", RunService.Heartbeat:Connect(armorUpdateLoop))
+
+		track("ArmorESP_PlayerAdded", Players.PlayerAdded:Connect(function(player)
+			if player == LocalPlayer then return end
+			local charAddedConn
+			charAddedConn = player.CharacterAdded:Connect(function()
+				if Toggles.ArmorESP and Toggles.ArmorESP.Value then
+					task.wait(0.1)
+					createArmorBillboard(player)
+				elseif charAddedConn then
+					pcall(function() charAddedConn:Disconnect() end)
+				end
+			end)
+		end))
+
+		track("ArmorESP_PlayerRemoving", Players.PlayerRemoving:Connect(function(player)
+			removeArmorBillboard(player)
+		end))
+	end
+
+	if Toggles.ArmorESP.Value then
+		cleanUpAll()
+		enableArmorESP()
+		Library:Notify({ Title = "Armor ESP", Description = "Enabled (Optimized)", Time = 2 })
+	else
+		cleanUpAll()
+	end
 end)
 
 local VisualEnv = Tabs.Visuals:AddLeftGroupbox("ENVIRONMENT", "sun")
