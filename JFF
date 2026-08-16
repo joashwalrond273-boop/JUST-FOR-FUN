@@ -1588,7 +1588,7 @@ CombatReach:AddDropdown("AdvancePreset", {
 CombatReach:AddSlider("ReachRange", {
 	Text = "Reach Range",
 	Default = 15,
-	Min = 10,
+	Min = 1,
 	Max = 30,
 	Rounding = 1,
 })
