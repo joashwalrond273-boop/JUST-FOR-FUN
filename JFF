@@ -2907,11 +2907,9 @@ Toggles.SinkFastPVP:OnChanged(function()
 					local cam = workspace.CurrentCamera
 					local lookY = cam and cam.CFrame.LookVector.Y or 0
 					if lookY < -0.2 then
-						-- Sinks even faster: starts at -60 and reaches -90 when looking straight down
-						local sinkSpeed = math.min(lookY * 90, -60)
 						root.AssemblyLinearVelocity = Vector3.new(
 							root.AssemblyLinearVelocity.X,
-							sinkSpeed,
+							-60,
 							root.AssemblyLinearVelocity.Z
 						)
 					end
