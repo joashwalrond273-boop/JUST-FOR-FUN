@@ -2875,31 +2875,18 @@ Toggles.SwimBoost:OnChanged(function()
 	end
 end)
 
-local sinkFastLatch = false
-local function resetSinkFastLatch()
-	sinkFastLatch = false
-end
-
 Toggles.SinkFastPVP:OnChanged(function()
 	disconnect("SinkFastPVP")
-	disconnect("SinkFastPVPLatch")
-	disconnect("SinkFastPVPReset")
+	disconnect("SinkFastPVPWaterCheck")
 	if Toggles.SinkFastPVP.Value then
-		resetSinkFastLatch()
-		track("SinkFastPVPLatch", UserInputService.InputBegan:Connect(function(input, gpe)
-			if gpe then return end
-			if input.KeyCode == Enum.KeyCode.F then
-				local character = getCharacter()
-				local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-				local isSwimming = humanoid and (humanoid:GetState() == Enum.HumanoidStateType.Swimming or character:GetAttribute("inWater"))
-				if isSwimming then
-					sinkFastLatch = true
-				end
-			end
-		end))
-		track("SinkFastPVPReset", UserInputService.InputEnded:Connect(function(input, gpe)
-			if input.KeyCode == Enum.KeyCode.F then
-				sinkFastLatch = false
+		track("SinkFastPVPWaterCheck", RunService.Heartbeat:Connect(function()
+			local character = getCharacter()
+			if not character then return end
+			local humanoid = character:FindFirstChildOfClass("Humanoid")
+			if not humanoid then return end
+			local isSwimming = humanoid:GetState() == Enum.HumanoidStateType.Swimming or character:GetAttribute("inWater")
+			if not isSwimming then
+				Toggles.SinkFastPVP:SetValue(false)
 			end
 		end))
 		track("SinkFastPVP", RunService.Heartbeat:Connect(function()
@@ -2910,22 +2897,19 @@ Toggles.SinkFastPVP:OnChanged(function()
 				local isSwimming = humanoid:GetState() == Enum.HumanoidStateType.Swimming or character:GetAttribute("inWater")
 				if isSwimming then
 					local cam = workspace.CurrentCamera
-					local lookingDown = cam and cam.CFrame.LookVector.Y <= -0.5
-					if sinkFastLatch and lookingDown then
+					local lookY = cam and cam.CFrame.LookVector.Y or 0
+					if lookY <= -0.9 then
 						root.AssemblyLinearVelocity = Vector3.new(
 							root.AssemblyLinearVelocity.X,
 							-45,
 							root.AssemblyLinearVelocity.Z
 						)
 					end
-				else
-					resetSinkFastLatch()
 				end
 			end
 		end))
 		Library:Notify({ Title = "Sink Fast PVP", Description = "Enabled", Time = 2 })
 	else
-		resetSinkFastLatch()
 		Library:Notify({ Title = "Sink Fast PVP", Description = "Disabled", Time = 2 })
 	end
 end)
