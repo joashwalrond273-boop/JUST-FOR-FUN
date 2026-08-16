@@ -5012,29 +5012,8 @@ local invisibleFlyVars = {
 	playerClone = nil,
 	wasInvisibleFlyEnabled = false,
 	connection = nil,
-	highlight = nil,
-	originalTransparency = {},
-	characterAddedConn = nil
+	highlight = nil
 }
-
-local function applyInvisFlyTransparency(character)
-	if not character then return end
-	for _, desc in ipairs(character:GetDescendants()) do
-		if desc:IsA("BasePart") or desc:IsA("Decal") or desc:IsA("Texture") then
-			invisibleFlyVars.originalTransparency[desc] = desc.Transparency
-			desc.Transparency = 1
-		end
-	end
-end
-
-local function restoreInvisFlyTransparency()
-	for obj, transp in pairs(invisibleFlyVars.originalTransparency) do
-		if obj and obj.Parent then
-			obj.Transparency = transp
-		end
-	end
-	table.clear(invisibleFlyVars.originalTransparency)
-end
 
 local function onInvisibleFlyToggle(state)
 	invisibleFlyVars.invisiblefly = state
@@ -5045,13 +5024,6 @@ local function onInvisibleFlyToggle(state)
 			repeat
 				task.wait()
 			until LocalPlayer.Character
-
-			invisibleFlyVars.characterAddedConn = LocalPlayer.CharacterAdded:Connect(function(newChar)
-				task.wait(0.1)
-				applyInvisFlyTransparency(newChar)
-			end)
-
-			applyInvisFlyTransparency(LocalPlayer.Character)
 
 			invisibleFlyVars.playerClone = LocalPlayer.Character:Clone()
 			invisibleFlyVars.playerClone.Parent = workspace
@@ -5122,12 +5094,6 @@ local function onInvisibleFlyToggle(state)
 
 			workspace.CurrentCamera.CameraSubject = getHumanoid()
 
-			if invisibleFlyVars.characterAddedConn then
-				invisibleFlyVars.characterAddedConn:Disconnect()
-				invisibleFlyVars.characterAddedConn = nil
-			end
-			restoreInvisFlyTransparency()
-
 			if invisibleFlyVars.highlight then
 				invisibleFlyVars.highlight:Destroy()
 				invisibleFlyVars.highlight = nil
@@ -5141,12 +5107,6 @@ local function onInvisibleFlyToggle(state)
 		end)
 	else
 		if invisibleFlyVars.wasInvisibleFlyEnabled then
-			if invisibleFlyVars.characterAddedConn then
-				invisibleFlyVars.characterAddedConn:Disconnect()
-				invisibleFlyVars.characterAddedConn = nil
-			end
-			restoreInvisFlyTransparency()
-
 			local root = getRootPart()
 			if root then
 				local currentCFrame = root.CFrame
@@ -5754,9 +5714,6 @@ Library:OnUnload(function()
 	end
 	if Toggles.Camlock and Toggles.Camlock.Value then
 		Toggles.Camlock:SetValue(false)
-	end
-	if Toggles.InvisibleFlyToggle and Toggles.InvisibleFlyToggle.Value then
-		Toggles.InvisibleFlyToggle:SetValue(false)
 	end
 
 	if Toggles.NoGliderCooldown and Toggles.NoGliderCooldown.Value then
