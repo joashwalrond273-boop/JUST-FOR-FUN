@@ -2207,7 +2207,7 @@ Toggles.SwordBot:OnChanged(function()
 				end
 
 				-- Constant auto swing
-				local delay = 1 / 20
+				local delay = 0.2
 				if tick() - lastSwing >= delay then
 					local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
 					if tool then
@@ -4206,14 +4206,6 @@ VisualLeft:AddToggle("ShowDistance", {
 	Title = "Show Distance Color",
 })
 
-VisualLeft:AddToggle("SkeletonESP", {
-	Text = "Skeleton",
-	Default = false,
-}):AddColorPicker("SkeletonESPColor", {
-	Default = Color3.fromRGB(255, 255, 255),
-	Title = "Skeleton Color",
-})
-
 VisualLeft:AddToggle("OutlineESP", {
 	Text = "Outline ESP",
 	Default = false,
@@ -4365,110 +4357,15 @@ VisualRight:AddSlider("ESPDistance", {
 	Rounding = 0,
 })
 
-VisualRight:AddToggle("ESPInfiniteDistance", {
-	Text = "Infinite Distance",
-	Default = false,
-})
-
 local espObjects = {}
 local hasDrawing = (typeof(Drawing) ~= "nil")
-
-local SKELETON_BONES_R15 = {
-	{"Head", "UpperTorso"},
-	{"UpperTorso", "LowerTorso"},
-	{"UpperTorso", "LeftUpperArm"},
-	{"LeftUpperArm", "LeftLowerArm"},
-	{"LeftLowerArm", "LeftHand"},
-	{"UpperTorso", "RightUpperArm"},
-	{"RightUpperArm", "RightLowerArm"},
-	{"RightLowerArm", "RightHand"},
-	{"LowerTorso", "LeftUpperLeg"},
-	{"LeftUpperLeg", "LeftLowerLeg"},
-	{"LeftLowerLeg", "LeftFoot"},
-	{"LowerTorso", "RightUpperLeg"},
-	{"RightUpperLeg", "RightLowerLeg"},
-	{"RightLowerLeg", "RightFoot"},
-}
-
-local SKELETON_BONES_R6 = {
-	{"Head", "Torso"},
-	{"Torso", "Left Arm"},
-	{"Torso", "Right Arm"},
-	{"Torso", "Left Leg"},
-	{"Torso", "Right Leg"},
-}
-
-local function createSkeletonLines(character)
-	local lines = {}
-	if not hasDrawing then
-		return lines
-	end
-	local bones = character:FindFirstChild("UpperTorso") and SKELETON_BONES_R15 or SKELETON_BONES_R6
-	for _, pair in ipairs(bones) do
-		local line = Drawing.new("Line")
-		line.Visible = false
-		line.Thickness = 1.5
-		line.Transparency = 1
-		line.From = Vector2.new(0, 0)
-		line.To = Vector2.new(0, 0)
-		line.Color = Options and Options.SkeletonESPColor and Options.SkeletonESPColor.Value or Color3.new(1, 1, 1)
-		table.insert(lines, {line = line, partA = pair[1], partB = pair[2]})
-	end
-	return lines
-end
-
-local function updateSkeletonLines(character, lines, shouldShow)
-	if not hasDrawing or #lines == 0 then
-		return
-	end
-	local camera = workspace.CurrentCamera
-	local skeletonEnabled = Toggles.SkeletonESP and Toggles.SkeletonESP.Value
-	for _, entry in ipairs(lines) do
-		local lineObj = entry.line
-		if not lineObj then continue end
-		if not shouldShow or not skeletonEnabled then
-			lineObj.Visible = false
-			continue
-		end
-		local partA = character:FindFirstChild(entry.partA)
-		local partB = character:FindFirstChild(entry.partB)
-		if partA and partB and partA:IsA("BasePart") and partB:IsA("BasePart") then
-			local posA, onScreenA = camera:WorldToViewportPoint(partA.Position)
-			local posB, onScreenB = camera:WorldToViewportPoint(partB.Position)
-			if onScreenA or onScreenB then
-				lineObj.From = Vector2.new(posA.X, posA.Y)
-				lineObj.To = Vector2.new(posB.X, posB.Y)
-				lineObj.Visible = true
-			else
-				lineObj.Visible = false
-			end
-		else
-			lineObj.Visible = false
-		end
-	end
-end
-
-local function clearSkeletonLines(lines)
-	if not lines then return end
-	for _, entry in ipairs(lines) do
-		pcall(function()
-			if entry.line then
-				entry.line.Visible = false
-				entry.line:Remove()
-			end
-		end)
-	end
-end
 
 local function clearESP()
 	for _, obj in pairs(espObjects) do
 		if typeof(obj) == "Instance" then
 			obj:Destroy()
 		elseif typeof(obj) == "table" then
-			local skeletonLines = obj[4]
-			clearSkeletonLines(skeletonLines)
-			for i, child in ipairs(obj) do
-				if i == 4 then continue end
+			for _, child in pairs(obj) do
 				if typeof(child) == "Instance" then
 					child:Destroy()
 				else
@@ -4517,19 +4414,16 @@ local function createESP(player)
 	highlight.Parent = character
 	highlight.Enabled = false
 
-	local skeletonLines = createSkeletonLines(character)
-
-	espObjects[player] = { billboard, label, highlight, skeletonLines }
+	espObjects[player] = { billboard, label, highlight }
 
 	local function update()
 		local myRoot = getRootPart()
 		if not myRoot or not character.Parent then
 			if highlight then highlight.Enabled = false end
-			updateSkeletonLines(character, skeletonLines, false)
 			return
 		end
 		local dist = (root.Position - myRoot.Position).Magnitude
-		local shouldShow = (Toggles.ESPInfiniteDistance.Value or dist <= Options.ESPDistance.Value) and Toggles.PlayerESP.Value
+		local shouldShow = dist <= Options.ESPDistance.Value and Toggles.PlayerESP.Value
 
 		local screenPos, onScreen = workspace.CurrentCamera:WorldToViewportPoint(root.Position)
 
@@ -4549,8 +4443,6 @@ local function createESP(player)
 				highlight.Enabled = false
 			end
 		end
-
-		updateSkeletonLines(character, skeletonLines, shouldShow)
 	end
 
 	update()
@@ -4605,34 +4497,7 @@ Options.PlayerESPColor:OnChanged(function()
 	end
 end)
 
-Options.SkeletonESPColor:OnChanged(function()
-	local color = Options.SkeletonESPColor.Value
-	for _, objects in pairs(espObjects) do
-		local skeletonLines = objects[4]
-		if skeletonLines and typeof(skeletonLines) == "table" then
-			for _, entry in ipairs(skeletonLines) do
-				if entry.line then
-					pcall(function() entry.line.Color = color end)
-				end
-			end
-		end
-	end
-end)
-
 Options.ShowDistanceColor:OnChanged(function()
-end)
-
-Toggles.ESPInfiniteDistance:OnChanged(function()
-	if Toggles.ESPInfiniteDistance.Value then
-		LocalPlayer.CameraMaxZoomDistance = 100000
-		LocalPlayer.CameraMinZoomDistance = 0.5
-		Library:Notify({ Title = "Infinite Distance", Description = "Enabled - ESP now shows players from anywhere on the map", Time = 3 })
-	else
-		if not Toggles.InfiniteZoom.Value then
-			LocalPlayer.CameraMaxZoomDistance = 400
-		end
-		Library:Notify({ Title = "Infinite Distance", Description = "Disabled - ESP respects Max Distance slider", Time = 2 })
-	end
 end)
 
 
@@ -4685,9 +4550,7 @@ Toggles.InfiniteZoom:OnChanged(function()
 		LocalPlayer.CameraMinZoomDistance = 0.5
 		Library:Notify({ Title = "Infinite Zoom", Description = "Enabled", Time = 2 })
 	else
-		if not Toggles.ESPInfiniteDistance.Value then
-			LocalPlayer.CameraMaxZoomDistance = 400
-		end
+		LocalPlayer.CameraMaxZoomDistance = 400
 		LocalPlayer.CameraMinZoomDistance = 0.5
 	end
 end)
