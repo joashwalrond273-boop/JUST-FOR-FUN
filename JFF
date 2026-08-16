@@ -4391,8 +4391,6 @@ Toggles.ArmorESP:OnChanged(function()
 			lastArmorRefresh = now
 		end
 
-		local myRoot = getRootPart()
-
 		for player, billboard in pairs(ESPObjects) do
 			local ok, err = pcall(function()
 				if not player or not player.Parent then
@@ -4411,12 +4409,6 @@ Toggles.ArmorESP:OnChanged(function()
 						billboard.Parent = rootPart
 					end
 				end
-				local shouldShow = false
-				if myRoot then
-					local dist = (rootPart.Position - myRoot.Position).Magnitude
-					shouldShow = (dist <= 2000)
-				end
-				billboard.Enabled = shouldShow
 				if refreshArmor then
 					local label = billboard:FindFirstChildWhichIsA("TextLabel")
 					if label then
