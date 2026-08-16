@@ -919,7 +919,6 @@ local function startDesync()
 		Run   = "rbxassetid://507767714",
 		Jump  = "rbxassetid://507765000",
 		Fall  = "rbxassetid://507767968",
-		Swim  = "rbxassetid://507784064",
 	}
 
 	desyncAnimTracks.Idle  = LoadAnim(fakeHum, OfficialIDs.Idle)
@@ -927,7 +926,6 @@ local function startDesync()
 	desyncAnimTracks.Run   = LoadAnim(fakeHum, OfficialIDs.Run)
 	desyncAnimTracks.Jump  = LoadAnim(fakeHum, OfficialIDs.Jump)
 	desyncAnimTracks.Fall  = LoadAnim(fakeHum, OfficialIDs.Fall)
-	desyncAnimTracks.Swim  = LoadAnim(fakeHum, OfficialIDs.Swim)
 
 	local function StopAll()
 		for _, trackObj in pairs(desyncAnimTracks) do
@@ -952,12 +950,6 @@ local function startDesync()
 		elseif newState == Enum.HumanoidStateType.Landed then
 			StopAll()
 			if desyncAnimTracks.Idle then pcall(function() desyncAnimTracks.Idle:Play() end) end
-		elseif newState == Enum.HumanoidStateType.Swimming then
-			StopAll()
-			if desyncAnimTracks.Swim then pcall(function() desyncAnimTracks.Swim:Play(0.1) end) end
-		elseif oldState == Enum.HumanoidStateType.Swimming then
-			StopAll()
-			if desyncAnimTracks.Idle then pcall(function() desyncAnimTracks.Idle:Play(0.1) end) end
 		end
 	end))
 
@@ -965,17 +957,6 @@ local function startDesync()
 	if realHum then
 		table.insert(desyncConnections, realHum.Died:Connect(function()
 			Toggles.DesyncToggle:SetValue(false)
-		end))
-		table.insert(desyncConnections, RunService.Heartbeat:Connect(function()
-			if not Toggles.DesyncToggle.Value then return end
-			local realCharNow = LocalPlayer.Character
-			if not realCharNow then return end
-			local inWater = realCharNow:GetAttribute("inWater")
-			local rh = realCharNow:FindFirstChildOfClass("Humanoid")
-			local swimmingState = rh and rh:GetState() == Enum.HumanoidStateType.Swimming
-			if inWater or swimmingState then
-				Toggles.DesyncToggle:SetValue(false)
-			end
 		end))
 	end
 	table.insert(desyncConnections, fakeHum.Died:Connect(function()
@@ -2964,27 +2945,7 @@ track("SwimBoost", RunService.Heartbeat:Connect(function(dt)
 	if isSwimming then
 		local factor = Options.SwimBoostValue.Value - humanoid.WalkSpeed
 		if factor > 0 and humanoid.MoveDirection.Magnitude > 0 then
-			local cam = workspace.CurrentCamera
-			local moveDir = humanoid.MoveDirection
-			if cam then
-				local flat = Vector3.new(moveDir.X, 0, moveDir.Z)
-				if flat.Magnitude > 0 then
-					local camCF = cam.CFrame
-					local forward = Vector3.new(camCF.LookVector.X, 0, camCF.LookVector.Z).Unit
-					local right = Vector3.new(camCF.RightVector.X, 0, camCF.RightVector.Z).Unit
-					local sign = (forward:Dot(flat) > 0) and 1 or -1
-					local rightComp = math.abs(right:Dot(flat.Unit))
-					local mix = Vector3.new(
-						camCF.LookVector.X * sign + camCF.RightVector.X * (flat:Dot(right) / math.max(flat.Magnitude, 0.0001)),
-						camCF.LookVector.Y * sign,
-						camCF.LookVector.Z * sign + camCF.RightVector.Z * (flat:Dot(right) / math.max(flat.Magnitude, 0.0001))
-					)
-					if mix.Magnitude > 0 then
-						moveDir = mix.Unit * flat.Magnitude
-					end
-				end
-			end
-			LocalPlayer.Character:TranslateBy(moveDir * dt * factor)
+			LocalPlayer.Character:TranslateBy(humanoid.MoveDirection * dt * factor)
 		end
 	end
 end))
