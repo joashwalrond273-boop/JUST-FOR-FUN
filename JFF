@@ -2139,17 +2139,39 @@ Toggles.AutoShiftlock:OnChanged(function()
 			local hum = getHumanoid()
 			if not root or not hum then return end
 
-			UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
-			UserInputService.MouseIconEnabled = false
-
-			local camera = workspace.CurrentCamera
-			if camera then
-				local camCFrame = camera.CFrame
-				local lookDir = Vector3.new(camCFrame.LookVector.X, 0, camCFrame.LookVector.Z).Unit
-				if lookDir.Magnitude > 0 then
-					hum.AutoRotate = false
-					root.CFrame = CFrame.new(root.Position, root.Position + lookDir)
+			local myPos = root.Position
+			local playerNearby = false
+			for _, otherPlayer in ipairs(Players:GetPlayers()) do
+				if otherPlayer ~= LocalPlayer and otherPlayer.Character then
+					local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
+					local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
+					if otherRoot and otherHum and otherHum.Health > 0 then
+						local dist = (otherRoot.Position - myPos).Magnitude
+						if dist <= 20 then
+							playerNearby = true
+							break
+						end
+					end
 				end
+			end
+
+			if playerNearby then
+				UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
+				UserInputService.MouseIconEnabled = false
+
+				local camera = workspace.CurrentCamera
+				if camera then
+					local camCFrame = camera.CFrame
+					local lookDir = Vector3.new(camCFrame.LookVector.X, 0, camCFrame.LookVector.Z).Unit
+					if lookDir.Magnitude > 0 then
+						hum.AutoRotate = false
+						root.CFrame = CFrame.new(root.Position, root.Position + lookDir)
+					end
+				end
+			else
+				UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+				UserInputService.MouseIconEnabled = true
+				hum.AutoRotate = true
 			end
 		end))
 	else
@@ -2172,9 +2194,6 @@ Toggles.Camlock:OnChanged(function()
 			local hum = getHumanoid()
 			if not root or not hum then return end
 
-			UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
-			UserInputService.MouseIconEnabled = false
-
 			local myPos = root.Position
 			local closestPlayer = nil
 			local closestDist = math.huge
@@ -2185,7 +2204,7 @@ Toggles.Camlock:OnChanged(function()
 					local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
 					if otherRoot and otherHum and otherHum.Health > 0 then
 						local dist = (otherRoot.Position - myPos).Magnitude
-						if dist < closestDist then
+						if dist <= 20 and dist < closestDist then
 							closestDist = dist
 							closestPlayer = otherPlayer
 						end
@@ -2194,6 +2213,9 @@ Toggles.Camlock:OnChanged(function()
 			end
 
 			if closestPlayer then
+				UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
+				UserInputService.MouseIconEnabled = false
+
 				local targetRoot = closestPlayer.Character:FindFirstChild("HumanoidRootPart")
 				if targetRoot then
 					local targetPos = targetRoot.Position
@@ -2203,6 +2225,10 @@ Toggles.Camlock:OnChanged(function()
 						root.CFrame = CFrame.new(myPos, myPos + lookDir)
 					end
 				end
+			else
+				UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+				UserInputService.MouseIconEnabled = true
+				hum.AutoRotate = true
 			end
 		end))
 	else
@@ -5012,8 +5038,29 @@ local invisibleFlyVars = {
 	playerClone = nil,
 	wasInvisibleFlyEnabled = false,
 	connection = nil,
-	highlight = nil
+	highlight = nil,
+	originalTransparency = {},
+	characterAddedConn = nil
 }
+
+local function applyInvisFlyTranslucency(character)
+	if not character then return end
+	for _, desc in ipairs(character:GetDescendants()) do
+		if desc:IsA("BasePart") or desc:IsA("Decal") or desc:IsA("Texture") then
+			invisibleFlyVars.originalTransparency[desc] = desc.Transparency
+			desc.Transparency = 0.5
+		end
+	end
+end
+
+local function restoreInvisFlyTranslucency()
+	for obj, transp in pairs(invisibleFlyVars.originalTransparency) do
+		if obj and obj.Parent then
+			obj.Transparency = transp
+		end
+	end
+	table.clear(invisibleFlyVars.originalTransparency)
+end
 
 local function onInvisibleFlyToggle(state)
 	invisibleFlyVars.invisiblefly = state
@@ -5024,6 +5071,13 @@ local function onInvisibleFlyToggle(state)
 			repeat
 				task.wait()
 			until LocalPlayer.Character
+
+			invisibleFlyVars.characterAddedConn = LocalPlayer.CharacterAdded:Connect(function(newChar)
+				task.wait(0.1)
+				applyInvisFlyTranslucency(newChar)
+			end)
+
+			applyInvisFlyTranslucency(LocalPlayer.Character)
 
 			invisibleFlyVars.playerClone = LocalPlayer.Character:Clone()
 			invisibleFlyVars.playerClone.Parent = workspace
@@ -5094,6 +5148,12 @@ local function onInvisibleFlyToggle(state)
 
 			workspace.CurrentCamera.CameraSubject = getHumanoid()
 
+			if invisibleFlyVars.characterAddedConn then
+				invisibleFlyVars.characterAddedConn:Disconnect()
+				invisibleFlyVars.characterAddedConn = nil
+			end
+			restoreInvisFlyTranslucency()
+
 			if invisibleFlyVars.highlight then
 				invisibleFlyVars.highlight:Destroy()
 				invisibleFlyVars.highlight = nil
@@ -5107,6 +5167,12 @@ local function onInvisibleFlyToggle(state)
 		end)
 	else
 		if invisibleFlyVars.wasInvisibleFlyEnabled then
+			if invisibleFlyVars.characterAddedConn then
+				invisibleFlyVars.characterAddedConn:Disconnect()
+				invisibleFlyVars.characterAddedConn = nil
+			end
+			restoreInvisFlyTranslucency()
+
 			local root = getRootPart()
 			if root then
 				local currentCFrame = root.CFrame
@@ -5714,6 +5780,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.Camlock and Toggles.Camlock.Value then
 		Toggles.Camlock:SetValue(false)
+	end
+	if Toggles.InvisibleFlyToggle and Toggles.InvisibleFlyToggle.Value then
+		Toggles.InvisibleFlyToggle:SetValue(false)
 	end
 
 	if Toggles.NoGliderCooldown and Toggles.NoGliderCooldown.Value then
