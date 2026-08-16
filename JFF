@@ -2139,39 +2139,17 @@ Toggles.AutoShiftlock:OnChanged(function()
 			local hum = getHumanoid()
 			if not root or not hum then return end
 
-			local myPos = root.Position
-			local playerNearby = false
-			for _, otherPlayer in ipairs(Players:GetPlayers()) do
-				if otherPlayer ~= LocalPlayer and otherPlayer.Character then
-					local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
-					local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
-					if otherRoot and otherHum and otherHum.Health > 0 then
-						local dist = (otherRoot.Position - myPos).Magnitude
-						if dist <= 20 then
-							playerNearby = true
-							break
-						end
-					end
-				end
-			end
+			UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
+			UserInputService.MouseIconEnabled = false
 
-			if playerNearby then
-				UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
-				UserInputService.MouseIconEnabled = false
-
-				local camera = workspace.CurrentCamera
-				if camera then
-					local camCFrame = camera.CFrame
-					local lookDir = Vector3.new(camCFrame.LookVector.X, 0, camCFrame.LookVector.Z).Unit
-					if lookDir.Magnitude > 0 then
-						hum.AutoRotate = false
-						root.CFrame = CFrame.new(root.Position, root.Position + lookDir)
-					end
+			local camera = workspace.CurrentCamera
+			if camera then
+				local camCFrame = camera.CFrame
+				local lookDir = Vector3.new(camCFrame.LookVector.X, 0, camCFrame.LookVector.Z).Unit
+				if lookDir.Magnitude > 0 then
+					hum.AutoRotate = false
+					root.CFrame = CFrame.new(root.Position, root.Position + lookDir)
 				end
-			else
-				UserInputService.MouseBehavior = Enum.MouseBehavior.Default
-				UserInputService.MouseIconEnabled = true
-				hum.AutoRotate = true
 			end
 		end))
 	else
