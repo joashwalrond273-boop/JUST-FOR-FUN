@@ -2885,7 +2885,10 @@ Toggles.SinkFastPVP:OnChanged(function()
 			if root and humanoid then
 				local isSwimming = humanoid:GetState() == Enum.HumanoidStateType.Swimming or character:GetAttribute("inWater")
 				if isSwimming then
-					if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) or UserInputService:IsKeyDown(Enum.KeyCode.C) then
+					local cam = workspace.CurrentCamera
+					local lookingDown = cam and cam.CFrame.LookVector.Y <= -0.5
+					local holdingF = UserInputService:IsKeyDown(Enum.KeyCode.F)
+					if lookingDown or holdingF then
 						root.AssemblyLinearVelocity = Vector3.new(
 							root.AssemblyLinearVelocity.X,
 							-45,
