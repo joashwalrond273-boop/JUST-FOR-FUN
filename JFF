@@ -2462,6 +2462,7 @@ local function connectReachTool(tool)
 			local root = getRootPart()
 			if root then
 				local pos = root.Position
+				local forward = Vector3.new(root.CFrame.LookVector.X, 0, root.CFrame.LookVector.Z).Unit
 				local nearestTarget = nil
 				local nearestDist = range
 
@@ -2473,8 +2474,11 @@ local function connectReachTool(tool)
 						if otherHum and otherHum.Health > 0 and otherRoot then
 							local d = (otherRoot.Position - pos).Magnitude
 							if d < nearestDist then
-								nearestDist = d
-								nearestTarget = otherPlayer.Character
+								local dir = Vector3.new(otherRoot.Position.X - pos.X, 0, otherRoot.Position.Z - pos.Z).Unit
+								if dir.Magnitude > 0 and forward:Dot(dir) >= 0.5 then
+									nearestDist = d
+									nearestTarget = otherPlayer.Character
+								end
 							end
 						end
 					end
@@ -2489,8 +2493,11 @@ local function connectReachTool(tool)
 						if npcHum and npcHum.Health > 0 and npcRoot then
 							local d = (npcRoot.Position - pos).Magnitude
 							if d < nearestDist then
-								nearestDist = d
-								nearestTarget = npc
+								local dir = Vector3.new(npcRoot.Position.X - pos.X, 0, npcRoot.Position.Z - pos.Z).Unit
+								if dir.Magnitude > 0 and forward:Dot(dir) >= 0.5 then
+									nearestDist = d
+									nearestTarget = npc
+								end
 							end
 						end
 					end
@@ -2504,8 +2511,11 @@ local function connectReachTool(tool)
 						if (not npcHum or npcHum.Health > 0) and npcRoot then
 							local d = (npcRoot.Position - pos).Magnitude
 							if d < nearestDist then
-								nearestDist = d
-								nearestTarget = npc
+								local dir = Vector3.new(npcRoot.Position.X - pos.X, 0, npcRoot.Position.Z - pos.Z).Unit
+								if dir.Magnitude > 0 and forward:Dot(dir) >= 0.5 then
+									nearestDist = d
+									nearestTarget = npc
+								end
 							end
 						end
 					end
