@@ -647,6 +647,11 @@ MainLeft:AddToggle("InfiniteJump", {
 	Default = false,
 })
 
+MainLeft:AddToggle("NoGliderCooldown", {
+	Text = "No Glider Cooldown",
+	Default = false,
+})
+
 MainLeft:AddToggle("FastPickup", {
 	Text = "Auto Pickup",
 	Default = false,
@@ -661,11 +666,6 @@ ImmunityGroup:AddToggle("NoBossDamage", {
 
 ImmunityGroup:AddToggle("NoFallDamage", {
 	Text = "No Fall Damage",
-	Default = false,
-})
-
-ImmunityGroup:AddToggle("NoGliderCooldown", {
-	Text = "No Glider Cooldown",
 	Default = false,
 })
 
@@ -2764,6 +2764,21 @@ MoveRight:AddSlider("FlySpeed", {
 	Rounding = 0,
 })
 
+local HighJumpGroup = Tabs.Movement:AddRightGroupbox("High Jump", "arrow-up")
+
+HighJumpGroup:AddToggle("JumpBoost", {
+	Text = "Jump Boost",
+	Default = false,
+})
+
+HighJumpGroup:AddSlider("JumpPower", {
+	Text = "Jump Power",
+	Default = 150,
+	Min = 50,
+	Max = 1000,
+	Rounding = 0,
+})
+
 local InvisibleFlyGroup = Tabs.Movement:AddRightGroupbox("Invisible Fly", "plane")
 
 InvisibleFlyGroup:AddToggle("InvisibleFlyToggle", {
@@ -3132,6 +3147,75 @@ end))
 if LocalPlayer.Character then
 	setupAnimationSpeedHacks(LocalPlayer.Character)
 end
+
+local DEFAULT_JUMP_POWER = 50
+local lastStoredJumpPower = DEFAULT_JUMP_POWER
+
+local function applyJumpBoost(notify)
+	local char = getCharacter()
+	local hum = char and char:FindFirstChildOfClass("Humanoid")
+	if not hum then return end
+
+	if Toggles.JumpBoost.Value then
+		local ok = pcall(function() hum.UseJumpPower = true end)
+		if not ok then
+			pcall(function() hum.UseJumpPower = true end)
+		end
+		lastStoredJumpPower = hum.JumpPower or lastStoredJumpPower
+		local target = Options.JumpPower and Options.JumpPower.Value or 150
+		hum.JumpPower = tonumber(target) or 150
+		if notify then
+			Library:Notify({ Title = "Jump Boost", Description = "Enabled", Time = 2 })
+		end
+	else
+		pcall(function() hum.UseJumpPower = true end)
+		hum.JumpPower = lastStoredJumpPower or DEFAULT_JUMP_POWER
+		lastStoredJumpPower = DEFAULT_JUMP_POWER
+	end
+end
+
+local function restoreJumpBoostDefaults()
+	local char = getCharacter()
+	local hum = char and char:FindFirstChildOfClass("Humanoid")
+	if hum then
+		pcall(function() hum.UseJumpPower = true end)
+		hum.JumpPower = lastStoredJumpPower or DEFAULT_JUMP_POWER
+	end
+	lastStoredJumpPower = DEFAULT_JUMP_POWER
+end
+
+Toggles.JumpBoost:OnChanged(function()
+	applyJumpBoost(true)
+end)
+
+Options.JumpPower:OnChanged(function()
+	if Toggles.JumpBoost.Value then
+		applyJumpBoost(false)
+	end
+end)
+
+track("JumpBoostCharAdded", LocalPlayer.CharacterAdded:Connect(function()
+	task.wait(0.75)
+	if Toggles.JumpBoost.Value then
+		applyJumpBoost(false)
+	else
+		lastStoredJumpPower = DEFAULT_JUMP_POWER
+	end
+end))
+
+track("JumpBoostHeartbeat", RunService.Heartbeat:Connect(function()
+	if Toggles.JumpBoost.Value then
+		local char = getCharacter()
+		local hum = char and char:FindFirstChildOfClass("Humanoid")
+		if hum then
+			pcall(function() hum.UseJumpPower = true end)
+			local target = Options.JumpPower and Options.JumpPower.Value or 150
+			if hum.JumpPower ~= (tonumber(target) or 150) then
+				hum.JumpPower = tonumber(target) or 150
+			end
+		end
+	end
+end))
 
 -- ==========================================
 -- FARMING
@@ -4303,7 +4387,7 @@ VisualLeft:AddToggle("PlayerESP", {
 
 VisualLeft:AddToggle("ShowDistance", {
 	Text = "Show Distance",
-	Default = true,
+	Default = false,
 }):AddColorPicker("ShowDistanceColor", {
 	Default = Color3.fromRGB(255, 255, 255),
 	Title = "Show Distance Color",
@@ -5458,184 +5542,142 @@ local cursorDrawings = {
 	arrow5 = nil
 }
 
-local function drawingValid(obj)
-	return obj and pcall(function() local _ = obj.Visible end)
-end
-
-local function newDrawing(kind)
-	local ok, out = pcall(function()
-		local d = Drawing.new(kind)
-		d.Color = Color3.fromRGB(255, 255, 255)
-		d.Transparency = 0
-		d.Visible = false
-		pcall(function() d.ZIndex = 2 end)
-		return d
-	end)
-	if ok then return out end
-	return nil
-end
-
 local function initCursorDrawings()
-	hasDrawing = (typeof(Drawing) ~= "nil") and (typeof(Drawing.new) == "function")
 	if not hasDrawing then return end
-
-	if not drawingValid(cursorDrawings.square) then
-		local d = newDrawing("Square")
-		if d then d.Filled = true end
-		cursorDrawings.square = d
+	
+	if not cursorDrawings.square then
+		cursorDrawings.square = Drawing.new("Square")
+		cursorDrawings.square.Color = Color3.fromRGB(255, 255, 255)
+		cursorDrawings.square.Filled = true
+		cursorDrawings.square.Transparency = 1
+		cursorDrawings.square.Visible = false
 	end
-	if not drawingValid(cursorDrawings.circle) then
-		local d = newDrawing("Circle")
-		if d then d.Filled = false ; d.Thickness = 1.5 end
-		cursorDrawings.circle = d
+	if not cursorDrawings.circle then
+		cursorDrawings.circle = Drawing.new("Circle")
+		cursorDrawings.circle.Color = Color3.fromRGB(255, 255, 255)
+		cursorDrawings.circle.Filled = false
+		cursorDrawings.circle.Thickness = 1.5
+		cursorDrawings.circle.Transparency = 1
+		cursorDrawings.circle.Visible = false
 	end
-	if not drawingValid(cursorDrawings.xLine1) then
-		local d = newDrawing("Line")
-		if d then d.Thickness = 1.5 end
-		cursorDrawings.xLine1 = d
+	if not cursorDrawings.xLine1 then
+		cursorDrawings.xLine1 = Drawing.new("Line")
+		cursorDrawings.xLine1.Color = Color3.fromRGB(255, 255, 255)
+		cursorDrawings.xLine1.Thickness = 1.5
+		cursorDrawings.xLine1.Transparency = 1
+		cursorDrawings.xLine1.Visible = false
 	end
-	if not drawingValid(cursorDrawings.xLine2) then
-		local d = newDrawing("Line")
-		if d then d.Thickness = 1.5 end
-		cursorDrawings.xLine2 = d
+	if not cursorDrawings.xLine2 then
+		cursorDrawings.xLine2 = Drawing.new("Line")
+		cursorDrawings.xLine2.Color = Color3.fromRGB(255, 255, 255)
+		cursorDrawings.xLine2.Thickness = 1.5
+		cursorDrawings.xLine2.Transparency = 1
+		cursorDrawings.xLine2.Visible = false
 	end
-	if not drawingValid(cursorDrawings.dot) then
-		local d = newDrawing("Circle")
-		if d then d.Filled = true end
-		cursorDrawings.dot = d
+	if not cursorDrawings.dot then
+		cursorDrawings.dot = Drawing.new("Circle")
+		cursorDrawings.dot.Color = Color3.fromRGB(255, 255, 255)
+		cursorDrawings.dot.Filled = true
+		cursorDrawings.dot.Transparency = 1
+		cursorDrawings.dot.Visible = false
 	end
 	for i = 1, 5 do
 		local key = "arrow" .. i
-		if not drawingValid(cursorDrawings[key]) then
-			local d = newDrawing("Line")
-			if d then d.Thickness = 1.5 end
-			cursorDrawings[key] = d
+		if not cursorDrawings[key] then
+			cursorDrawings[key] = Drawing.new("Line")
+			cursorDrawings[key].Color = Color3.fromRGB(255, 255, 255)
+			cursorDrawings[key].Thickness = 1.5
+			cursorDrawings[key].Transparency = 1
+			cursorDrawings[key].Visible = false
 		end
-	end
-end
-
-local function hideAllCursorDrawings()
-	local function setVis(obj, v)
-		if drawingValid(obj) then
-			pcall(function() obj.Visible = v end)
-		end
-	end
-	setVis(cursorDrawings.square, false)
-	setVis(cursorDrawings.circle, false)
-	setVis(cursorDrawings.xLine1, false)
-	setVis(cursorDrawings.xLine2, false)
-	setVis(cursorDrawings.dot, false)
-	for i = 1, 5 do
-		setVis(cursorDrawings["arrow" .. i], false)
 	end
 end
 
 local function updateCursor()
-	initCursorDrawings()
-	hideAllCursorDrawings()
-
 	if not hasDrawing then return end
+	initCursorDrawings()
+	
+	cursorDrawings.square.Visible = false
+	cursorDrawings.circle.Visible = false
+	cursorDrawings.xLine1.Visible = false
+	cursorDrawings.xLine2.Visible = false
+	if cursorDrawings.dot then cursorDrawings.dot.Visible = false end
+	for i = 1, 5 do
+		local key = "arrow" .. i
+		if cursorDrawings[key] then cursorDrawings[key].Visible = false end
+	end
+	
 	if not Toggles.CustomCursorActive or not Toggles.CustomCursorActive.Value then return end
-
-	local camera = workspace.CurrentCamera
-	if not camera then return end
-	local viewportSize = camera.ViewportSize
-	if not viewportSize or viewportSize.X <= 0 or viewportSize.Y <= 0 then return end
+	
+	local viewportSize = workspace.CurrentCamera.ViewportSize
 	local center = Vector2.new(viewportSize.X / 2, viewportSize.Y / 2)
-
-	local size = 10
-	if Options and Options.CustomCursorSize and Options.CustomCursorSize.Value then
-		size = Options.CustomCursorSize.Value
-	end
-	local cursorType = "X"
-	if Options and Options.CustomCursorType and Options.CustomCursorType.Value then
-		cursorType = Options.CustomCursorType.Value
-	end
-
-	local function set(obj, props)
-		if not drawingValid(obj) then return end
-		pcall(function()
-			for k, v in pairs(props) do
-				obj[k] = v
-			end
-			obj.Visible = true
-		end)
-	end
-
+	local size = Options.CustomCursorSize.Value
+	local cursorType = Options.CustomCursorType.Value
+	
 	if cursorType == "Tiny Square" then
-		set(cursorDrawings.square, {
-			Size = Vector2.new(size, size),
-			Position = center - Vector2.new(size / 2, size / 2),
-		})
+		cursorDrawings.square.Size = Vector2.new(size, size)
+		cursorDrawings.square.Position = center - Vector2.new(size / 2, size / 2)
+		cursorDrawings.square.Visible = true
 	elseif cursorType == "Circle" then
-		set(cursorDrawings.circle, {
-			Radius = size / 2,
-			Position = center,
-		})
+		cursorDrawings.circle.Radius = size / 2
+		cursorDrawings.circle.Position = center
+		cursorDrawings.circle.Visible = true
 	elseif cursorType == "X" then
 		local half = size / 2
-		set(cursorDrawings.xLine1, {
-			From = center - Vector2.new(half, half),
-			To = center + Vector2.new(half, half),
-		})
-		set(cursorDrawings.xLine2, {
-			From = center - Vector2.new(-half, half),
-			To = center + Vector2.new(-half, half),
-		})
+		cursorDrawings.xLine1.From = center - Vector2.new(half, half)
+		cursorDrawings.xLine1.To = center + Vector2.new(half, half)
+		cursorDrawings.xLine1.Visible = true
+		
+		cursorDrawings.xLine2.From = center - Vector2.new(-half, half)
+		cursorDrawings.xLine2.To = center + Vector2.new(-half, half)
+		cursorDrawings.xLine2.Visible = true
 	elseif cursorType == "+" then
 		local half = size / 2
-		set(cursorDrawings.xLine1, {
-			From = center - Vector2.new(half, 0),
-			To = center + Vector2.new(half, 0),
-		})
-		set(cursorDrawings.xLine2, {
-			From = center - Vector2.new(0, half),
-			To = center + Vector2.new(0, half),
-		})
+		cursorDrawings.xLine1.From = center - Vector2.new(half, 0)
+		cursorDrawings.xLine1.To = center + Vector2.new(half, 0)
+		cursorDrawings.xLine1.Visible = true
+		
+		cursorDrawings.xLine2.From = center - Vector2.new(0, half)
+		cursorDrawings.xLine2.To = center + Vector2.new(0, half)
+		cursorDrawings.xLine2.Visible = true
 	elseif cursorType == "Dot" then
-		set(cursorDrawings.dot, {
-			Radius = math.max(1, size / 4),
-			Position = center,
-		})
+		cursorDrawings.dot.Radius = math.max(1, size / 4)
+		cursorDrawings.dot.Position = center
+		cursorDrawings.dot.Visible = true
 	elseif cursorType == "Mouse Arrow" then
 		local p0 = center
 		local p1 = center + Vector2.new(0, size)
 		local p2 = center + Vector2.new(size * 0.7, size * 0.7)
 		local p3 = center + Vector2.new(size * 0.3, size * 0.7)
 		local p4 = center + Vector2.new(size * 0.6, size * 1.0)
-		set(cursorDrawings.arrow1, { From = p0, To = p1 })
-		set(cursorDrawings.arrow2, { From = p0, To = p2 })
-		set(cursorDrawings.arrow3, { From = p1, To = p3 })
-		set(cursorDrawings.arrow4, { From = p2, To = p3 })
-		set(cursorDrawings.arrow5, { From = p3, To = p4 })
+		
+		cursorDrawings.arrow1.From = p0
+		cursorDrawings.arrow1.To = p1
+		cursorDrawings.arrow1.Visible = true
+		
+		cursorDrawings.arrow2.From = p0
+		cursorDrawings.arrow2.To = p2
+		cursorDrawings.arrow2.Visible = true
+		
+		cursorDrawings.arrow3.From = p1
+		cursorDrawings.arrow3.To = p3
+		cursorDrawings.arrow3.Visible = true
+		
+		cursorDrawings.arrow4.From = p2
+		cursorDrawings.arrow4.To = p3
+		cursorDrawings.arrow4.Visible = true
+		
+		cursorDrawings.arrow5.From = p3
+		cursorDrawings.arrow5.To = p4
+		cursorDrawings.arrow5.Visible = true
 	end
 end
 
-local cursorMissingNotified = false
-Toggles.CustomCursorActive:OnChanged(function()
-	if Toggles.CustomCursorActive.Value then
-		initCursorDrawings()
-		if not hasDrawing and not cursorMissingNotified then
-			cursorMissingNotified = true
-			Library:Notify({
-				Title = "Custom Cursor",
-				Description = "Drawing API not supported by this executor.",
-				Time = 4,
-			})
-		end
-	end
-	updateCursor()
-end)
+Toggles.CustomCursorActive:OnChanged(updateCursor)
 Options.CustomCursorType:OnChanged(updateCursor)
 Options.CustomCursorSize:OnChanged(updateCursor)
 
-track("CursorUpdate", RunService.RenderStepped:Connect(function()
-	xpcall(updateCursor, function(err)
-		pcall(function()
-			print("[Cursor] update error:", err)
-		end)
-	end)
-end))
+track("CursorUpdate", RunService.Heartbeat:Connect(updateCursor))
 
 
 -- ==========================================
@@ -5867,6 +5909,7 @@ Library:OnUnload(function()
 	end
 	clearESP()
 	highlightTarget:Destroy()
+	restoreJumpBoostDefaults()
 	workspace.Gravity = 196.2
 	LocalPlayer.CameraMaxZoomDistance = 400
 	LocalPlayer.CameraMinZoomDistance = 0.5
