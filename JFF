@@ -654,6 +654,11 @@ MainLeft:AddToggle("FastPickup", {
 
 local ImmunityGroup = Tabs.Player:AddLeftGroupbox("Immunity", "shield")
 
+ImmunityGroup:AddToggle("NoBossDamage", {
+	Text = "No Boss damage",
+	Default = false,
+})
+
 ImmunityGroup:AddToggle("NoFallDamage", {
 	Text = "No Fall Damage",
 	Default = false,
@@ -1113,10 +1118,15 @@ AdvanceHealGroup:AddDropdown("AutoEatFood", {
 	Default = "Cabbage",
 })
 
-local NoBossDamageGroup = Tabs.Player:AddRightGroupbox("No Boss Damage", "shield")
+local AntiIdleGroup = Tabs.Player:AddRightGroupbox("Anti-Idle", "clock")
 
-NoBossDamageGroup:AddToggle("NoBossDamage", {
-	Text = "No Boss damage",
+AntiIdleGroup:AddToggle("AntiAFK", {
+	Text = "Anti-AFK",
+	Default = false,
+})
+
+AntiIdleGroup:AddToggle("AntiKick", {
+	Text = "Anti-Kick",
 	Default = false,
 })
 
@@ -2752,18 +2762,6 @@ MoveRight:AddSlider("FlySpeed", {
 	Min = 10,
 	Max = 150,
 	Rounding = 0,
-})
-
-local MoveAntiAfk = Tabs.Movement:AddRightGroupbox("Anti-Idle", "clock")
-
-MoveAntiAfk:AddToggle("AntiAFK", {
-	Text = "Anti-AFK",
-	Default = false,
-})
-
-MoveAntiAfk:AddToggle("AntiKick", {
-	Text = "Anti-Kick",
-	Default = false,
 })
 
 local InvisibleFlyGroup = Tabs.Movement:AddRightGroupbox("Invisible Fly", "plane")
