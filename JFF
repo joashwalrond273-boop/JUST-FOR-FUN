@@ -501,79 +501,6 @@ SpectateGroup:AddDropdown("SpectatePlayerList", {
 	Default = "",
 })
 
-local FastArmorGroup = Tabs.Main:AddRightGroupbox("FAST ARMOR UP", "shield")
-
-FastArmorGroup:AddButton({
-	Text = "Bluesteel",
-	Func = function()
-		local character = LocalPlayer.Character
-		local root = character and character:FindFirstChild("HumanoidRootPart")
-		if not root then return end
-		local playerPosition = root.Position
-		
-		local argsPlaceFurnace = {
-			[1] = 199,
-			[2] = CFrame.new(playerPosition.X, playerPosition.Y - 3, playerPosition.Z) * CFrame.Angles(0, 0, 0),
-			[3] = -3.141592653589793
-		}
-		
-		pcall(function()
-			game:GetService("ReplicatedStorage").remoteInterface.interactions.build:InvokeServer(unpack(argsPlaceFurnace))
-		end)
-		
-		local furnace = nil
-		for _, structure in pairs(workspace.placedStructures:GetChildren()) do
-			if structure:FindFirstChild("Bluesteel Furnace") then
-				furnace = structure:FindFirstChild("Bluesteel Furnace")
-				break
-			end
-		end
-		
-		local itemsToCraft = {
-			{197, "Bluesteel Sword"},
-			{201, "Bluesteel Chestplate"},
-			{202, "Bluesteel Pants"},
-			{200, "Bluesteel Helmet"}
-		}
-		
-		for _, item in ipairs(itemsToCraft) do
-			local argsCraft = {
-				[1] = item[1],
-				[2] = furnace,
-				[3] = 1,
-				[4] = 0
-			}
-			pcall(function()
-				game:GetService("ReplicatedStorage").remoteInterface.interactions.craft:InvokeServer(unpack(argsCraft))
-			end)
-		end
-		
-		local itemsToEquip = {
-			{197, "inventory", 1, "equipHotbar"},
-			{200, "inventory", 1, "equipClothing"},
-			{201, "inventory", 2, "equipClothing"},
-			{202, "inventory", 3, "equipClothing"}
-		}
-		
-		for _, equip in ipairs(itemsToEquip) do
-			local argsEquip = {
-				equip[2],
-				equip[3],
-				equip[1]
-			}
-			pcall(function()
-				game:GetService("ReplicatedStorage").remoteInterface.inventory[equip[4]]:InvokeServer(unpack(argsEquip))
-			end)
-		end
-		
-		if furnace then
-			pcall(function()
-				game:GetService("ReplicatedStorage").remoteInterface.interactions.deleteStructure:FireServer(furnace)
-			end)
-		end
-	end,
-})
-
 local TeleportGroup = Tabs.Main:AddRightGroupbox("TELEPORT", "map-pin")
 
 TeleportGroup:AddDropdown("TeleportPlayerList", {
@@ -657,6 +584,79 @@ MainLeft:AddToggle("FastPickup", {
 	Default = false,
 })
 
+local FastArmorGroup = Tabs.Player:AddLeftGroupbox("FAST ARMOR UP", "shield")
+
+FastArmorGroup:AddButton({
+	Text = "Bluesteel",
+	Func = function()
+		local character = LocalPlayer.Character
+		local root = character and character:FindFirstChild("HumanoidRootPart")
+		if not root then return end
+		local playerPosition = root.Position
+		
+		local argsPlaceFurnace = {
+			[1] = 199,
+			[2] = CFrame.new(playerPosition.X, playerPosition.Y - 3, playerPosition.Z) * CFrame.Angles(0, 0, 0),
+			[3] = -3.141592653589793
+		}
+		
+		pcall(function()
+			game:GetService("ReplicatedStorage").remoteInterface.interactions.build:InvokeServer(unpack(argsPlaceFurnace))
+		end)
+		
+		local furnace = nil
+		for _, structure in pairs(workspace.placedStructures:GetChildren()) do
+			if structure:FindFirstChild("Bluesteel Furnace") then
+				furnace = structure:FindFirstChild("Bluesteel Furnace")
+				break
+			end
+		end
+		
+		local itemsToCraft = {
+			{197, "Bluesteel Sword"},
+			{201, "Bluesteel Chestplate"},
+			{202, "Bluesteel Pants"},
+			{200, "Bluesteel Helmet"}
+		}
+		
+		for _, item in ipairs(itemsToCraft) do
+			local argsCraft = {
+				[1] = item[1],
+				[2] = furnace,
+				[3] = 1,
+				[4] = 0
+			}
+			pcall(function()
+				game:GetService("ReplicatedStorage").remoteInterface.interactions.craft:InvokeServer(unpack(argsCraft))
+			end)
+		end
+		
+		local itemsToEquip = {
+			{197, "inventory", 1, "equipHotbar"},
+			{200, "inventory", 1, "equipClothing"},
+			{201, "inventory", 2, "equipClothing"},
+			{202, "inventory", 3, "equipClothing"}
+		}
+		
+		for _, equip in ipairs(itemsToEquip) do
+			local argsEquip = {
+				equip[2],
+				equip[3],
+				equip[1]
+			}
+			pcall(function()
+				game:GetService("ReplicatedStorage").remoteInterface.inventory[equip[4]]:InvokeServer(unpack(argsEquip))
+			end)
+		end
+		
+		if furnace then
+			pcall(function()
+				game:GetService("ReplicatedStorage").remoteInterface.interactions.deleteStructure:FireServer(furnace)
+			end)
+		end
+	end,
+})
+
 local ImmunityGroup = Tabs.Player:AddLeftGroupbox("Immunity", "shield")
 
 ImmunityGroup:AddToggle("NoBossDamage", {
@@ -733,23 +733,6 @@ MainRight:AddButton({
                             end
                     end
             end
-	end,
-})
-
-MainRight:AddButton({
-	Text = "Delete Water",
-	Func = function()
-		local targets = {
-			LocalPlayer:FindFirstChild("PlayerScripts") and LocalPlayer.PlayerScripts:FindFirstChild("Swim"),
-			game:GetService("Lighting"):FindFirstChild("water"),
-			game:GetService("Lighting"):FindFirstChild("waterBlur")
-		}
-		for _, obj in ipairs(targets) do
-			if obj then
-				pcall(function() obj:Destroy() end)
-			end
-		end
-		Library:Notify({ Title = "Delete Water", Description = "Water scripts and post-processing cleared.", Time = 3 })
 	end,
 })
 
@@ -4292,6 +4275,47 @@ VisualFPS:AddToggle("StretchedRES", {
 	end,
 })
 
+VisualFPS:AddToggle("DeleteWater", {
+	Text = "Delete Water",
+	Default = false,
+	Callback = function(state)
+		local Lighting = game:GetService("Lighting")
+		local function destroyWaterTargets()
+			local targets = {
+				LocalPlayer:FindFirstChild("PlayerScripts") and LocalPlayer.PlayerScripts:FindFirstChild("Swim"),
+				Lighting:FindFirstChild("water"),
+				Lighting:FindFirstChild("waterBlur")
+			}
+			for _, obj in ipairs(targets) do
+				if obj then
+					pcall(function() obj:Destroy() end)
+				end
+			end
+		end
+		if state then
+			destroyWaterTargets()
+			track("DeleteWater_Lighting", Lighting.ChildAdded:Connect(function(child)
+				if child and (child.Name == "water" or child.Name == "waterBlur") then
+					pcall(function() child:Destroy() end)
+				end
+			end))
+			if LocalPlayer:FindFirstChild("PlayerScripts") then
+				track("DeleteWater_Swim", LocalPlayer.PlayerScripts.ChildAdded:Connect(function(child)
+					if child and child.Name == "Swim" then
+						pcall(function() child:Destroy() end)
+					end
+				end))
+			end
+			track("DeleteWater_Heartbeat", RunService.Heartbeat:Connect(destroyWaterTargets))
+			Library:Notify({ Title = "Delete Water", Description = "Water scripts and post-processing cleared.", Time = 3 })
+		else
+			disconnect("DeleteWater_Lighting")
+			disconnect("DeleteWater_Swim")
+			disconnect("DeleteWater_Heartbeat")
+		end
+	end,
+})
+
 
 VisualLeft:AddToggle("PlayerESP", {
 	Text = "Player ESP",
@@ -5742,6 +5766,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.StretchedRES and Toggles.StretchedRES.Value then
 		Toggles.StretchedRES:SetValue(false)
+	end
+	if Toggles.DeleteWater and Toggles.DeleteWater.Value then
+		Toggles.DeleteWater:SetValue(false)
 	end
 	if Toggles.AntiAFK and Toggles.AntiAFK.Value then
 		Toggles.AntiAFK:SetValue(false)
