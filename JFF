@@ -2764,21 +2764,6 @@ MoveRight:AddSlider("FlySpeed", {
 	Rounding = 0,
 })
 
-local HighJumpGroup = Tabs.Movement:AddRightGroupbox("High Jump", "arrow-up")
-
-HighJumpGroup:AddToggle("JumpBoost", {
-	Text = "Jump Boost",
-	Default = false,
-})
-
-HighJumpGroup:AddSlider("JumpPower", {
-	Text = "Jump Power",
-	Default = 150,
-	Min = 50,
-	Max = 1000,
-	Rounding = 0,
-})
-
 local InvisibleFlyGroup = Tabs.Movement:AddRightGroupbox("Invisible Fly", "plane")
 
 InvisibleFlyGroup:AddToggle("InvisibleFlyToggle", {
@@ -3147,75 +3132,6 @@ end))
 if LocalPlayer.Character then
 	setupAnimationSpeedHacks(LocalPlayer.Character)
 end
-
-local DEFAULT_JUMP_POWER = 50
-local lastStoredJumpPower = DEFAULT_JUMP_POWER
-
-local function applyJumpBoost(notify)
-	local char = getCharacter()
-	local hum = char and char:FindFirstChildOfClass("Humanoid")
-	if not hum then return end
-
-	if Toggles.JumpBoost.Value then
-		local ok = pcall(function() hum.UseJumpPower = true end)
-		if not ok then
-			pcall(function() hum.UseJumpPower = true end)
-		end
-		lastStoredJumpPower = hum.JumpPower or lastStoredJumpPower
-		local target = Options.JumpPower and Options.JumpPower.Value or 150
-		hum.JumpPower = tonumber(target) or 150
-		if notify then
-			Library:Notify({ Title = "Jump Boost", Description = "Enabled", Time = 2 })
-		end
-	else
-		pcall(function() hum.UseJumpPower = true end)
-		hum.JumpPower = lastStoredJumpPower or DEFAULT_JUMP_POWER
-		lastStoredJumpPower = DEFAULT_JUMP_POWER
-	end
-end
-
-local function restoreJumpBoostDefaults()
-	local char = getCharacter()
-	local hum = char and char:FindFirstChildOfClass("Humanoid")
-	if hum then
-		pcall(function() hum.UseJumpPower = true end)
-		hum.JumpPower = lastStoredJumpPower or DEFAULT_JUMP_POWER
-	end
-	lastStoredJumpPower = DEFAULT_JUMP_POWER
-end
-
-Toggles.JumpBoost:OnChanged(function()
-	applyJumpBoost(true)
-end)
-
-Options.JumpPower:OnChanged(function()
-	if Toggles.JumpBoost.Value then
-		applyJumpBoost(false)
-	end
-end)
-
-track("JumpBoostCharAdded", LocalPlayer.CharacterAdded:Connect(function()
-	task.wait(0.75)
-	if Toggles.JumpBoost.Value then
-		applyJumpBoost(false)
-	else
-		lastStoredJumpPower = DEFAULT_JUMP_POWER
-	end
-end))
-
-track("JumpBoostHeartbeat", RunService.Heartbeat:Connect(function()
-	if Toggles.JumpBoost.Value then
-		local char = getCharacter()
-		local hum = char and char:FindFirstChildOfClass("Humanoid")
-		if hum then
-			pcall(function() hum.UseJumpPower = true end)
-			local target = Options.JumpPower and Options.JumpPower.Value or 150
-			if hum.JumpPower ~= (tonumber(target) or 150) then
-				hum.JumpPower = tonumber(target) or 150
-			end
-		end
-	end
-end))
 
 -- ==========================================
 -- FARMING
@@ -5909,7 +5825,6 @@ Library:OnUnload(function()
 	end
 	clearESP()
 	highlightTarget:Destroy()
-	restoreJumpBoostDefaults()
 	workspace.Gravity = 196.2
 	LocalPlayer.CameraMaxZoomDistance = 400
 	LocalPlayer.CameraMinZoomDistance = 0.5
