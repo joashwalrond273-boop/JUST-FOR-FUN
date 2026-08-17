@@ -647,32 +647,34 @@ MainLeft:AddToggle("InfiniteJump", {
 	Default = false,
 })
 
-MainLeft:AddToggle("NoFallDamage", {
-	Text = "No Fall Damage",
-	Default = false,
-})
-
-MainLeft:AddToggle("NoGliderCooldown", {
-	Text = "No Glider Cooldown",
-	Default = false,
-})
-
-MainLeft:AddToggle("NoBearTrapDMG", {
-	Text = "No Bear Trap DMG",
-	Default = false,
-})
-
 MainLeft:AddToggle("FastPickup", {
 	Text = "Auto Pickup",
 	Default = false,
 })
 
-MainLeft:AddToggle("AntiLava", {
+local ImmunityGroup = Tabs.Player:AddLeftGroupbox("Immunity", "shield")
+
+ImmunityGroup:AddToggle("NoFallDamage", {
+	Text = "No Fall Damage",
+	Default = false,
+})
+
+ImmunityGroup:AddToggle("NoGliderCooldown", {
+	Text = "No Glider Cooldown",
+	Default = false,
+})
+
+ImmunityGroup:AddToggle("NoBearTrapDMG", {
+	Text = "No Bear Trap DMG",
+	Default = false,
+})
+
+ImmunityGroup:AddToggle("AntiLava", {
 	Text = "Anti Fire / Lava",
 	Default = false,
 })
 
-MainLeft:AddToggle("AutoAirBubbles", {
+ImmunityGroup:AddToggle("AutoAirBubbles", {
 	Text = "Auto Air Bubbles",
 	Default = false,
 })
