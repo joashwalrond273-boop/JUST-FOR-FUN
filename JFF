@@ -417,6 +417,79 @@ local function disconnect(name)
 	end
 end
 
+local FastArmorGroup = Tabs.Player:AddLeftGroupbox("FAST ARMOR UP", "shield")
+
+FastArmorGroup:AddButton({
+	Text = "Bluesteel",
+	Func = function()
+		local character = LocalPlayer.Character
+		local root = character and character:FindFirstChild("HumanoidRootPart")
+		if not root then return end
+		local playerPosition = root.Position
+		
+		local argsPlaceFurnace = {
+			[1] = 199,
+			[2] = CFrame.new(playerPosition.X, playerPosition.Y - 3, playerPosition.Z) * CFrame.Angles(0, 0, 0),
+			[3] = -3.141592653589793
+		}
+		
+		pcall(function()
+			game:GetService("ReplicatedStorage").remoteInterface.interactions.build:InvokeServer(unpack(argsPlaceFurnace))
+		end)
+		
+		local furnace = nil
+		for _, structure in pairs(workspace.placedStructures:GetChildren()) do
+			if structure:FindFirstChild("Bluesteel Furnace") then
+				furnace = structure:FindFirstChild("Bluesteel Furnace")
+				break
+			end
+		end
+		
+		local itemsToCraft = {
+			{197, "Bluesteel Sword"},
+			{201, "Bluesteel Chestplate"},
+			{202, "Bluesteel Pants"},
+			{200, "Bluesteel Helmet"}
+		}
+		
+		for _, item in ipairs(itemsToCraft) do
+			local argsCraft = {
+				[1] = item[1],
+				[2] = furnace,
+				[3] = 1,
+				[4] = 0
+			}
+			pcall(function()
+				game:GetService("ReplicatedStorage").remoteInterface.interactions.craft:InvokeServer(unpack(argsCraft))
+			end)
+		end
+		
+		local itemsToEquip = {
+			{197, "inventory", 1, "equipHotbar"},
+			{200, "inventory", 1, "equipClothing"},
+			{201, "inventory", 2, "equipClothing"},
+			{202, "inventory", 3, "equipClothing"}
+		}
+		
+		for _, equip in ipairs(itemsToEquip) do
+			local argsEquip = {
+				equip[2],
+				equip[3],
+				equip[1]
+			}
+			pcall(function()
+				game:GetService("ReplicatedStorage").remoteInterface.inventory[equip[4]]:InvokeServer(unpack(argsEquip))
+			end)
+		end
+		
+		if furnace then
+			pcall(function()
+				game:GetService("ReplicatedStorage").remoteInterface.interactions.deleteStructure:FireServer(furnace)
+			end)
+		end
+	end,
+})
+
 -- ==========================================
 -- MAIN
 -- ==========================================
@@ -582,79 +655,6 @@ MainLeft:AddToggle("NoGliderCooldown", {
 MainLeft:AddToggle("FastPickup", {
 	Text = "Auto Pickup",
 	Default = false,
-})
-
-local FastArmorGroup = Tabs.Player:AddLeftGroupbox("FAST ARMOR UP", "shield")
-
-FastArmorGroup:AddButton({
-	Text = "Bluesteel",
-	Func = function()
-		local character = LocalPlayer.Character
-		local root = character and character:FindFirstChild("HumanoidRootPart")
-		if not root then return end
-		local playerPosition = root.Position
-		
-		local argsPlaceFurnace = {
-			[1] = 199,
-			[2] = CFrame.new(playerPosition.X, playerPosition.Y - 3, playerPosition.Z) * CFrame.Angles(0, 0, 0),
-			[3] = -3.141592653589793
-		}
-		
-		pcall(function()
-			game:GetService("ReplicatedStorage").remoteInterface.interactions.build:InvokeServer(unpack(argsPlaceFurnace))
-		end)
-		
-		local furnace = nil
-		for _, structure in pairs(workspace.placedStructures:GetChildren()) do
-			if structure:FindFirstChild("Bluesteel Furnace") then
-				furnace = structure:FindFirstChild("Bluesteel Furnace")
-				break
-			end
-		end
-		
-		local itemsToCraft = {
-			{197, "Bluesteel Sword"},
-			{201, "Bluesteel Chestplate"},
-			{202, "Bluesteel Pants"},
-			{200, "Bluesteel Helmet"}
-		}
-		
-		for _, item in ipairs(itemsToCraft) do
-			local argsCraft = {
-				[1] = item[1],
-				[2] = furnace,
-				[3] = 1,
-				[4] = 0
-			}
-			pcall(function()
-				game:GetService("ReplicatedStorage").remoteInterface.interactions.craft:InvokeServer(unpack(argsCraft))
-			end)
-		end
-		
-		local itemsToEquip = {
-			{197, "inventory", 1, "equipHotbar"},
-			{200, "inventory", 1, "equipClothing"},
-			{201, "inventory", 2, "equipClothing"},
-			{202, "inventory", 3, "equipClothing"}
-		}
-		
-		for _, equip in ipairs(itemsToEquip) do
-			local argsEquip = {
-				equip[2],
-				equip[3],
-				equip[1]
-			}
-			pcall(function()
-				game:GetService("ReplicatedStorage").remoteInterface.inventory[equip[4]]:InvokeServer(unpack(argsEquip))
-			end)
-		end
-		
-		if furnace then
-			pcall(function()
-				game:GetService("ReplicatedStorage").remoteInterface.interactions.deleteStructure:FireServer(furnace)
-			end)
-		end
-	end,
 })
 
 local ImmunityGroup = Tabs.Player:AddLeftGroupbox("Immunity", "shield")
@@ -1513,7 +1513,15 @@ CombatPhantomAura:AddSlider("RangeAura", {
 	Rounding = 1,
 })
 
-local CombatAutoSwing = Tabs.Combat:AddLeftGroupbox("Auto Swing", "swords")
+CombatPhantomAura:AddSlider("OrbitAdjust", {
+	Text = "Orbit Adjust",
+	Default = 2,
+	Min = -10,
+	Max = 15,
+	Rounding = 1,
+})
+
+local CombatAutoSwing = Tabs.Combat:AddLeftGroupbox("Auto PVP", "swords")
 
 CombatAutoSwing:AddToggle("AutoSwing", {
 	Text = "+ Auto Swing",
@@ -2331,7 +2339,7 @@ local phantomModeVars = {
 	active = false,
 	orbitAngle = 0,
 	orbitRadius = 5,
-	orbitHeight = 2,
+	orbitHeight = Options.OrbitAdjust.Value,
 	orbitSpeed = 60,
 	targetPlayer = nil
 }
@@ -2443,6 +2451,10 @@ Toggles.PhantomMode:OnChanged(function()
 		end
 		Library:Notify({ Title = "Phantom Mode", Description = "Disabled", Time = 2 })
 	end
+end)
+
+Options.OrbitAdjust:OnChanged(function()
+	phantomModeVars.orbitHeight = Options.OrbitAdjust.Value
 end)
 
 Toggles.Reach:OnChanged(function()
