@@ -2607,20 +2607,6 @@ MoveFaze:AddToggle("Noclip", {
 	Default = false,
 })
 
-MoveFaze:AddToggle("FakeLag", {
-	Text = "Fake Lag",
-	Default = false,
-})
-
-MoveFaze:AddSlider("FakeLagValue", {
-	Text = "Fake Lag Limit",
-	Default = 50,
-	Min = 0,
-	Max = 100,
-	Rounding = 0,
-	Compact = false,
-})
-
 MoveFaze:AddToggle("Xray", {
 	Text = "Xray",
 	Default = false,
@@ -2757,6 +2743,22 @@ MoveRight:AddSlider("FlySpeed", {
 	Min = 10,
 	Max = 150,
 	Rounding = 0,
+})
+
+local FakeLagGroup = Tabs.Movement:AddRightGroupbox("Fake Lag", "zap")
+
+FakeLagGroup:AddToggle("FakeLag", {
+	Text = "Fake Lag",
+	Default = false,
+})
+
+FakeLagGroup:AddSlider("FakeLagValue", {
+	Text = "Fake Lag Limit",
+	Default = 50,
+	Min = 0,
+	Max = 100,
+	Rounding = 0,
+	Compact = false,
 })
 
 local InvisibleFlyGroup = Tabs.Movement:AddRightGroupbox("Invisible Fly", "plane")
