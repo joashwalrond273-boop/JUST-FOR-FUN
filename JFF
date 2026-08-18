@@ -2144,39 +2144,177 @@ Toggles.AutoHop:OnChanged(function()
 end)
 
 local autoShiftlockVars = {
-	origCameraOffset = nil
+	origCameraOffset = nil,
+	screenGui = nil,
+	toggleButton = nil,
+	crosshair = nil,
+	shiftLockEnabled = false,
+	cameraOffset = Vector3.new(1.7, 0.5, 0),
+	dragging = false,
+	dragInput = nil,
+	dragStart = nil,
+	startPos = nil,
+	dragCon1 = nil,
+	dragCon2 = nil,
+	dragCon3 = nil,
+	activatedCon = nil,
+	renderCon = nil,
+	charAddedCon = nil
 }
+
+local function destroyMobileShiftlockGui()
+	if autoShiftlockVars.charAddedCon then
+		autoShiftlockVars.charAddedCon:Disconnect()
+		autoShiftlockVars.charAddedCon = nil
+	end
+	if autoShiftlockVars.dragCon1 then autoShiftlockVars.dragCon1:Disconnect() end
+	if autoShiftlockVars.dragCon2 then autoShiftlockVars.dragCon2:Disconnect() end
+	if autoShiftlockVars.dragCon3 then autoShiftlockVars.dragCon3:Disconnect() end
+	if autoShiftlockVars.activatedCon then autoShiftlockVars.activatedCon:Disconnect() end
+	if autoShiftlockVars.renderCon then autoShiftlockVars.renderCon:Disconnect() end
+	autoShiftlockVars.dragCon1 = nil
+	autoShiftlockVars.dragCon2 = nil
+	autoShiftlockVars.dragCon3 = nil
+	autoShiftlockVars.activatedCon = nil
+	autoShiftlockVars.renderCon = nil
+	if autoShiftlockVars.screenGui then
+		pcall(function() autoShiftlockVars.screenGui:Destroy() end)
+	end
+	autoShiftlockVars.screenGui = nil
+	autoShiftlockVars.toggleButton = nil
+	autoShiftlockVars.crosshair = nil
+end
+
+local function resetMobileShiftlockState()
+	autoShiftlockVars.shiftLockEnabled = false
+	local hum = getHumanoid()
+	if hum then
+		hum.AutoRotate = true
+		hum.CameraOffset = autoShiftlockVars.origCameraOffset or Vector3.zero
+	end
+end
 
 Toggles.AutoShiftlock:OnChanged(function()
 	disconnect("AutoShiftlock")
+	destroyMobileShiftlockGui()
+	resetMobileShiftlockState()
+
 	if Toggles.AutoShiftlock.Value then
 		local hum = getHumanoid()
 		if hum then
 			autoShiftlockVars.origCameraOffset = hum.CameraOffset
-			hum.CameraOffset = Vector3.new(1.75, 0, 0)
 		end
-		track("AutoShiftlock", RunService.Heartbeat:Connect(function()
-			if not isAlive() then return end
-			local root = getRootPart()
-			local hum = getHumanoid()
-			if not root or not hum then return end
 
-			UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
-			UserInputService.MouseIconEnabled = false
+		local playerGui = LocalPlayer:WaitForChild("PlayerGui")
+		local screenGui = Instance.new("ScreenGui")
+		screenGui.Name = "MobileShiftlockGUI"
+		screenGui.ResetOnSpawn = false
+		screenGui.Parent = playerGui
+		autoShiftlockVars.screenGui = screenGui
 
-			local camera = workspace.CurrentCamera
-			if camera then
-				local camCFrame = camera.CFrame
-				local lookDir = Vector3.new(camCFrame.LookVector.X, 0, camCFrame.LookVector.Z).Unit
-				if lookDir.Magnitude > 0 then
-					hum.AutoRotate = false
-					root.CFrame = CFrame.new(root.Position, root.Position + lookDir)
+		local toggleButton = Instance.new("ImageButton")
+		toggleButton.Name = "ShiftlockButton"
+		toggleButton.Parent = screenGui
+		toggleButton.BackgroundTransparency = 1
+		toggleButton.Size = UDim2.new(0, 60, 0, 60)
+		toggleButton.Position = UDim2.new(0.85, -30, 0.5, -30)
+		toggleButton.Image = "rbxasset://textures/ui/mouseLock_off@2x.png"
+		autoShiftlockVars.toggleButton = toggleButton
+
+		local crosshair = Instance.new("ImageLabel")
+		crosshair.Name = "ShiftlockCursor"
+		crosshair.Parent = screenGui
+		crosshair.BackgroundTransparency = 1
+		crosshair.Position = UDim2.new(0.5, 0, 0.5, 0)
+		crosshair.AnchorPoint = Vector2.new(0.5, 0.5)
+		crosshair.Size = UDim2.new(0, 22, 0, 22)
+		crosshair.Image = "rbxasset://textures/MouseLockedCursor.png"
+		crosshair.Visible = false
+		autoShiftlockVars.crosshair = crosshair
+
+		local function update(input)
+			local delta = input.Position - autoShiftlockVars.dragStart
+			toggleButton.Position = UDim2.new(
+				autoShiftlockVars.startPos.X.Scale,
+				autoShiftlockVars.startPos.X.Offset + delta.X,
+				autoShiftlockVars.startPos.Y.Scale,
+				autoShiftlockVars.startPos.Y.Offset + delta.Y
+			)
+		end
+
+		autoShiftlockVars.dragCon1 = toggleButton.InputBegan:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+				autoShiftlockVars.dragging = true
+				autoShiftlockVars.dragStart = input.Position
+				autoShiftlockVars.startPos = toggleButton.Position
+
+				input.Changed:Connect(function()
+					if input.UserInputState == Enum.UserInputState.End then
+						autoShiftlockVars.dragging = false
+					end
+				end)
+			end
+		end)
+
+		autoShiftlockVars.dragCon2 = toggleButton.InputChanged:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+				autoShiftlockVars.dragInput = input
+			end
+		end)
+
+		autoShiftlockVars.dragCon3 = UserInputService.InputChanged:Connect(function(input)
+			if input == autoShiftlockVars.dragInput and autoShiftlockVars.dragging then
+				update(input)
+			end
+		end)
+
+		autoShiftlockVars.activatedCon = toggleButton.Activated:Connect(function()
+			autoShiftlockVars.shiftLockEnabled = not autoShiftlockVars.shiftLockEnabled
+
+			if autoShiftlockVars.shiftLockEnabled then
+				toggleButton.Image = "rbxasset://textures/ui/mouseLock_on@2x.png"
+				crosshair.Visible = true
+				if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+					LocalPlayer.Character.Humanoid.AutoRotate = false
+				end
+			else
+				toggleButton.Image = "rbxasset://textures/ui/mouseLock_off@2x.png"
+				crosshair.Visible = false
+				if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+					LocalPlayer.Character.Humanoid.AutoRotate = true
+					LocalPlayer.Character.Humanoid.CameraOffset = Vector3.new(0, 0, 0)
 				end
 			end
-		end))
+		end)
+
+		autoShiftlockVars.renderCon = RunService.RenderStepped:Connect(function()
+			if autoShiftlockVars.shiftLockEnabled then
+				if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character:FindFirstChild("Humanoid") then
+					LocalPlayer.Character.Humanoid.CameraOffset = autoShiftlockVars.cameraOffset
+
+					local rootPart = LocalPlayer.Character.HumanoidRootPart
+					local camera = workspace.CurrentCamera
+					if not camera then return end
+					local lookVector = camera.CFrame.LookVector
+
+					rootPart.CFrame = CFrame.new(
+						rootPart.Position,
+						rootPart.Position + Vector3.new(lookVector.X, 0, lookVector.Z)
+					)
+				end
+			end
+		end)
+
+		autoShiftlockVars.charAddedCon = LocalPlayer.CharacterAdded:Connect(function()
+			if autoShiftlockVars.shiftLockEnabled and autoShiftlockVars.toggleButton then
+				autoShiftlockVars.toggleButton.Image = "rbxasset://textures/ui/mouseLock_off@2x.png"
+			end
+			if autoShiftlockVars.crosshair then
+				autoShiftlockVars.crosshair.Visible = false
+			end
+			autoShiftlockVars.shiftLockEnabled = false
+		end)
 	else
-		UserInputService.MouseBehavior = Enum.MouseBehavior.Default
-		UserInputService.MouseIconEnabled = true
 		local hum = getHumanoid()
 		if hum then
 			hum.AutoRotate = true
@@ -5859,6 +5997,15 @@ Library:OnUnload(function()
 				local key = "arrow" .. i
 				if cursorDrawings[key] then cursorDrawings[key]:Remove() end
 			end
+		end
+		if autoShiftlockVars then
+			if autoShiftlockVars.charAddedCon then autoShiftlockVars.charAddedCon:Disconnect() end
+			if autoShiftlockVars.dragCon1 then autoShiftlockVars.dragCon1:Disconnect() end
+			if autoShiftlockVars.dragCon2 then autoShiftlockVars.dragCon2:Disconnect() end
+			if autoShiftlockVars.dragCon3 then autoShiftlockVars.dragCon3:Disconnect() end
+			if autoShiftlockVars.activatedCon then autoShiftlockVars.activatedCon:Disconnect() end
+			if autoShiftlockVars.renderCon then autoShiftlockVars.renderCon:Disconnect() end
+			if autoShiftlockVars.screenGui then autoShiftlockVars.screenGui:Destroy() end
 		end
 	end)
 	for name in pairs(Connections) do
