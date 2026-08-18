@@ -3917,7 +3917,7 @@ for _, loc in ipairs(extraLocations) do
 end
 
 -- READ THIS FIRST Groupbox (placed above Trick Spawn)
-local ReadThisFirstGroup = Tabs.Teleport:AddRightGroupbox("READ THIS FIRST", "alert-circle")
+local ReadThisFirstGroup = Tabs.Teleport:AddRightGroupbox("READ THIS FIRST!!", "alert-circle")
 
 do
 	local warnLabel = ReadThisFirstGroup:AddLabel("Always reset before teleport")
@@ -3934,7 +3934,7 @@ end
 local ResetTeleportGroup = Tabs.Teleport:AddRightGroupbox("Trick Spawn", "refresh-cw")
 
 ResetTeleportGroup:AddToggle("ResetCharacter", {
-	Text = "Reset Character",
+	Text = "Death Spawn",
 	Default = false,
 })
 
