@@ -27,10 +27,6 @@ local Options = Library.Options
 local Toggles = Library.Toggles
 local lastDeathPosition = nil
 local shouldTeleportBack = false
-local emoteActive = false
-local crawlerActive = false
-local crawlerCharacterAddedConn = nil
-local applyCrawler, removeCrawler
 
 Library.ShowToggleFrameInKeybinds = true
 
@@ -500,45 +496,14 @@ local MainLeft = Tabs.Player:AddLeftGroupbox("Player", "user")
 
 local MiscGroup = Tabs.Player:AddRightGroupbox("Misc", "sparkles")
 
-MiscGroup:AddToggle("Emote", {
+MiscGroup:AddButton({
 	Text = "Emote",
-	Default = false,
-	Callback = function(state)
-		if state then
-			emoteActive = true
-			pcall(function()
-				loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-AFEM-Max-Open-Alpha-50210"))()
-			end)
-			Library:Notify({ Title = "MISC", Description = "Emote loaded!", Time = 2 })
-		else
-			emoteActive = false
-		end
+	Func = function()
+		pcall(function()
+			loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-AFEM-Max-Open-Alpha-50210"))()
+		end)
 	end,
 })
-
-MiscGroup:AddToggle("CrawlerToggle", {
-	Text = "Crawler",
-	Default = false,
-})
-
-Toggles.CrawlerToggle:OnChanged(function(state)
-	crawlerActive = state
-	if crawlerCharacterAddedConn then
-		crawlerCharacterAddedConn:Disconnect()
-		crawlerCharacterAddedConn = nil
-	end
-
-	if state then
-		crawlerCharacterAddedConn = LocalPlayer.CharacterAdded:Connect(applyCrawler)
-		if LocalPlayer.Character then
-			applyCrawler(LocalPlayer.Character)
-		end
-		Library:Notify({ Title = "ANIMATIONS", Description = "Crawler mode enabled!", Time = 2 })
-	else
-		removeCrawler(LocalPlayer.Character)
-		Library:Notify({ Title = "ANIMATIONS", Description = "Crawler mode disabled.", Time = 2 })
-	end
-end)
 
 local MainRight = Tabs.Player:AddRightGroupbox("Settings", "settings")
 
@@ -3955,7 +3920,7 @@ end
 local ReadThisFirstGroup = Tabs.Teleport:AddRightGroupbox("READ THIS FIRST", "alert-circle")
 
 do
-	local warnLabel = ReadThisFirstGroup:AddLabel("Always reset before using any of these teleport buttons, That includes the ore farm, spectate and player teleport")
+	local warnLabel = ReadThisFirstGroup:AddLabel("Always reset before teleport")
 	pcall(function()
 		if warnLabel and warnLabel.Label then
 			warnLabel.Label.TextColor3 = Color3.fromRGB(255, 80, 80)
@@ -5348,122 +5313,6 @@ end
 
 Toggles.InvisibleFlyToggle:OnChanged(onInvisibleFlyToggle)
 
--- Crawler Script Logic
-local crawlerRunningConn = nil
-local crawlerStateConn = nil
-local crawlerWalkTrack = nil
-local originalAnims = {}
-
-applyCrawler = function(character)
-	if not crawlerActive then return end
-	local humanoid = character:WaitForChild("Humanoid", 10)
-	if not humanoid or humanoid.RigType ~= Enum.HumanoidRigType.R15 then return end
-	local animator = humanoid:WaitForChild("Animator", 10)
-	if not animator then return end
-
-	-- Stop currently playing animations
-	for _, trackObj in ipairs(animator:GetPlayingAnimationTracks()) do
-		pcall(function() trackObj:Stop(0.1) end)
-	end
-
-	local animateScript = character:WaitForChild("Animate", 10)
-	if not animateScript then return end
-	local idle = animateScript:WaitForChild("idle", 5)
-	local walk = animateScript:WaitForChild("walk", 5)
-	local run = animateScript:WaitForChild("run", 5)
-	if not idle or not walk or not run then return end
-
-	-- Save original animations
-	if not originalAnims.idle1 then
-		originalAnims.idle1 = idle.Animation1.AnimationId
-		originalAnims.idle2 = idle.Animation2.AnimationId
-		originalAnims.walk = walk.WalkAnim.AnimationId
-		originalAnims.run = run.RunAnim.AnimationId
-	end
-
-	-- Assign crawler animation IDs (wrapped in pcall to avoid errors)
-	pcall(function()
-		idle.Animation1.AnimationId = "http://www.roblox.com/asset/?id=80103653497738"
-		idle.Animation2.AnimationId = "http://www.roblox.com/asset/?id=75794256017298"
-		walk.WalkAnim.AnimationId = "http://www.roblox.com/asset/?id=88508412373927"
-		run.RunAnim.AnimationId = "http://www.roblox.com/asset/?id=88508412373927"
-	end)
-
-	-- Load custom walk animation (wrapped in pcall)
-	local walkAnim = Instance.new("Animation")
-	walkAnim.AnimationId = "rbxassetid://88508412373927"
-	pcall(function()
-		crawlerWalkTrack = animator:LoadAnimation(walkAnim)
-		if crawlerWalkTrack then
-			crawlerWalkTrack.Priority = Enum.AnimationPriority.Movement
-		end
-	end)
-
-	-- Track running state
-	crawlerRunningConn = humanoid.Running:Connect(function(speed)
-		if speed > 0 and speed <= 16 then
-			if crawlerWalkTrack and not crawlerWalkTrack.IsPlaying then
-				crawlerWalkTrack:Play()
-			end
-		else
-			if crawlerWalkTrack and crawlerWalkTrack.IsPlaying then
-				crawlerWalkTrack:Stop(0.1)
-			end
-		end
-	end)
-
-	-- Track state changes
-	crawlerStateConn = humanoid.StateChanged:Connect(function(_, newState)
-		if newState == Enum.HumanoidStateType.Jumping
-			or newState == Enum.HumanoidStateType.Freefall
-			or newState == Enum.HumanoidStateType.Climbing then
-			if crawlerWalkTrack and crawlerWalkTrack.IsPlaying then
-				crawlerWalkTrack:Stop(0.1)
-			end
-		end
-	end)
-end
-
-removeCrawler = function(character)
-	if crawlerWalkTrack then
-		pcall(function() crawlerWalkTrack:Stop(0.1) end)
-		crawlerWalkTrack = nil
-	end
-	if crawlerRunningConn then
-		crawlerRunningConn:Disconnect()
-		crawlerRunningConn = nil
-	end
-	if crawlerStateConn then
-		crawlerStateConn:Disconnect()
-		crawlerStateConn = nil
-	end
-
-	if character then
-		local animateScript = character:FindFirstChild("Animate")
-		local idle = animateScript and animateScript:FindFirstChild("idle")
-		local walk = animateScript and animateScript:FindFirstChild("walk")
-		local run = animateScript and animateScript:FindFirstChild("run")
-
-		if idle and walk and run and originalAnims.idle1 then
-			pcall(function()
-				idle.Animation1.AnimationId = originalAnims.idle1
-				idle.Animation2.AnimationId = originalAnims.idle2
-				walk.WalkAnim.AnimationId = originalAnims.walk
-				run.RunAnim.AnimationId = originalAnims.run
-			end)
-		end
-		
-		-- Restart animations by playing default idle
-		local humanoid = character:FindFirstChildOfClass("Humanoid")
-		local animator = humanoid and humanoid:FindFirstChild("Animator")
-		if animator then
-			for _, trackObj in ipairs(animator:GetPlayingAnimationTracks()) do
-				pcall(function() trackObj:Stop(0.1) end)
-			end
-		end
-	end
-end
-
 -- Teleport Script Logic
 local function resetAndTeleport(targetName)
 	if not targetName or targetName == "" then
@@ -5731,9 +5580,6 @@ Library:OnUnload(function()
 	end
 	if Toggles.SpectateToggle and Toggles.SpectateToggle.Value then
 		Toggles.SpectateToggle:SetValue(false)
-	end
-	if Toggles.CrawlerToggle and Toggles.CrawlerToggle.Value then
-		Toggles.CrawlerToggle:SetValue(false)
 	end
 	if Toggles.NoBearTrapDMG and Toggles.NoBearTrapDMG.Value then
 		Toggles.NoBearTrapDMG:SetValue(false)
