@@ -1,4 +1,4 @@
- -- URIEL | Obsidian UI
+-- URIEL | Obsidian UI
 -- Docs: https://docs.mspaint.cc/obsidian
 
 if getgenv().TSG_OBSIDIAN_LOADED then
@@ -27,6 +27,7 @@ local Options = Library.Options
 local Toggles = Library.Toggles
 local lastDeathPosition = nil
 local shouldTeleportBack = false
+local emoteActive = false
 local crawlerActive = false
 local crawlerCharacterAddedConn = nil
 local applyCrawler, removeCrawler
@@ -499,36 +500,45 @@ local MainLeft = Tabs.Player:AddLeftGroupbox("Player", "user")
 
 local MiscGroup = Tabs.Player:AddRightGroupbox("Misc", "sparkles")
 
-MiscGroup:AddButton({
+MiscGroup:AddToggle("Emote", {
 	Text = "Emote",
-	Func = function()
-		pcall(function()
-			loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-AFEM-Max-Open-Alpha-50210"))()
-		end)
+	Default = false,
+	Callback = function(state)
+		if state then
+			emoteActive = true
+			pcall(function()
+				loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-AFEM-Max-Open-Alpha-50210"))()
+			end)
+			Library:Notify({ Title = "MISC", Description = "Emote loaded!", Time = 2 })
+		else
+			emoteActive = false
+		end
 	end,
 })
 
-MiscGroup:AddButton({
+MiscGroup:AddToggle("CrawlerToggle", {
 	Text = "Crawler",
-	Func = function()
-		crawlerActive = not crawlerActive
-		if crawlerCharacterAddedConn then
-			crawlerCharacterAddedConn:Disconnect()
-			crawlerCharacterAddedConn = nil
-		end
-		
-		if crawlerActive then
-			crawlerCharacterAddedConn = LocalPlayer.CharacterAdded:Connect(applyCrawler)
-			if LocalPlayer.Character then
-				applyCrawler(LocalPlayer.Character)
-			end
-			Library:Notify({ Title = "ANIMATIONS", Description = "Crawler mode enabled!", Time = 2 })
-		else
-			removeCrawler(LocalPlayer.Character)
-			Library:Notify({ Title = "ANIMATIONS", Description = "Crawler mode disabled.", Time = 2 })
-		end
-	end,
+	Default = false,
 })
+
+Toggles.CrawlerToggle:OnChanged(function(state)
+	crawlerActive = state
+	if crawlerCharacterAddedConn then
+		crawlerCharacterAddedConn:Disconnect()
+		crawlerCharacterAddedConn = nil
+	end
+
+	if state then
+		crawlerCharacterAddedConn = LocalPlayer.CharacterAdded:Connect(applyCrawler)
+		if LocalPlayer.Character then
+			applyCrawler(LocalPlayer.Character)
+		end
+		Library:Notify({ Title = "ANIMATIONS", Description = "Crawler mode enabled!", Time = 2 })
+	else
+		removeCrawler(LocalPlayer.Character)
+		Library:Notify({ Title = "ANIMATIONS", Description = "Crawler mode disabled.", Time = 2 })
+	end
+end)
 
 local MainRight = Tabs.Player:AddRightGroupbox("Settings", "settings")
 
@@ -610,7 +620,7 @@ SpectateGroup:AddDropdown("SpectatePlayerList", {
 	Default = "",
 })
 
-local FunLeft = Tabs.Main:AddRightGroupbox("FLING", "swords")
+local FunLeft = Tabs.Main:AddRightGroupbox("FLING A BULLY", "swords")
 
 FunLeft:AddToggle("TouchFling", {
 	Text = "Touch Fling",
@@ -3941,6 +3951,20 @@ for _, loc in ipairs(extraLocations) do
 	})
 end
 
+-- READ THIS FIRST Groupbox (placed above Trick Spawn)
+local ReadThisFirstGroup = Tabs.Teleport:AddRightGroupbox("READ THIS FIRST", "alert-circle")
+
+do
+	local warnLabel = ReadThisFirstGroup:AddLabel("Always reset before using any of these teleport buttons, That includes the ore farm, spectate and player teleport")
+	pcall(function()
+		if warnLabel and warnLabel.Label then
+			warnLabel.Label.TextColor3 = Color3.fromRGB(255, 80, 80)
+			warnLabel.Label.TextWrapped = true
+			warnLabel.Label.TextSize = 14
+		end
+	end)
+end
+
 -- Extra Locations Groupbox
 local ResetTeleportGroup = Tabs.Teleport:AddRightGroupbox("Trick Spawn", "refresh-cw")
 
@@ -3975,49 +3999,6 @@ Toggles.ResetCharacter:OnChanged(function()
 			Toggles.ResetCharacter:SetValue(false)
 		end)
 	end
-end)
-
--- Extra Locations Groupbox
-local TeleportRight = Tabs.Teleport:AddRightGroupbox("Click Teleport", "map-pin")
-
-local clickTpActive = false
-local clickTpBtn = nil
-
-local function toggleClickTp()
-	clickTpActive = not clickTpActive
-	disconnect("ClickTeleport")
-	
-	if clickTpActive then
-		pcall(function()
-			clickTpBtn.Label.Text = "Click Teleport: ON"
-		end)
-		
-		local Mouse = LocalPlayer:GetMouse()
-		track("ClickTeleport", Mouse.Button1Down:Connect(function()
-			local targetCF = Mouse.Hit
-			if targetCF then
-				local root = getRootPart()
-				if root then
-					root.CFrame = targetCF + Vector3.new(0, 3, 0)
-					Library:Notify({ Title = "Click Teleport", Description = "Teleported!", Time = 1 })
-				end
-			end
-		end))
-	else
-		pcall(function()
-			clickTpBtn.Label.Text = "Click Teleport: OFF"
-		end)
-	end
-end
-
-clickTpBtn = TeleportRight:AddButton({
-	Text = "Click Teleport",
-	Func = toggleClickTp,
-})
-
-pcall(function()
-	Library:RemoveFromRegistry(clickTpBtn.Label)
-	clickTpBtn.Label.TextColor3 = Color3.fromRGB(0, 120, 255)
 end)
 
 -- Merchants Groupbox
@@ -5751,11 +5732,8 @@ Library:OnUnload(function()
 	if Toggles.SpectateToggle and Toggles.SpectateToggle.Value then
 		Toggles.SpectateToggle:SetValue(false)
 	end
-	if crawlerActive then
-		crawlerActive = false
-		pcall(function()
-			removeCrawler(LocalPlayer.Character)
-		end)
+	if Toggles.CrawlerToggle and Toggles.CrawlerToggle.Value then
+		Toggles.CrawlerToggle:SetValue(false)
 	end
 	if Toggles.NoBearTrapDMG and Toggles.NoBearTrapDMG.Value then
 		Toggles.NoBearTrapDMG:SetValue(false)
