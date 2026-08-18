@@ -4493,13 +4493,13 @@ VisualLeft:AddToggle("OutlineESP", {
 	Title = "Outline ESP Color",
 })
 
-VisualLeft:AddToggle("OreESP", {
-	Text = "Ore ESP",
+VisualLeft:AddToggle("ArmorESP", {
+	Text = "Armor ESP",
 	Default = false,
 })
 
-VisualLeft:AddToggle("ArmorESP", {
-	Text = "Armor ESP",
+VisualLeft:AddToggle("OreESP", {
+	Text = "Ore ESP",
 	Default = false,
 })
 
@@ -4852,150 +4852,83 @@ Options.ShowDistanceColor:OnChanged(function()
 end)
 
 -- ==========================================
--- ORE ESP
+-- ORE ESP (GOLD LOCATIONS)
 -- ==========================================
-local oreEspObjects = {}
-local oreEspFolderWatchCon = nil
-local oreEspChildConns = {}
+local oreEspMarkers = {}
+local oreEspFolder = nil
 
 local function clearOreESP()
-	if oreEspFolderWatchCon then
-		oreEspFolderWatchCon:Disconnect()
-		oreEspFolderWatchCon = nil
-	end
-	for _, con in ipairs(oreEspChildConns) do
-		pcall(function() con:Disconnect() end)
-	end
-	table.clear(oreEspChildConns)
-	for obj, data in pairs(oreEspObjects) do
+	for _, data in pairs(oreEspMarkers) do
 		pcall(function()
-			if data and data.billboard then data.billboard:Destroy() end
-			if data and data.highlight then data.highlight:Destroy() end
+			if data.billboard then data.billboard:Destroy() end
+			if data.part then data.part:Destroy() end
 		end)
 	end
-	table.clear(oreEspObjects)
+	table.clear(oreEspMarkers)
+	if oreEspFolder then
+		pcall(function() oreEspFolder:Destroy() end)
+		oreEspFolder = nil
+	end
 end
 
-local function addOreESPObject(obj, oreName)
-	if not obj or not obj:IsA("Model") or oreEspObjects[obj] then return end
-	local primaryPart = obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
-	if not primaryPart then return end
-
-	local highlight = Instance.new("Highlight")
-	highlight.FillTransparency = 1
-	highlight.OutlineTransparency = 0
-	highlight.OutlineColor = Color3.fromRGB(255, 200, 0)
-	highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-	highlight.Adornee = obj
-	highlight.Enabled = true
-	highlight.Parent = obj
+local function createGoldMarker(pos, nameSuffix)
+	local part = Instance.new("Part")
+	part.Name = "OreESP_Marker_" .. tostring(nameSuffix)
+	part.Anchored = true
+	part.CanCollide = false
+	part.CanQuery = false
+	part.CanTouch = false
+	part.Transparency = 1
+	part.Size = Vector3.new(1, 1, 1)
+	part.CFrame = CFrame.new(pos)
+	part.Parent = oreEspFolder
 
 	local billboard = Instance.new("BillboardGui")
-	billboard.Name = "OreESP_Billboard"
-	billboard.Adornee = primaryPart
-	billboard.Size = UDim2.fromOffset(140, 40)
-	billboard.StudsOffset = Vector3.new(0, 4, 0)
+	billboard.Name = "OreESP_GoldLabel"
+	billboard.Adornee = part
+	billboard.Size = UDim2.fromOffset(160, 50)
+	billboard.StudsOffset = Vector3.new(0, 5, 0)
 	billboard.AlwaysOnTop = true
-	billboard.Parent = primaryPart
+	billboard.Parent = part
 
 	local label = Instance.new("TextLabel")
 	label.Size = UDim2.fromScale(1, 1)
 	label.BackgroundTransparency = 1
-	label.Text = oreName
-	label.TextSize = 15
+	label.Text = "GOLD"
+	label.TextSize = 22
 	label.Font = Enum.Font.Jura
 	label.TextColor3 = Color3.fromRGB(255, 215, 0)
-	label.TextStrokeTransparency = 0.5
+	label.TextStrokeTransparency = 0.4
+	label.TextStrokeColor3 = Color3.new(0, 0, 0)
 	label.Parent = billboard
 
-	oreEspObjects[obj] = { billboard = billboard, highlight = highlight }
-end
-
-local function scanAndCreateOreESP()
-	local folder = workspace:FindFirstChild("worldResources") and workspace.worldResources:FindFirstChild("mineable")
-	if not folder then return end
-	for _, subfolder in ipairs(folder:GetChildren()) do
-		if subfolder:IsA("Folder") then
-			local oreName = subfolder.Name
-			for _, obj in ipairs(subfolder:GetChildren()) do
-				addOreESPObject(obj, oreName)
-			end
-		end
-	end
+	table.insert(oreEspMarkers, { part = part, billboard = billboard })
 end
 
 Toggles.OreESP:OnChanged(function()
 	clearOreESP()
-	disconnect("OreESP_Loop")
-	disconnect("OreESP_Heartbeat")
+	disconnect("OreESP_Refresh")
 
 	if not Toggles.OreESP.Value then
 		return
 	end
 
-	scanAndCreateOreESP()
+	oreEspFolder = Instance.new("Folder")
+	oreEspFolder.Name = "OreESP_GoldMarkers"
+	oreEspFolder.Parent = workspace
 
-	local folder = workspace:FindFirstChild("worldResources") and workspace.worldResources:FindFirstChild("mineable")
-	if folder then
-		oreEspFolderWatchCon = folder.ChildAdded:Connect(function(subfolder)
-			if not subfolder:IsA("Folder") then return end
-			local oreName = subfolder.Name
-			local con1 = subfolder.ChildAdded:Connect(function(obj)
-				if Toggles.OreESP.Value then
-					addOreESPObject(obj, oreName)
-				end
-			end)
-			table.insert(oreEspChildConns, con1)
-			local con2 = subfolder.ChildRemoved:Connect(function(obj)
-				local data = oreEspObjects[obj]
-				if data then
-					pcall(function()
-						if data.billboard then data.billboard:Destroy() end
-						if data.highlight then data.highlight:Destroy() end
-					end)
-					oreEspObjects[obj] = nil
-				end
-			end)
-			table.insert(oreEspChildConns, con2)
-		end)
-
-		for _, subfolder in ipairs(folder:GetChildren()) do
-			if subfolder:IsA("Folder") then
-				local oreName = subfolder.Name
-				local con1 = subfolder.ChildAdded:Connect(function(obj)
-					if Toggles.OreESP.Value then
-						addOreESPObject(obj, oreName)
-					end
-				end)
-				table.insert(oreEspChildConns, con1)
-				local con2 = subfolder.ChildRemoved:Connect(function(obj)
-					local data = oreEspObjects[obj]
-					if data then
-						pcall(function()
-							if data.billboard then data.billboard:Destroy() end
-							if data.highlight then data.highlight:Destroy() end
-						end)
-						oreEspObjects[obj] = nil
-					end
-				end)
-				table.insert(oreEspChildConns, con2)
+	local locs = goldLocations or {}
+	local idx = 0
+	for _, loc in ipairs(locs) do
+		if typeof(loc) == "table" and loc.name and typeof(loc.name) == "string" and loc.pos and typeof(loc.pos) == "Vector3" then
+			if loc.name:sub(1, 4) == "Gold" then
+				idx = idx + 1
+				createGoldMarker(loc.pos, idx)
 			end
 		end
 	end
 
-	track("OreESP_Heartbeat", RunService.Heartbeat:Connect(function()
-		for obj, data in pairs(oreEspObjects) do
-			if not obj or not obj.Parent then
-				pcall(function()
-					if data and data.billboard then data.billboard:Destroy() end
-					if data and data.highlight then data.highlight:Destroy() end
-				end)
-				oreEspObjects[obj] = nil
-			end
-		end
-	end))
-
-	Library:Notify({ Title = "Ore ESP", Description = "Enabled", Time = 2 })
+	Library:Notify({ Title = "Ore ESP", Description = "Gold markers enabled: " .. tostring(idx), Time = 2 })
 end)
 
 
@@ -6166,6 +6099,9 @@ Library:OnUnload(function()
 			if autoShiftlockVars.renderCon then autoShiftlockVars.renderCon:Disconnect() end
 			if autoShiftlockVars.screenGui then autoShiftlockVars.screenGui:Destroy() end
 		end
+		pcall(function()
+			if oreEspFolder then oreEspFolder:Destroy() end
+		end)
 	end)
 	for name in pairs(Connections) do
 		disconnect(name)
