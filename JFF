@@ -1,4 +1,4 @@
--- URIEL | Obsidian UI
+ -- URIEL | Obsidian UI
 -- Docs: https://docs.mspaint.cc/obsidian
 
 if getgenv().TSG_OBSIDIAN_LOADED then
@@ -27,6 +27,9 @@ local Options = Library.Options
 local Toggles = Library.Toggles
 local lastDeathPosition = nil
 local shouldTeleportBack = false
+local crawlerActive = false
+local crawlerCharacterAddedConn = nil
+local applyCrawler, removeCrawler
 
 Library.ShowToggleFrameInKeybinds = true
 
@@ -399,7 +402,6 @@ local Tabs = {
 	Farming = Window:AddTab("Farming", "pickaxe"),
 	Teleport = Window:AddTab("Teleport", "map-pin"),
 	Visuals = Window:AddTab("Visuals", "eye"),
-	["Fun Box"] = Window:AddTab("Fun Box", "gamepad"),
 	["UI Settings"] = Window:AddTab("UI Settings", "settings"),
 }
 
@@ -494,7 +496,41 @@ FastArmorGroup:AddButton({
 -- MAIN
 -- ==========================================
 local MainLeft = Tabs.Player:AddLeftGroupbox("Player", "user")
-local MainRight = Tabs.Player:AddRightGroupbox("Misc", "sparkles")
+
+local MiscGroup = Tabs.Player:AddRightGroupbox("Misc", "sparkles")
+
+MiscGroup:AddButton({
+	Text = "Emote",
+	Func = function()
+		pcall(function()
+			loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-AFEM-Max-Open-Alpha-50210"))()
+		end)
+	end,
+})
+
+MiscGroup:AddButton({
+	Text = "Crawler",
+	Func = function()
+		crawlerActive = not crawlerActive
+		if crawlerCharacterAddedConn then
+			crawlerCharacterAddedConn:Disconnect()
+			crawlerCharacterAddedConn = nil
+		end
+		
+		if crawlerActive then
+			crawlerCharacterAddedConn = LocalPlayer.CharacterAdded:Connect(applyCrawler)
+			if LocalPlayer.Character then
+				applyCrawler(LocalPlayer.Character)
+			end
+			Library:Notify({ Title = "ANIMATIONS", Description = "Crawler mode enabled!", Time = 2 })
+		else
+			removeCrawler(LocalPlayer.Character)
+			Library:Notify({ Title = "ANIMATIONS", Description = "Crawler mode disabled.", Time = 2 })
+		end
+	end,
+})
+
+local MainRight = Tabs.Player:AddRightGroupbox("Settings", "settings")
 
 -- ============================================================================
 -- MAIN TAB (KILLSWITCH / SPECTATE)
@@ -572,6 +608,23 @@ SpectateGroup:AddDropdown("SpectatePlayerList", {
 	Text = "Select Player",
 	Values = {},
 	Default = "",
+})
+
+local FunLeft = Tabs.Main:AddRightGroupbox("FLING", "swords")
+
+FunLeft:AddToggle("TouchFling", {
+	Text = "Touch Fling",
+	Default = false,
+})
+
+FunLeft:AddToggle("Dropkick", {
+	Text = "Dropkick",
+	Default = false,
+	Callback = function(state)
+		if state then
+			loadstring(game:HttpGet("https://raw.githubusercontent.com/platinww/CrustyMain/refs/heads/main/universal/DropKick.lua"))()
+		end
+	end,
 })
 
 local TeleportGroup = Tabs.Main:AddRightGroupbox("TELEPORT", "map-pin")
@@ -2883,6 +2936,35 @@ MoveRight:AddSlider("FlySpeed", {
 	Rounding = 0,
 })
 
+local MoveLowGravity = Tabs.Movement:AddRightGroupbox("Low Gravity", "arrow-down")
+
+MoveLowGravity:AddToggle("LowGravity", {
+        Text = "Low Gravity",
+        Default = false,
+})
+
+MoveLowGravity:AddSlider("LowGravityHeight", {
+        Text = "Low Gravity Height",
+        Default = 100,
+        Min = 0,
+        Max = 300,
+        Rounding = 0,
+})
+
+Toggles.LowGravity:OnChanged(function()
+        if Toggles.LowGravity.Value then
+           workspace.Gravity = math.max(0, 196.2 - Options.LowGravityHeight.Value)
+        else
+                workspace.Gravity = 196.2
+        end
+end)
+
+Options.LowGravityHeight:OnChanged(function()
+        if Toggles.LowGravity.Value then
+           workspace.Gravity = math.max(0, 196.2 - Options.LowGravityHeight.Value)
+        end
+end)
+
 local FakeLagGroup = Tabs.Movement:AddRightGroupbox("Fake Lag", "zap")
 
 FakeLagGroup:AddToggle("FakeLag", {
@@ -4909,105 +4991,6 @@ Options.ControlTheHours:OnChanged(function()
 		game:GetService("Lighting").ClockTime = Options.ControlTheHours.Value
 	end))
 end)
- 
--- ==========================================
--- FUN BOX
--- ==========================================
-local FunLeft = Tabs["Fun Box"]:AddLeftGroupbox("FLING", "swords")
-
-FunLeft:AddToggle("TouchFling", {
-	Text = "Touch Fling",
-	Default = false,
-})
-
-FunLeft:AddToggle("Dropkick", {
-	Text = "Dropkick",
-	Default = false,
-	Callback = function(state)
-		if state then
-			loadstring(game:HttpGet("https://raw.githubusercontent.com/platinww/CrustyMain/refs/heads/main/universal/DropKick.lua"))()
-		end
-	end,
-})
-
-local FunCoolEmotes = Tabs["Fun Box"]:AddLeftGroupbox("COOL EMOTES", "smile")
-
-FunCoolEmotes:AddButton({
-	Text = "Emote",
-	Func = function()
-		pcall(function()
-			loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-AFEM-Max-Open-Alpha-50210"))()
-		end)
-	end,
-})
-
-local MoveLowGravity = Tabs["Fun Box"]:AddLeftGroupbox("Low Gravity", "arrow-down")
-
-MoveLowGravity:AddToggle("LowGravity", {
-        Text = "Low Gravity",
-        Default = false,
-})
-
-MoveLowGravity:AddSlider("LowGravityHeight", {
-        Text = "Low Gravity Height",
-        Default = 100,
-        Min = 0,
-   Max = 300,
-        Rounding = 0,
-})
-
-Toggles.LowGravity:OnChanged(function()
-        if Toggles.LowGravity.Value then
-           workspace.Gravity = math.max(0, 196.2 - Options.LowGravityHeight.Value)
-        else
-                workspace.Gravity = 196.2
-        end
-end)
-
-Options.LowGravityHeight:OnChanged(function()
-        if Toggles.LowGravity.Value then
-           workspace.Gravity = math.max(0, 196.2 - Options.LowGravityHeight.Value)
-        end
-end)
-
-local FunRight = Tabs["Fun Box"]:AddRightGroupbox("Show Cursor", "mouse-pointer")
-
-FunRight:AddToggle("CustomCursorActive", {
-	Text = "Cursor",
-	Default = false,
-})
-
-FunRight:AddDropdown("CustomCursorType", {
-	Values = { "Tiny Square", "Circle", "X", "+", "Dot", "Mouse Arrow" },
-	Default = "X",
-	Text = "Cursor Type",
-})
-
-FunRight:AddSlider("CustomCursorSize", {
-	Text = "Cursor Size",
-	Default = 10,
-	Min = 4,
-	Max = 50,
-	Rounding = 0,
-})
-
-local FunAnimations = Tabs["Fun Box"]:AddRightGroupbox("ANIMATIONS", "activity")
-
-FunAnimations:AddToggle("CrawlerToggle", {
-	Text = "Crawler",
-	Default = false,
-})
-
-FunAnimations:AddToggle("ShadowTheGoat", {
-	Text = "Shadow The Goat",
-	Default = false,
-})
-
-FunAnimations:AddToggle("DoNotTouch", {
-	Text = "Spawn Freddy",
-	Default = false,
-})
-
 local touchFlingActive = false
 local function touchFlingLoop()
 	local movel = 0.1
@@ -5385,14 +5368,13 @@ end
 Toggles.InvisibleFlyToggle:OnChanged(onInvisibleFlyToggle)
 
 -- Crawler Script Logic
-local crawlerCharacterAddedConn = nil
 local crawlerRunningConn = nil
 local crawlerStateConn = nil
 local crawlerWalkTrack = nil
 local originalAnims = {}
 
-local function applyCrawler(character)
-	if not Toggles.CrawlerToggle.Value then return end
+applyCrawler = function(character)
+	if not crawlerActive then return end
 	local humanoid = character:WaitForChild("Humanoid", 10)
 	if not humanoid or humanoid.RigType ~= Enum.HumanoidRigType.R15 then return end
 	local animator = humanoid:WaitForChild("Animator", 10)
@@ -5461,7 +5443,7 @@ local function applyCrawler(character)
 	end)
 end
 
-local function removeCrawler(character)
+removeCrawler = function(character)
 	if crawlerWalkTrack then
 		pcall(function() crawlerWalkTrack:Stop(0.1) end)
 		crawlerWalkTrack = nil
@@ -5500,40 +5482,6 @@ local function removeCrawler(character)
 		end
 	end
 end
-
-Toggles.CrawlerToggle:OnChanged(function()
-	if crawlerCharacterAddedConn then
-		crawlerCharacterAddedConn:Disconnect()
-		crawlerCharacterAddedConn = nil
-	end
-	
-	if Toggles.CrawlerToggle.Value then
-		crawlerCharacterAddedConn = LocalPlayer.CharacterAdded:Connect(applyCrawler)
-		if LocalPlayer.Character then
-			applyCrawler(LocalPlayer.Character)
-		end
-		Library:Notify({ Title = "ANIMATIONS", Description = "Crawler mode enabled!", Time = 2 })
-	else
-		removeCrawler(LocalPlayer.Character)
-		Library:Notify({ Title = "ANIMATIONS", Description = "Crawler mode disabled.", Time = 2 })
-	end
-end)
-
-Toggles.ShadowTheGoat:OnChanged(function(Value)
-	if Toggles.ShadowTheGoat.Value then
-		pcall(function()
-			loadstring(game:HttpGet("https://raw.githubusercontent.com/sparksnaps/Lord-Shadow-Beta/refs/heads/main/Lua"))()
-		end)
-	end
-end)
-
-Toggles.DoNotTouch:OnChanged(function(Value)
-	if Toggles.DoNotTouch.Value then
-		pcall(function()
-			loadstring(game:HttpGet("https://pastebin.com/raw/wbEc0ThZ"))()
-		end)
-	end
-end)
 
 -- Teleport Script Logic
 local function resetAndTeleport(targetName)
@@ -5621,155 +5569,7 @@ track("TeleportPlayerAdded", Players.PlayerAdded:Connect(updateTeleportPlayerLis
 track("TeleportPlayerRemoving", Players.PlayerRemoving:Connect(updateTeleportPlayerList))
 task.spawn(updateTeleportPlayerList)
 
-local cursorDrawings = {
-	square = nil,
-	circle = nil,
-	xLine1 = nil,
-	xLine2 = nil,
-	dot = nil,
-	arrow1 = nil,
-	arrow2 = nil,
-	arrow3 = nil,
-	arrow4 = nil,
-	arrow5 = nil
-}
 
-local function initCursorDrawings()
-	if not hasDrawing then return end
-	
-	if not cursorDrawings.square then
-		cursorDrawings.square = Drawing.new("Square")
-		cursorDrawings.square.Color = Color3.fromRGB(255, 255, 255)
-		cursorDrawings.square.Filled = true
-		cursorDrawings.square.Transparency = 1
-		cursorDrawings.square.Visible = false
-	end
-	if not cursorDrawings.circle then
-		cursorDrawings.circle = Drawing.new("Circle")
-		cursorDrawings.circle.Color = Color3.fromRGB(255, 255, 255)
-		cursorDrawings.circle.Filled = false
-		cursorDrawings.circle.Thickness = 1.5
-		cursorDrawings.circle.Transparency = 1
-		cursorDrawings.circle.Visible = false
-	end
-	if not cursorDrawings.xLine1 then
-		cursorDrawings.xLine1 = Drawing.new("Line")
-		cursorDrawings.xLine1.Color = Color3.fromRGB(255, 255, 255)
-		cursorDrawings.xLine1.Thickness = 1.5
-		cursorDrawings.xLine1.Transparency = 1
-		cursorDrawings.xLine1.Visible = false
-	end
-	if not cursorDrawings.xLine2 then
-		cursorDrawings.xLine2 = Drawing.new("Line")
-		cursorDrawings.xLine2.Color = Color3.fromRGB(255, 255, 255)
-		cursorDrawings.xLine2.Thickness = 1.5
-		cursorDrawings.xLine2.Transparency = 1
-		cursorDrawings.xLine2.Visible = false
-	end
-	if not cursorDrawings.dot then
-		cursorDrawings.dot = Drawing.new("Circle")
-		cursorDrawings.dot.Color = Color3.fromRGB(255, 255, 255)
-		cursorDrawings.dot.Filled = true
-		cursorDrawings.dot.Transparency = 1
-		cursorDrawings.dot.Visible = false
-	end
-	for i = 1, 5 do
-		local key = "arrow" .. i
-		if not cursorDrawings[key] then
-			cursorDrawings[key] = Drawing.new("Line")
-			cursorDrawings[key].Color = Color3.fromRGB(255, 255, 255)
-			cursorDrawings[key].Thickness = 1.5
-			cursorDrawings[key].Transparency = 1
-			cursorDrawings[key].Visible = false
-		end
-	end
-end
-
-local function updateCursor()
-	if not hasDrawing then return end
-	initCursorDrawings()
-	
-	cursorDrawings.square.Visible = false
-	cursorDrawings.circle.Visible = false
-	cursorDrawings.xLine1.Visible = false
-	cursorDrawings.xLine2.Visible = false
-	if cursorDrawings.dot then cursorDrawings.dot.Visible = false end
-	for i = 1, 5 do
-		local key = "arrow" .. i
-		if cursorDrawings[key] then cursorDrawings[key].Visible = false end
-	end
-	
-	if not Toggles.CustomCursorActive or not Toggles.CustomCursorActive.Value then return end
-	
-	local viewportSize = workspace.CurrentCamera.ViewportSize
-	local center = Vector2.new(viewportSize.X / 2, viewportSize.Y / 2)
-	local size = Options.CustomCursorSize.Value
-	local cursorType = Options.CustomCursorType.Value
-	
-	if cursorType == "Tiny Square" then
-		cursorDrawings.square.Size = Vector2.new(size, size)
-		cursorDrawings.square.Position = center - Vector2.new(size / 2, size / 2)
-		cursorDrawings.square.Visible = true
-	elseif cursorType == "Circle" then
-		cursorDrawings.circle.Radius = size / 2
-		cursorDrawings.circle.Position = center
-		cursorDrawings.circle.Visible = true
-	elseif cursorType == "X" then
-		local half = size / 2
-		cursorDrawings.xLine1.From = center - Vector2.new(half, half)
-		cursorDrawings.xLine1.To = center + Vector2.new(half, half)
-		cursorDrawings.xLine1.Visible = true
-		
-		cursorDrawings.xLine2.From = center - Vector2.new(-half, half)
-		cursorDrawings.xLine2.To = center + Vector2.new(-half, half)
-		cursorDrawings.xLine2.Visible = true
-	elseif cursorType == "+" then
-		local half = size / 2
-		cursorDrawings.xLine1.From = center - Vector2.new(half, 0)
-		cursorDrawings.xLine1.To = center + Vector2.new(half, 0)
-		cursorDrawings.xLine1.Visible = true
-		
-		cursorDrawings.xLine2.From = center - Vector2.new(0, half)
-		cursorDrawings.xLine2.To = center + Vector2.new(0, half)
-		cursorDrawings.xLine2.Visible = true
-	elseif cursorType == "Dot" then
-		cursorDrawings.dot.Radius = math.max(1, size / 4)
-		cursorDrawings.dot.Position = center
-		cursorDrawings.dot.Visible = true
-	elseif cursorType == "Mouse Arrow" then
-		local p0 = center
-		local p1 = center + Vector2.new(0, size)
-		local p2 = center + Vector2.new(size * 0.7, size * 0.7)
-		local p3 = center + Vector2.new(size * 0.3, size * 0.7)
-		local p4 = center + Vector2.new(size * 0.6, size * 1.0)
-		
-		cursorDrawings.arrow1.From = p0
-		cursorDrawings.arrow1.To = p1
-		cursorDrawings.arrow1.Visible = true
-		
-		cursorDrawings.arrow2.From = p0
-		cursorDrawings.arrow2.To = p2
-		cursorDrawings.arrow2.Visible = true
-		
-		cursorDrawings.arrow3.From = p1
-		cursorDrawings.arrow3.To = p3
-		cursorDrawings.arrow3.Visible = true
-		
-		cursorDrawings.arrow4.From = p2
-		cursorDrawings.arrow4.To = p3
-		cursorDrawings.arrow4.Visible = true
-		
-		cursorDrawings.arrow5.From = p3
-		cursorDrawings.arrow5.To = p4
-		cursorDrawings.arrow5.Visible = true
-	end
-end
-
-Toggles.CustomCursorActive:OnChanged(updateCursor)
-Options.CustomCursorType:OnChanged(updateCursor)
-Options.CustomCursorSize:OnChanged(updateCursor)
-
-track("CursorUpdate", RunService.Heartbeat:Connect(updateCursor))
 
 
 -- ==========================================
@@ -5883,9 +5683,7 @@ Library:OnUnload(function()
 	if Toggles.Xray and Toggles.Xray.Value then
 		Toggles.Xray:SetValue(false)
 	end
-	if Toggles.CustomCursorActive and Toggles.CustomCursorActive.Value then
-		Toggles.CustomCursorActive:SetValue(false)
-	end
+
 	if Toggles.NoWaterColor and Toggles.NoWaterColor.Value then
 		Toggles.NoWaterColor:SetValue(false)
 	end
@@ -5953,14 +5751,11 @@ Library:OnUnload(function()
 	if Toggles.SpectateToggle and Toggles.SpectateToggle.Value then
 		Toggles.SpectateToggle:SetValue(false)
 	end
-	if Toggles.CrawlerToggle and Toggles.CrawlerToggle.Value then
-		Toggles.CrawlerToggle:SetValue(false)
-	end
-	if Toggles.ShadowTheGoat and Toggles.ShadowTheGoat.Value then
-		Toggles.ShadowTheGoat:SetValue(false)
-	end
-	if Toggles.DoNotTouch and Toggles.DoNotTouch.Value then
-		Toggles.DoNotTouch:SetValue(false)
+	if crawlerActive then
+		crawlerActive = false
+		pcall(function()
+			removeCrawler(LocalPlayer.Character)
+		end)
 	end
 	if Toggles.NoBearTrapDMG and Toggles.NoBearTrapDMG.Value then
 		Toggles.NoBearTrapDMG:SetValue(false)
@@ -5987,17 +5782,7 @@ Library:OnUnload(function()
 
 	pcall(function()
 		if fovCircle then fovCircle:Remove() end
-		if cursorDrawings then
-			if cursorDrawings.square then cursorDrawings.square:Remove() end
-			if cursorDrawings.circle then cursorDrawings.circle:Remove() end
-			if cursorDrawings.xLine1 then cursorDrawings.xLine1:Remove() end
-			if cursorDrawings.xLine2 then cursorDrawings.xLine2:Remove() end
-			if cursorDrawings.dot then cursorDrawings.dot:Remove() end
-			for i = 1, 5 do
-				local key = "arrow" .. i
-				if cursorDrawings[key] then cursorDrawings[key]:Remove() end
-			end
-		end
+
 		if autoShiftlockVars then
 			if autoShiftlockVars.charAddedCon then autoShiftlockVars.charAddedCon:Disconnect() end
 			if autoShiftlockVars.dragCon1 then autoShiftlockVars.dragCon1:Disconnect() end
