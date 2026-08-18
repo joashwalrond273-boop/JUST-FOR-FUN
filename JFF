@@ -1533,13 +1533,13 @@ CombatAutoSwing:AddToggle("AutoHop", {
 	Default = false,
 })
 
-CombatAutoSwing:AddToggle("AutoShiftlock", {
-	Text = "+ Auto Shiftlock",
+CombatAutoSwing:AddToggle("Camlock", {
+	Text = "+ Camlock",
 	Default = false,
 })
 
-CombatAutoSwing:AddToggle("Camlock", {
-	Text = "+ Camlock",
+CombatAutoSwing:AddToggle("AutoShiftlock", {
+	Text = "Shiftlock(Mobile)",
 	Default = false,
 })
 
