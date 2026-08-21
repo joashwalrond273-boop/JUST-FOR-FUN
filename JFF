@@ -2,7 +2,7 @@
 -- Docs: https://docs.mspaint.cc/obsidian
 
 if getgenv().TSG_OBSIDIAN_LOADED then
-	return warn("[TSG] Script already loaded ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬ ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â rejoin to re-execute.")
+	return warn("[TSG] Script already loaded - rejoin to re-execute.")
 end
 getgenv().TSG_OBSIDIAN_LOADED = true
 
@@ -262,15 +262,8 @@ pcall(function()
 		local self = ...
 
 		if Toggles.NoBearTrapDMG and Toggles.NoBearTrapDMG.Value and rawequal(self, Event) and getnamecallmethod() == "InvokeServer" then
-			local Args = table.pack(...)
-			
-			local Result = table.pack(
-				mtHook(self, table.unpack(Args, 1, Args.n))
-			)
-
-			print(`Intercepted (__namecall) {Event.Name}:InvokeServer()`, ...)
-
-			return table.unpack(Result, 1, Result.n)
+			print(`Intercepted (__namecall) {Event.Name}:InvokeServer() - BLOCKED`, ...)
+			return nil
 		end
 
 		return mtHook(...)
@@ -281,15 +274,8 @@ pcall(function()
 			local self = ...
 
 			if Toggles.NoBearTrapDMG and Toggles.NoBearTrapDMG.Value and rawequal(self, Event) then
-				local Args = table.pack(...)
-
-				local Result = table.pack(
-					OldInvokeServer(table.unpack(Args, 1, Args.n))
-				)
-
-				print(`Intercepted (__index) {Event.Name}:InvokeServer()`, self, table.unpack(Result, 1, Result.n))
-
-				return table.unpack(Result, 1, Result.n)
+				print(`Intercepted (__index) {Event.Name}:InvokeServer() - BLOCKED`, ...)
+				return nil
 			end
 
 			return OldInvokeServer(self, ...)
@@ -299,22 +285,15 @@ end)
 
 -- No Glider Cooldown Remote Interception
 pcall(function()
-	local Event = game:GetService("ReplicatedStorage").remoteInterface.Tools.ToggleGlider
+	local Event = resolvePath(ReplicatedStorage, "remoteInterface", "Tools", "ToggleGlider")
 	if not Event then return end
 
 	local mtHook; mtHook = hookmetamethod(game, "__namecall", function(...)
 		local self = ...
 
 		if Toggles.NoGliderCooldown and Toggles.NoGliderCooldown.Value and rawequal(self, Event) and getnamecallmethod() == "InvokeServer" then
-			local Args = table.pack(...)
-
-			local Result = table.pack(
-				mtHook(self, table.unpack(Args, 1, Args.n))
-			)
-
-			print(`Intercepted (namecall) {Event.Name}:InvokeServer()`, ...)
-
-			return table.unpack(Result, 1, Result.n)
+			print(`Intercepted (namecall) {Event.Name}:InvokeServer() - BLOCKED`, ...)
+			return nil
 		end
 
 		return mtHook(...)
@@ -325,15 +304,8 @@ pcall(function()
 			local self = ...
 
 			if Toggles.NoGliderCooldown and Toggles.NoGliderCooldown.Value and rawequal(self, Event) then
-				local Args = table.pack(...)
-
-				local Result = table.pack(
-					OldInvokeServer(table.unpack(Args, 1, Args.n))
-				)
-
-				print(`Intercepted (__index) {Event.Name}:InvokeServer()`, self, table.unpack(Result, 1, Result.n))
-
-				return table.unpack(Result, 1, Result.n)
+				print(`Intercepted (__index) {Event.Name}:InvokeServer() - BLOCKED`, ...)
+				return nil
 			end
 
 			return OldInvokeServer(self, ...)
@@ -1081,6 +1053,8 @@ local function stopDesync()
 	end
 	table.clear(desyncAnimTracks)
 	
+	originalCF = nil
+
 	if fakeChar then
 		local lastCF
 		pcall(function()
@@ -1354,20 +1328,22 @@ track("CharacterModuleRespawn", LocalPlayer.CharacterAdded:Connect(function()
 end))
 
 -- No Boss Damage Hook Setup
-local BossDamageEvent = game:GetService("ReplicatedStorage").remoteInterface.character.hurtByAIAttack
+local BossDamageEvent = resolvePath(ReplicatedStorage, "remoteInterface", "character", "hurtByAIAttack")
 local originalNamecall
-originalNamecall = hookmetamethod(game, "__namecall", function(...)
-	local self = ...
-	local method = getnamecallmethod()
+if BossDamageEvent then
+	originalNamecall = hookmetamethod(game, "__namecall", function(...)
+		local self = ...
+		local method = getnamecallmethod()
 
-	if rawequal(self, BossDamageEvent) and method == "FireServer" then
-		if Toggles.NoBossDamage and Toggles.NoBossDamage.Value then
-			return -- Block the attack to prevent damage
+		if rawequal(self, BossDamageEvent) and method == "FireServer" then
+			if Toggles.NoBossDamage and Toggles.NoBossDamage.Value then
+				return -- Block the attack to prevent damage
+			end
 		end
-	end
 
-	return originalNamecall(...)
-end)
+		return originalNamecall(...)
+	end)
+end
 
 local function noBossDamageToggle(state)
 	if state then
@@ -1951,6 +1927,16 @@ local function killAuraLoop()
 	local nearestDist = range
 	local nearestTarget = nil
 
+	local maxAngle = (Options.KillAuraAngle and Options.KillAuraAngle.Value) or 90
+	local coneThreshold = math.cos(math.rad(maxAngle / 2))
+	local forward = Vector3.new(root.CFrame.LookVector.X, 0, root.CFrame.LookVector.Z).Unit
+
+	local function passesAngleCheck(targetPos)
+		local dir = Vector3.new(targetPos.X - pos.X, 0, targetPos.Z - pos.Z)
+		if dir.Magnitude <= 0 then return true end
+		return forward:Dot(dir.Unit) >= coneThreshold
+	end
+
 	-- Scan AI_Client for NPCs
 	local aiClient = workspace:FindFirstChild("AI_Client")
 	if Toggles.TargetAnimals.Value and aiClient then
@@ -1959,7 +1945,7 @@ local function killAuraLoop()
 			local npcRoot = npc:FindFirstChild("HumanoidRootPart") or npc.PrimaryPart
 			if npcHum and npcHum.Health > 0 and npcRoot then
 				local d = (npcRoot.Position - pos).Magnitude
-				if d < nearestDist then
+				if d < nearestDist and passesAngleCheck(npcRoot.Position) then
 					nearestDist = d
 					nearestTarget = npc
 				end
@@ -1975,7 +1961,7 @@ local function killAuraLoop()
 				local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart") or otherPlayer.Character.PrimaryPart
 				if otherHum and otherHum.Health > 0 and otherRoot then
 					local d = (otherRoot.Position - pos).Magnitude
-					if d < nearestDist then
+					if d < nearestDist and passesAngleCheck(otherRoot.Position) then
 						nearestDist = d
 						nearestTarget = otherPlayer.Character
 					end
@@ -3012,18 +2998,24 @@ end)
 Toggles.FakeLag:OnChanged(function()
 	disconnect("FakeLag")
 	if Toggles.FakeLag.Value then
+		local anchoredCounter = 0
+		local maxConsecutiveAnchored = 1
 		track("FakeLag", RunService.RenderStepped:Connect(function()
 			local character = getCharacter()
 			local hrp = character and character:FindFirstChild("HumanoidRootPart")
 			if not hrp then
 				return
 			end
-			-- Stutter fake lag: randomly anchor and unanchor based on the slider value
-			local limit = Options.FakeLagValue.Value / 100
-			if math.random() > (1 - limit) then
+			local limit = math.min(Options.FakeLagValue.Value / 100, 0.95)
+			if anchoredCounter >= maxConsecutiveAnchored then
+				hrp.Anchored = false
+				anchoredCounter = 0
+			elseif math.random() > (1 - limit) then
 				hrp.Anchored = true
+				anchoredCounter = anchoredCounter + 1
 			else
 				hrp.Anchored = false
+				anchoredCounter = 0
 			end
 		end))
 	else
@@ -3098,7 +3090,7 @@ Toggles.SinkFastPVP:OnChanged(function()
 				if isSwimming then
 					local cam = workspace.CurrentCamera
 					local lookY = cam and cam.CFrame.LookVector.Y or 0
-					if lookY < -0.2 then
+					if lookY <= -0.9 then
 						root.AssemblyLinearVelocity = Vector3.new(
 							root.AssemblyLinearVelocity.X,
 							-60,
@@ -3431,25 +3423,28 @@ FarmAI:AddToggle("HighlightAI", {
 -- ==========================================
 local OreFarm = Tabs.Farming:AddRightGroupbox("Ore Farm", "gem")
 
-OreFarm:AddButton("Reset Character", function()
-	local root = getRootPart()
-	if root then
-		lastDeathPosition = root.Position
-	end
-	
-	local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
-	if remoteInterface then
-		local characterFolder = remoteInterface:FindFirstChild("character")
-		if characterFolder then
-			local resetRemote = characterFolder:FindFirstChild("reset")
-			if resetRemote then
-				pcall(function()
-					resetRemote:InvokeServer()
-				end)
+OreFarm:AddButton({
+	Text = "Reset Character",
+	Func = function()
+		local root = getRootPart()
+		if root then
+			lastDeathPosition = root.Position
+		end
+		
+		local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
+		if remoteInterface then
+			local characterFolder = remoteInterface:FindFirstChild("character")
+			if characterFolder then
+				local resetRemote = characterFolder:FindFirstChild("reset")
+				if resetRemote then
+					pcall(function()
+						resetRemote:InvokeServer()
+					end)
+				end
 			end
 		end
-	end
-end)
+	end,
+})
 
 local goldLocations = {
 	{ name = "Gold 1",  pos = Vector3.new(1732.94, 113.13, 2295.19) },
@@ -4236,6 +4231,7 @@ VisualFPS:AddToggle("LowTextures", {
 	end,
 })
 
+local savedPotatoLightingChildren = nil
 VisualFPS:AddToggle("PotatoGraphics", {
 	Text = "Potato Graphics",
 	Default = false,
@@ -4247,9 +4243,14 @@ VisualFPS:AddToggle("PotatoGraphics", {
 				lighting.ShadowMapEnabled = false
 			end)
 			pcall(function()
-				for _, v in ipairs(game:GetService("Lighting"):GetChildren()) do
-					if v:IsA("Sky") or v:IsA("Atmosphere") or v:IsA("Clouds") or v:IsA("SunRaysEffect") then
-						v:Destroy()
+				if savedPotatoLightingChildren == nil then
+					savedPotatoLightingChildren = {}
+					local lighting = game:GetService("Lighting")
+					for _, v in ipairs(lighting:GetChildren()) do
+						if v:IsA("Sky") or v:IsA("Atmosphere") or v:IsA("Clouds") or v:IsA("SunRaysEffect") then
+							table.insert(savedPotatoLightingChildren, v)
+							v.Parent = nil
+						end
 					end
 				end
 				local sky = Instance.new("Sky")
@@ -4263,6 +4264,7 @@ VisualFPS:AddToggle("PotatoGraphics", {
 				sky.SunTextureId = ""
 				sky.MoonTextureId = ""
 				sky.Parent = game:GetService("Lighting")
+				savedPotatoLightingChildren._PotatoSky = sky
 			end)
 			pcall(function()
 				setPlayerShadows(false)
@@ -4316,6 +4318,20 @@ VisualFPS:AddToggle("PotatoGraphics", {
 			end)
 			pcall(function()
 				setPlayerShadows(true)
+			end)
+			pcall(function()
+				if savedPotatoLightingChildren then
+					local lighting = game:GetService("Lighting")
+					local sky = savedPotatoLightingChildren._PotatoSky
+					if sky and sky.Parent then sky:Destroy() end
+					savedPotatoLightingChildren._PotatoSky = nil
+					for _, v in ipairs(savedPotatoLightingChildren) do
+						if v and not v.Parent then
+							v.Parent = lighting
+						end
+					end
+					savedPotatoLightingChildren = nil
+				end
 			end)
 		end
 	end,
@@ -4389,6 +4405,11 @@ VisualFPS:AddToggle("UltraFPSBoost", {
 		if state then
 			-- Optimize Lighting
 			local Lighting = game:GetService("Lighting")
+			savedLighting = savedLighting or {}
+			savedLighting.FogEnd = Lighting.FogEnd
+			savedLighting.FogStart = Lighting.FogStart
+			savedLighting.OutdoorAmbient = Lighting.OutdoorAmbient
+			savedLighting.Ambient = Lighting.Ambient
 			Lighting.FogEnd = 200 -- Reduce fog draw distance
 			Lighting.FogStart = 100
 			Lighting.OutdoorAmbient = Color3.fromRGB(120, 120, 120)
@@ -4421,10 +4442,12 @@ VisualFPS:AddToggle("UltraFPSBoost", {
 		else
 			-- Restore Lighting
 			local Lighting = game:GetService("Lighting")
-			Lighting.FogEnd = savedLighting.FogEnd
-			Lighting.FogStart = savedLighting.FogStart
-			Lighting.OutdoorAmbient = savedLighting.OutdoorAmbient
-			Lighting.Ambient = savedLighting.Ambient
+			if savedLighting then
+				Lighting.FogEnd = savedLighting.FogEnd
+				Lighting.FogStart = savedLighting.FogStart
+				Lighting.OutdoorAmbient = savedLighting.OutdoorAmbient
+				Lighting.Ambient = savedLighting.Ambient
+			end
 			
 			disconnect("UltraFPSBoost")
 			Library:Notify({ Title = "Ultra FPS Boost", Description = "Disabled", Time = 2 })
@@ -5051,37 +5074,102 @@ Toggles.FloatOverToggle:OnChanged(function()
 end)
 
 -- + Fling Player Script Logic
+local flingPlayerState = {
+	active = false,
+	connections = {},
+	bodyPositions = {},
+	mouseKeyDownCon = nil
+}
+
+local function cleanupFlingPlayer()
+	for _, conn in ipairs(flingPlayerState.connections) do
+		pcall(function() conn:Disconnect() end)
+	end
+	table.clear(flingPlayerState.connections)
+
+	for _, bp in ipairs(flingPlayerState.bodyPositions) do
+		pcall(function() bp:Destroy() end)
+	end
+	table.clear(flingPlayerState.bodyPositions)
+
+	if flingPlayerState.mouseKeyDownCon then
+		pcall(function() flingPlayerState.mouseKeyDownCon:Disconnect() end)
+		flingPlayerState.mouseKeyDownCon = nil
+	end
+
+	flingPlayerState.active = false
+end
+
 Toggles.PlusFlingPlayerToggle:OnChanged(function()
 	if Toggles.PlusFlingPlayerToggle.Value then
+		cleanupFlingPlayer()
+		flingPlayerState.active = true
+
 		local char = LocalPlayer.Character
+		if not char then
+			Toggles.PlusFlingPlayerToggle:SetValue(false)
+			return
+		end
+		local rootPart = char:FindFirstChild("HumanoidRootPart")
+		if not rootPart then
+			Toggles.PlusFlingPlayerToggle:SetValue(false)
+			return
+		end
 		local player = LocalPlayer
 		local mouse = player:GetMouse()
-		local uis = game:GetService("UserInputService")
-		local bp = Instance.new("BodyPosition")
+		local bind = "t"
 
-		for _, v in next, game:GetDescendants() do
-			if v:IsA("Part") and v.Anchored == false and v.Parent ~= char and v.Parent.ClassName ~= "Accessory" then
-				RunService.Heartbeat:Connect(function()
-					v.CustomPhysicalProperties = PhysicalProperties.new(0,0,0,0,0)
-					v.Velocity = Vector3.new(25.70,0,0)
-					v.RotVelocity = Vector3.new(9e9,9e9,9e9)
-					v.CanCollide = false
+		-- Single per-frame physics loop (centralized instead of per-part)
+		local perFrameCon = RunService.Heartbeat:Connect(function()
+			if not flingPlayerState.active or not char.Parent then return end
+			local currentRoot = char:FindFirstChild("HumanoidRootPart")
+			if not currentRoot then return end
+			for _, v in ipairs(workspace:GetDescendants()) do
+				if v:IsA("BasePart") and not v.Anchored and v.Parent ~= char and v.Parent and v.Parent.ClassName ~= "Accessory" then
+					pcall(function()
+						v.CustomPhysicalProperties = PhysicalProperties.new(0, 0, 0, 0, 0)
+						v.Velocity = Vector3.new(25.70, 0, 0)
+						v.RotVelocity = Vector3.new(9e9, 9e9, 9e9)
+						v.CanCollide = false
+					end)
+				end
+			end
+		end)
+		table.insert(flingPlayerState.connections, perFrameCon)
+
+		-- Create BodyPosition per unanchored part (one-time scan)
+		for _, v in ipairs(workspace:GetDescendants()) do
+			if v:IsA("BasePart") and not v.Anchored and v.Parent ~= char and v.Parent and v.Parent.ClassName ~= "Accessory" then
+				local ok, bp = pcall(function()
+					local b = Instance.new("BodyPosition")
+					b.Parent = v
+					b.Position = rootPart.Position + Vector3.new(0, 5, 0)
+					return b
 				end)
+				if ok and bp then
+					table.insert(flingPlayerState.bodyPositions, bp)
+				end
 			end
 		end
-		for _, v in next, game.workspace:GetDescendants() do
-			if v:IsA("Part") and v.Anchored == false and v.Parent ~= char and v.Parent.ClassName ~= "Accessory" then
-				local bp = Instance.new("BodyPosition")
-				bp.Parent = v
-				bp.Position = char.HumanoidRootPart.Position + Vector3.new(0,5,0)
-				bind = "t" -- has to be lowercase
-				mouse.KeyDown:connect(function(key)
-					if key == bind then
-						bp.Position = mouse.Target.Position + Vector3.new(0,math.sin(10/10))
+
+		-- Single shared mouse keybind handler
+		local mouseCon = nil
+		pcall(function()
+			mouseCon = mouse.KeyDown:Connect(function(key)
+				if not flingPlayerState.active then return end
+				if key == bind then
+					local targetPos = mouse.Target and mouse.Target.Position or rootPart.Position
+					for _, bp in ipairs(flingPlayerState.bodyPositions) do
+						pcall(function() bp.Position = targetPos + Vector3.new(0, math.sin(10/10), 0) end)
 					end
-				end)
-			end
+				end
+			end)
+		end)
+		if mouseCon then
+			flingPlayerState.mouseKeyDownCon = mouseCon
 		end
+	else
+		cleanupFlingPlayer()
 	end
 end)
 
@@ -5501,9 +5589,6 @@ Library:OnUnload(function()
 	if Toggles.Dropkick and Toggles.Dropkick.Value then
 		Toggles.Dropkick:SetValue(false)
 	end
-	if Toggles.AdminNearby and Toggles.AdminNearby.Value then
-		Toggles.AdminNearby:SetValue(false)
-	end
 	if Toggles.InfiniteBackpack and Toggles.InfiniteBackpack.Value then
 		Toggles.InfiniteBackpack:SetValue(false)
 	end
@@ -5528,9 +5613,6 @@ Library:OnUnload(function()
 	end
 	if Toggles.NoGrass and Toggles.NoGrass.Value then
 		Toggles.NoGrass:SetValue(false)
-	end
-    if Toggles.AdamantiteFarm and Toggles.AdamantiteFarm.Value then
-		Toggles.AdamantiteFarm:SetValue(false)
 	end
 	if Toggles.UltraFPSBoost and Toggles.UltraFPSBoost.Value then
 		Toggles.UltraFPSBoost:SetValue(false)
