@@ -539,11 +539,6 @@ FunAttach:AddToggle("FloatOverToggle", {
         Default = false,
 })
 
-FunAttach:AddToggle("PlusFlingPlayerToggle", {
-        Text = "+ Fling Player(use with float)",
-        Default = false,
-})
-
 local SpectateGroup = Tabs.Main:AddRightGroupbox("SPECTATE", "eye")
 
 SpectateGroup:AddToggle("SpectateToggle", {
@@ -4231,114 +4226,6 @@ VisualFPS:AddToggle("LowTextures", {
 	end,
 })
 
-local savedPotatoLightingChildren = nil
-VisualFPS:AddToggle("PotatoGraphics", {
-	Text = "Potato Graphics",
-	Default = false,
-	Callback = function(state)
-		if state then
-			pcall(function()
-				local lighting = game:GetService("Lighting")
-				lighting.GlobalShadows = false
-				lighting.ShadowMapEnabled = false
-			end)
-			pcall(function()
-				if savedPotatoLightingChildren == nil then
-					savedPotatoLightingChildren = {}
-					local lighting = game:GetService("Lighting")
-					for _, v in ipairs(lighting:GetChildren()) do
-						if v:IsA("Sky") or v:IsA("Atmosphere") or v:IsA("Clouds") or v:IsA("SunRaysEffect") then
-							table.insert(savedPotatoLightingChildren, v)
-							v.Parent = nil
-						end
-					end
-				end
-				local sky = Instance.new("Sky")
-				sky.Name = "PotatoSky"
-				sky.SkyboxBk = "rbxassetid://256193683"
-				sky.SkyboxDn = "rbxassetid://256193683"
-				sky.SkyboxFt = "rbxassetid://256193683"
-				sky.SkyboxLf = "rbxassetid://256193683"
-				sky.SkyboxRt = "rbxassetid://256193683"
-				sky.SkyboxUp = "rbxassetid://256193683"
-				sky.SunTextureId = ""
-				sky.MoonTextureId = ""
-				sky.Parent = game:GetService("Lighting")
-				savedPotatoLightingChildren._PotatoSky = sky
-			end)
-			pcall(function()
-				setPlayerShadows(false)
-			end)
-			track("PotatoGraphicsShadows", game:GetService("Players").PlayerAdded:Connect(function(player)
-				player.CharacterAdded:Connect(function(char)
-					task.wait(1)
-					for _, part in ipairs(char:GetDescendants()) do
-						if part:IsA("BasePart") then
-							pcall(function() part.CastShadow = false end)
-						end
-					end
-				end)
-			end))
-			
-			local allDescendants = workspace:GetDescendants()
-			for i = 1, #allDescendants, 100 do
-				task.wait()
-				for j = i, math.min(i + 99, #allDescendants) do
-					local v = allDescendants[j]
-					if v then
-						if v:IsA("BasePart") or v:IsA("MeshPart") then
-							pcall(function() 
-								v.Material = Enum.Material.Plastic 
-								v.CastShadow = false
-							end)
-						elseif v:IsA("Texture") or v:IsA("Decal") then
-							pcall(function() v:Destroy() end)
-						end
-					end
-				end
-			end
-			track("PotatoGraphics", workspace.DescendantAdded:Connect(function(v)
-				if Toggles.PotatoGraphics.Value then
-					if v:IsA("BasePart") or v:IsA("MeshPart") then
-						pcall(function() 
-							v.Material = Enum.Material.Plastic 
-							v.CastShadow = false
-						end)
-					elseif v:IsA("Texture") or v:IsA("Decal") then
-						pcall(function() v:Destroy() end)
-					end
-				end
-			end))
-		else
-			disconnect("PotatoGraphics")
-			disconnect("PotatoGraphicsShadows")
-			pcall(function()
-				local lighting = game:GetService("Lighting")
-				lighting.GlobalShadows = true
-			end)
-			pcall(function()
-				setPlayerShadows(true)
-			end)
-			pcall(function()
-				if savedPotatoLightingChildren then
-					local lighting = game:GetService("Lighting")
-					local sky = savedPotatoLightingChildren._PotatoSky
-					if sky and sky.Parent then sky:Destroy() end
-					savedPotatoLightingChildren._PotatoSky = nil
-					for _, v in ipairs(savedPotatoLightingChildren) do
-						if v and not v.Parent then
-							v.Parent = lighting
-						end
-					end
-					savedPotatoLightingChildren = nil
-				end
-			end)
-		end
-	end,
-})
-
-
-
 VisualFPS:AddToggle("DisableEffects", {
 	Text = "Disable Effects",
 	Default = false,
@@ -4365,38 +4252,73 @@ VisualFPS:AddToggle("UncapFPS", {
 	end,
 })
 
-VisualFPS:AddToggle("RemovePBR", {
-	Text = "Remove PBR Textures",
-	Default = false,
-	Callback = function(state)
-		if state then
-			local function cleanPBR(v)
-				if v:IsA("SurfaceAppearance") or v:IsA("Texture") or v:IsA("Decal") then
-					pcall(function() v:Destroy() end)
-				end
+do
+	local PBR_TYPES = { SurfaceAppearance = true, Texture = true, Decal = true }
+	local pbrQueue = {}
+	local pbrFlushConn = nil
+	local REMOVE_PBR_BATCH = 40
+	local REMOVE_PBR_INTERVAL = 0.05
+
+	local function flushPBRQueue()
+		local processed = 0
+		while processed < REMOVE_PBR_BATCH and #pbrQueue > 0 do
+			local v = table.remove(pbrQueue, 1)
+			if v and v.Parent and PBR_TYPES[v.ClassName] then
+				pcall(function() v:Destroy() end)
 			end
-			-- Apply in batches to reduce lag
-			local allDescendants = workspace:GetDescendants()
-			for i = 1, #allDescendants, 100 do
-				task.wait()
-				for j = i, math.min(i + 99, #allDescendants) do
-					local v = allDescendants[j]
-					if v then
-						cleanPBR(v)
-					end
-				end
-			end
-			-- Connect descendant added
-			track("RemovePBR", workspace.DescendantAdded:Connect(function(v)
-				if Toggles.RemovePBR.Value then
-					cleanPBR(v)
-				end
-			end))
-		else
-			disconnect("RemovePBR")
+			processed += 1
 		end
-	end,
-})
+		if #pbrQueue == 0 and pbrFlushConn then
+			pbrFlushConn:Disconnect()
+			pbrFlushConn = nil
+		end
+	end
+
+	local function queuePBR(v)
+		if not v or not v.Parent or not PBR_TYPES[v.ClassName] then return end
+		table.insert(pbrQueue, v)
+		if not pbrFlushConn then
+			pbrFlushConn = game:GetService("RunService").Heartbeat:Connect(flushPBRQueue)
+			task.delay(REMOVE_PBR_INTERVAL, function()
+				flushPBRQueue()
+			end)
+		end
+	end
+
+	VisualFPS:AddToggle("RemovePBR", {
+		Text = "Remove PBR Textures",
+		Default = false,
+		Callback = function(state)
+			disconnect("RemovePBR")
+			table.clear(pbrQueue)
+			if pbrFlushConn then
+				pbrFlushConn:Disconnect()
+				pbrFlushConn = nil
+			end
+			if state then
+				task.spawn(function()
+					local allDescendants = workspace:GetDescendants()
+					local BATCH = 80
+					for i = 1, #allDescendants, BATCH do
+						for j = i, math.min(i + BATCH - 1, #allDescendants) do
+							queuePBR(allDescendants[j])
+						end
+						local cycles = 0
+						repeat
+							task.wait(REMOVE_PBR_INTERVAL)
+							cycles += 1
+						until #pbrQueue == 0 or cycles > 2
+					end
+				end)
+				track("RemovePBR", workspace.DescendantAdded:Connect(function(v)
+					if Toggles.RemovePBR.Value then
+						task.defer(queuePBR, v)
+					end
+				end))
+			end
+		end,
+	})
+end
 
 VisualFPS:AddToggle("UltraFPSBoost", {
 	Text = "Ultra FPS Boost",
@@ -4543,174 +4465,6 @@ VisualLeft:AddToggle("OutlineESP", {
 	Default = Color3.fromRGB(255, 255, 255),
 	Title = "Outline ESP Color",
 })
-
-VisualLeft:AddToggle("ArmorESP", {
-	Text = "Armor ESP",
-	Default = false,
-})
-
-Toggles.ArmorESP:OnChanged(function()
-	local TextSize = 14
-	local ESPObjects = {}
-	local lastArmorRefresh = 0
-	local ARMOR_REFRESH_INTERVAL = 0.5
-
-	local function getArmorName(player)
-		if player.Character and player.Character:FindFirstChild("Shirt") and player.Character.Shirt:FindFirstChild("UpperTorso") then
-			local upperTorso = player.Character.Shirt.UpperTorso
-			if upperTorso:FindFirstChild("Meshes/Obsidian_SM_Chr_Captain_Male_01.054") then
-				return "Ds Armor", Color3.new(0, 0, 0)
-			elseif upperTorso:FindFirstChild("Meshes/Bluesteel_SM_Chr_Captain_Male_01.042") then
-				return "Bs Armor", Color3.fromRGB(160, 200, 240)
-			elseif upperTorso:FindFirstChild("Meshes/Atlantis_SM_Chr_Captain_Male_01.092") then
-				return "Atl Armor", Color3.fromRGB(2, 79, 104)
-			elseif upperTorso:FindFirstChild("EasternBossChestColor1") or
-				   upperTorso:FindFirstChild("EasternBossChestColor2") or
-				   upperTorso:FindFirstChild("EasternBossChestColor3") then
-				return "Samurai Armor", Color3.fromRGB(74, 0, 0)
-			elseif upperTorso:FindFirstChild("Meshes/Scuba_Diver.003") then
-				return "Scuba Armor", Color3.fromRGB(170, 107, 62)
-			end
-		end
-		return "No Armor", Color3.new(1, 1, 1)
-	end
-
-	local function createArmorBillboard(player)
-		if player == LocalPlayer or ESPObjects[player] then return end
-		local character = player.Character
-		if not character then return end
-		local rootPart = character:FindFirstChild("HumanoidRootPart")
-		if not rootPart then return end
-
-		local billboard = Instance.new("BillboardGui")
-		billboard.Name = "ArmorESP_Billboard"
-		billboard.Adornee = rootPart
-		billboard.Size = UDim2.new(0, 150, 0, 50)
-		billboard.StudsOffset = Vector3.new(0, -1, 0)
-		billboard.AlwaysOnTop = true
-		billboard.Parent = rootPart
-
-		local armorLabel = Instance.new("TextLabel")
-		armorLabel.Size = UDim2.new(1, 0, 1, 0)
-		armorLabel.BackgroundTransparency = 1
-		armorLabel.TextStrokeTransparency = 0
-		armorLabel.Font = Enum.Font.SourceSans
-		armorLabel.TextSize = TextSize
-		armorLabel.TextStrokeTransparency = 0.5
-		armorLabel.Text, armorLabel.TextColor3 = getArmorName(player)
-		armorLabel.Parent = billboard
-
-		ESPObjects[player] = billboard
-	end
-
-	local function removeArmorBillboard(player)
-		local billboard = ESPObjects[player]
-		if billboard then
-			pcall(function() billboard:Destroy() end)
-			ESPObjects[player] = nil
-		end
-	end
-
-	local function armorUpdateLoop()
-		local now = tick()
-		local refreshArmor = (now - lastArmorRefresh) >= ARMOR_REFRESH_INTERVAL
-		if refreshArmor then
-			lastArmorRefresh = now
-		end
-
-		local myRoot = getRootPart()
-
-		for player, billboard in pairs(ESPObjects) do
-			local ok, err = pcall(function()
-				if not player or not player.Parent then
-					removeArmorBillboard(player)
-					return
-				end
-				local character = player.Character
-				local rootPart = character and character:FindFirstChild("HumanoidRootPart")
-				if not character or not rootPart then
-					removeArmorBillboard(player)
-					return
-				end
-				if not billboard.Parent or billboard.Adornee ~= rootPart then
-					billboard.Adornee = rootPart
-					if not billboard.Parent then
-						billboard.Parent = rootPart
-					end
-				end
-				local shouldShow = false
-				if myRoot then
-					local dist = (rootPart.Position - myRoot.Position).Magnitude
-					shouldShow = (dist <= 2000)
-				end
-				billboard.Enabled = shouldShow
-				if refreshArmor then
-					local label = billboard:FindFirstChildWhichIsA("TextLabel")
-					if label then
-						label.Text, label.TextColor3 = getArmorName(player)
-					end
-				end
-			end)
-			if not ok then
-				removeArmorBillboard(player)
-			end
-		end
-
-		if refreshArmor then
-			for _, player in ipairs(Players:GetPlayers()) do
-				if player ~= LocalPlayer and not ESPObjects[player] then
-					createArmorBillboard(player)
-				end
-			end
-		end
-	end
-
-	local function cleanUpAll()
-		disconnect("ArmorESP_Update")
-		disconnect("ArmorESP_PlayerAdded")
-		disconnect("ArmorESP_PlayerRemoving")
-		disconnect("ArmorESP_CharacterAdded")
-		for player in pairs(ESPObjects) do
-			removeArmorBillboard(player)
-		end
-		table.clear(ESPObjects)
-	end
-
-	local function enableArmorESP()
-		for _, player in ipairs(Players:GetPlayers()) do
-			if player ~= LocalPlayer then
-				createArmorBillboard(player)
-			end
-		end
-
-		track("ArmorESP_Update", RunService.Heartbeat:Connect(armorUpdateLoop))
-
-		track("ArmorESP_PlayerAdded", Players.PlayerAdded:Connect(function(player)
-			if player == LocalPlayer then return end
-			local charAddedConn
-			charAddedConn = player.CharacterAdded:Connect(function()
-				if Toggles.ArmorESP and Toggles.ArmorESP.Value then
-					task.wait(0.1)
-					createArmorBillboard(player)
-				elseif charAddedConn then
-					pcall(function() charAddedConn:Disconnect() end)
-				end
-			end)
-		end))
-
-		track("ArmorESP_PlayerRemoving", Players.PlayerRemoving:Connect(function(player)
-			removeArmorBillboard(player)
-		end))
-	end
-
-	if Toggles.ArmorESP.Value then
-		cleanUpAll()
-		enableArmorESP()
-		Library:Notify({ Title = "Armor ESP", Description = "Enabled (Optimized)", Time = 2 })
-	else
-		cleanUpAll()
-	end
-end)
 
 local VisualEnv = Tabs.Visuals:AddLeftGroupbox("ENVIRONMENT", "sun")
 
@@ -5070,106 +4824,6 @@ end)
 Toggles.FloatOverToggle:OnChanged(function()
 	if Toggles.AttachToggle.Value then
 		startAttach()
-	end
-end)
-
--- + Fling Player Script Logic
-local flingPlayerState = {
-	active = false,
-	connections = {},
-	bodyPositions = {},
-	mouseKeyDownCon = nil
-}
-
-local function cleanupFlingPlayer()
-	for _, conn in ipairs(flingPlayerState.connections) do
-		pcall(function() conn:Disconnect() end)
-	end
-	table.clear(flingPlayerState.connections)
-
-	for _, bp in ipairs(flingPlayerState.bodyPositions) do
-		pcall(function() bp:Destroy() end)
-	end
-	table.clear(flingPlayerState.bodyPositions)
-
-	if flingPlayerState.mouseKeyDownCon then
-		pcall(function() flingPlayerState.mouseKeyDownCon:Disconnect() end)
-		flingPlayerState.mouseKeyDownCon = nil
-	end
-
-	flingPlayerState.active = false
-end
-
-Toggles.PlusFlingPlayerToggle:OnChanged(function()
-	if Toggles.PlusFlingPlayerToggle.Value then
-		cleanupFlingPlayer()
-		flingPlayerState.active = true
-
-		local char = LocalPlayer.Character
-		if not char then
-			Toggles.PlusFlingPlayerToggle:SetValue(false)
-			return
-		end
-		local rootPart = char:FindFirstChild("HumanoidRootPart")
-		if not rootPart then
-			Toggles.PlusFlingPlayerToggle:SetValue(false)
-			return
-		end
-		local player = LocalPlayer
-		local mouse = player:GetMouse()
-		local bind = "t"
-
-		-- Single per-frame physics loop (centralized instead of per-part)
-		local perFrameCon = RunService.Heartbeat:Connect(function()
-			if not flingPlayerState.active or not char.Parent then return end
-			local currentRoot = char:FindFirstChild("HumanoidRootPart")
-			if not currentRoot then return end
-			for _, v in ipairs(workspace:GetDescendants()) do
-				if v:IsA("BasePart") and not v.Anchored and v.Parent ~= char and v.Parent and v.Parent.ClassName ~= "Accessory" then
-					pcall(function()
-						v.CustomPhysicalProperties = PhysicalProperties.new(0, 0, 0, 0, 0)
-						v.Velocity = Vector3.new(25.70, 0, 0)
-						v.RotVelocity = Vector3.new(9e9, 9e9, 9e9)
-						v.CanCollide = false
-					end)
-				end
-			end
-		end)
-		table.insert(flingPlayerState.connections, perFrameCon)
-
-		-- Create BodyPosition per unanchored part (one-time scan)
-		for _, v in ipairs(workspace:GetDescendants()) do
-			if v:IsA("BasePart") and not v.Anchored and v.Parent ~= char and v.Parent and v.Parent.ClassName ~= "Accessory" then
-				local ok, bp = pcall(function()
-					local b = Instance.new("BodyPosition")
-					b.Parent = v
-					b.Position = rootPart.Position + Vector3.new(0, 5, 0)
-					return b
-				end)
-				if ok and bp then
-					table.insert(flingPlayerState.bodyPositions, bp)
-				end
-			end
-		end
-
-		-- Single shared mouse keybind handler
-		local mouseCon = nil
-		pcall(function()
-			mouseCon = mouse.KeyDown:Connect(function(key)
-				if not flingPlayerState.active then return end
-				if key == bind then
-					local targetPos = mouse.Target and mouse.Target.Position or rootPart.Position
-					for _, bp in ipairs(flingPlayerState.bodyPositions) do
-						pcall(function() bp.Position = targetPos + Vector3.new(0, math.sin(10/10), 0) end)
-					end
-				end
-			end)
-		end)
-		if mouseCon then
-			flingPlayerState.mouseKeyDownCon = mouseCon
-		end
-	else
-		cleanupFlingPlayer()
 	end
 end)
 
@@ -5656,9 +5310,6 @@ Library:OnUnload(function()
 	end
 	if Toggles.FloatOverToggle and Toggles.FloatOverToggle.Value then
 		Toggles.FloatOverToggle:SetValue(false)
-	end
-	if Toggles.PlusFlingPlayerToggle and Toggles.PlusFlingPlayerToggle.Value then
-		Toggles.PlusFlingPlayerToggle:SetValue(false)
 	end
 	if Toggles.SpectateToggle and Toggles.SpectateToggle.Value then
 		Toggles.SpectateToggle:SetValue(false)
