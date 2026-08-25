@@ -2853,12 +2853,79 @@ Toggles.BoatSpeedToggle:OnChanged(function()
 		disconnect("boat_hover") 
 	end 
 
-	if Toggles.BoatSpeedToggle.Value then 
-		enableBoatSpeed() 
-	else 
-		disableBoatSpeed() 
-	end 
+	if Toggles.BoatSpeedToggle.Value then
+		enableBoatSpeed()
+	else
+		disableBoatSpeed()
+	end
 end)
+
+MoveSwimBoost:AddToggle("WalkOnWater", {
+	Text = "Walk On Water",
+	Default = false,
+})
+
+do
+	local waterPlatform = nil
+
+	local function destroyWaterPlatform()
+		disconnect("WalkOnWater")
+		if waterPlatform then
+			pcall(function() waterPlatform:Destroy() end)
+			waterPlatform = nil
+		end
+	end
+
+	Toggles.WalkOnWater:OnChanged(function()
+		destroyWaterPlatform()
+		if not Toggles.WalkOnWater.Value then return end
+
+		local HeightLookup = nil
+		pcall(function()
+			HeightLookup = require(game:GetService("ReplicatedStorage")
+				:WaitForChild("Gerstner")
+				:WaitForChild("HeightLookup"))
+		end)
+		if not HeightLookup then
+			Library:Notify({ Title = "Walk On Water", Description = "Gerstner HeightLookup not found.", Time = 3 })
+			Toggles.WalkOnWater:SetValue(false)
+			return
+		end
+
+		pcall(function()
+			waterPlatform = Instance.new("Part")
+			waterPlatform.Name = "WaterPlatform"
+			waterPlatform.Anchored = true
+			waterPlatform.Size = Vector3.new(6, 1, 6)
+			waterPlatform.Transparency = 1
+			waterPlatform.CanCollide = true
+			waterPlatform.CanTouch = false
+			waterPlatform.CanQuery = false
+			waterPlatform.Parent = workspace
+		end)
+		if not waterPlatform then
+			Toggles.WalkOnWater:SetValue(false)
+			return
+		end
+
+		track("WalkOnWater", RunService.Heartbeat:Connect(function()
+			local character = getCharacter()
+			local hrp = character and character:FindFirstChild("HumanoidRootPart")
+			if not hrp or not waterPlatform then return end
+			local pos = hrp.Position
+			local ok, waterHeight = pcall(function()
+				return HeightLookup.Lookup(pos, "PRECISE", false)
+			end)
+			if ok and typeof(waterHeight) == "number" then
+				if pos.Y < waterHeight + 5 then
+					waterPlatform.CFrame = CFrame.new(pos.X, waterHeight + 0.5, pos.Z)
+				else
+					waterPlatform.Position = Vector3.new(0, -500, 0)
+				end
+			end
+		end))
+	end)
+end
 
 MoveSwimBoost:AddToggle("SinkFastPVP", {
 	Text = "Sink Fast PVP",
@@ -4163,10 +4230,10 @@ VisualFPS:AddToggle("FullBright", {
 		pcall(function()
 			local lighting = game:GetService("Lighting")
 			if state then
-				lighting.Brightness = 2
+				lighting.Brightness = 1.4
 				lighting.GlobalShadows = false
-				lighting.Ambient = Color3.new(1, 1, 1)
-				lighting.OutdoorAmbient = Color3.new(1, 1, 1)
+				lighting.Ambient = Color3.new(0.68, 0.68, 0.68)
+				lighting.OutdoorAmbient = Color3.new(0.8, 0.8, 0.8)
 			else
 				lighting.Brightness = 1
 				lighting.GlobalShadows = true
@@ -5285,6 +5352,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.DeleteWater and Toggles.DeleteWater.Value then
 		Toggles.DeleteWater:SetValue(false)
+	end
+	if Toggles.WalkOnWater and Toggles.WalkOnWater.Value then
+		Toggles.WalkOnWater:SetValue(false)
 	end
 	if Toggles.AntiAFK and Toggles.AntiAFK.Value then
 		Toggles.AntiAFK:SetValue(false)
