@@ -652,6 +652,11 @@ MainLeft:AddToggle("FastPickup", {
 	Default = false,
 })
 
+MainLeft:AddToggle("WalkOnWater", {
+	Text = "Walk On Water",
+	Default = false,
+})
+
 local ImmunityGroup = Tabs.Player:AddLeftGroupbox("Immunity", "shield")
 
 ImmunityGroup:AddToggle("NoBossDamage", {
@@ -2860,10 +2865,7 @@ Toggles.BoatSpeedToggle:OnChanged(function()
 	end
 end)
 
-MoveSwimBoost:AddToggle("WalkOnWater", {
-	Text = "Walk On Water",
-	Default = false,
-})
+
 
 do
 	local waterPlatform = nil
@@ -2928,7 +2930,7 @@ do
 end
 
 MoveSwimBoost:AddToggle("SinkFastPVP", {
-	Text = "Sink Fast PVP",
+	Text = "+ Sink Fast PVP",
 	Default = false,
 })
 local MoveSwingSpeed = Tabs.Movement:AddLeftGroupbox("Swing Speed", "swords")
@@ -3162,9 +3164,9 @@ Toggles.SinkFastPVP:OnChanged(function()
 				end
 			end
 		end))
-		Library:Notify({ Title = "Sink Fast PVP", Description = "Enabled", Time = 2 })
+		Library:Notify({ Title = "+ Sink Fast PVP", Description = "Enabled", Time = 2 })
 	else
-		Library:Notify({ Title = "Sink Fast PVP", Description = "Disabled", Time = 2 })
+		Library:Notify({ Title = "+ Sink Fast PVP", Description = "Disabled", Time = 2 })
 	end
 end)
 
