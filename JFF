@@ -3439,6 +3439,20 @@ FarmMine:AddToggle("HighlightMine", {
 })
 
 -- ==========================================
+local OreESPGroup = Tabs.Farming:AddLeftGroupbox("Ore ESP", "gem")
+
+OreESPGroup:AddToggle("OreESPToggle", {
+	Text = "Ore ESP",
+	Default = false,
+})
+
+OreESPGroup:AddLabel("Ores Found:")
+OreESPGroup:AddLabel("(updates when folder exists)")
+
+OreESPGroup:AddDivider()
+OreESPGroup:AddLabel("Ore Filters:")
+
+-- ==========================================
 local FarmChop = Tabs.Farming:AddLeftGroupbox("Auto Chop", "axe")
 
 FarmChop:AddToggle("AutoChop", {
@@ -3844,6 +3858,198 @@ Toggles.AiAura:OnChanged(function()
 		isAiAuraRunning = false
 		updateHighlight(hlAI, nil, false)
 	end
+end)
+
+-- ==========================================
+-- Ore ESP (reads ore names from workspace.worldResources.mineable, per-ore filters)
+local oreESP = {
+	highlights = {},
+	oreToggles = {},
+	oreColors = {},
+	orePalette = {
+		Color3.fromRGB(255, 80, 80),
+		Color3.fromRGB(80, 255, 120),
+		Color3.fromRGB(80, 160, 255),
+		Color3.fromRGB(255, 220, 80),
+		Color3.fromRGB(220, 100, 255),
+		Color3.fromRGB(255, 160, 80),
+		Color3.fromRGB(80, 255, 220),
+		Color3.fromRGB(255, 100, 180),
+		Color3.fromRGB(180, 255, 80),
+		Color3.fromRGB(160, 160, 255),
+		Color3.fromRGB(255, 140, 120),
+		Color3.fromRGB(120, 220, 255),
+	},
+}
+
+local function getOreColor(oreName, index)
+	if oreESP.oreColors[oreName] then
+		return oreESP.oreColors[oreName]
+	end
+	local palette = oreESP.orePalette
+	local hue = (string.byte(oreName, 1) or 0) * 3.7 + (index or 0) * 29
+	hue = hue % 360 / 360
+	local c = Color3.fromHSV(hue, 0.75, 0.95)
+	oreESP.oreColors[oreName] = c
+	return c
+end
+
+local function clearOreESPHighlights()
+	for _, entry in pairs(oreESP.highlights) do
+		pcall(function() entry.hl:Destroy() end)
+		pcall(function() entry.bill:Destroy() end)
+	end
+	table.clear(oreESP.highlights)
+end
+
+local function isOreFilterEnabled(oreName)
+	local t = oreESP.oreToggles[oreName]
+	if t == nil then return true end
+	return t
+end
+
+local function oreESPLoop()
+	local folder = workspace:FindFirstChild("worldResources") and workspace.worldResources:FindFirstChild("mineable")
+	if not folder then return end
+
+	local seen = {}
+
+	for _, chunkFolder in ipairs(folder:GetChildren()) do
+		if not chunkFolder:IsA("Folder") then continue end
+		for _, obj in ipairs(chunkFolder:GetChildren()) do
+			if not obj or not obj.Parent then continue end
+			local oreName = obj.Name or "Unknown"
+			seen[obj] = oreName
+
+			local entry = oreESP.highlights[obj]
+			local enabled = isOreFilterEnabled(oreName)
+
+			if not entry then
+				local hl = Instance.new("Highlight")
+				hl.FillColor = getOreColor(oreName, 0)
+				hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+				hl.FillTransparency = 0.25
+				hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+				hl.Adornee = obj
+				hl.Enabled = enabled
+				hl.Parent = workspace
+
+				local anchor = obj:IsA("Model") and (obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")) or (obj:IsA("BasePart") and obj)
+				local bill = nil
+				if anchor then
+					bill = Instance.new("BillboardGui")
+					bill.Size = UDim2.fromOffset(160, 28)
+					bill.AlwaysOnTop = true
+					bill.Adornee = anchor
+					bill.StudsOffset = Vector3.new(0, 3.2, 0)
+					bill.MaxDistance = math.huge
+
+					local lbl = Instance.new("TextLabel")
+					lbl.Size = UDim2.fromScale(1, 1)
+					lbl.BackgroundTransparency = 1
+					lbl.TextColor3 = getOreColor(oreName, 1)
+					lbl.TextStrokeTransparency = 0.4
+					lbl.Font = Enum.Font.Jura
+					lbl.TextSize = 16
+					lbl.RichText = true
+					lbl.Text = '<font color="#' .. getOreColor(oreName, 2):ToHex() .. '">' .. oreName .. '</font>'
+					lbl.Parent = bill
+
+					bill.Enabled = enabled
+					bill.Parent = workspace
+				end
+
+				entry = { hl = hl, bill = bill }
+				oreESP.highlights[obj] = entry
+			else
+				pcall(function() entry.hl.Enabled = enabled end)
+				if entry.bill then
+					pcall(function() entry.bill.Enabled = enabled end)
+				end
+				if obj.Parent ~= nil then
+					entry.hl.Adornee = obj
+					if entry.bill and entry.bill.Adornee == nil then
+						local anchor = obj:IsA("Model") and (obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")) or (obj:IsA("BasePart") and obj)
+						if anchor then entry.bill.Adornee = anchor end
+					end
+				end
+			end
+		end
+	end
+
+	for obj, entry in pairs(oreESP.highlights) do
+		if not seen[obj] or not obj or not obj.Parent then
+			pcall(function() entry.hl:Destroy() end)
+			pcall(function() entry.bill:Destroy() end)
+			oreESP.highlights[obj] = nil
+		end
+	end
+end
+
+local function scanOreTypesAndBuildUI()
+	local folder = workspace:FindFirstChild("worldResources") and workspace.worldResources:FindFirstChild("mineable")
+	if not folder then return end
+
+	local found = {}
+	for _, chunkFolder in ipairs(folder:GetChildren()) do
+		if not chunkFolder:IsA("Folder") then continue end
+		for _, obj in ipairs(chunkFolder:GetChildren()) do
+			local n = obj.Name
+			if n and not found[n] then
+				found[n] = true
+			end
+		end
+	end
+
+	local names = {}
+	for n in pairs(found) do table.insert(names, n) end
+	table.sort(names)
+	if #names == 0 then return end
+
+	local anyAdded = false
+	for i, oreName in ipairs(names) do
+		if oreESP.oreToggles[oreName] == nil then
+			oreESP.oreToggles[oreName] = true
+			oreESP.oreColors[oreName] = getOreColor(oreName, i)
+			OreESPGroup:AddToggle("OreESPFilter_" .. oreName, {
+				Text = oreName,
+				Default = true,
+			})
+			local toggleKey = "OreESPFilter_" .. oreName
+			if Toggles[toggleKey] then
+				Toggles[toggleKey]:OnChanged(function(val)
+					oreESP.oreToggles[oreName] = val
+				end)
+			end
+			anyAdded = true
+		end
+	end
+	return anyAdded
+end
+
+Toggles.OreESPToggle:OnChanged(function()
+	disconnect("OreESP")
+	disconnect("OreESPScan")
+	if not Toggles.OreESPToggle.Value then
+		clearOreESPHighlights()
+		return
+	end
+
+	scanOreTypesAndBuildUI()
+	local scanTries = 0
+	track("OreESPScan", RunService.Heartbeat:Connect(function()
+		scanTries += 1
+		if scanTries % 180 == 0 then
+			pcall(function() scanOreTypesAndBuildUI() end)
+		end
+	end))
+
+	track("OreESP", RunService.Heartbeat:Connect(function()
+		if not isAlive() or not Toggles.OreESPToggle.Value then return end
+		oreESPLoop()
+	end))
+
+	Library:Notify({ Title = "Ore ESP", Description = "Enabled", Time = 2 })
 end)
 
 Toggles.TitanAura:OnChanged(function()
@@ -5417,6 +5623,9 @@ Library:OnUnload(function()
 	if Toggles.InvisibleFlyToggle and Toggles.InvisibleFlyToggle.Value then
 		Toggles.InvisibleFlyToggle:SetValue(false)
 	end
+	if Toggles.OreESPToggle and Toggles.OreESPToggle.Value then
+		Toggles.OreESPToggle:SetValue(false)
+	end
 
 	if Toggles.NoGliderCooldown and Toggles.NoGliderCooldown.Value then
 		Toggles.NoGliderCooldown:SetValue(false)
@@ -5439,6 +5648,7 @@ Library:OnUnload(function()
 		disconnect(name)
 	end
 	clearESP()
+	pcall(function() clearOreESPHighlights() end)
 	highlightTarget:Destroy()
 	workspace.Gravity = 196.2
 	LocalPlayer.CameraMaxZoomDistance = 400
