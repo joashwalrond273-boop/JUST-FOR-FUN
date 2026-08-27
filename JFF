@@ -3465,6 +3465,11 @@ OreESPGroup:AddToggle("OreESPToggle", {
 	Default = false,
 })
 
+OreESPGroup:AddToggle("OreESPRemoveNames", {
+	Text = "Remove Names",
+	Default = false,
+})
+
 OreESPGroup:AddDivider()
 OreESPGroup:AddLabel("Ore Filters:")
 
@@ -3863,6 +3868,7 @@ local oreESP = {
 	highlights = {},
 	oreToggles = {},
 	oreColors = {},
+	oreColorPickers = {},
 	fixedOreColors = {
 		["Coal"]    = Color3.fromRGB(0, 0, 0),
 		["Ice"]     = Color3.fromRGB(150, 210, 255),
@@ -3923,6 +3929,7 @@ local function oreESPLoop()
 	local folder = workspace:FindFirstChild("worldResources") and workspace.worldResources:FindFirstChild("mineable")
 	if not folder then return end
 
+	local showNames = not (Toggles and Toggles.OreESPRemoveNames and Toggles.OreESPRemoveNames.Value)
 	local seen = {}
 
 	for _, chunkFolder in ipairs(folder:GetChildren()) do
@@ -3934,10 +3941,10 @@ local function oreESPLoop()
 
 			local entry = oreESP.highlights[obj]
 			local enabled = isOreFilterEnabled(oreName)
+			local oreColor = getOreColor(oreName)
 
 			if not entry then
 				local hl = Instance.new("Highlight")
-				local oreColor = getOreColor(oreName)
 				hl.FillColor = oreColor
 				hl.OutlineColor = Color3.fromRGB(255, 255, 255)
 				hl.FillTransparency = 0.25
@@ -3948,6 +3955,7 @@ local function oreESPLoop()
 
 				local anchor = obj:IsA("Model") and (obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")) or (obj:IsA("BasePart") and obj)
 				local bill = nil
+				local lbl = nil
 				if anchor then
 					bill = Instance.new("BillboardGui")
 					bill.Size = UDim2.fromOffset(160, 28)
@@ -3956,7 +3964,7 @@ local function oreESPLoop()
 					bill.StudsOffset = Vector3.new(0, 3.2, 0)
 					bill.MaxDistance = math.huge
 
-					local lbl = Instance.new("TextLabel")
+					lbl = Instance.new("TextLabel")
 					lbl.Size = UDim2.fromScale(1, 1)
 					lbl.BackgroundTransparency = 1
 					lbl.TextColor3 = oreColor
@@ -3967,16 +3975,23 @@ local function oreESPLoop()
 					lbl.Text = '<font color="#' .. oreColor:ToHex() .. '">' .. oreName .. '</font>'
 					lbl.Parent = bill
 
-					bill.Enabled = enabled
+					bill.Enabled = enabled and showNames
 					bill.Parent = workspace
 				end
 
-				entry = { hl = hl, bill = bill }
+				entry = { hl = hl, bill = bill, lbl = lbl, oreName = oreName }
 				oreESP.highlights[obj] = entry
 			else
 				pcall(function() entry.hl.Enabled = enabled end)
+				pcall(function() entry.hl.FillColor = oreColor end)
 				if entry.bill then
-					pcall(function() entry.bill.Enabled = enabled end)
+					pcall(function() entry.bill.Enabled = enabled and showNames end)
+				end
+				if entry.lbl then
+					pcall(function()
+						entry.lbl.TextColor3 = oreColor
+						entry.lbl.Text = '<font color="#' .. oreColor:ToHex() .. '">' .. oreName .. '</font>'
+					end)
 				end
 				if obj.Parent ~= nil then
 					entry.hl.Adornee = obj
@@ -4022,7 +4037,10 @@ local function scanOreTypesAndBuildUI()
 	for i, oreName in ipairs(names) do
 		if oreESP.oreToggles[oreName] == nil then
 			oreESP.oreToggles[oreName] = true
-			oreESP.oreColors[oreName] = getOreColor(oreName, i)
+			local defaultColor = oreESP.fixedOreColors[oreName] or getOreColor(oreName, i)
+			oreESP.oreColors[oreName] = defaultColor
+			oreESP.fixedOreColors[oreName] = defaultColor
+
 			OreESPGroup:AddToggle("OreESPFilter_" .. oreName, {
 				Text = oreName,
 				Default = true,
@@ -4033,6 +4051,20 @@ local function scanOreTypesAndBuildUI()
 					oreESP.oreToggles[oreName] = val
 				end)
 			end
+
+			local colorPickerKey = "OreESPColor_" .. oreName
+			OreESPGroup:AddLabel("Color"):AddColorPicker(colorPickerKey, {
+				Default = defaultColor,
+				Title = oreName .. " Color",
+			})
+			oreESP.oreColorPickers[oreName] = colorPickerKey
+			if Options[colorPickerKey] then
+				Options[colorPickerKey]:OnChanged(function(newColor)
+					oreESP.fixedOreColors[oreName] = newColor
+					oreESP.oreColors[oreName] = newColor
+				end)
+			end
+
 			anyAdded = true
 		end
 	end
