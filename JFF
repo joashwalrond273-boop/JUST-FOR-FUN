@@ -4270,6 +4270,22 @@ for _, loc in ipairs(extraLocations) do
 	})
 end
 
+-- Area 51 Groupbox (below Extra Locations)
+local Area51Group = Tabs.Teleport:AddLeftGroupbox("Area 51", "map-pin")
+
+Area51Group:AddButton({
+	Text = "Hacker Platform",
+	Func = function()
+		local root = getRootPart()
+		if root then
+			root.CFrame = CFrame.new(Vector3.new(3811.73, 1546.83, -977.48))
+			Library:Notify({ Title = "Teleport", Description = "Teleported to Hacker Platform", Time = 1.5 })
+		else
+			Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
+		end
+	end,
+})
+
 -- READ THIS FIRST Groupbox (placed above Trick Spawn)
 local ReadThisFirstGroup = Tabs.Teleport:AddRightGroupbox("READ THIS FIRST!!", "alert-circle")
 
