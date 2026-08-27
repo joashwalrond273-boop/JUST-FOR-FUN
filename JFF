@@ -4350,6 +4350,7 @@ do
 
 	local function addMerchantHighlight(merchantModel)
 		if merchantESPObjects[merchantModel] then return end
+
 		local hl = Instance.new("Highlight")
 		hl.Name = "MerchantESP_Highlight"
 		hl.Adornee = merchantModel
@@ -4359,7 +4360,6 @@ do
 		hl.OutlineTransparency = 0
 		hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
 		hl.Parent = merchantModel
-		merchantESPObjects[merchantModel] = hl
 
 		local bbg = Instance.new("BillboardGui")
 		bbg.Name = "MerchantESP_Label"
@@ -4378,13 +4378,39 @@ do
 		tl.Font = Enum.Font.Jura
 		tl.TextScaled = true
 		tl.Parent = bbg
+
+		merchantESPObjects[merchantModel] = { hl = hl, bbg = bbg }
 	end
 
 	local function clearMerchantESP()
 		for _, conn in ipairs(merchantESPConns) do pcall(function() conn:Disconnect() end) end
 		merchantESPConns = {}
-		for model, hl in pairs(merchantESPObjects) do pcall(function() hl:Destroy() end) end
+		for model, objs in pairs(merchantESPObjects) do
+			pcall(function() if objs.hl then objs.hl:Destroy() end end)
+			pcall(function() if objs.bbg then objs.bbg:Destroy() end end)
+		end
 		merchantESPObjects = {}
+
+		local merchantsFolder = workspace:FindFirstChild("Merchants")
+		if merchantsFolder then
+			for _, model in ipairs(merchantsFolder:GetChildren()) do
+				if model:IsA("Model") then
+					pcall(function()
+						for _, d in ipairs(model:GetDescendants()) do
+							if d.Name == "MerchantESP_Highlight" or d.Name == "MerchantESP_Label" then
+								d:Destroy()
+							end
+						end
+						if model:FindFirstChild("MerchantESP_Highlight") then
+							model.MerchantESP_Highlight:Destroy()
+						end
+						if model:FindFirstChild("MerchantESP_Label") then
+							model.MerchantESP_Label:Destroy()
+						end
+					end)
+				end
+			end
+		end
 	end
 
 	local function enableMerchantESP()
