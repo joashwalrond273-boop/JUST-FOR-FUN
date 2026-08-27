@@ -2795,68 +2795,93 @@ MoveSwimBoost:AddSlider("SwimBoostValue", {
 	Rounding = 1,
 })
 
-MoveSwimBoost:AddToggle("BoatSpeedToggle", {
-	Text = "+ Boat Speed",
+MoveSwimBoost:AddToggle("SinkFastPVP", {
+	Text = "+ Sink Fast PVP",
 	Default = false,
 })
 
+local MoveBoatSpeed = Tabs.Movement:AddLeftGroupbox("Boat Speed", "anchor")
+
+MoveBoatSpeed:AddToggle("BoatSpeedToggle", {
+	Text = "Boat Speed",
+	Default = false,
+})
+
+MoveBoatSpeed:AddSlider("BoatSpeedValue", {
+	Text = "Boat Speed Value",
+	Default = 0.9,
+	Min = 0.1,
+	Max = 5,
+	Rounding = 1,
+})
+
+MoveBoatSpeed:AddSlider("BoatHeightValue", {
+	Text = "Boat Height Offset",
+	Default = 0,
+	Min = -20,
+	Max = 20,
+	Rounding = 1,
+})
+
 Toggles.BoatSpeedToggle:OnChanged(function()
-	local function getCurrentBoat() 
-		local humanoid = getHumanoid() 
-		if humanoid and humanoid.SeatPart then 
-			local folder = humanoid.SeatPart:FindFirstAncestorOfClass("Folder") 
-			if folder and folder == workspace.boats then 
-				return humanoid.SeatPart:FindFirstAncestorOfClass("Model") 
-			end 
-		end 
-	end 
+	local function getCurrentBoat()
+		local humanoid = getHumanoid()
+		if humanoid and humanoid.SeatPart then
+			local folder = humanoid.SeatPart:FindFirstAncestorOfClass("Folder")
+			if folder and folder == workspace.boats then
+				return humanoid.SeatPart:FindFirstAncestorOfClass("Model")
+			end
+		end
+	end
 
-	local originalY = nil 
-	local boatCFrame = nil 
+	local originalY = nil
+	local boatCFrame = nil
 
-	local function enableBoatSpeed() 
-		disconnect("boat_hover") 
-		originalY = nil 
-		boatCFrame = nil 
-		track("boat_hover", 
-			RunService.Stepped:Connect( 
-				function() 
-					local humanoid = getHumanoid() 
-					local boat = getCurrentBoat() 
-					if not boat or not humanoid then 
-						originalY = nil 
-						boatCFrame = nil 
-						return 
-					end 
-					if not boatCFrame then 
-						boatCFrame = boat:GetPivot() 
-					end 
-					if not originalY then 
-						originalY = boatCFrame.Position.Y 
-					end 
-					for _, v in pairs(boat:GetDescendants()) do 
-						if v:IsA("Part") or v:IsA("MeshPart") or v:IsA("Union") then 
-							v.Velocity = Vector3.new(0, 0, 0) 
-						end 
-					end 
-					boat:PivotTo(boatCFrame) 
-					local extraY = 0 
-					if humanoid.Parent:GetAttribute("inTerrain") then 
-						extraY = 0 
-					else 
-						extraY = 0 
-						boatCFrame = 
-							boatCFrame - Vector3.new(0, boatCFrame.Position.Y - originalY, 0) 
-					end 
-					boatCFrame = boatCFrame + Vector3.new(0, extraY, 0) + humanoid.MoveDirection * 0.9 
-				end 
-			) 
-		) 
-	end 
+	local function enableBoatSpeed()
+		disconnect("boat_hover")
+		originalY = nil
+		boatCFrame = nil
+		track("boat_hover",
+			RunService.Stepped:Connect(
+				function()
+					local humanoid = getHumanoid()
+					local boat = getCurrentBoat()
+					if not boat or not humanoid then
+						originalY = nil
+						boatCFrame = nil
+						return
+					end
+					if not boatCFrame then
+						boatCFrame = boat:GetPivot()
+					end
+					if not originalY then
+						originalY = boatCFrame.Position.Y
+					end
+					for _, v in pairs(boat:GetDescendants()) do
+						if v:IsA("Part") or v:IsA("MeshPart") or v:IsA("Union") then
+							v.Velocity = Vector3.new(0, 0, 0)
+						end
+					end
+					boat:PivotTo(boatCFrame)
+					local extraY = 0
+					local heightOffset = Options.BoatHeightValue and Options.BoatHeightValue.Value or 0
+					if humanoid.Parent:GetAttribute("inTerrain") then
+						extraY = heightOffset
+					else
+						extraY = heightOffset
+						boatCFrame =
+							boatCFrame - Vector3.new(0, boatCFrame.Position.Y - originalY, 0)
+					end
+					local speedMult = Options.BoatSpeedValue and Options.BoatSpeedValue.Value or 0.9
+					boatCFrame = boatCFrame + Vector3.new(0, extraY, 0) + humanoid.MoveDirection * speedMult
+				end
+			)
+		)
+	end
 
-	local function disableBoatSpeed() 
-		disconnect("boat_hover") 
-	end 
+	local function disableBoatSpeed()
+		disconnect("boat_hover")
+	end
 
 	if Toggles.BoatSpeedToggle.Value then
 		enableBoatSpeed()
@@ -2929,10 +2954,6 @@ do
 	end)
 end
 
-MoveSwimBoost:AddToggle("SinkFastPVP", {
-	Text = "+ Sink Fast PVP",
-	Default = false,
-})
 local MoveSwingSpeed = Tabs.Movement:AddLeftGroupbox("Swing Speed", "swords")
 
 MoveSwingSpeed:AddToggle("SwingSpeedToggle", {
