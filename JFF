@@ -3439,20 +3439,6 @@ FarmMine:AddToggle("HighlightMine", {
 })
 
 -- ==========================================
-local OreESPGroup = Tabs.Farming:AddLeftGroupbox("Ore ESP", "gem")
-
-OreESPGroup:AddToggle("OreESPToggle", {
-	Text = "Ore ESP",
-	Default = false,
-})
-
-OreESPGroup:AddLabel("Ores Found:")
-OreESPGroup:AddLabel("(updates when folder exists)")
-
-OreESPGroup:AddDivider()
-OreESPGroup:AddLabel("Ore Filters:")
-
--- ==========================================
 local FarmChop = Tabs.Farming:AddLeftGroupbox("Auto Chop", "axe")
 
 FarmChop:AddToggle("AutoChop", {
@@ -3470,6 +3456,17 @@ FarmChop:AddToggle("HighlightChop", {
 	Text = "Highlight Target",
 	Default = true,
 })
+
+-- ==========================================
+local OreESPGroup = Tabs.Farming:AddLeftGroupbox("Ore ESP", "gem")
+
+OreESPGroup:AddToggle("OreESPToggle", {
+	Text = "Ore ESP",
+	Default = false,
+})
+
+OreESPGroup:AddDivider()
+OreESPGroup:AddLabel("Ore Filters:")
 
 -- ==========================================
 local FarmAI = Tabs.Farming:AddRightGroupbox("AI Aura", "zap")
@@ -3866,6 +3863,15 @@ local oreESP = {
 	highlights = {},
 	oreToggles = {},
 	oreColors = {},
+	fixedOreColors = {
+		["Coal"]    = Color3.fromRGB(30, 30, 32),
+		["Bluesteel"] = Color3.fromRGB(40, 120, 255),
+		["Copper"]  = Color3.fromRGB(255, 140, 60),
+		["Coral"]   = Color3.fromRGB(180, 80, 220),
+		["Gold"]    = Color3.fromRGB(255, 190, 50),
+		["Iron"]    = Color3.fromRGB(230, 232, 238),
+		["Stone"]   = Color3.fromRGB(140, 140, 146),
+	},
 	orePalette = {
 		Color3.fromRGB(255, 80, 80),
 		Color3.fromRGB(80, 255, 120),
@@ -3884,6 +3890,10 @@ local oreESP = {
 
 local function getOreColor(oreName, index)
 	if oreESP.oreColors[oreName] then
+		return oreESP.oreColors[oreName]
+	end
+	if oreESP.fixedOreColors[oreName] then
+		oreESP.oreColors[oreName] = oreESP.fixedOreColors[oreName]
 		return oreESP.oreColors[oreName]
 	end
 	local palette = oreESP.orePalette
@@ -3926,7 +3936,8 @@ local function oreESPLoop()
 
 			if not entry then
 				local hl = Instance.new("Highlight")
-				hl.FillColor = getOreColor(oreName, 0)
+				local oreColor = getOreColor(oreName)
+				hl.FillColor = oreColor
 				hl.OutlineColor = Color3.fromRGB(255, 255, 255)
 				hl.FillTransparency = 0.25
 				hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
@@ -3947,12 +3958,12 @@ local function oreESPLoop()
 					local lbl = Instance.new("TextLabel")
 					lbl.Size = UDim2.fromScale(1, 1)
 					lbl.BackgroundTransparency = 1
-					lbl.TextColor3 = getOreColor(oreName, 1)
+					lbl.TextColor3 = oreColor
 					lbl.TextStrokeTransparency = 0.4
 					lbl.Font = Enum.Font.Jura
 					lbl.TextSize = 16
 					lbl.RichText = true
-					lbl.Text = '<font color="#' .. getOreColor(oreName, 2):ToHex() .. '">' .. oreName .. '</font>'
+					lbl.Text = '<font color="#' .. oreColor:ToHex() .. '">' .. oreName .. '</font>'
 					lbl.Parent = bill
 
 					bill.Enabled = enabled
