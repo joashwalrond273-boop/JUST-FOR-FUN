@@ -2815,14 +2815,6 @@ MoveBoatSpeed:AddSlider("BoatSpeedValue", {
 	Rounding = 1,
 })
 
-MoveBoatSpeed:AddSlider("BoatHeightValue", {
-	Text = "Boat Height Offset",
-	Default = 0,
-	Min = -20,
-	Max = 20,
-	Rounding = 1,
-})
-
 do
 	local boatPlatform = nil
 
@@ -2891,11 +2883,10 @@ do
 						end
 						boat:PivotTo(boatCFrame)
 						local extraY = 0
-						local heightOffset = Options.BoatHeightValue and Options.BoatHeightValue.Value or 0
 						if humanoid.Parent:GetAttribute("inTerrain") then
-							extraY = heightOffset
+							extraY = 0
 						else
-							extraY = heightOffset
+							extraY = 0
 							boatCFrame =
 								boatCFrame - Vector3.new(0, boatCFrame.Position.Y - originalY, 0)
 						end
