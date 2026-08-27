@@ -4041,23 +4041,22 @@ local function scanOreTypesAndBuildUI()
 			oreESP.oreColors[oreName] = defaultColor
 			oreESP.fixedOreColors[oreName] = defaultColor
 
-			OreESPGroup:AddToggle("OreESPFilter_" .. oreName, {
+			local colorPickerKey = "OreESPColor_" .. oreName
+			oreESP.oreColorPickers[oreName] = colorPickerKey
+
+			local toggleKey = "OreESPFilter_" .. oreName
+			OreESPGroup:AddToggle(toggleKey, {
 				Text = oreName,
 				Default = true,
+			}):AddColorPicker(colorPickerKey, {
+				Default = defaultColor,
+				Title = oreName .. " Color",
 			})
-			local toggleKey = "OreESPFilter_" .. oreName
 			if Toggles[toggleKey] then
 				Toggles[toggleKey]:OnChanged(function(val)
 					oreESP.oreToggles[oreName] = val
 				end)
 			end
-
-			local colorPickerKey = "OreESPColor_" .. oreName
-			OreESPGroup:AddLabel("Color"):AddColorPicker(colorPickerKey, {
-				Default = defaultColor,
-				Title = oreName .. " Color",
-			})
-			oreESP.oreColorPickers[oreName] = colorPickerKey
 			if Options[colorPickerKey] then
 				Options[colorPickerKey]:OnChanged(function(newColor)
 					oreESP.fixedOreColors[oreName] = newColor
