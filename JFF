@@ -2823,72 +2823,106 @@ MoveBoatSpeed:AddSlider("BoatHeightValue", {
 	Rounding = 1,
 })
 
-Toggles.BoatSpeedToggle:OnChanged(function()
-	local function getCurrentBoat()
-		local humanoid = getHumanoid()
-		if humanoid and humanoid.SeatPart then
-			local folder = humanoid.SeatPart:FindFirstAncestorOfClass("Folder")
-			if folder and folder == workspace.boats then
-				return humanoid.SeatPart:FindFirstAncestorOfClass("Model")
-			end
+do
+	local boatPlatform = nil
+
+	local function destroyBoatPlatform()
+		if boatPlatform then
+			pcall(function() boatPlatform:Destroy() end)
+			boatPlatform = nil
 		end
 	end
 
-	local originalY = nil
-	local boatCFrame = nil
+	Toggles.BoatSpeedToggle:OnChanged(function()
+		local function getCurrentBoat()
+			local humanoid = getHumanoid()
+			if humanoid and humanoid.SeatPart then
+				local folder = humanoid.SeatPart:FindFirstAncestorOfClass("Folder")
+				if folder and folder == workspace.boats then
+					return humanoid.SeatPart:FindFirstAncestorOfClass("Model")
+				end
+			end
+		end
 
-	local function enableBoatSpeed()
-		disconnect("boat_hover")
-		originalY = nil
-		boatCFrame = nil
-		track("boat_hover",
-			RunService.Stepped:Connect(
-				function()
-					local humanoid = getHumanoid()
-					local boat = getCurrentBoat()
-					if not boat or not humanoid then
-						originalY = nil
-						boatCFrame = nil
-						return
-					end
-					if not boatCFrame then
-						boatCFrame = boat:GetPivot()
-					end
-					if not originalY then
-						originalY = boatCFrame.Position.Y
-					end
-					for _, v in pairs(boat:GetDescendants()) do
-						if v:IsA("Part") or v:IsA("MeshPart") or v:IsA("Union") then
-							v.Velocity = Vector3.new(0, 0, 0)
+		local originalY = nil
+		local boatCFrame = nil
+
+		local function enableBoatSpeed()
+			disconnect("boat_hover")
+			originalY = nil
+			boatCFrame = nil
+
+			pcall(function()
+				boatPlatform = Instance.new("Part")
+				boatPlatform.Name = "BoatPlatform"
+				boatPlatform.Anchored = true
+				boatPlatform.Size = Vector3.new(20, 1, 20)
+				boatPlatform.Transparency = 1
+				boatPlatform.CanCollide = true
+				boatPlatform.CanTouch = false
+				boatPlatform.CanQuery = false
+				boatPlatform.CastShadow = false
+				boatPlatform.Parent = workspace
+			end)
+
+			track("boat_hover",
+				RunService.Stepped:Connect(
+					function()
+						local humanoid = getHumanoid()
+						local boat = getCurrentBoat()
+						if not boat or not humanoid then
+							originalY = nil
+							boatCFrame = nil
+							if boatPlatform then
+								boatPlatform.Position = Vector3.new(0, -500, 0)
+							end
+							return
+						end
+						if not boatCFrame then
+							boatCFrame = boat:GetPivot()
+						end
+						if not originalY then
+							originalY = boatCFrame.Position.Y
+						end
+						for _, v in pairs(boat:GetDescendants()) do
+							if v:IsA("Part") or v:IsA("MeshPart") or v:IsA("Union") then
+								v.Velocity = Vector3.new(0, 0, 0)
+							end
+						end
+						boat:PivotTo(boatCFrame)
+						local extraY = 0
+						local heightOffset = Options.BoatHeightValue and Options.BoatHeightValue.Value or 0
+						if humanoid.Parent:GetAttribute("inTerrain") then
+							extraY = heightOffset
+						else
+							extraY = heightOffset
+							boatCFrame =
+								boatCFrame - Vector3.new(0, boatCFrame.Position.Y - originalY, 0)
+						end
+						local speedMult = Options.BoatSpeedValue and Options.BoatSpeedValue.Value or 0.9
+						boatCFrame = boatCFrame + Vector3.new(0, extraY, 0) + humanoid.MoveDirection * speedMult
+
+						if boatPlatform then
+							local pos = boatCFrame.Position
+							boatPlatform.CFrame = CFrame.new(pos.X, pos.Y - 3, pos.Z)
 						end
 					end
-					boat:PivotTo(boatCFrame)
-					local extraY = 0
-					local heightOffset = Options.BoatHeightValue and Options.BoatHeightValue.Value or 0
-					if humanoid.Parent:GetAttribute("inTerrain") then
-						extraY = heightOffset
-					else
-						extraY = heightOffset
-						boatCFrame =
-							boatCFrame - Vector3.new(0, boatCFrame.Position.Y - originalY, 0)
-					end
-					local speedMult = Options.BoatSpeedValue and Options.BoatSpeedValue.Value or 0.9
-					boatCFrame = boatCFrame + Vector3.new(0, extraY, 0) + humanoid.MoveDirection * speedMult
-				end
+				)
 			)
-		)
-	end
+		end
 
-	local function disableBoatSpeed()
-		disconnect("boat_hover")
-	end
+		local function disableBoatSpeed()
+			disconnect("boat_hover")
+			destroyBoatPlatform()
+		end
 
-	if Toggles.BoatSpeedToggle.Value then
-		enableBoatSpeed()
-	else
-		disableBoatSpeed()
-	end
-end)
+		if Toggles.BoatSpeedToggle.Value then
+			enableBoatSpeed()
+		else
+			disableBoatSpeed()
+		end
+	end)
+end
 
 
 
