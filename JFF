@@ -4339,6 +4339,75 @@ end)
 -- Merchants Groupbox
 local MerchantsGroup = Tabs.Teleport:AddRightGroupbox("Merchants", "map-pin")
 
+MerchantsGroup:AddToggle("MerchantESP", {
+	Text = "+ Show Merchant ESP",
+	Default = false,
+})
+
+do
+	local merchantESPConns = {}
+	local merchantESPObjects = {}
+
+	local function addMerchantHighlight(merchantModel)
+		if merchantESPObjects[merchantModel] then return end
+		local hl = Instance.new("Highlight")
+		hl.Name = "MerchantESP_Highlight"
+		hl.Adornee = merchantModel
+		hl.FillColor = Color3.fromRGB(255, 200, 0)
+		hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+		hl.FillTransparency = 0.4
+		hl.OutlineTransparency = 0
+		hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+		hl.Parent = merchantModel
+		merchantESPObjects[merchantModel] = hl
+
+		local bbg = Instance.new("BillboardGui")
+		bbg.Name = "MerchantESP_Label"
+		bbg.Size = UDim2.new(0, 200, 0, 30)
+		bbg.StudsOffset = Vector3.new(0, 6, 0)
+		bbg.AlwaysOnTop = true
+		bbg.MaxDistance = math.huge
+		bbg.Parent = merchantModel:FindFirstChild("HumanoidRootPart") or merchantModel.PrimaryPart or merchantModel
+
+		local tl = Instance.new("TextLabel")
+		tl.Name = "TextLabel"
+		tl.BackgroundTransparency = 1
+		tl.Size = UDim2.new(1, 0, 1, 0)
+		tl.Text = merchantModel.Name
+		tl.TextColor3 = Color3.fromRGB(255, 200, 0)
+		tl.Font = Enum.Font.Jura
+		tl.TextScaled = true
+		tl.Parent = bbg
+	end
+
+	local function clearMerchantESP()
+		for _, conn in ipairs(merchantESPConns) do pcall(function() conn:Disconnect() end) end
+		merchantESPConns = {}
+		for model, hl in pairs(merchantESPObjects) do pcall(function() hl:Destroy() end) end
+		merchantESPObjects = {}
+	end
+
+	local function enableMerchantESP()
+		clearMerchantESP()
+		local merchantsFolder = workspace:FindFirstChild("Merchants")
+		if not merchantsFolder then return end
+		for _, child in ipairs(merchantsFolder:GetChildren()) do
+			if child:IsA("Model") then addMerchantHighlight(child) end
+		end
+		table.insert(merchantESPConns, merchantsFolder.ChildAdded:Connect(function(child)
+			if child:IsA("Model") then addMerchantHighlight(child) end
+		end))
+	end
+
+	Toggles.MerchantESP:OnChanged(function()
+		if Toggles.MerchantESP.Value then
+			enableMerchantESP()
+		else
+			clearMerchantESP()
+		end
+	end)
+end
+
 local merchantTeleports = {
 	{ name = "Mainland",   pos = Vector3.new(-144.60, 25.26, 429.38)    },
 	{ name = "Desert",     pos = Vector3.new(1428.14, 25.26, -593.17)   },
