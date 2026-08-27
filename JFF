@@ -4339,11 +4339,6 @@ end)
 -- Merchants Groupbox
 local MerchantsGroup = Tabs.Teleport:AddRightGroupbox("Merchants", "map-pin")
 
-MerchantsGroup:AddToggle("MerchantESP", {
-	Text = "+ Show Merchant ESP",
-	Default = false,
-})
-
 do
 	local merchantESPConns = {}
 	local merchantESPObjects = {}
@@ -4939,6 +4934,11 @@ VisualLeft:AddToggle("OutlineESP", {
 }):AddColorPicker("OutlineESPColor", {
 	Default = Color3.fromRGB(255, 255, 255),
 	Title = "Outline ESP Color",
+})
+
+VisualLeft:AddToggle("MerchantESP", {
+	Text = "+ Show Merchant ESP",
+	Default = false,
 })
 
 local VisualEnv = Tabs.Visuals:AddLeftGroupbox("ENVIRONMENT", "sun")
