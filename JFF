@@ -3031,6 +3031,30 @@ InvisibleFlyGroup:AddLabel("Highlight Outline Color"):AddColorPicker("InvisibleF
         Title = "Invisible Fly Highlight Outline Color",
 })
 
+local GhostWalkGroup = Tabs.Movement:AddRightGroupbox("Ghost Walk", "ghost")
+
+GhostWalkGroup:AddToggle("GhostWalkToggle", {
+	Text = "Ghost Walk",
+	Default = false,
+})
+
+GhostWalkGroup:AddSlider("GhostWalkSpeed", {
+	Text = "Walk Speed",
+	Min = 1,
+	Max = 60,
+	Default = 16,
+	Rounding = 0,
+})
+
+GhostWalkGroup:AddLabel("Highlight Fill Color"):AddColorPicker("GhostWalkFillColor", {
+	Default = Color3.fromRGB(0, 200, 255),
+	Title = "Ghost Walk Highlight Fill Color",
+})
+
+GhostWalkGroup:AddLabel("Highlight Outline Color"):AddColorPicker("GhostWalkOutlineColor", {
+	Default = Color3.fromRGB(255, 255, 255),
+	Title = "Ghost Walk Highlight Outline Color",
+})
 
 
 local noclipParts = {}
@@ -5136,6 +5160,275 @@ local function onInvisibleFlyToggle(state)
 end
 
 Toggles.InvisibleFlyToggle:OnChanged(onInvisibleFlyToggle)
+
+-- Ghost Walk (clone walks normally with player input, real body hidden 500 studs above clone)
+local ghostWalkVars = {
+	active = false,
+	playerClone = nil,
+	highlight = nil,
+	lastClonePivot = nil,
+	characterAddedConn = nil,
+	heartbeatConn = nil,
+	jumpConn = nil,
+}
+
+local function destroyGhostWalkClone()
+	if ghostWalkVars.highlight then
+		pcall(function() ghostWalkVars.highlight:Destroy() end)
+		ghostWalkVars.highlight = nil
+	end
+	if ghostWalkVars.jumpConn then
+		ghostWalkVars.jumpConn:Disconnect()
+		ghostWalkVars.jumpConn = nil
+	end
+	if ghostWalkVars.playerClone then
+		pcall(function() ghostWalkVars.playerClone:Destroy() end)
+		ghostWalkVars.playerClone = nil
+	end
+end
+
+local function createGhostWalkClone()
+	destroyGhostWalkClone()
+
+	local character = getCharacter()
+	local hum = getHumanoid()
+	if not character or not hum then return end
+
+	character.Archivable = true
+	local ok, clone = pcall(function() return character:Clone() end)
+	if not ok or not clone then
+		Library:Notify({ Title = "Ghost Walk", Description = "Failed to clone character.", Time = 3 })
+		return
+	end
+
+	clone.Name = "GhostWalk_Clone"
+	clone.Parent = workspace
+
+	local cloneHum = clone:FindFirstChildOfClass("Humanoid")
+	local cloneRoot = clone:FindFirstChild("HumanoidRootPart")
+	if not cloneHum or not cloneRoot then
+		destroyGhostWalkClone()
+		Library:Notify({ Title = "Ghost Walk", Description = "Clone missing humanoid/rootpart.", Time = 3 })
+		return
+	end
+
+	for _, desc in ipairs(clone:GetDescendants()) do
+		if desc:IsA("BasePart") then
+			if desc.Name == "HumanoidRootPart" then
+				pcall(function() desc.Transparency = 1 end)
+			end
+			pcall(function() desc.CanCollide = (desc.Name == "HumanoidRootPart") end)
+		elseif desc:IsA("LocalScript") or desc:IsA("Script") then
+			pcall(function() desc:Destroy() end)
+		end
+	end
+
+	local hl = Instance.new("Highlight")
+	hl.FillColor = Options.GhostWalkFillColor and Options.GhostWalkFillColor.Value or Color3.fromRGB(0, 200, 255)
+	hl.OutlineColor = Options.GhostWalkOutlineColor and Options.GhostWalkOutlineColor.Value or Color3.fromRGB(255, 255, 255)
+	hl.FillTransparency = 0.3
+	hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+	hl.Adornee = clone
+	hl.Enabled = true
+	hl.Parent = workspace
+	ghostWalkVars.highlight = hl
+
+	cloneRoot.Anchored = false
+	pcall(function()
+		cloneHum.WalkSpeed = Options.GhostWalkSpeed and Options.GhostWalkSpeed.Value or 16
+		cloneHum.JumpPower = hum.JumpPower
+		cloneHum.JumpHeight = hum.JumpHeight
+	end)
+	ghostWalkVars.playerClone = clone
+
+	workspace.CurrentCamera.CameraSubject = cloneHum
+
+	ghostWalkVars.jumpConn = UserInputService.JumpRequest:Connect(function()
+		if not ghostWalkVars.active then return end
+		local cHum = ghostWalkVars.playerClone and ghostWalkVars.playerClone:FindFirstChildOfClass("Humanoid")
+		if cHum and cHum:GetState() ~= Enum.HumanoidStateType.Freefall then
+			pcall(function() cHum:ChangeState(Enum.HumanoidStateType.Jumping) end)
+		end
+	end)
+end
+
+local function hideGhostWalkRealBody()
+	local character = getCharacter()
+	if not character then return end
+	for _, desc in ipairs(character:GetDescendants()) do
+		if desc:IsA("BasePart") or desc:IsA("Decal") or desc:IsA("Texture") then
+			pcall(function() desc.Transparency = 1 end)
+		end
+	end
+end
+
+local Controls_ghostwalk = nil
+pcall(function()
+	local PM = require(LocalPlayer:WaitForChild("PlayerScripts"):WaitForChild("PlayerModule"))
+	Controls_ghostwalk = PM:GetControls()
+end)
+
+local function ghostWalkLoop()
+	local clone = ghostWalkVars.playerClone
+	local realRoot = getRootPart()
+	local realHum = getHumanoid()
+	if not clone or not realRoot or not realHum then return end
+
+	local cloneRoot = clone:FindFirstChild("HumanoidRootPart")
+	local cloneHum = clone:FindFirstChildOfClass("Humanoid")
+	if not cloneRoot or not cloneHum then return end
+
+	ghostWalkVars.lastClonePivot = clone:GetPivot()
+
+	if ghostWalkVars.highlight then
+		if Options.GhostWalkFillColor then
+			pcall(function() ghostWalkVars.highlight.FillColor = Options.GhostWalkFillColor.Value end)
+		end
+		if Options.GhostWalkOutlineColor then
+			pcall(function() ghostWalkVars.highlight.OutlineColor = Options.GhostWalkOutlineColor.Value end)
+		end
+	end
+
+	pcall(function()
+		cloneHum.WalkSpeed = Options.GhostWalkSpeed and Options.GhostWalkSpeed.Value or 16
+	end)
+
+	local cam = workspace.CurrentCamera
+	local camCF = cam.CFrame
+	local flatLook = Vector3.new(camCF.LookVector.X, 0, camCF.LookVector.Z)
+	local flatRight = Vector3.new(camCF.RightVector.X, 0, camCF.RightVector.Z)
+	if flatLook.Magnitude > 0 then flatLook = flatLook.Unit end
+	if flatRight.Magnitude > 0 then flatRight = flatRight.Unit end
+
+	local inputVector = Vector3.zero
+	if Controls_ghostwalk then
+		local mv = Controls_ghostwalk:GetMoveVector()
+		inputVector = Vector3.new(mv.X, 0, mv.Z)
+	else
+		if UserInputService:IsKeyDown(Enum.KeyCode.W) then inputVector += Vector3.new(0, 0, -1) end
+		if UserInputService:IsKeyDown(Enum.KeyCode.S) then inputVector += Vector3.new(0, 0, 1) end
+		if UserInputService:IsKeyDown(Enum.KeyCode.A) then inputVector += Vector3.new(-1, 0, 0) end
+		if UserInputService:IsKeyDown(Enum.KeyCode.D) then inputVector += Vector3.new(1, 0, 0) end
+	end
+
+	local moveDir = (flatRight * inputVector.X) + (flatLook * -inputVector.Z)
+	if moveDir.Magnitude > 0 then
+		moveDir = moveDir.Unit
+	end
+	pcall(function() cloneHum:Move(moveDir, false) end)
+
+	hideGhostWalkRealBody()
+	pcall(function() realHum:ChangeState(Enum.HumanoidStateType.Physics) end)
+	pcall(function()
+		LocalPlayer.Character:PivotTo(ghostWalkVars.lastClonePivot + Vector3.new(0, 500, 0))
+	end)
+	local rr = getRootPart()
+	if rr then
+		pcall(function() rr.AssemblyLinearVelocity = Vector3.zero end)
+		pcall(function() rr.AssemblyAngularVelocity = Vector3.zero end)
+	end
+end
+
+local function restoreGhostWalkRealBody()
+	local character = getCharacter()
+	if not character then return end
+	for _, desc in ipairs(character:GetDescendants()) do
+		if desc:IsA("BasePart") or desc:IsA("Decal") or desc:IsA("Texture") then
+			if desc:IsA("BasePart") and desc.Name == "HumanoidRootPart" then
+				pcall(function() desc.Transparency = 1 end)
+			else
+				pcall(function() desc.Transparency = 0 end)
+			end
+		end
+	end
+	local hum = getHumanoid()
+	if hum then
+		pcall(function() hum:ChangeState(Enum.HumanoidStateType.Landed) end)
+		workspace.CurrentCamera.CameraSubject = hum
+	end
+	local root = getRootPart()
+	if root then
+		pcall(function() root.AssemblyLinearVelocity = Vector3.zero end)
+		pcall(function() root.AssemblyAngularVelocity = Vector3.zero end)
+	end
+end
+
+local function startGhostWalk()
+	if ghostWalkVars.active then return end
+
+	if Toggles.InvisibleFlyToggle and Toggles.InvisibleFlyToggle.Value then
+		Toggles.InvisibleFlyToggle:SetValue(false)
+		task.wait(0.2)
+	end
+
+	ghostWalkVars.active = true
+	createGhostWalkClone()
+	hideGhostWalkRealBody()
+
+	ghostWalkVars.characterAddedConn = LocalPlayer.CharacterAdded:Connect(function()
+		task.wait(0.5)
+		if not ghostWalkVars.active then return end
+		createGhostWalkClone()
+		hideGhostWalkRealBody()
+	end)
+
+	ghostWalkVars.heartbeatConn = RunService.Heartbeat:Connect(function()
+		if not ghostWalkVars.active then return end
+		if not isAlive() then return end
+		if not (ghostWalkVars.playerClone and ghostWalkVars.playerClone:FindFirstChild("HumanoidRootPart")) then
+			return
+		end
+		ghostWalkLoop()
+	end)
+end
+
+local function stopGhostWalk()
+	if not ghostWalkVars.active then return end
+	ghostWalkVars.active = false
+
+	if ghostWalkVars.characterAddedConn then
+		ghostWalkVars.characterAddedConn:Disconnect()
+		ghostWalkVars.characterAddedConn = nil
+	end
+	if ghostWalkVars.heartbeatConn then
+		ghostWalkVars.heartbeatConn:Disconnect()
+		ghostWalkVars.heartbeatConn = nil
+	end
+
+	local finalPivot = ghostWalkVars.lastClonePivot
+	if ghostWalkVars.playerClone then
+		finalPivot = finalPivot or ghostWalkVars.playerClone:GetPivot()
+	end
+	destroyGhostWalkClone()
+	ghostWalkVars.lastClonePivot = nil
+
+	restoreGhostWalkRealBody()
+
+	if finalPivot then
+		pcall(function() LocalPlayer.Character:PivotTo(finalPivot) end)
+	end
+end
+
+Toggles.GhostWalkToggle:OnChanged(function(state)
+	if state then
+		startGhostWalk()
+		Library:Notify({ Title = "Ghost Walk", Description = "Enabled. Clone walks, real body is 500 studs above.", Time = 3 })
+	else
+		stopGhostWalk()
+		Library:Notify({ Title = "Ghost Walk", Description = "Disabled - teleported to clone.", Time = 2 })
+	end
+end)
+
+if Options and Options.GhostWalkSpeed then
+	Options.GhostWalkSpeed:OnChanged(function()
+		if ghostWalkVars.active and ghostWalkVars.playerClone then
+			local cloneHum = ghostWalkVars.playerClone:FindFirstChildOfClass("Humanoid")
+			if cloneHum then
+				pcall(function() cloneHum.WalkSpeed = Options.GhostWalkSpeed.Value end)
+			end
+		end
+	end)
+end
 
 -- Teleport Script Logic
 local function resetAndTeleport(targetName)
