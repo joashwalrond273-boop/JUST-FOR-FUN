@@ -1532,6 +1532,11 @@ CombatAutoSwing:AddToggle("AutoSwing", {
 	Default = false,
 })
 
+CombatAutoSwing:AddToggle("InstantShoot", {
+	Text = "Instant Shoot",
+	Default = false,
+})
+
 CombatAutoSwing:AddToggle("AutoHop", {
 	Text = "+ Auto Hop",
 	Default = false,
@@ -2099,6 +2104,96 @@ Toggles.AutoSwing:OnChanged(function()
 		end))
 	else
 		_G.T = false
+	end
+end)
+
+Toggles.InstantShoot:OnChanged(function()
+	disconnect("InstantShootInput")
+	disconnect("InstantShoot")
+	if Toggles.InstantShoot.Value then
+		local shootRemote = ReplicatedStorage:FindFirstChild("remoteInterface")
+			and ReplicatedStorage.remoteInterface:FindFirstChild("interactions")
+			and ReplicatedStorage.remoteInterface.interactions:FindFirstChild("shoot")
+		if not shootRemote then return end
+
+		local isHolding = false
+		local lastShot = 0
+
+		local isRangedIds = {
+			[73] = true, [80] = true, [81] = true, [82] = true, [93] = true, [94] = true, [103] = true, [104] = true,
+			[105] = true, [112] = true, [113] = true, [114] = true, [129] = true, [130] = true, [131] = true,
+			[142] = true, [143] = true, [144] = true, [155] = true, [156] = true, [157] = true, [168] = true,
+			[169] = true, [170] = true, [181] = true, [182] = true, [183] = true, [194] = true, [195] = true,
+			[196] = true, [207] = true, [208] = true, [209] = true, [220] = true, [221] = true, [222] = true,
+		}
+
+		local function getToolInfo()
+			local character = LocalPlayer.Character
+			if not character then return nil end
+			for i = 1, 10 do
+				local slotName = tostring(i)
+				local tool = character:FindFirstChild(slotName)
+				if tool and tool:FindFirstChild("toolModel") then
+					local itemId = tool.toolModel:GetAttribute("itemId")
+					local projectileId = tool.toolModel:GetAttribute("projectileId")
+					if itemId and isRangedIds[tonumber(itemId)] then
+						return i, tonumber(projectileId) or tonumber(itemId)
+					end
+				end
+			end
+			local generic = character:FindFirstChildOfClass("Tool")
+			if generic and generic:FindFirstChild("toolModel") then
+				local itemId = generic.toolModel:GetAttribute("itemId")
+				local projectileId = generic.toolModel:GetAttribute("projectileId")
+				if itemId then
+					local slotNum = tonumber(generic.Name)
+					if slotNum then
+						return slotNum, tonumber(projectileId) or tonumber(itemId)
+					end
+				end
+			end
+			return nil
+		end
+
+		local camera = game:GetService("Workspace").CurrentCamera
+
+		track("InstantShootInput", UserInputService.InputBegan:Connect(function(input, gpe)
+			if gpe then return end
+			if input.UserInputType == Enum.UserInputType.MouseButton1 then
+				isHolding = true
+			elseif input.UserInputType == Enum.UserInputType.Touch then
+				isHolding = true
+			end
+		end))
+
+		local inputEnded = UserInputService.InputEnded:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseButton1 then
+				isHolding = false
+			elseif input.UserInputType == Enum.UserInputType.Touch then
+				isHolding = false
+			end
+		end)
+		track("InstantShootInputEnd", inputEnded)
+
+		track("InstantShoot", RunService.Heartbeat:Connect(function()
+			if not isHolding then return end
+			local now = tick()
+			if now - lastShot < 0.03 then return end
+			local slot, projId = getToolInfo()
+			if not slot then return end
+			local root = getRootPart()
+			if not root then return end
+			local camCF = camera and camera.CFrame or CFrame.new(root.Position + Vector3.new(0, 1.6, 0))
+			local direction = camCF.LookVector
+			local startPos = camCF.Position
+			local hitPos = startPos + direction * 500
+			lastShot = now
+			pcall(function()
+				shootRemote:InvokeServer(slot, projId, hitPos, direction, 1)
+			end)
+		end))
+	else
+		disconnect("InstantShootInputEnd")
 	end
 end)
 
