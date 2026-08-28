@@ -1532,18 +1532,26 @@ CombatAutoSwing:AddToggle("AutoSwing", {
 	Default = false,
 })
 
-CombatAutoSwing:AddToggle("InstantShoot", {
-	Text = "Instant Shoot",
-	Default = false,
-})
-
-CombatAutoSwing:AddToggle("InstantReload", {
-	Text = "Instant Reload",
-	Default = false,
-})
-
 CombatAutoSwing:AddToggle("AutoHop", {
 	Text = "+ Auto Hop",
+	Default = false,
+})
+
+CombatAutoSwing:AddToggle("SilentAim", {
+	Text = "Silent Aim",
+	Default = false,
+})
+
+CombatAutoSwing:AddSlider("SilentAimFOV", {
+	Text = "Silent Aim FOV",
+	Default = 180,
+	Min = 10,
+	Max = 360,
+	Rounding = 0,
+})
+
+CombatAutoSwing:AddToggle("SilentAimInfinite", {
+	Text = "+ Silent Aim Ignore Range",
 	Default = false,
 })
 
@@ -2112,374 +2120,6 @@ Toggles.AutoSwing:OnChanged(function()
 	end
 end)
 
-Toggles.InstantShoot:OnChanged(function()
-	disconnect("InstantShootInput")
-	disconnect("InstantShootInputEnd")
-	disconnect("InstantShoot")
-	if Toggles.InstantShoot.Value then
-		local shootRemote = ReplicatedStorage:FindFirstChild("remoteInterface")
-			and ReplicatedStorage.remoteInterface:FindFirstChild("interactions")
-			and ReplicatedStorage.remoteInterface.interactions:FindFirstChild("shoot")
-		if not shootRemote then return end
-
-		local isHolding = false
-
-		local isRangedIds = {
-			[73] = true, [80] = true, [81] = true, [82] = true, [93] = true, [94] = true, [103] = true, [104] = true,
-			[105] = true, [112] = true, [113] = true, [114] = true, [129] = true, [130] = true, [131] = true,
-			[142] = true, [143] = true, [144] = true, [155] = true, [156] = true, [157] = true, [168] = true,
-			[169] = true, [170] = true, [181] = true, [182] = true, [183] = true, [194] = true, [195] = true,
-			[196] = true, [207] = true, [208] = true, [209] = true, [220] = true, [221] = true, [222] = true,
-		}
-
-		local origPlaybackSpeed = {}
-		local origEnabledState = {}
-
-		local function getToolInfo()
-			local character = LocalPlayer.Character
-			if not character then return nil end
-			for i = 1, 10 do
-				local slotName = tostring(i)
-				local tool = character:FindFirstChild(slotName)
-				if tool and tool:FindFirstChild("toolModel") then
-					local itemId = tool.toolModel:GetAttribute("itemId")
-					local projectileId = tool.toolModel:GetAttribute("projectileId")
-					if itemId and isRangedIds[tonumber(itemId)] then
-						return i, tonumber(projectileId) or tonumber(itemId), tool
-					end
-				end
-			end
-			local generic = character:FindFirstChildOfClass("Tool")
-			if generic and generic:FindFirstChild("toolModel") then
-				local itemId = generic.toolModel:GetAttribute("itemId")
-				local projectileId = generic.toolModel:GetAttribute("projectileId")
-				if itemId then
-					local slotNum = tonumber(generic.Name)
-					if slotNum then
-						return slotNum, tonumber(projectileId) or tonumber(itemId), generic
-					end
-				end
-			end
-			return nil
-		end
-
-		local function resetAnimationSpeeds()
-			local character = LocalPlayer.Character
-			if character then
-				for _, controller in ipairs(character:GetDescendants()) do
-					if controller:IsA("AnimationController") or controller:IsA("Humanoid") then
-						local key = controller:GetDebugId()
-						if origPlaybackSpeed[key] ~= nil then
-							pcall(function() controller.PlaybackSpeed = origPlaybackSpeed[key] end)
-						end
-					end
-				end
-			end
-			for tool, state in pairs(origEnabledState) do
-				pcall(function() if tool and tool.Parent then tool.Enabled = state end end)
-			end
-			table.clear(origPlaybackSpeed)
-			table.clear(origEnabledState)
-		end
-
-		local function speedUpRangedAnimations(toolObj)
-			local character = LocalPlayer.Character
-			if not character or not toolObj then return end
-			pcall(function() toolObj.Enabled = true end)
-			if origEnabledState[toolObj] == nil then
-				origEnabledState[toolObj] = toolObj.Enabled
-			end
-			for _, desc in ipairs(character:GetDescendants()) do
-				if desc:IsA("AnimationController") or desc:IsA("Humanoid") then
-					local key = desc:GetDebugId()
-					if origPlaybackSpeed[key] == nil then
-						origPlaybackSpeed[key] = desc.PlaybackSpeed
-					end
-					pcall(function() desc.PlaybackSpeed = 10 end)
-				end
-			end
-			for _, obj in ipairs({toolObj, character}) do
-				pcall(function()
-					for _, attr in ipairs(obj:GetAttributes()) do
-						local lower = string.lower(attr)
-						if string.find(lower, "last", 1, true) and string.find(lower, "shot", 1, true) then
-							obj:SetAttribute(attr, 0)
-						elseif string.find(lower, "cooldown", 1, true) or string.find(lower, "charge", 1, true) then
-							obj:SetAttribute(attr, 0)
-						elseif string.find(lower, "nex", 1, true) and string.find(lower, "shot", 1, true) then
-							obj:SetAttribute(attr, 0)
-						end
-					end
-				end)
-			end
-			for _, d in ipairs(toolObj:GetDescendants()) do
-				if d:IsA("AnimationTrack") then
-					pcall(function()
-						d:AdjustSpeed(10)
-					end)
-				end
-			end
-		end
-
-		local camera = game:GetService("Workspace").CurrentCamera
-
-		track("InstantShootInput", UserInputService.InputBegan:Connect(function(input, gpe)
-			if gpe then return end
-			if input.UserInputType == Enum.UserInputType.MouseButton1 then
-				isHolding = true
-			elseif input.UserInputType == Enum.UserInputType.Touch then
-				isHolding = true
-			end
-		end))
-
-		local inputEnded = UserInputService.InputEnded:Connect(function(input)
-			if input.UserInputType == Enum.UserInputType.MouseButton1 then
-				isHolding = false
-			elseif input.UserInputType == Enum.UserInputType.Touch then
-				isHolding = false
-			end
-		end)
-		track("InstantShootInputEnd", inputEnded)
-
-		track("InstantShoot", RunService.Heartbeat:Connect(function()
-			local slot, projId, toolObj = getToolInfo()
-			if not slot then
-				resetAnimationSpeeds()
-				if not isHolding then return end
-				return
-			end
-			speedUpRangedAnimations(toolObj)
-			if not isHolding then return end
-			local root = getRootPart()
-			if not root then return end
-			local camCF = camera and camera.CFrame or CFrame.new(root.Position + Vector3.new(0, 1.6, 0))
-			local baseDir = camCF.LookVector
-			local startPos = camCF.Position
-
-			local jitter = Random.new()
-			local function spawnShot()
-				local dx = (jitter:NextNumber() - 0.5) * 0.02
-				local dy = (jitter:NextNumber() - 0.5) * 0.02
-				local dz = (jitter:NextNumber() - 0.5) * 0.02
-				local direction = (baseDir + Vector3.new(dx, dy, dz)).Unit
-				local hitPos = startPos + direction * 500
-				pcall(function()
-					shootRemote:InvokeServer(slot, projId, hitPos, direction, 1)
-				end)
-			end
-
-			pcall(function() toolObj:Activate() end)
-			for _ = 1, 8 do
-				task.spawn(spawnShot)
-			end
-		end))
-	else
-		local character = LocalPlayer.Character
-		if character then
-			for _, controller in ipairs(character:GetDescendants()) do
-				if controller:IsA("AnimationController") or controller:IsA("Humanoid") then
-					pcall(function() controller.PlaybackSpeed = 1 end)
-				end
-			end
-		end
-		disconnect("InstantShootInputEnd")
-	end
-end)
-
-Toggles.InstantReload:OnChanged(function()
-	disconnect("InstantReload")
-	disconnect("InstantReloadInput")
-	if Toggles.InstantReload.Value then
-		local shootRemote = ReplicatedStorage:FindFirstChild("remoteInterface")
-			and ReplicatedStorage.remoteInterface:FindFirstChild("interactions")
-			and ReplicatedStorage.remoteInterface.interactions:FindFirstChild("shoot")
-
-		local reloadRemote = ReplicatedStorage:FindFirstChild("remoteInterface")
-			and ReplicatedStorage.remoteInterface:FindFirstChild("interactions")
-			and (
-				ReplicatedStorage.remoteInterface.interactions:FindFirstChild("reload")
-				or ReplicatedStorage.remoteInterface.interactions:FindFirstChild("reloadAmmo")
-				or ReplicatedStorage.remoteInterface.interactions:FindFirstChild("reloadWeapon")
-			)
-
-		local inventoryFolder = ReplicatedStorage:FindFirstChild("remoteInterface")
-			and ReplicatedStorage.remoteInterface:FindFirstChild("inventory")
-		if inventoryFolder then
-			reloadRemote = reloadRemote
-				or inventoryFolder:FindFirstChild("reload")
-				or inventoryFolder:FindFirstChild("reloadAmmo")
-				or inventoryFolder:FindFirstChild("refillAmmo")
-		end
-
-		local isRangedIds = {
-			[73] = true, [80] = true, [81] = true, [82] = true, [93] = true, [94] = true, [103] = true, [104] = true,
-			[105] = true, [112] = true, [113] = true, [114] = true, [129] = true, [130] = true, [131] = true,
-			[142] = true, [143] = true, [144] = true, [155] = true, [156] = true, [157] = true, [168] = true,
-			[169] = true, [170] = true, [181] = true, [182] = true, [183] = true, [194] = true, [195] = true,
-			[196] = true, [207] = true, [208] = true, [209] = true, [220] = true, [221] = true, [222] = true,
-		}
-
-		local origPlaybackSpeed = {}
-
-		local function resetAnimSpeeds()
-			local character = LocalPlayer.Character
-			if character then
-				for _, controller in ipairs(character:GetDescendants()) do
-					if controller:IsA("AnimationController") or controller:IsA("Humanoid") then
-						local key = controller:GetDebugId()
-						if origPlaybackSpeed[key] ~= nil then
-							pcall(function() controller.PlaybackSpeed = origPlaybackSpeed[key] end)
-						end
-					end
-				end
-			end
-			table.clear(origPlaybackSpeed)
-		end
-
-		local function getRangedTool()
-			local character = LocalPlayer.Character
-			if not character then return nil end
-			for i = 1, 10 do
-				local tool = character:FindFirstChild(tostring(i))
-				if tool and tool:FindFirstChild("toolModel") then
-					local itemId = tool.toolModel:GetAttribute("itemId")
-					if itemId and isRangedIds[tonumber(itemId)] then
-						return tool, i
-					end
-				end
-			end
-			local generic = character:FindFirstChildOfClass("Tool")
-			if generic and generic:FindFirstChild("toolModel") then
-				local itemId = generic.toolModel:GetAttribute("itemId")
-				if itemId and isRangedIds[tonumber(itemId)] then
-					return generic, tonumber(generic.Name)
-				end
-			end
-			return nil
-		end
-
-		local function performInstantReload(toolObj, slot)
-			local character = LocalPlayer.Character
-			if not character or not toolObj then return end
-
-			pcall(function() toolObj.Enabled = true end)
-
-			for _, desc in ipairs(character:GetDescendants()) do
-				if desc:IsA("AnimationController") or desc:IsA("Humanoid") then
-					local key = desc:GetDebugId()
-					if origPlaybackSpeed[key] == nil then
-						origPlaybackSpeed[key] = desc.PlaybackSpeed
-					end
-					pcall(function() desc.PlaybackSpeed = 20 end)
-				end
-			end
-			for _, d in ipairs(toolObj:GetDescendants()) do
-				if d:IsA("AnimationTrack") then
-					pcall(function() d:AdjustSpeed(20) end)
-				end
-			end
-
-			local function sweepReloadAttrs(obj)
-				pcall(function()
-					for _, attr in ipairs(obj:GetAttributes()) do
-						local lower = string.lower(attr)
-						if string.find(lower, "reload", 1, true) then
-							obj:SetAttribute(attr, 0)
-						elseif string.find(lower, "isreload", 1, true) then
-							obj:SetAttribute(attr, false)
-						elseif string.find(lower, "reloading", 1, true) then
-							obj:SetAttribute(attr, false)
-						elseif string.find(lower, "ammo", 1, true) or string.find(lower, "mag", 1, true) then
-							local current = obj:GetAttribute(attr)
-							if typeof(current) == "number" then
-								local maxAttr = nil
-								for _, a in ipairs(obj:GetAttributes()) do
-									local al = string.lower(a)
-									if (string.find(al, "max", 1, true) and (string.find(al, "ammo", 1, true) or string.find(al, "mag", 1, true)))
-										or al == "maxammo" or al == "maxmag" or al == "magazinesize" or al == "clipsize" then
-										maxAttr = a
-										break
-									end
-								end
-								if maxAttr then
-									local maxVal = obj:GetAttribute(maxAttr)
-									if typeof(maxVal) == "number" and maxVal > 0 then
-										obj:SetAttribute(attr, maxVal)
-									else
-										obj:SetAttribute(attr, 999)
-									end
-								else
-									obj:SetAttribute(attr, 999)
-								end
-							end
-						elseif string.find(lower, "last", 1, true) and (string.find(lower, "reload", 1, true) or string.find(lower, "shot", 1, true)) then
-							obj:SetAttribute(attr, 0)
-						elseif string.find(lower, "cooldown", 1, true) or string.find(lower, "charge", 1, true) then
-							obj:SetAttribute(attr, 0)
-						elseif string.find(lower, "nex", 1, true) and (string.find(lower, "reload", 1, true) or string.find(lower, "shot", 1, true)) then
-							obj:SetAttribute(attr, 0)
-						end
-					end
-				end)
-			end
-
-			sweepReloadAttrs(toolObj)
-			sweepReloadAttrs(character)
-			local toolModel = toolObj:FindFirstChild("toolModel")
-			if toolModel then sweepReloadAttrs(toolModel) end
-
-			if reloadRemote and slot then
-				pcall(function()
-					reloadRemote:InvokeServer(slot)
-				end)
-				pcall(function()
-					reloadRemote:FireServer(slot)
-				end)
-			elseif reloadRemote then
-				pcall(function() reloadRemote:InvokeServer() end)
-				pcall(function() reloadRemote:FireServer() end)
-			end
-		end
-
-		local function triggerManualReload()
-			local toolObj, slot = getRangedTool()
-			if toolObj then
-				performInstantReload(toolObj, slot)
-				pcall(function()
-					Library:Notify({ Title = "Instant Reload", Description = "Weapon reloaded!", Time = 1 })
-				end)
-			end
-		end
-
-		track("InstantReloadInput", UserInputService.InputBegan:Connect(function(input, gpe)
-			if gpe then return end
-			if input.KeyCode == Enum.KeyCode.R then
-				triggerManualReload()
-			end
-		end))
-
-		track("InstantReload", RunService.Heartbeat:Connect(function()
-			local toolObj, slot = getRangedTool()
-			if not toolObj then
-				resetAnimSpeeds()
-				return
-			end
-			performInstantReload(toolObj, slot)
-		end))
-
-		Library:Notify({ Title = "Instant Reload", Description = "Enabled. Press R to manual reload, or auto-refills continuously.", Time = 3 })
-	else
-		local character = LocalPlayer.Character
-		if character then
-			for _, controller in ipairs(character:GetDescendants()) do
-				if controller:IsA("AnimationController") or controller:IsA("Humanoid") then
-					pcall(function() controller.PlaybackSpeed = 1 end)
-				end
-			end
-		end
-	end
-end)
-
 Toggles.AutoHop:OnChanged(function()
 	disconnect("AutoHop")
 	if Toggles.AutoHop.Value then
@@ -2532,6 +2172,273 @@ Toggles.AutoHop:OnChanged(function()
 			hum.JumpHeight = hum:GetAttribute("OrigJumpHeight") or hum.JumpHeight
 			hum:SetAttribute("JumpAdjusted", nil)
 		end
+	end
+end)
+
+local silentAimState = {
+	oldNamecall = nil,
+	oldInvokeServer = nil,
+	hooked = false,
+	shootRemote = nil,
+	origPlaybackSpeed = {},
+	origEnabledState = {},
+	isRangedIds = {
+		[73] = true, [80] = true, [81] = true, [82] = true, [93] = true, [94] = true, [103] = true, [104] = true,
+		[105] = true, [112] = true, [113] = true, [114] = true, [129] = true, [130] = true, [131] = true,
+		[142] = true, [143] = true, [144] = true, [155] = true, [156] = true, [157] = true, [168] = true,
+		[169] = true, [170] = true, [181] = true, [182] = true, [183] = true, [194] = true, [195] = true,
+		[196] = true, [207] = true, [208] = true, [209] = true, [220] = true, [221] = true, [222] = true,
+	},
+}
+
+local function getRangedFromSlot(slotNum)
+	local character = LocalPlayer.Character
+	if not character then return nil end
+	local slotName = tostring(slotNum)
+	local tool = character:FindFirstChild(slotName)
+	if not tool or not tool:FindFirstChild("toolModel") then
+		tool = character:FindFirstChildOfClass("Tool")
+		if not (tool and tool:FindFirstChild("toolModel")) then
+			return nil
+		end
+	end
+	return tool
+end
+
+local function silentAimResetStates()
+	local character = LocalPlayer.Character
+	if character then
+		for _, controller in ipairs(character:GetDescendants()) do
+			if controller:IsA("AnimationController") or controller:IsA("Humanoid") then
+				local key = controller:GetDebugId()
+				if silentAimState.origPlaybackSpeed[key] ~= nil then
+					pcall(function() controller.PlaybackSpeed = silentAimState.origPlaybackSpeed[key] end)
+				end
+			end
+		end
+	end
+	for tool, state in pairs(silentAimState.origEnabledState) do
+		pcall(function() if tool and tool.Parent then tool.Enabled = state end end)
+	end
+	table.clear(silentAimState.origPlaybackSpeed)
+	table.clear(silentAimState.origEnabledState)
+end
+
+local function silentAimApplyBypass(toolObj)
+	local character = LocalPlayer.Character
+	if not character or not toolObj then return end
+	pcall(function() toolObj.Enabled = true end)
+	if silentAimState.origEnabledState[toolObj] == nil then
+		silentAimState.origEnabledState[toolObj] = toolObj.Enabled
+	end
+	for _, desc in ipairs(character:GetDescendants()) do
+		if desc:IsA("AnimationController") or desc:IsA("Humanoid") then
+			local key = desc:GetDebugId()
+			if silentAimState.origPlaybackSpeed[key] == nil then
+				silentAimState.origPlaybackSpeed[key] = desc.PlaybackSpeed
+			end
+			pcall(function() desc.PlaybackSpeed = 10 end)
+		end
+	end
+	for _, obj in ipairs({toolObj, character}) do
+		pcall(function()
+			for _, attr in ipairs(obj:GetAttributes()) do
+				local lower = string.lower(attr)
+				if string.find(lower, "last", 1, true) and string.find(lower, "shot", 1, true) then
+					obj:SetAttribute(attr, 0)
+				elseif string.find(lower, "cooldown", 1, true) or string.find(lower, "charge", 1, true) then
+					obj:SetAttribute(attr, 0)
+				elseif string.find(lower, "nex", 1, true) and string.find(lower, "shot", 1, true) then
+					obj:SetAttribute(attr, 0)
+				end
+			end
+		end)
+	end
+	for _, d in ipairs(toolObj:GetDescendants()) do
+		if d:IsA("AnimationTrack") then
+			pcall(function() d:AdjustSpeed(10) end)
+		end
+	end
+end
+
+local function getSilentAimTarget(camera)
+	local root = getRootPart()
+	if not root then return nil, nil end
+	camera = camera or workspace.CurrentCamera
+
+	local fovDeg = (Options and Options.SilentAimFOV and Options.SilentAimFOV.Value) or 180
+	local coneThreshold = math.cos(math.rad(fovDeg / 2))
+	local maxRange = (Toggles.SilentAimInfinite and Toggles.SilentAimInfinite.Value) and math.huge or 200
+
+	local lookBase = camera and camera.CFrame.LookVector or root.CFrame.LookVector
+	local forward = Vector3.new(lookBase.X, 0, lookBase.Z).Unit
+	local camPos = camera and camera.CFrame.Position or (root.Position + Vector3.new(0, 1.6, 0))
+
+	local function passesChecks(targetPos)
+		local flatDir = Vector3.new(targetPos.X - root.Position.X, 0, targetPos.Z - root.Position.Z)
+		if flatDir.Magnitude <= 0 then return true end
+		if forward:Dot(flatDir.Unit) < coneThreshold then return false end
+		local worldDist = (targetPos - camPos).Magnitude
+		return worldDist <= maxRange
+	end
+
+	local bestTarget = nil
+	local bestScore = -math.huge
+	local aiClient = workspace:FindFirstChild("AI_Client")
+
+	if Toggles.TargetAnimals and Toggles.TargetAnimals.Value and aiClient then
+		for _, npc in ipairs(aiClient:GetChildren()) do
+			local npcHum = npc:FindFirstChildOfClass("Humanoid")
+			local npcRoot = npc:FindFirstChild("HumanoidRootPart") or npc.PrimaryPart
+			if npcHum and npcHum.Health > 0 and npcRoot then
+				local pos = npcRoot.Position
+				if passesChecks(pos) then
+					local flatDir = Vector3.new(pos.X - root.Position.X, 0, pos.Z - root.Position.Z).Unit
+					local score = forward:Dot(flatDir) - (pos - camPos).Magnitude * 0.0001
+					if score > bestScore then
+						bestScore = score
+						bestTarget = npcRoot
+					end
+				end
+			end
+		end
+	end
+
+	if Toggles.TargetPlayers and Toggles.TargetPlayers.Value then
+		for _, otherPlayer in ipairs(Players:GetPlayers()) do
+			if otherPlayer ~= LocalPlayer and otherPlayer.Character then
+				local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
+				local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart") or otherPlayer.Character.PrimaryPart
+				if otherHum and otherHum.Health > 0 and otherRoot then
+					local pos = otherRoot.Position
+					if passesChecks(pos) then
+						local flatDir = Vector3.new(pos.X - root.Position.X, 0, pos.Z - root.Position.Z).Unit
+						local score = forward:Dot(flatDir) - (pos - camPos).Magnitude * 0.0001
+						if score > bestScore then
+							bestScore = score
+							bestTarget = otherRoot
+						end
+					end
+				end
+			end
+		end
+	end
+
+	return bestTarget, camPos
+end
+
+local function hookSilentAimRemote()
+	if silentAimState.hooked then return end
+	local shootRemote = ReplicatedStorage:FindFirstChild("remoteInterface")
+		and ReplicatedStorage.remoteInterface:FindFirstChild("interactions")
+		and ReplicatedStorage.remoteInterface.interactions:FindFirstChild("shoot")
+	if not shootRemote then return end
+	silentAimState.shootRemote = shootRemote
+
+	local function computeSilentArgs(slot, projId, hitPos, direction, extraArg)
+		local toolObj = getRangedFromSlot(slot)
+		if toolObj then
+			silentAimApplyBypass(toolObj)
+		end
+		if not (Toggles.SilentAim and Toggles.SilentAim.Value) then
+			return slot, projId, hitPos, direction, extraArg
+		end
+		local camera = workspace.CurrentCamera
+		local targetRoot, camPos = getSilentAimTarget(camera)
+		if not targetRoot then
+			return slot, projId, hitPos, direction, extraArg
+		end
+		local aimPoint = targetRoot.Position + Vector3.new(0, 0.5, 0)
+		local newDir = (aimPoint - camPos).Unit
+		local newHit = aimPoint + newDir * 500
+		return slot, projId, newHit, newDir, extraArg
+	end
+
+	local mtHook; mtHook = hookmetamethod(game, "__namecall", function(self, ...)
+		local method = getnamecallmethod()
+		if rawequal(self, shootRemote) and method == "InvokeServer" then
+			local args = {...}
+			local s, p, h, d, e = computeSilentArgs(args[1], args[2], args[3], args[4], args[5])
+			return mtHook(self, s, p, h, d, e)
+		end
+		return mtHook(self, ...)
+	end)
+	silentAimState.oldNamecall = mtHook
+
+	if typeof(hookfunction) == "function" and shootRemote.InvokeServer then
+		local Old; Old = hookfunction(shootRemote.InvokeServer, function(self, ...)
+			if rawequal(self, shootRemote) then
+				local args = {...}
+				local s, p, h, d, e = computeSilentArgs(args[1], args[2], args[3], args[4], args[5])
+				return Old(self, s, p, h, d, e)
+			end
+			return Old(self, ...)
+		end)
+		silentAimState.oldInvokeServer = Old
+	end
+
+	silentAimState.hooked = true
+end
+
+local function unhookSilentAimRemote()
+	silentAimState.hooked = false
+	silentAimState.shootRemote = nil
+end
+
+Toggles.SilentAim:OnChanged(function()
+	disconnect("SilentAim")
+	disconnect("SilentAimUnequip")
+	if Toggles.SilentAim.Value then
+		hookSilentAimRemote()
+		if not silentAimState.hooked then
+			Library:Notify({ Title = "Silent Aim", Description = "Shoot remote not found.", Time = 5 })
+			Toggles.SilentAim:SetValue(false)
+			return
+		end
+
+		track("SilentAim", RunService.Heartbeat:Connect(function()
+			if not isAlive() then
+				silentAimResetStates()
+				return
+			end
+			local character = LocalPlayer.Character
+			local foundRanged = nil
+			if character then
+				for i = 1, 10 do
+					local tool = character:FindFirstChild(tostring(i))
+					if tool and tool:FindFirstChild("toolModel") then
+						local itemId = tool.toolModel:GetAttribute("itemId")
+						if itemId and silentAimState.isRangedIds[tonumber(itemId)] then
+							foundRanged = tool
+							break
+						end
+					end
+				end
+				if not foundRanged then
+					local generic = character:FindFirstChildOfClass("Tool")
+					if generic and generic:FindFirstChild("toolModel") then
+						local itemId = generic.toolModel:GetAttribute("itemId")
+						if itemId and silentAimState.isRangedIds[tonumber(itemId)] then
+							foundRanged = generic
+						end
+					end
+				end
+			end
+			if foundRanged then
+				silentAimApplyBypass(foundRanged)
+			else
+				silentAimResetStates()
+			end
+		end))
+
+		track("SilentAimUnequip", LocalPlayer.CharacterAdded:Connect(function()
+			silentAimResetStates()
+		end))
+
+		Library:Notify({ Title = "Silent Aim", Description = "Enabled. Shots silently redirect to closest target within FOV.", Time = 3 })
+	else
+		silentAimResetStates()
+		unhookSilentAimRemote()
 	end
 end)
 
