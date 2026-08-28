@@ -2248,12 +2248,25 @@ Toggles.InstantShoot:OnChanged(function()
 			local root = getRootPart()
 			if not root then return end
 			local camCF = camera and camera.CFrame or CFrame.new(root.Position + Vector3.new(0, 1.6, 0))
-			local direction = camCF.LookVector
+			local baseDir = camCF.LookVector
 			local startPos = camCF.Position
-			local hitPos = startPos + direction * 500
-			pcall(function()
-				shootRemote:InvokeServer(slot, projId, hitPos, direction, 1)
-			end)
+
+			local jitter = Random.new()
+			local function spawnShot()
+				local dx = (jitter:NextNumber() - 0.5) * 0.02
+				local dy = (jitter:NextNumber() - 0.5) * 0.02
+				local dz = (jitter:NextNumber() - 0.5) * 0.02
+				local direction = (baseDir + Vector3.new(dx, dy, dz)).Unit
+				local hitPos = startPos + direction * 500
+				pcall(function()
+					shootRemote:InvokeServer(slot, projId, hitPos, direction, 1)
+				end)
+			end
+
+			pcall(function() toolObj:Activate() end)
+			for _ = 1, 8 do
+				task.spawn(spawnShot)
+			end
 		end))
 	else
 		local character = LocalPlayer.Character
