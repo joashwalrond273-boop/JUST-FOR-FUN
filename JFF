@@ -2109,6 +2109,7 @@ end)
 
 Toggles.InstantShoot:OnChanged(function()
 	disconnect("InstantShootInput")
+	disconnect("InstantShootInputEnd")
 	disconnect("InstantShoot")
 	if Toggles.InstantShoot.Value then
 		local shootRemote = ReplicatedStorage:FindFirstChild("remoteInterface")
@@ -2117,7 +2118,6 @@ Toggles.InstantShoot:OnChanged(function()
 		if not shootRemote then return end
 
 		local isHolding = false
-		local lastShot = 0
 
 		local isRangedIds = {
 			[73] = true, [80] = true, [81] = true, [82] = true, [93] = true, [94] = true, [103] = true, [104] = true,
@@ -2126,6 +2126,9 @@ Toggles.InstantShoot:OnChanged(function()
 			[169] = true, [170] = true, [181] = true, [182] = true, [183] = true, [194] = true, [195] = true,
 			[196] = true, [207] = true, [208] = true, [209] = true, [220] = true, [221] = true, [222] = true,
 		}
+
+		local origPlaybackSpeed = {}
+		local origEnabledState = {}
 
 		local function getToolInfo()
 			local character = LocalPlayer.Character
@@ -2137,7 +2140,7 @@ Toggles.InstantShoot:OnChanged(function()
 					local itemId = tool.toolModel:GetAttribute("itemId")
 					local projectileId = tool.toolModel:GetAttribute("projectileId")
 					if itemId and isRangedIds[tonumber(itemId)] then
-						return i, tonumber(projectileId) or tonumber(itemId)
+						return i, tonumber(projectileId) or tonumber(itemId), tool
 					end
 				end
 			end
@@ -2148,11 +2151,69 @@ Toggles.InstantShoot:OnChanged(function()
 				if itemId then
 					local slotNum = tonumber(generic.Name)
 					if slotNum then
-						return slotNum, tonumber(projectileId) or tonumber(itemId)
+						return slotNum, tonumber(projectileId) or tonumber(itemId), generic
 					end
 				end
 			end
 			return nil
+		end
+
+		local function resetAnimationSpeeds()
+			local character = LocalPlayer.Character
+			if character then
+				for _, controller in ipairs(character:GetDescendants()) do
+					if controller:IsA("AnimationController") or controller:IsA("Humanoid") then
+						local key = controller:GetDebugId()
+						if origPlaybackSpeed[key] ~= nil then
+							pcall(function() controller.PlaybackSpeed = origPlaybackSpeed[key] end)
+						end
+					end
+				end
+			end
+			for tool, state in pairs(origEnabledState) do
+				pcall(function() if tool and tool.Parent then tool.Enabled = state end end)
+			end
+			table.clear(origPlaybackSpeed)
+			table.clear(origEnabledState)
+		end
+
+		local function speedUpRangedAnimations(toolObj)
+			local character = LocalPlayer.Character
+			if not character or not toolObj then return end
+			pcall(function() toolObj.Enabled = true end)
+			if origEnabledState[toolObj] == nil then
+				origEnabledState[toolObj] = toolObj.Enabled
+			end
+			for _, desc in ipairs(character:GetDescendants()) do
+				if desc:IsA("AnimationController") or desc:IsA("Humanoid") then
+					local key = desc:GetDebugId()
+					if origPlaybackSpeed[key] == nil then
+						origPlaybackSpeed[key] = desc.PlaybackSpeed
+					end
+					pcall(function() desc.PlaybackSpeed = 10 end)
+				end
+			end
+			for _, obj in ipairs({toolObj, character}) do
+				pcall(function()
+					for _, attr in ipairs(obj:GetAttributes()) do
+						local lower = string.lower(attr)
+						if string.find(lower, "last", 1, true) and string.find(lower, "shot", 1, true) then
+							obj:SetAttribute(attr, 0)
+						elseif string.find(lower, "cooldown", 1, true) or string.find(lower, "charge", 1, true) then
+							obj:SetAttribute(attr, 0)
+						elseif string.find(lower, "nex", 1, true) and string.find(lower, "shot", 1, true) then
+							obj:SetAttribute(attr, 0)
+						end
+					end
+				end)
+			end
+			for _, d in ipairs(toolObj:GetDescendants()) do
+				if d:IsA("AnimationTrack") then
+					pcall(function()
+						d:AdjustSpeed(10)
+					end)
+				end
+			end
 		end
 
 		local camera = game:GetService("Workspace").CurrentCamera
@@ -2176,9 +2237,14 @@ Toggles.InstantShoot:OnChanged(function()
 		track("InstantShootInputEnd", inputEnded)
 
 		track("InstantShoot", RunService.Heartbeat:Connect(function()
+			local slot, projId, toolObj = getToolInfo()
+			if not slot then
+				resetAnimationSpeeds()
+				if not isHolding then return end
+				return
+			end
+			speedUpRangedAnimations(toolObj)
 			if not isHolding then return end
-			local slot, projId = getToolInfo()
-			if not slot then return end
 			local root = getRootPart()
 			if not root then return end
 			local camCF = camera and camera.CFrame or CFrame.new(root.Position + Vector3.new(0, 1.6, 0))
@@ -2190,6 +2256,14 @@ Toggles.InstantShoot:OnChanged(function()
 			end)
 		end))
 	else
+		local character = LocalPlayer.Character
+		if character then
+			for _, controller in ipairs(character:GetDescendants()) do
+				if controller:IsA("AnimationController") or controller:IsA("Humanoid") then
+					pcall(function() controller.PlaybackSpeed = 1 end)
+				end
+			end
+		end
 		disconnect("InstantShootInputEnd")
 	end
 end)
