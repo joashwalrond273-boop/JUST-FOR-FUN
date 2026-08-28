@@ -2177,8 +2177,6 @@ Toggles.InstantShoot:OnChanged(function()
 
 		track("InstantShoot", RunService.Heartbeat:Connect(function()
 			if not isHolding then return end
-			local now = tick()
-			if now - lastShot < 0.03 then return end
 			local slot, projId = getToolInfo()
 			if not slot then return end
 			local root = getRootPart()
@@ -2187,7 +2185,6 @@ Toggles.InstantShoot:OnChanged(function()
 			local direction = camCF.LookVector
 			local startPos = camCF.Position
 			local hitPos = startPos + direction * 500
-			lastShot = now
 			pcall(function()
 				shootRemote:InvokeServer(slot, projId, hitPos, direction, 1)
 			end)
