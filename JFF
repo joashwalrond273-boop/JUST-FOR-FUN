@@ -1537,6 +1537,11 @@ CombatAutoSwing:AddToggle("InstantShoot", {
 	Default = false,
 })
 
+CombatAutoSwing:AddToggle("InstantReload", {
+	Text = "Instant Reload",
+	Default = false,
+})
+
 CombatAutoSwing:AddToggle("AutoHop", {
 	Text = "+ Auto Hop",
 	Default = false,
@@ -2278,6 +2283,200 @@ Toggles.InstantShoot:OnChanged(function()
 			end
 		end
 		disconnect("InstantShootInputEnd")
+	end
+end)
+
+Toggles.InstantReload:OnChanged(function()
+	disconnect("InstantReload")
+	disconnect("InstantReloadInput")
+	if Toggles.InstantReload.Value then
+		local shootRemote = ReplicatedStorage:FindFirstChild("remoteInterface")
+			and ReplicatedStorage.remoteInterface:FindFirstChild("interactions")
+			and ReplicatedStorage.remoteInterface.interactions:FindFirstChild("shoot")
+
+		local reloadRemote = ReplicatedStorage:FindFirstChild("remoteInterface")
+			and ReplicatedStorage.remoteInterface:FindFirstChild("interactions")
+			and (
+				ReplicatedStorage.remoteInterface.interactions:FindFirstChild("reload")
+				or ReplicatedStorage.remoteInterface.interactions:FindFirstChild("reloadAmmo")
+				or ReplicatedStorage.remoteInterface.interactions:FindFirstChild("reloadWeapon")
+			)
+
+		local inventoryFolder = ReplicatedStorage:FindFirstChild("remoteInterface")
+			and ReplicatedStorage.remoteInterface:FindFirstChild("inventory")
+		if inventoryFolder then
+			reloadRemote = reloadRemote
+				or inventoryFolder:FindFirstChild("reload")
+				or inventoryFolder:FindFirstChild("reloadAmmo")
+				or inventoryFolder:FindFirstChild("refillAmmo")
+		end
+
+		local isRangedIds = {
+			[73] = true, [80] = true, [81] = true, [82] = true, [93] = true, [94] = true, [103] = true, [104] = true,
+			[105] = true, [112] = true, [113] = true, [114] = true, [129] = true, [130] = true, [131] = true,
+			[142] = true, [143] = true, [144] = true, [155] = true, [156] = true, [157] = true, [168] = true,
+			[169] = true, [170] = true, [181] = true, [182] = true, [183] = true, [194] = true, [195] = true,
+			[196] = true, [207] = true, [208] = true, [209] = true, [220] = true, [221] = true, [222] = true,
+		}
+
+		local origPlaybackSpeed = {}
+
+		local function resetAnimSpeeds()
+			local character = LocalPlayer.Character
+			if character then
+				for _, controller in ipairs(character:GetDescendants()) do
+					if controller:IsA("AnimationController") or controller:IsA("Humanoid") then
+						local key = controller:GetDebugId()
+						if origPlaybackSpeed[key] ~= nil then
+							pcall(function() controller.PlaybackSpeed = origPlaybackSpeed[key] end)
+						end
+					end
+				end
+			end
+			table.clear(origPlaybackSpeed)
+		end
+
+		local function getRangedTool()
+			local character = LocalPlayer.Character
+			if not character then return nil end
+			for i = 1, 10 do
+				local tool = character:FindFirstChild(tostring(i))
+				if tool and tool:FindFirstChild("toolModel") then
+					local itemId = tool.toolModel:GetAttribute("itemId")
+					if itemId and isRangedIds[tonumber(itemId)] then
+						return tool, i
+					end
+				end
+			end
+			local generic = character:FindFirstChildOfClass("Tool")
+			if generic and generic:FindFirstChild("toolModel") then
+				local itemId = generic.toolModel:GetAttribute("itemId")
+				if itemId and isRangedIds[tonumber(itemId)] then
+					return generic, tonumber(generic.Name)
+				end
+			end
+			return nil
+		end
+
+		local function performInstantReload(toolObj, slot)
+			local character = LocalPlayer.Character
+			if not character or not toolObj then return end
+
+			pcall(function() toolObj.Enabled = true end)
+
+			for _, desc in ipairs(character:GetDescendants()) do
+				if desc:IsA("AnimationController") or desc:IsA("Humanoid") then
+					local key = desc:GetDebugId()
+					if origPlaybackSpeed[key] == nil then
+						origPlaybackSpeed[key] = desc.PlaybackSpeed
+					end
+					pcall(function() desc.PlaybackSpeed = 20 end)
+				end
+			end
+			for _, d in ipairs(toolObj:GetDescendants()) do
+				if d:IsA("AnimationTrack") then
+					pcall(function() d:AdjustSpeed(20) end)
+				end
+			end
+
+			local function sweepReloadAttrs(obj)
+				pcall(function()
+					for _, attr in ipairs(obj:GetAttributes()) do
+						local lower = string.lower(attr)
+						if string.find(lower, "reload", 1, true) then
+							obj:SetAttribute(attr, 0)
+						elseif string.find(lower, "isreload", 1, true) then
+							obj:SetAttribute(attr, false)
+						elseif string.find(lower, "reloading", 1, true) then
+							obj:SetAttribute(attr, false)
+						elseif string.find(lower, "ammo", 1, true) or string.find(lower, "mag", 1, true) then
+							local current = obj:GetAttribute(attr)
+							if typeof(current) == "number" then
+								local maxAttr = nil
+								for _, a in ipairs(obj:GetAttributes()) do
+									local al = string.lower(a)
+									if (string.find(al, "max", 1, true) and (string.find(al, "ammo", 1, true) or string.find(al, "mag", 1, true)))
+										or al == "maxammo" or al == "maxmag" or al == "magazinesize" or al == "clipsize" then
+										maxAttr = a
+										break
+									end
+								end
+								if maxAttr then
+									local maxVal = obj:GetAttribute(maxAttr)
+									if typeof(maxVal) == "number" and maxVal > 0 then
+										obj:SetAttribute(attr, maxVal)
+									else
+										obj:SetAttribute(attr, 999)
+									end
+								else
+									obj:SetAttribute(attr, 999)
+								end
+							end
+						elseif string.find(lower, "last", 1, true) and (string.find(lower, "reload", 1, true) or string.find(lower, "shot", 1, true)) then
+							obj:SetAttribute(attr, 0)
+						elseif string.find(lower, "cooldown", 1, true) or string.find(lower, "charge", 1, true) then
+							obj:SetAttribute(attr, 0)
+						elseif string.find(lower, "nex", 1, true) and (string.find(lower, "reload", 1, true) or string.find(lower, "shot", 1, true)) then
+							obj:SetAttribute(attr, 0)
+						end
+					end
+				end)
+			end
+
+			sweepReloadAttrs(toolObj)
+			sweepReloadAttrs(character)
+			local toolModel = toolObj:FindFirstChild("toolModel")
+			if toolModel then sweepReloadAttrs(toolModel) end
+
+			if reloadRemote and slot then
+				pcall(function()
+					reloadRemote:InvokeServer(slot)
+				end)
+				pcall(function()
+					reloadRemote:FireServer(slot)
+				end)
+			elseif reloadRemote then
+				pcall(function() reloadRemote:InvokeServer() end)
+				pcall(function() reloadRemote:FireServer() end)
+			end
+		end
+
+		local function triggerManualReload()
+			local toolObj, slot = getRangedTool()
+			if toolObj then
+				performInstantReload(toolObj, slot)
+				pcall(function()
+					Library:Notify({ Title = "Instant Reload", Description = "Weapon reloaded!", Time = 1 })
+				end)
+			end
+		end
+
+		track("InstantReloadInput", UserInputService.InputBegan:Connect(function(input, gpe)
+			if gpe then return end
+			if input.KeyCode == Enum.KeyCode.R then
+				triggerManualReload()
+			end
+		end))
+
+		track("InstantReload", RunService.Heartbeat:Connect(function()
+			local toolObj, slot = getRangedTool()
+			if not toolObj then
+				resetAnimSpeeds()
+				return
+			end
+			performInstantReload(toolObj, slot)
+		end))
+
+		Library:Notify({ Title = "Instant Reload", Description = "Enabled. Press R to manual reload, or auto-refills continuously.", Time = 3 })
+	else
+		local character = LocalPlayer.Character
+		if character then
+			for _, controller in ipairs(character:GetDescendants()) do
+				if controller:IsA("AnimationController") or controller:IsA("Humanoid") then
+					pcall(function() controller.PlaybackSpeed = 1 end)
+				end
+			end
+		end
 	end
 end)
 
