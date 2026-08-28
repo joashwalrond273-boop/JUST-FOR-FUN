@@ -2354,28 +2354,38 @@ local function hookSilentAimRemote()
 		return slot, projId, newHit, newDir, extraArg
 	end
 
-	local mtHook; mtHook = hookmetamethod(game, "__namecall", function(self, ...)
-		local method = getnamecallmethod()
-		if rawequal(self, shootRemote) and method == "InvokeServer" then
-			local args = {...}
-			local s, p, h, d, e = computeSilentArgs(args[1], args[2], args[3], args[4], args[5])
-			return mtHook(self, s, p, h, d, e)
-		end
-		return mtHook(self, ...)
-	end)
-	silentAimState.oldNamecall = mtHook
+	pcall(function()
+		local mtHook; mtHook = hookmetamethod(game, "__namecall", function(...)
+			local self = ...
+			local method = getnamecallmethod()
 
-	if typeof(hookfunction) == "function" and shootRemote.InvokeServer then
-		local Old; Old = hookfunction(shootRemote.InvokeServer, function(self, ...)
-			if rawequal(self, shootRemote) then
+			if rawequal(self, shootRemote) and method == "InvokeServer" then
 				local args = {...}
-				local s, p, h, d, e = computeSilentArgs(args[1], args[2], args[3], args[4], args[5])
-				return Old(self, s, p, h, d, e)
+				local s, p, h, d, e = computeSilentArgs(args[2], args[3], args[4], args[5], args[6])
+				return mtHook(self, s, p, h, d, e)
 			end
-			return Old(self, ...)
+
+			return mtHook(...)
 		end)
-		silentAimState.oldInvokeServer = Old
-	end
+		silentAimState.oldNamecall = mtHook
+	end)
+
+	pcall(function()
+		if typeof(hookfunction) == "function" and shootRemote.InvokeServer then
+			local OldInvokeServer; OldInvokeServer = hookfunction(shootRemote.InvokeServer, function(...)
+				local self = ...
+
+				if rawequal(self, shootRemote) then
+					local args = {...}
+					local s, p, h, d, e = computeSilentArgs(args[2], args[3], args[4], args[5], args[6])
+					return OldInvokeServer(self, s, p, h, d, e)
+				end
+
+				return OldInvokeServer(...)
+			end)
+			silentAimState.oldInvokeServer = OldInvokeServer
+		end
+	end)
 
 	silentAimState.hooked = true
 end
