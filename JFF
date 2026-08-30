@@ -4354,13 +4354,30 @@ Toggles.ResetCharacter:OnChanged(function()
 						)
 					end)
 				end
+				
+				task.wait(4.0)
+				
+				if respawnRemote then
+					pcall(function()
+						respawnRemote:InvokeServer(
+							0,
+							3,
+							1,
+							1,
+							16777215,
+							15382674,
+							false,
+							nil
+						)
+					end)
+				end
 			end
 		end
 		
 		-- Background loop to auto-close any spawn/death menus that pop up
 		task.spawn(function()
 			local startTime = tick()
-			while tick() - startTime < 3.5 do
+			while tick() - startTime < 8.0 do
 				local playerGui = LocalPlayer:FindFirstChildOfClass("PlayerGui")
 				if playerGui then
 					for _, gui in ipairs(playerGui:GetChildren()) do
@@ -4379,7 +4396,7 @@ Toggles.ResetCharacter:OnChanged(function()
 		end)
 		
 		task.spawn(function()
-			task.wait(2.5)
+			task.wait(6.5)
 			Toggles.ResetCharacter:SetValue(false)
 		end)
 	end
