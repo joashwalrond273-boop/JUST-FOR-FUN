@@ -4329,17 +4329,7 @@ Toggles.ResetCharacter:OnChanged(function()
 		if remoteInterface then
 			local characterFolder = remoteInterface:FindFirstChild("character")
 			if characterFolder then
-				local resetRemote = characterFolder:FindFirstChild("reset")
 				local respawnRemote = characterFolder:FindFirstChild("respawn")
-				
-				if resetRemote then
-					pcall(function()
-						resetRemote:InvokeServer()
-					end)
-				end
-				
-				task.wait(0.1)
-				
 				if respawnRemote then
 					pcall(function()
 						respawnRemote:InvokeServer(
