@@ -313,33 +313,7 @@ pcall(function()
 	end
 end)
 
--- No AI Damage Remote Interception
-pcall(function()
-	local Event = resolvePath(ReplicatedStorage, "remoteInterface", "character", "hurtByAIAttack")
-	if not Event then return end
 
-	local mtHook; mtHook = hookmetamethod(game, "__namecall", function(...)
-		local self = ...
-		local method = getnamecallmethod()
-		if Toggles.NoIcicleDamage and Toggles.NoIcicleDamage.Value and rawequal(self, Event) and method == "FireServer" then
-			print(`Intercepted (namecall) {Event.Name}:FireServer() - BLOCKED`, ...)
-			return nil
-		end
-
-		return mtHook(...)
-	end)
-
-	if typeof(hookfunction) == "function" and Event.FireServer then
-		local OldFireServer; OldFireServer = hookfunction(Event.FireServer, function(...)
-			local self = ...
-			if Toggles.NoIcicleDamage and Toggles.NoIcicleDamage.Value and rawequal(self, Event) then
-				print(`Intercepted (__index) {Event.Name}:FireServer() - BLOCKED`, ...)
-				return nil
-			end
-			return OldFireServer(...)
-		end)
-	end
-end)
 
 Library.Font = Enum.Font.Jura
 
@@ -501,6 +475,19 @@ MiscGroup:AddButton({
 	Func = function()
 		pcall(function()
 			loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-AFEM-Max-Open-Alpha-50210"))()
+		end)
+	end,
+})
+
+MiscGroup:AddButton({
+	Text = "Spikes Of Doom",
+	Func = function()
+		pcall(function()
+			local equipRemote = game:GetService("ReplicatedStorage").remoteInterface.character.equipCosmetic
+			local spikes = game:GetService("ReplicatedStorage").game.Cosmetics.cosmetics:FindFirstChild("Spikes Of Chaos")
+			if equipRemote and spikes then
+				equipRemote:InvokeServer(spikes)
+			end
 		end)
 	end,
 })
@@ -697,10 +684,7 @@ ImmunityGroup:AddToggle("NoFallDamage", {
 	Default = false,
 })
 
-ImmunityGroup:AddToggle("NoIcicleDamage", {
-	Text = "No AI Damage",
-	Default = false,
-})
+
 
 ImmunityGroup:AddToggle("NoBearTrapDMG", {
 	Text = "No Bear Trap DMG",
