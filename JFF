@@ -1495,10 +1495,9 @@ CombatLeft:AddToggle("KillAura", {
 	Default = false,
 })
 
-CombatLeft:AddDropdown("KillAuraTarget", {
-	Text = "Target Player",
-	Values = {"All"},
-	Default = "All",
+CombatLeft:AddToggle("AutoEnableKillAura", {
+	Text = "+ Auto Enable",
+	Default = false,
 })
 
 CombatLeft:AddDropdown("KillAuraSlot", {
@@ -1958,11 +1957,9 @@ local function killAuraLoop()
 		return forward:Dot(dir.Unit) >= coneThreshold
 	end
 
-	local targetSetting = Options.KillAuraTarget and Options.KillAuraTarget.Value or "All"
-
 	-- Scan AI_Client for NPCs
 	local aiClient = workspace:FindFirstChild("AI_Client")
-	if targetSetting == "All" and Toggles.TargetAnimals.Value and aiClient then
+	if Toggles.TargetAnimals.Value and aiClient then
 		for _, npc in ipairs(aiClient:GetChildren()) do
 			local npcHum = npc:FindFirstChildOfClass("Humanoid")
 			local npcRoot = npc:FindFirstChild("HumanoidRootPart") or npc.PrimaryPart
@@ -1983,12 +1980,10 @@ local function killAuraLoop()
 				local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
 				local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart") or otherPlayer.Character.PrimaryPart
 				if otherHum and otherHum.Health > 0 and otherRoot then
-					if targetSetting == "All" or otherPlayer.Name == targetSetting then
-						local d = (otherRoot.Position - pos).Magnitude
-						if d < nearestDist and passesAngleCheck(otherRoot.Position) then
-							nearestDist = d
-							nearestTarget = otherPlayer.Character
-						end
+					local d = (otherRoot.Position - pos).Magnitude
+					if d < nearestDist and passesAngleCheck(otherRoot.Position) then
+						nearestDist = d
+						nearestTarget = otherPlayer.Character
 					end
 				end
 			end
@@ -2104,6 +2099,40 @@ Toggles.KillAura:OnChanged(function()
 		end
 		track("KillAura", RunService.Heartbeat:Connect(killAuraLoop))
 		Library:Notify({ Title = "Kill Aura", Description = "Enabled", Time = 2 })
+	end
+end)
+
+local function checkAutoEnableKillAura()
+	if not Toggles.AutoEnableKillAura or not Toggles.AutoEnableKillAura.Value then return end
+	if Toggles.KillAura and Toggles.KillAura.Value then return end
+	
+	local myRoot = getRootPart()
+	if not myRoot then return end
+	
+	local myPos = myRoot.Position
+	for _, otherPlayer in ipairs(Players:GetPlayers()) do
+		if otherPlayer ~= LocalPlayer and otherPlayer.Character then
+			local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
+			local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart") or otherPlayer.Character.PrimaryPart
+			if otherHum and otherHum.Health > 0 and otherRoot then
+				local distance = (otherRoot.Position - myPos).Magnitude
+				if distance <= 10 then
+					if Options.KillAuraRange then Options.KillAuraRange:SetValue(10) end
+					if Options.KillAuraAngle then Options.KillAuraAngle:SetValue(15) end
+					Toggles.KillAura:SetValue(true)
+					Library:Notify({ Title = "Auto Enable", Description = "Target close! Kill Aura enabled at 10 range, 15 angle.", Time = 3 })
+					break
+				end
+			end
+		end
+	end
+end
+
+Toggles.AutoEnableKillAura:OnChanged(function()
+	disconnect("AutoEnableKillAura")
+	if Toggles.AutoEnableKillAura.Value then
+		track("AutoEnableKillAura", RunService.Heartbeat:Connect(checkAutoEnableKillAura))
+		Library:Notify({ Title = "Auto Enable", Description = "Auto Enable Kill Aura enabled.", Time = 2 })
 	end
 end)
 
@@ -5252,11 +5281,9 @@ end)
 -- Attach Script Logic
 local function updateAttachPlayerList()
 	local list = {}
-	local kaList = {"All"}
 	for _, player in ipairs(Players:GetPlayers()) do
 		if player ~= LocalPlayer then
 			table.insert(list, player.Name)
-			table.insert(kaList, player.Name)
 		end
 	end
 	pcall(function()
@@ -5267,17 +5294,6 @@ local function updateAttachPlayerList()
 			end
 		else
 			Options.AttachPlayerList:SetValue("")
-		end
-	end)
-	pcall(function()
-		if Options.KillAuraTarget then
-			local current = Options.KillAuraTarget.Value
-			Options.KillAuraTarget:SetValues(kaList)
-			if table.find(kaList, current) then
-				Options.KillAuraTarget:SetValue(current)
-			else
-				Options.KillAuraTarget:SetValue("All")
-			end
 		end
 	end)
 end
