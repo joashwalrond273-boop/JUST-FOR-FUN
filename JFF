@@ -99,20 +99,23 @@ local function getRootPart()
 	return character and character:FindFirstChild("HumanoidRootPart")
 end
 
-local TweenService = game:GetService("TweenService")
-local function tweenTeleport(targetCFrame, speed)
+local function blinkTeleport(targetCFrame, hopDistance)
 	local char = getCharacter()
 	local root = getRootPart()
 	if not char or not root then return end
 	
-	speed = speed or 80
-	local distance = (root.Position - targetCFrame.Position).Magnitude
-	local duration = distance / speed
+	hopDistance = hopDistance or 25
+	local startPos = root.Position
+	local targetPos = targetCFrame.Position
+	local totalDistance = (targetPos - startPos).Magnitude
 	
-	if distance < 10 then
+	if totalDistance < 10 then
 		root.CFrame = targetCFrame
 		return
 	end
+	
+	local direction = (targetPos - startPos).Unit
+	local steps = math.floor(totalDistance / hopDistance)
 	
 	local originalAnchored = root.Anchored
 	root.Anchored = true
@@ -125,11 +128,12 @@ local function tweenTeleport(targetCFrame, speed)
 		end
 	end)
 	
-	local tweenInfo = TweenInfo.new(duration, Enum.EasingStyle.Linear)
-	local tween = TweenService:Create(root, tweenInfo, { CFrame = targetCFrame })
+	for i = 1, steps do
+		root.CFrame = CFrame.new(startPos + direction * (i * hopDistance))
+		task.wait()
+	end
 	
-	tween:Play()
-	tween.Completed:Wait()
+	root.CFrame = targetCFrame
 	
 	noclipConn:Disconnect()
 	root.Anchored = originalAnchored
@@ -1362,8 +1366,8 @@ track("CharacterModuleRespawn", LocalPlayer.CharacterAdded:Connect(function()
 		shouldTeleportBack = false
 		local root = getRootPart()
 		if root then
-			Library:Notify({ Title = "Reset & Teleport", Description = "Bypassing anti-cheat... gliding back.", Time = 3 })
-			tweenTeleport(CFrame.new(lastDeathPosition + Vector3.new(0, 3, 0)))
+			Library:Notify({ Title = "Reset & Teleport", Description = "Bypassing anti-cheat... blinking back.", Time = 3 })
+			blinkTeleport(CFrame.new(lastDeathPosition + Vector3.new(0, 3, 0)))
 		end
 	end
 end))
