@@ -1,4 +1,4 @@
- -- URIEL | Obsidian UI
+-- URIEL | Obsidian UI
 -- Docs: https://docs.mspaint.cc/obsidian
 
 if getgenv().TSG_OBSIDIAN_LOADED then
@@ -3532,6 +3532,11 @@ FarmAI:AddToggle("AiAura", {
 	Default = false,
 })
 
+FarmAI:AddToggle("ShowBossESP", {
+	Text = "+ Show Boss ESP",
+	Default = false,
+})
+
 FarmAI:AddDropdown("AiAuraSlot", {
 	Text = "Tool Slot",
 	Values = {"1","2","3","4","5","6","7","8","9","10"},
@@ -4220,10 +4225,6 @@ end)
 -- ==========================================
 local TeleportLeft = Tabs.Teleport:AddLeftGroupbox("Boss Locations", "map-pin")
 
-TeleportLeft:AddToggle("ShowBossESP", {
-	Text = "+ Show Boss ESP",
-	Default = false,
-})
 
 do
 	local bossESPObjects = {}
