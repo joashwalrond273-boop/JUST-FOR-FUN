@@ -1037,6 +1037,7 @@ local function startDesync()
 					pcall(function() desyncAnimTracks.Idle:Play(0.1) end)
 				end
 			end
+		end
 	end))
 
 	table.insert(desyncConnections, UserInputService.JumpRequest:Connect(function()
@@ -4774,8 +4775,6 @@ VisualFPS:AddToggle("DisableEffects", {
 		end
 	end,
 })
-
-
 
 do
 	local PBR_TYPES = { SurfaceAppearance = true, Texture = true, Decal = true }
