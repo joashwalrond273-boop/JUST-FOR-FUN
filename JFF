@@ -1322,8 +1322,17 @@ end
 track("CharacterModuleRespawn", LocalPlayer.CharacterAdded:Connect(function()
 	task.wait(1.5)
 	applyCharacterModuleToggles()
-	if shouldTeleportBack and lastDeathPosition then
+	
+	local hasTeleport = false
+	if typeof(shouldTeleportBack) == "number" and shouldTeleportBack > 0 then
+		shouldTeleportBack = shouldTeleportBack - 1
+		hasTeleport = true
+	elseif shouldTeleportBack == true then
 		shouldTeleportBack = false
+		hasTeleport = true
+	end
+	
+	if hasTeleport and lastDeathPosition then
 		local root = getRootPart()
 		if root then
 			root.CFrame = CFrame.new(lastDeathPosition + Vector3.new(0, 3, 0))
@@ -4322,7 +4331,7 @@ Toggles.ResetCharacter:OnChanged(function()
 		local root = getRootPart()
 		if root then
 			lastDeathPosition = root.Position
-			shouldTeleportBack = true
+			shouldTeleportBack = 2
 		end
 		
 		local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
