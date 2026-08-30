@@ -313,6 +313,46 @@ pcall(function()
 	end
 end)
 
+-- No Icicle Damage Remote Interception
+pcall(function()
+	local Event = resolvePath(ReplicatedStorage, "remoteInterface", "world", "touchedIcicle")
+	if not Event then return end
+
+	local mtHook; mtHook = hookmetamethod(game, "__namecall", function(...)
+		local self = ...
+		local method = getnamecallmethod()
+		if Toggles.NoIcicleDamage and Toggles.NoIcicleDamage.Value and rawequal(self, Event) and (method == "FireServer" or method == "InvokeServer") then
+			print(`Intercepted (namecall) {Event.Name} - BLOCKED`)
+			return nil
+		end
+
+		return mtHook(...)
+	end)
+
+	if typeof(hookfunction) == "function" then
+		if Event.FireServer then
+			local OldFireServer; OldFireServer = hookfunction(Event.FireServer, function(...)
+				local self = ...
+				if Toggles.NoIcicleDamage and Toggles.NoIcicleDamage.Value and rawequal(self, Event) then
+					print(`Intercepted (__index) {Event.Name}:FireServer() - BLOCKED`)
+					return nil
+				end
+				return OldFireServer(...)
+			end)
+		end
+		if Event.InvokeServer then
+			local OldInvokeServer; OldInvokeServer = hookfunction(Event.InvokeServer, function(...)
+				local self = ...
+				if Toggles.NoIcicleDamage and Toggles.NoIcicleDamage.Value and rawequal(self, Event) then
+					print(`Intercepted (__index) {Event.Name}:InvokeServer() - BLOCKED`)
+					return nil
+				end
+				return OldInvokeServer(...)
+			end)
+		end
+	end
+end)
+
 Library.Font = Enum.Font.Jura
 
 -- Window
@@ -666,6 +706,11 @@ ImmunityGroup:AddToggle("NoBossDamage", {
 
 ImmunityGroup:AddToggle("NoFallDamage", {
 	Text = "No Fall Damage",
+	Default = false,
+})
+
+ImmunityGroup:AddToggle("NoIcicleDamage", {
+	Text = "No Icicle Damage",
 	Default = false,
 })
 
@@ -4795,6 +4840,81 @@ do
 	})
 end
 
+do
+	local particleConnections = {}
+	local originalEnabledStates = setmetatable({}, { __mode = "k" })
+
+	local function disableParticle(v)
+		if not (v:IsA("ParticleEmitter") or v:IsA("Fire") or v:IsA("Smoke") or v:IsA("Sparkles")) then return end
+		
+		local particlesFolder = ReplicatedStorage:FindFirstChild("Particles")
+		if not particlesFolder then return end
+		
+		if particlesFolder:FindFirstChild(v.Name, true) then
+			if originalEnabledStates[v] == nil then
+				originalEnabledStates[v] = v.Enabled
+			end
+			pcall(function()
+				v.Enabled = false
+			end)
+			
+			local conn = v:GetPropertyChangedSignal("Enabled"):Connect(function()
+				if Toggles.RemoveParticles and Toggles.RemoveParticles.Value and v.Enabled then
+					pcall(function()
+						v.Enabled = false
+					end)
+				end
+			end)
+			table.insert(particleConnections, conn)
+		end
+	end
+
+	VisualFPS:AddToggle("RemoveParticles", {
+		Text = "Remove Particles",
+		Default = false,
+		Callback = function(state)
+			disconnect("RemoveParticles")
+			for _, conn in ipairs(particleConnections) do
+				pcall(function() conn:Disconnect() end)
+			end
+			table.clear(particleConnections)
+
+			if state then
+				-- Disable current particles in ReplicatedStorage.Particles
+				local particlesFolder = ReplicatedStorage:FindFirstChild("Particles")
+				if particlesFolder then
+					for _, v in ipairs(particlesFolder:GetDescendants()) do
+						disableParticle(v)
+					end
+					-- Listen for new templates added to ReplicatedStorage
+					track("RemoveParticles_Templates", particlesFolder.DescendantAdded:Connect(disableParticle))
+				end
+
+				-- Disable existing particles in workspace
+				for _, v in ipairs(workspace:GetDescendants()) do
+					disableParticle(v)
+				end
+
+				-- Listen for new particles added to workspace
+				track("RemoveParticles_Workspace", workspace.DescendantAdded:Connect(disableParticle))
+			else
+				disconnect("RemoveParticles_Templates")
+				disconnect("RemoveParticles_Workspace")
+				
+				-- Restore original states
+				for v, originalState in pairs(originalEnabledStates) do
+					if v and v.Parent then
+						pcall(function()
+							v.Enabled = originalState
+						end)
+					end
+				end
+				table.clear(originalEnabledStates)
+			end
+		end,
+	})
+end
+
 VisualFPS:AddToggle("UltraFPSBoost", {
 	Text = "Ultra FPS Boost",
 	Default = false,
@@ -4941,22 +5061,6 @@ VisualLeft:AddToggle("OutlineESP", {
 	Title = "Outline ESP Color",
 })
 
-VisualLeft:AddToggle("ShowBox", {
-	Text = "Show Box",
-	Default = false,
-}):AddColorPicker("ShowBoxColor", {
-	Default = Color3.fromRGB(255, 255, 255),
-	Title = "Show Box Color",
-})
-
-VisualLeft:AddToggle("ShowHealth", {
-	Text = "Show Health",
-	Default = false,
-}):AddColorPicker("ShowHealthColor", {
-	Default = Color3.fromRGB(0, 255, 0),
-	Title = "Show Health Color",
-})
-
 local VisualEnv = Tabs.Visuals:AddLeftGroupbox("ENVIRONMENT", "sun")
 
 VisualEnv:AddToggle("AlwaysDay", {
@@ -4997,7 +5101,6 @@ VisualRight:AddSlider("ESPDistance", {
 })
 
 local espObjects = {}
-local espConnections = {}
 local hasDrawing = (typeof(Drawing) ~= "nil")
 
 local function clearESP()
@@ -5015,10 +5118,6 @@ local function clearESP()
 		end
 	end
 	table.clear(espObjects)
-	for _, conn in pairs(espConnections) do
-		pcall(function() conn:Disconnect() end)
-	end
-	table.clear(espConnections)
 end
 
 local function createESP(player)
@@ -5058,63 +5157,12 @@ local function createESP(player)
 	highlight.Parent = character
 	highlight.Enabled = false
 
-	local boxBillboard = Instance.new("BillboardGui")
-	boxBillboard.Name = "BoxBillboard"
-	boxBillboard.Size = UDim2.new(2.3, 0, 3.2, 0)
-	boxBillboard.AlwaysOnTop = true
-	boxBillboard.Adornee = root
-	boxBillboard.Parent = root
-
-	local outerFrame = Instance.new("Frame")
-	outerFrame.Name = "OuterFrame"
-	outerFrame.Size = UDim2.new(1, 2, 1, 2)
-	outerFrame.Position = UDim2.new(0, -1, 0, -1)
-	outerFrame.BackgroundTransparency = 1
-	outerFrame.BorderSizePixel = 1
-	outerFrame.BorderColor3 = Color3.new(0, 0, 0)
-	outerFrame.Parent = boxBillboard
-
-	local mainFrame = Instance.new("Frame")
-	mainFrame.Name = "MainFrame"
-	mainFrame.Size = UDim2.new(1, 0, 1, 0)
-	mainFrame.BackgroundTransparency = 1
-	mainFrame.BorderSizePixel = 1
-	mainFrame.BorderColor3 = Options.ShowBoxColor and Options.ShowBoxColor.Value or Color3.new(1, 1, 1)
-	mainFrame.Parent = outerFrame
-
-	local innerFrame = Instance.new("Frame")
-	innerFrame.Name = "InnerFrame"
-	innerFrame.Size = UDim2.new(1, -2, 1, -2)
-	innerFrame.Position = UDim2.new(0, 1, 0, 1)
-	innerFrame.BackgroundTransparency = 1
-	innerFrame.BorderSizePixel = 1
-	innerFrame.BorderColor3 = Color3.new(0, 0, 0)
-	innerFrame.Parent = mainFrame
-
-	local healthBg = Instance.new("Frame")
-	healthBg.Name = "HealthBg"
-	healthBg.Size = UDim2.new(0, 4, 1, 0)
-	healthBg.Position = UDim2.new(0, -6, 0, 0)
-	healthBg.BackgroundColor3 = Color3.new(0, 0, 0)
-	healthBg.BorderSizePixel = 0
-	healthBg.Parent = boxBillboard
-
-	local healthBar = Instance.new("Frame")
-	healthBar.Name = "HealthBar"
-	healthBar.Size = UDim2.new(1, 0, 1, 0)
-	healthBar.Position = UDim2.new(0, 0, 1, 0)
-	healthBar.AnchorPoint = Vector2.new(0, 1)
-	healthBar.BackgroundColor3 = Options.ShowHealthColor and Options.ShowHealthColor.Value or Color3.new(0, 255, 0)
-	healthBar.BorderSizePixel = 0
-	healthBar.Parent = healthBg
-
-	espObjects[player] = { billboard, label, highlight, boxBillboard }
+	espObjects[player] = { billboard, label, highlight }
 
 	local function update()
 		local myRoot = getRootPart()
 		if not myRoot or not character.Parent then
 			if highlight then highlight.Enabled = false end
-			boxBillboard.Enabled = false
 			return
 		end
 		local dist = (root.Position - myRoot.Position).Magnitude
@@ -5138,17 +5186,6 @@ local function createESP(player)
 				highlight.Enabled = false
 			end
 		end
-
-		boxBillboard.Enabled = shouldShow
-		outerFrame.Visible = Toggles.ShowBox and Toggles.ShowBox.Value or false
-		healthBg.Visible = Toggles.ShowHealth and Toggles.ShowHealth.Value or false
-
-		if Toggles.ShowHealth and Toggles.ShowHealth.Value then
-			local health = hum.Health
-			local maxHealth = hum.MaxHealth
-			local ratio = math.clamp(health / (maxHealth > 0 and maxHealth or 100), 0, 1)
-			healthBar.Size = UDim2.new(1, 0, ratio, 0)
-		end
 	end
 
 	update()
@@ -5167,41 +5204,20 @@ Toggles.PlayerESP:OnChanged(function()
 	end
 	disconnect("ESP_PlayerAdded")
 	clearESP()
-
-	local function setupPlayerESP(player)
-		if player == LocalPlayer then return end
-
-		local conn = player.CharacterAdded:Connect(function()
-			task.wait(1)
-			if Toggles.PlayerESP.Value then
-				if espObjects[player] then
-					disconnect("ESP_" .. player.Name)
-					local old = espObjects[player]
-					for _, child in pairs(old) do
-						if typeof(child) == "Instance" then
-							child:Destroy()
-						else
-							pcall(function() child:Remove() end)
-						end
-					end
-					espObjects[player] = nil
-				end
-				createESP(player)
-			end
-		end)
-		table.insert(espConnections, conn)
-
-		if player.Character then
+	for _, player in ipairs(Players:GetPlayers()) do
+		if player ~= LocalPlayer then
 			createESP(player)
 		end
 	end
-
-	for _, player in ipairs(Players:GetPlayers()) do
-		setupPlayerESP(player)
-	end
-
 	track("ESP_PlayerAdded", Players.PlayerAdded:Connect(function(player)
-		setupPlayerESP(player)
+		if Toggles.PlayerESP.Value then
+			player.CharacterAdded:Connect(function()
+				task.wait(1)
+				if Toggles.PlayerESP.Value then
+					createESP(player)
+				end
+			end)
+		end
 	end))
 end)
 
@@ -5225,34 +5241,6 @@ Options.PlayerESPColor:OnChanged(function()
 end)
 
 Options.ShowDistanceColor:OnChanged(function()
-end)
-
-Options.ShowBoxColor:OnChanged(function()
-	local color = Options.ShowBoxColor.Value
-	for _, objects in pairs(espObjects) do
-		local boxBillboard = objects[4]
-		if boxBillboard and typeof(boxBillboard) == "Instance" then
-			local outerFrame = boxBillboard:FindFirstChild("OuterFrame")
-			local mainFrame = outerFrame and outerFrame:FindFirstChild("MainFrame")
-			if mainFrame then
-				mainFrame.BorderColor3 = color
-			end
-		end
-	end
-end)
-
-Options.ShowHealthColor:OnChanged(function()
-	local color = Options.ShowHealthColor.Value
-	for _, objects in pairs(espObjects) do
-		local boxBillboard = objects[4]
-		if boxBillboard and typeof(boxBillboard) == "Instance" then
-			local healthBg = boxBillboard:FindFirstChild("HealthBg")
-			local healthBar = healthBg and healthBg:FindFirstChild("HealthBar")
-			if healthBar then
-				healthBar.BackgroundColor3 = color
-			end
-		end
-	end
 end)
 
 
