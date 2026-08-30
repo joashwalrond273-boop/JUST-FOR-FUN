@@ -4815,8 +4815,6 @@ VisualFPS:AddToggle("DisableEffects", {
 	end,
 })
 
-
-
 do
 	local PBR_TYPES = { SurfaceAppearance = true, Texture = true, Decal = true }
 
