@@ -1320,7 +1320,7 @@ joinLowPingServer = function()
 end
 
 track("CharacterModuleRespawn", LocalPlayer.CharacterAdded:Connect(function()
-	task.wait(1)
+	task.wait(1.5)
 	applyCharacterModuleToggles()
 	if shouldTeleportBack and lastDeathPosition then
 		shouldTeleportBack = false
