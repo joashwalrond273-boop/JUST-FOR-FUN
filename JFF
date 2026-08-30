@@ -4345,6 +4345,33 @@ Toggles.ResetCharacter:OnChanged(function()
 	end
 end)
 
+ResetTeleportGroup:AddToggle("RespawnCharacter", {
+	Text = "Respawn Character",
+	Default = false,
+})
+
+Toggles.RespawnCharacter:OnChanged(function()
+	if Toggles.RespawnCharacter.Value then
+		local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
+		if remoteInterface then
+			local characterFolder = remoteInterface:FindFirstChild("character")
+			if characterFolder then
+				local respawnRemote = characterFolder:FindFirstChild("respawn")
+				if respawnRemote then
+					pcall(function()
+						respawnRemote:InvokeServer()
+					end)
+				end
+			end
+		end
+		
+		task.spawn(function()
+			task.wait(0.5)
+			Toggles.RespawnCharacter:SetValue(false)
+		end)
+	end
+end)
+
 -- Merchants Groupbox
 local MerchantsGroup = Tabs.Teleport:AddRightGroupbox("Merchants", "map-pin")
 
@@ -4488,6 +4515,29 @@ local function setPlayerShadows(castShadow)
 		end
 	end
 end
+
+VisualFPS:AddToggle("StretchedRES", {
+	Text = "Stretched RES",
+	Default = false,
+	Callback = function(state)
+		if state then
+			local Camera = workspace.CurrentCamera
+
+			if getgenv().StretchActive == nil then
+				track("StretchedRES", game:GetService("RunService").RenderStepped:Connect(function()
+					Camera.CFrame = Camera.CFrame * CFrame.new(0, 0, 0, 1, 0, 0, 0, 0.67, 0, 0, 0, 1)
+				end))
+			end
+
+			getgenv().StretchActive = true
+			Library:Notify({ Title = "Stretched RES", Description = "Enabled", Time = 2 })
+		else
+			disconnect("StretchedRES")
+			getgenv().StretchActive = nil
+			Library:Notify({ Title = "Stretched RES", Description = "Disabled", Time = 2 })
+		end
+	end,
+})
 
 VisualFPS:AddToggle("DisableShadows", {
 	Text = "Disable Shadows",
@@ -4742,19 +4792,7 @@ VisualFPS:AddToggle("DisableEffects", {
 	end,
 })
 
-VisualFPS:AddToggle("UncapFPS", {
-	Text = "Uncap FPS",
-	Default = false,
-	Callback = function(state)
-		pcall(function()
-			if state then
-				setfpscap(999)
-			else
-				setfpscap(60)
-			end
-		end)
-	end,
-})
+
 
 do
 	local PBR_TYPES = { SurfaceAppearance = true, Texture = true, Decal = true }
@@ -4886,66 +4924,32 @@ end
 
 
 
-VisualFPS:AddToggle("StretchedRES", {
-	Text = "Stretched RES",
+VisualFPS:AddToggle("UncapFPS", {
+	Text = "Uncap FPS",
 	Default = false,
 	Callback = function(state)
-		if state then
-			local Camera = workspace.CurrentCamera
-
-			if getgenv().StretchActive == nil then
-				track("StretchedRES", game:GetService("RunService").RenderStepped:Connect(function()
-					Camera.CFrame = Camera.CFrame * CFrame.new(0, 0, 0, 1, 0, 0, 0, 0.67, 0, 0, 0, 1)
-				end))
+		pcall(function()
+			if state then
+				local targetFps = Options.FPSCapSlider and Options.FPSCapSlider.Value or 300
+				setfpscap(targetFps)
+			else
+				setfpscap(60)
 			end
-
-			getgenv().StretchActive = true
-			Library:Notify({ Title = "Stretched RES", Description = "Enabled", Time = 2 })
-		else
-			disconnect("StretchedRES")
-			getgenv().StretchActive = nil
-			Library:Notify({ Title = "Stretched RES", Description = "Disabled", Time = 2 })
-		end
+		end)
 	end,
 })
 
-VisualFPS:AddToggle("DeleteWater", {
-	Text = "Delete Water",
-	Default = false,
-	Callback = function(state)
-		local Lighting = game:GetService("Lighting")
-		local function destroyWaterTargets()
-			local targets = {
-				LocalPlayer:FindFirstChild("PlayerScripts") and LocalPlayer.PlayerScripts:FindFirstChild("Swim"),
-				Lighting:FindFirstChild("water"),
-				Lighting:FindFirstChild("waterBlur")
-			}
-			for _, obj in ipairs(targets) do
-				if obj then
-					pcall(function() obj:Destroy() end)
-				end
-			end
-		end
-		if state then
-			destroyWaterTargets()
-			track("DeleteWater_Lighting", Lighting.ChildAdded:Connect(function(child)
-				if child and (child.Name == "water" or child.Name == "waterBlur") then
-					pcall(function() child:Destroy() end)
-				end
-			end))
-			if LocalPlayer:FindFirstChild("PlayerScripts") then
-				track("DeleteWater_Swim", LocalPlayer.PlayerScripts.ChildAdded:Connect(function(child)
-					if child and child.Name == "Swim" then
-						pcall(function() child:Destroy() end)
-					end
-				end))
-			end
-			track("DeleteWater_Heartbeat", RunService.Heartbeat:Connect(destroyWaterTargets))
-			Library:Notify({ Title = "Delete Water", Description = "Water scripts and post-processing cleared.", Time = 3 })
-		else
-			disconnect("DeleteWater_Lighting")
-			disconnect("DeleteWater_Swim")
-			disconnect("DeleteWater_Heartbeat")
+VisualFPS:AddSlider("FPSCapSlider", {
+	Text = "FPS Cap Limit",
+	Default = 300,
+	Min = 30,
+	Max = 360,
+	Rounding = 0,
+	Callback = function(value)
+		if Toggles.UncapFPS and Toggles.UncapFPS.Value then
+			pcall(function()
+				setfpscap(value)
+			end)
 		end
 	end,
 })
@@ -5802,9 +5806,6 @@ Library:OnUnload(function()
 	end
 	if Toggles.StretchedRES and Toggles.StretchedRES.Value then
 		Toggles.StretchedRES:SetValue(false)
-	end
-	if Toggles.DeleteWater and Toggles.DeleteWater.Value then
-		Toggles.DeleteWater:SetValue(false)
 	end
 	if Toggles.WalkOnWater and Toggles.WalkOnWater.Value then
 		Toggles.WalkOnWater:SetValue(false)
