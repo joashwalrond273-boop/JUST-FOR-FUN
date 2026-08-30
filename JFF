@@ -479,18 +479,6 @@ MiscGroup:AddButton({
 	end,
 })
 
-MiscGroup:AddButton({
-	Text = "Spikes Of Doom",
-	Func = function()
-		pcall(function()
-			local equipRemote = game:GetService("ReplicatedStorage").remoteInterface.character.equipCosmetic
-			local spikes = game:GetService("ReplicatedStorage").game.Cosmetics.cosmetics:FindFirstChild("Spikes Of Chaos")
-			if equipRemote and spikes then
-				equipRemote:InvokeServer(spikes)
-			end
-		end)
-	end,
-})
 
 local MainRight = Tabs.Player:AddRightGroupbox("Settings", "settings")
 
