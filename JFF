@@ -4338,7 +4338,7 @@ Toggles.ResetCharacter:OnChanged(function()
 					end)
 				end
 				
-				task.wait(1.5)
+				task.wait(0.1)
 				
 				if respawnRemote then
 					pcall(function()
@@ -4357,8 +4357,29 @@ Toggles.ResetCharacter:OnChanged(function()
 			end
 		end
 		
+		-- Background loop to auto-close any spawn/death menus that pop up
 		task.spawn(function()
-			task.wait(2.0)
+			local startTime = tick()
+			while tick() - startTime < 1.5 do
+				local playerGui = LocalPlayer:FindFirstChildOfClass("PlayerGui")
+				if playerGui then
+					for _, gui in ipairs(playerGui:GetChildren()) do
+						if gui:IsA("ScreenGui") and gui.Enabled then
+							local nameLower = gui.Name:lower()
+							if nameLower:find("spawn") or nameLower:find("death") or nameLower:find("menu") or nameLower:find("char") then
+								pcall(function()
+									gui.Enabled = false
+								end)
+							end
+						end
+					end
+				end
+				task.wait(0.05)
+			end
+		end)
+		
+		task.spawn(function()
+			task.wait(0.5)
 			Toggles.ResetCharacter:SetValue(false)
 		end)
 	end
