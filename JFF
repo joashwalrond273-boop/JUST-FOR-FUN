@@ -4330,9 +4330,28 @@ Toggles.ResetCharacter:OnChanged(function()
 			local characterFolder = remoteInterface:FindFirstChild("character")
 			if characterFolder then
 				local resetRemote = characterFolder:FindFirstChild("reset")
+				local respawnRemote = characterFolder:FindFirstChild("respawn")
+				
 				if resetRemote then
 					pcall(function()
 						resetRemote:InvokeServer()
+					end)
+				end
+				
+				task.wait(0.1)
+				
+				if respawnRemote then
+					pcall(function()
+						respawnRemote:InvokeServer(
+							0,
+							3,
+							1,
+							1,
+							16777215,
+							15382674,
+							false,
+							nil
+						)
 					end)
 				end
 			end
@@ -4341,33 +4360,6 @@ Toggles.ResetCharacter:OnChanged(function()
 		task.spawn(function()
 			task.wait(0.5)
 			Toggles.ResetCharacter:SetValue(false)
-		end)
-	end
-end)
-
-ResetTeleportGroup:AddToggle("RespawnCharacter", {
-	Text = "Respawn Character",
-	Default = false,
-})
-
-Toggles.RespawnCharacter:OnChanged(function()
-	if Toggles.RespawnCharacter.Value then
-		local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
-		if remoteInterface then
-			local characterFolder = remoteInterface:FindFirstChild("character")
-			if characterFolder then
-				local respawnRemote = characterFolder:FindFirstChild("respawn")
-				if respawnRemote then
-					pcall(function()
-						respawnRemote:InvokeServer()
-					end)
-				end
-			end
-		end
-		
-		task.spawn(function()
-			task.wait(0.5)
-			Toggles.RespawnCharacter:SetValue(false)
 		end)
 	end
 end)
