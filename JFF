@@ -1110,6 +1110,14 @@ AdvanceHealGroup:AddDropdown("AutoEatFood", {
 	Default = "Cabbage",
 })
 
+AdvanceHealGroup:AddSlider("AutoEatThreshold", {
+	Text = "Eat HP Threshold",
+	Default = 100,
+	Min = 10,
+	Max = 130,
+	Rounding = 0,
+})
+
 local AntiIdleGroup = Tabs.Player:AddRightGroupbox("Anti-Idle", "clock")
 
 AntiIdleGroup:AddToggle("AntiAFK", {
@@ -1455,7 +1463,8 @@ local function tryEatCustom()
 		return
 	end
 	local humanoid = getHumanoid()
-	if humanoid and humanoid.Health < 100 then
+	local threshold = Options and Options.AutoEatThreshold and Options.AutoEatThreshold.Value or 100
+	if humanoid and humanoid.Health < threshold then
 		local selectedFood = Options and Options.AutoEatFood and Options.AutoEatFood.Value
 		local foodId = FoodIdMap[selectedFood] or 210
 		lastEatCustom = tick()
