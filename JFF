@@ -3532,11 +3532,6 @@ FarmAI:AddToggle("AiAura", {
 	Default = false,
 })
 
-FarmAI:AddToggle("ShowBossESP", {
-	Text = "+ Show Boss ESP",
-	Default = false,
-})
-
 FarmAI:AddDropdown("AiAuraSlot", {
 	Text = "Tool Slot",
 	Values = {"1","2","3","4","5","6","7","8","9","10"},
@@ -4226,124 +4221,7 @@ end)
 local TeleportLeft = Tabs.Teleport:AddLeftGroupbox("Boss Locations", "map-pin")
 
 
-do
-	local bossESPObjects = {}
-	local bossConnections = {}
 
-	local function createBossESP(ai)
-		if bossESPObjects[ai] then return end
-		
-		local aiModels = ReplicatedStorage:FindFirstChild("game") and ReplicatedStorage.game:FindFirstChild("AIModels")
-		if not aiModels then return end
-		
-		local template = aiModels:FindFirstChild(ai.Name)
-		if not template then
-			for _, model in ipairs(aiModels:GetChildren()) do
-				if ai.Name:sub(1, #model.Name) == model.Name then
-					template = model
-					break
-				end
-			end
-		end
-		
-		if not template then return end
-		
-		local root = ai:FindFirstChild("HumanoidRootPart") or ai.PrimaryPart
-		if not root then return end
-		
-		local hl = Instance.new("Highlight")
-		hl.Name = "BossHL"
-		hl.FillColor = Color3.fromRGB(255, 75, 75)
-		hl.OutlineColor = Color3.fromRGB(255, 0, 0)
-		hl.FillTransparency = 0.8
-		hl.OutlineTransparency = 0
-		hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-		hl.Adornee = ai
-		hl.Parent = ai
-		hl.Enabled = false
-		
-		bossESPObjects[ai] = { hl = hl, root = root }
-	end
-
-	local function removeBossESP(ai)
-		local objs = bossESPObjects[ai]
-		if objs then
-			pcall(function() objs.hl:Destroy() end)
-			bossESPObjects[ai] = nil
-		end
-	end
-
-	local function updateBossESP()
-		local myRoot = getRootPart()
-		if not myRoot then
-			for ai, objs in pairs(bossESPObjects) do
-				objs.hl.Enabled = false
-			end
-			return
-		end
-		
-		local maxDist = Options.ESPDistance and Options.ESPDistance.Value or 1000
-		
-		for ai, objs in pairs(bossESPObjects) do
-			if not ai.Parent or not objs.root.Parent then
-				removeBossESP(ai)
-			else
-				local dist = (objs.root.Position - myRoot.Position).Magnitude
-				local shouldShow = dist <= maxDist and Toggles.ShowBossESP.Value
-				objs.hl.Enabled = shouldShow
-			end
-		end
-	end
-
-	Toggles.ShowBossESP:OnChanged(function()
-		for _, conn in ipairs(bossConnections) do
-			pcall(function() conn:Disconnect() end)
-		end
-		table.clear(bossConnections)
-		
-		for ai, _ in pairs(bossESPObjects) do
-			removeBossESP(ai)
-		end
-		table.clear(bossESPObjects)
-		
-		if not Toggles.ShowBossESP.Value then
-			disconnect("BossESPUpdate")
-			return
-		end
-		
-		local function checkAndSetupAI(ai)
-			task.wait(0.5)
-			if Toggles.ShowBossESP.Value and ai.Parent then
-				createBossESP(ai)
-			end
-		end
-		
-		local aiServer = workspace:FindFirstChild("AI_Server")
-		local aiClient = workspace:FindFirstChild("AI_Client")
-		
-		if aiServer then
-			for _, ai in ipairs(aiServer:GetChildren()) do
-				task.spawn(checkAndSetupAI, ai)
-			end
-			table.insert(bossConnections, aiServer.ChildAdded:Connect(function(ai)
-				task.spawn(checkAndSetupAI, ai)
-			end))
-			table.insert(bossConnections, aiServer.ChildRemoving:Connect(removeBossESP))
-		end
-		
-		if aiClient then
-			for _, ai in ipairs(aiClient:GetChildren()) do
-				task.spawn(checkAndSetupAI, ai)
-			end
-			table.insert(bossConnections, aiClient.ChildAdded:Connect(function(ai)
-				task.spawn(checkAndSetupAI, ai)
-			end))
-			table.insert(bossConnections, aiClient.ChildRemoving:Connect(removeBossESP))
-		end
-		
-		track("BossESPUpdate", RunService.Heartbeat:Connect(updateBossESP))
-	end)
-end
 
 local bossTeleports = {
 	{ name = "Juggernaut", pos = Vector3.new(-1601.49, 108.01, -2890.59) },
@@ -5921,9 +5799,6 @@ Library:OnUnload(function()
 	end
 	if Toggles.JuggernautAura and Toggles.JuggernautAura.Value then
 		Toggles.JuggernautAura:SetValue(false)
-	end
-	if Toggles.ShowBossESP and Toggles.ShowBossESP.Value then
-		Toggles.ShowBossESP:SetValue(false)
 	end
 	if Toggles.StretchedRES and Toggles.StretchedRES.Value then
 		Toggles.StretchedRES:SetValue(false)
