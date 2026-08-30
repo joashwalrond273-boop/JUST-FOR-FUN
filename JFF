@@ -99,6 +99,42 @@ local function getRootPart()
 	return character and character:FindFirstChild("HumanoidRootPart")
 end
 
+local TweenService = game:GetService("TweenService")
+local function tweenTeleport(targetCFrame, speed)
+	local char = getCharacter()
+	local root = getRootPart()
+	if not char or not root then return end
+	
+	speed = speed or 80
+	local distance = (root.Position - targetCFrame.Position).Magnitude
+	local duration = distance / speed
+	
+	if distance < 10 then
+		root.CFrame = targetCFrame
+		return
+	end
+	
+	local originalAnchored = root.Anchored
+	root.Anchored = true
+	
+	local noclipConn = RunService.Stepped:Connect(function()
+		for _, part in ipairs(char:GetDescendants()) do
+			if part:IsA("BasePart") then
+				part.CanCollide = false
+			end
+		end
+	end)
+	
+	local tweenInfo = TweenInfo.new(duration, Enum.EasingStyle.Linear)
+	local tween = TweenService:Create(root, tweenInfo, { CFrame = targetCFrame })
+	
+	tween:Play()
+	tween.Completed:Wait()
+	
+	noclipConn:Disconnect()
+	root.Anchored = originalAnchored
+end
+
 local function isAlive()
 	local humanoid = getHumanoid()
 	return humanoid and humanoid.Health > 0
@@ -1320,23 +1356,14 @@ joinLowPingServer = function()
 end
 
 track("CharacterModuleRespawn", LocalPlayer.CharacterAdded:Connect(function()
-	task.wait(0.5)
+	task.wait(1.5)
 	applyCharacterModuleToggles()
-	
-	local hasTeleport = false
-	if typeof(shouldTeleportBack) == "number" and shouldTeleportBack > 0 then
-		shouldTeleportBack = shouldTeleportBack - 1
-		hasTeleport = true
-	elseif shouldTeleportBack == true then
+	if shouldTeleportBack and lastDeathPosition then
 		shouldTeleportBack = false
-		hasTeleport = true
-	end
-	
-	if hasTeleport and lastDeathPosition then
 		local root = getRootPart()
 		if root then
-			root.CFrame = CFrame.new(lastDeathPosition + Vector3.new(0, 3, 0))
-			Library:Notify({ Title = "Reset & Teleport", Description = "Teleported back to last location!", Time = 2 })
+			Library:Notify({ Title = "Reset & Teleport", Description = "Bypassing anti-cheat... gliding back.", Time = 3 })
+			tweenTeleport(CFrame.new(lastDeathPosition + Vector3.new(0, 3, 0)))
 		end
 	end
 end))
@@ -4331,7 +4358,7 @@ Toggles.ResetCharacter:OnChanged(function()
 		local root = getRootPart()
 		if root then
 			lastDeathPosition = root.Position
-			shouldTeleportBack = 2
+			shouldTeleportBack = true
 		end
 		
 		local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
@@ -4339,56 +4366,16 @@ Toggles.ResetCharacter:OnChanged(function()
 			local characterFolder = remoteInterface:FindFirstChild("character")
 			if characterFolder then
 				local resetRemote = characterFolder:FindFirstChild("reset")
-				local respawnRemote = characterFolder:FindFirstChild("respawn")
-				
 				if resetRemote then
 					pcall(function()
 						resetRemote:InvokeServer()
 					end)
 				end
-				
-				task.wait(7.0)
-				
-				if respawnRemote then
-					pcall(function()
-						respawnRemote:InvokeServer(
-							0,
-							3,
-							1,
-							1,
-							16777215,
-							15382674,
-							false,
-							nil
-						)
-					end)
-				end
 			end
 		end
 		
-		-- Background loop to auto-close any spawn/death menus that pop up
 		task.spawn(function()
-			local startTime = tick()
-			while tick() - startTime < 8.5 do
-				local playerGui = LocalPlayer:FindFirstChildOfClass("PlayerGui")
-				if playerGui then
-					for _, gui in ipairs(playerGui:GetChildren()) do
-						if gui:IsA("ScreenGui") and gui.Enabled then
-							local nameLower = gui.Name:lower()
-							if nameLower:find("spawn") or nameLower:find("death") or nameLower:find("menu") or nameLower:find("char") then
-								pcall(function()
-									gui.Enabled = false
-								end)
-							end
-						end
-					end
-				end
-				task.wait(0.05)
-			end
-		end)
-		
-		task.spawn(function()
-			task.wait(7.5)
+			task.wait(0.5)
 			Toggles.ResetCharacter:SetValue(false)
 		end)
 	end
