@@ -1,4 +1,4 @@
--- URIEL | Obsidian UI
+ -- URIEL | Obsidian UI
 -- Docs: https://docs.mspaint.cc/obsidian
 
 if getgenv().TSG_OBSIDIAN_LOADED then
@@ -4212,6 +4212,19 @@ Toggles.JuggernautAura:OnChanged(function()
 	end
 end)
 
+
+
+
+-- ==========================================
+-- TELEPORT
+-- ==========================================
+local TeleportLeft = Tabs.Teleport:AddLeftGroupbox("Boss Locations", "map-pin")
+
+TeleportLeft:AddToggle("ShowBossESP", {
+	Text = "+ Show Boss ESP",
+	Default = false,
+})
+
 do
 	local bossESPObjects = {}
 	local bossConnections = {}
@@ -4330,18 +4343,6 @@ do
 		track("BossESPUpdate", RunService.Heartbeat:Connect(updateBossESP))
 	end)
 end
-
-
-
--- ==========================================
--- TELEPORT
--- ==========================================
-local TeleportLeft = Tabs.Teleport:AddLeftGroupbox("Boss Locations", "map-pin")
-
-TeleportLeft:AddToggle("ShowBossESP", {
-	Text = "+ Show Boss ESP",
-	Default = false,
-})
 
 local bossTeleports = {
 	{ name = "Juggernaut", pos = Vector3.new(-1601.49, 108.01, -2890.59) },
