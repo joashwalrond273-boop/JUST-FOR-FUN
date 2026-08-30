@@ -3465,11 +3465,6 @@ BossFarm:AddToggle("SamuraiAura", {
 	Default = false,
 })
 
-BossFarm:AddToggle("ShowBossESP", {
-	Text = "+ Show Boss ESP",
-	Default = false,
-})
-
 BossFarm:AddToggle("JuggernautAura", {
 	Text = "Juggernaut Aura",
 	Default = false,
@@ -4227,12 +4222,10 @@ do
 		local aiModels = ReplicatedStorage:FindFirstChild("game") and ReplicatedStorage.game:FindFirstChild("AIModels")
 		if not aiModels then return end
 		
-		local templateName = ai.Name
-		local template = aiModels:FindFirstChild(templateName)
+		local template = aiModels:FindFirstChild(ai.Name)
 		if not template then
 			for _, model in ipairs(aiModels:GetChildren()) do
 				if ai.Name:sub(1, #model.Name) == model.Name then
-					templateName = model.Name
 					template = model
 					break
 				end
@@ -4242,25 +4235,7 @@ do
 		if not template then return end
 		
 		local root = ai:FindFirstChild("HumanoidRootPart") or ai.PrimaryPart
-		local hum = ai:FindFirstChildOfClass("Humanoid")
 		if not root then return end
-		
-		local bbg = Instance.new("BillboardGui")
-		bbg.Name = "BossBBG"
-		bbg.Size = UDim2.fromOffset(150, 50)
-		bbg.AlwaysOnTop = true
-		bbg.Adornee = root
-		bbg.Parent = root
-		
-		local label = Instance.new("TextLabel")
-		label.Size = UDim2.fromScale(1, 1)
-		label.BackgroundTransparency = 1
-		label.TextColor3 = Color3.fromRGB(255, 75, 75)
-		label.TextStrokeTransparency = 0.5
-		label.Font = Enum.Font.Jura
-		label.TextSize = 14
-		label.RichText = true
-		label.Parent = bbg
 		
 		local hl = Instance.new("Highlight")
 		hl.Name = "BossHL"
@@ -4271,14 +4246,14 @@ do
 		hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
 		hl.Adornee = ai
 		hl.Parent = ai
+		hl.Enabled = false
 		
-		bossESPObjects[ai] = { bbg = bbg, label = label, hl = hl, root = root, hum = hum, name = templateName }
+		bossESPObjects[ai] = { hl = hl, root = root }
 	end
 
 	local function removeBossESP(ai)
 		local objs = bossESPObjects[ai]
 		if objs then
-			pcall(function() objs.bbg:Destroy() end)
 			pcall(function() objs.hl:Destroy() end)
 			bossESPObjects[ai] = nil
 		end
@@ -4288,7 +4263,6 @@ do
 		local myRoot = getRootPart()
 		if not myRoot then
 			for ai, objs in pairs(bossESPObjects) do
-				objs.bbg.Enabled = false
 				objs.hl.Enabled = false
 			end
 			return
@@ -4302,25 +4276,7 @@ do
 			else
 				local dist = (objs.root.Position - myRoot.Position).Magnitude
 				local shouldShow = dist <= maxDist and Toggles.ShowBossESP.Value
-				
-				objs.bbg.Enabled = shouldShow
 				objs.hl.Enabled = shouldShow
-				
-				if shouldShow then
-					local hpText = ""
-					if objs.hum then
-						local hp = math.max(0, math.floor(objs.hum.Health))
-						local maxHp = math.floor(objs.hum.MaxHealth)
-						hpText = string.format(" <font color=\"#AAAAAA\">[%d/%d HP]</font>", hp, maxHp)
-					end
-					
-					objs.label.Text = string.format(
-						"<b><font color=\"#FF4B4B\">%s</font></b>%s\n<font color=\"#FFFFFF\">%.0fm</font>",
-						objs.name,
-						hpText,
-						dist
-					)
-				end
 			end
 		end
 	end
@@ -4381,6 +4337,11 @@ end
 -- TELEPORT
 -- ==========================================
 local TeleportLeft = Tabs.Teleport:AddLeftGroupbox("Boss Locations", "map-pin")
+
+TeleportLeft:AddToggle("ShowBossESP", {
+	Text = "+ Show Boss ESP",
+	Default = false,
+})
 
 local bossTeleports = {
 	{ name = "Juggernaut", pos = Vector3.new(-1601.49, 108.01, -2890.59) },
