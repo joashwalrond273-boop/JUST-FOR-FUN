@@ -313,43 +313,31 @@ pcall(function()
 	end
 end)
 
--- No Icicle Damage Remote Interception
+-- No AI Damage Remote Interception
 pcall(function()
-	local Event = resolvePath(ReplicatedStorage, "remoteInterface", "world", "touchedIcicle")
+	local Event = resolvePath(ReplicatedStorage, "remoteInterface", "character", "hurtByAIAttack")
 	if not Event then return end
 
 	local mtHook; mtHook = hookmetamethod(game, "__namecall", function(...)
 		local self = ...
 		local method = getnamecallmethod()
-		if Toggles.NoIcicleDamage and Toggles.NoIcicleDamage.Value and rawequal(self, Event) and (method == "FireServer" or method == "InvokeServer") then
-			print(`Intercepted (namecall) {Event.Name} - BLOCKED`)
+		if Toggles.NoIcicleDamage and Toggles.NoIcicleDamage.Value and rawequal(self, Event) and method == "FireServer" then
+			print(`Intercepted (namecall) {Event.Name}:FireServer() - BLOCKED`, ...)
 			return nil
 		end
 
 		return mtHook(...)
 	end)
 
-	if typeof(hookfunction) == "function" then
-		if Event.FireServer then
-			local OldFireServer; OldFireServer = hookfunction(Event.FireServer, function(...)
-				local self = ...
-				if Toggles.NoIcicleDamage and Toggles.NoIcicleDamage.Value and rawequal(self, Event) then
-					print(`Intercepted (__index) {Event.Name}:FireServer() - BLOCKED`)
-					return nil
-				end
-				return OldFireServer(...)
-			end)
-		end
-		if Event.InvokeServer then
-			local OldInvokeServer; OldInvokeServer = hookfunction(Event.InvokeServer, function(...)
-				local self = ...
-				if Toggles.NoIcicleDamage and Toggles.NoIcicleDamage.Value and rawequal(self, Event) then
-					print(`Intercepted (__index) {Event.Name}:InvokeServer() - BLOCKED`)
-					return nil
-				end
-				return OldInvokeServer(...)
-			end)
-		end
+	if typeof(hookfunction) == "function" and Event.FireServer then
+		local OldFireServer; OldFireServer = hookfunction(Event.FireServer, function(...)
+			local self = ...
+			if Toggles.NoIcicleDamage and Toggles.NoIcicleDamage.Value and rawequal(self, Event) then
+				print(`Intercepted (__index) {Event.Name}:FireServer() - BLOCKED`, ...)
+				return nil
+			end
+			return OldFireServer(...)
+		end)
 	end
 end)
 
@@ -710,7 +698,7 @@ ImmunityGroup:AddToggle("NoFallDamage", {
 })
 
 ImmunityGroup:AddToggle("NoIcicleDamage", {
-	Text = "No Icicle Damage",
+	Text = "No AI Damage",
 	Default = false,
 })
 
@@ -4915,62 +4903,7 @@ do
 	})
 end
 
-VisualFPS:AddToggle("UltraFPSBoost", {
-	Text = "Ultra FPS Boost",
-	Default = false,
-	Callback = function(state)
-		if state then
-			-- Optimize Lighting
-			local Lighting = game:GetService("Lighting")
-			savedLighting = savedLighting or {}
-			savedLighting.FogEnd = Lighting.FogEnd
-			savedLighting.FogStart = Lighting.FogStart
-			savedLighting.OutdoorAmbient = Lighting.OutdoorAmbient
-			savedLighting.Ambient = Lighting.Ambient
-			Lighting.FogEnd = 200 -- Reduce fog draw distance
-			Lighting.FogStart = 100
-			Lighting.OutdoorAmbient = Color3.fromRGB(120, 120, 120)
-			Lighting.Ambient = Color3.fromRGB(100, 100, 100)
-			
-			-- Disable all particles and effects
-			local function disableEffects(v)
-				if v:IsA("ParticleEmitter") or v:IsA("Fire") or v:IsA("Smoke") or v:IsA("Sparkles") or v:IsA("Explosion") or v:IsA("Trail") then
-					pcall(function() v.Enabled = false end)
-				end
-			end
-			
-			-- Apply to existing instances
-			local allDescendants = workspace:GetDescendants()
-			for i = 1, #allDescendants, 100 do
-				task.wait()
-				for j = i, math.min(i + 99, #allDescendants) do
-					disableEffects(allDescendants[j])
-				end
-			end
-			
-			-- Connect for new instances
-			track("UltraFPSBoost", workspace.DescendantAdded:Connect(function(v)
-				if Toggles.UltraFPSBoost.Value then
-					disableEffects(v)
-				end
-			end))
-			
-			Library:Notify({ Title = "Ultra FPS Boost", Description = "Enabled", Time = 2 })
-		else
-			-- Restore Lighting
-			local Lighting = game:GetService("Lighting")
-			if savedLighting then
-				Lighting.FogEnd = savedLighting.FogEnd
-				Lighting.FogStart = savedLighting.FogStart
-				Lighting.OutdoorAmbient = savedLighting.OutdoorAmbient
-				Lighting.Ambient = savedLighting.Ambient
-			end
-			
-			disconnect("UltraFPSBoost")
-			Library:Notify({ Title = "Ultra FPS Boost", Description = "Disabled", Time = 2 })
-		end
-	end,
-})
+
 
 VisualFPS:AddToggle("StretchedRES", {
 	Text = "Stretched RES",
@@ -5876,9 +5809,7 @@ Library:OnUnload(function()
 	if Toggles.NoGrass and Toggles.NoGrass.Value then
 		Toggles.NoGrass:SetValue(false)
 	end
-	if Toggles.UltraFPSBoost and Toggles.UltraFPSBoost.Value then
-		Toggles.UltraFPSBoost:SetValue(false)
-	end
+
 	if Toggles.TitanAura and Toggles.TitanAura.Value then
 		Toggles.TitanAura:SetValue(false)
 	end
