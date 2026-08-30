@@ -1501,6 +1501,12 @@ CombatLeft:AddToggle("AutoEnableKillAura", {
 	Default = false,
 })
 
+CombatLeft:AddDropdown("KillAuraTarget", {
+	Text = "Target Player",
+	Values = {"All"},
+	Default = "All",
+})
+
 CombatLeft:AddDropdown("KillAuraSlot", {
 	Text = "Tool Slot",
 	Values = {"1","2","3","4","5","6","7","8","9","10"},
@@ -1958,9 +1964,11 @@ local function killAuraLoop()
 		return forward:Dot(dir.Unit) >= coneThreshold
 	end
 
+	local targetSetting = Options.KillAuraTarget and Options.KillAuraTarget.Value or "All"
+
 	-- Scan AI_Client for NPCs
 	local aiClient = workspace:FindFirstChild("AI_Client")
-	if Toggles.TargetAnimals.Value and aiClient then
+	if targetSetting == "All" and Toggles.TargetAnimals.Value and aiClient then
 		for _, npc in ipairs(aiClient:GetChildren()) do
 			local npcHum = npc:FindFirstChildOfClass("Humanoid")
 			local npcRoot = npc:FindFirstChild("HumanoidRootPart") or npc.PrimaryPart
@@ -1981,10 +1989,12 @@ local function killAuraLoop()
 				local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
 				local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart") or otherPlayer.Character.PrimaryPart
 				if otherHum and otherHum.Health > 0 and otherRoot then
-					local d = (otherRoot.Position - pos).Magnitude
-					if d < nearestDist and passesAngleCheck(otherRoot.Position) then
-						nearestDist = d
-						nearestTarget = otherPlayer.Character
+					if targetSetting == "All" or otherPlayer.Name == targetSetting then
+						local d = (otherRoot.Position - pos).Magnitude
+						if d < nearestDist and passesAngleCheck(otherRoot.Position) then
+							nearestDist = d
+							nearestTarget = otherPlayer.Character
+						end
 					end
 				end
 			end
@@ -2111,15 +2121,19 @@ local function checkAutoEnableKillAura()
 	
 	local myPos = myRoot.Position
 	local foundTarget = false
+	local targetSetting = Options.KillAuraTarget and Options.KillAuraTarget.Value or "All"
+	
 	for _, otherPlayer in ipairs(Players:GetPlayers()) do
 		if otherPlayer ~= LocalPlayer and otherPlayer.Character then
-			local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
-			local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart") or otherPlayer.Character.PrimaryPart
-			if otherHum and otherHum.Health > 0 and otherRoot then
-				local distance = (otherRoot.Position - myPos).Magnitude
-				if distance <= 10 then
-					foundTarget = true
-					break
+			if targetSetting == "All" or otherPlayer.Name == targetSetting then
+				local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
+				local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart") or otherPlayer.Character.PrimaryPart
+				if otherHum and otherHum.Health > 0 and otherRoot then
+					local distance = (otherRoot.Position - myPos).Magnitude
+					if distance <= 10 then
+						foundTarget = true
+						break
+					end
 				end
 			end
 		end
@@ -5292,9 +5306,11 @@ end)
 -- Attach Script Logic
 local function updateAttachPlayerList()
 	local list = {}
+	local kaList = {"All"}
 	for _, player in ipairs(Players:GetPlayers()) do
 		if player ~= LocalPlayer then
 			table.insert(list, player.Name)
+			table.insert(kaList, player.Name)
 		end
 	end
 	pcall(function()
@@ -5305,6 +5321,17 @@ local function updateAttachPlayerList()
 			end
 		else
 			Options.AttachPlayerList:SetValue("")
+		end
+	end)
+	pcall(function()
+		if Options.KillAuraTarget then
+			local current = Options.KillAuraTarget.Value
+			Options.KillAuraTarget:SetValues(kaList)
+			if table.find(kaList, current) then
+				Options.KillAuraTarget:SetValue(current)
+			else
+				Options.KillAuraTarget:SetValue("All")
+			end
 		end
 	end)
 end
