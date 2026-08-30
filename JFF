@@ -3465,6 +3465,11 @@ BossFarm:AddToggle("SamuraiAura", {
 	Default = false,
 })
 
+BossFarm:AddToggle("ShowBossESP", {
+	Text = "+ Show Boss ESP",
+	Default = false,
+})
+
 BossFarm:AddToggle("JuggernautAura", {
 	Text = "Juggernaut Aura",
 	Default = false,
@@ -4212,6 +4217,164 @@ Toggles.JuggernautAura:OnChanged(function()
 	end
 end)
 
+do
+	local bossESPObjects = {}
+	local bossConnections = {}
+
+	local function createBossESP(ai)
+		if bossESPObjects[ai] then return end
+		
+		local aiModels = ReplicatedStorage:FindFirstChild("game") and ReplicatedStorage.game:FindFirstChild("AIModels")
+		if not aiModels then return end
+		
+		local templateName = ai.Name
+		local template = aiModels:FindFirstChild(templateName)
+		if not template then
+			for _, model in ipairs(aiModels:GetChildren()) do
+				if ai.Name:sub(1, #model.Name) == model.Name then
+					templateName = model.Name
+					template = model
+					break
+				end
+			end
+		end
+		
+		if not template then return end
+		
+		local root = ai:FindFirstChild("HumanoidRootPart") or ai.PrimaryPart
+		local hum = ai:FindFirstChildOfClass("Humanoid")
+		if not root then return end
+		
+		local bbg = Instance.new("BillboardGui")
+		bbg.Name = "BossBBG"
+		bbg.Size = UDim2.fromOffset(150, 50)
+		bbg.AlwaysOnTop = true
+		bbg.Adornee = root
+		bbg.Parent = root
+		
+		local label = Instance.new("TextLabel")
+		label.Size = UDim2.fromScale(1, 1)
+		label.BackgroundTransparency = 1
+		label.TextColor3 = Color3.fromRGB(255, 75, 75)
+		label.TextStrokeTransparency = 0.5
+		label.Font = Enum.Font.Jura
+		label.TextSize = 14
+		label.RichText = true
+		label.Parent = bbg
+		
+		local hl = Instance.new("Highlight")
+		hl.Name = "BossHL"
+		hl.FillColor = Color3.fromRGB(255, 75, 75)
+		hl.OutlineColor = Color3.fromRGB(255, 0, 0)
+		hl.FillTransparency = 0.8
+		hl.OutlineTransparency = 0
+		hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+		hl.Adornee = ai
+		hl.Parent = ai
+		
+		bossESPObjects[ai] = { bbg = bbg, label = label, hl = hl, root = root, hum = hum, name = templateName }
+	end
+
+	local function removeBossESP(ai)
+		local objs = bossESPObjects[ai]
+		if objs then
+			pcall(function() objs.bbg:Destroy() end)
+			pcall(function() objs.hl:Destroy() end)
+			bossESPObjects[ai] = nil
+		end
+	end
+
+	local function updateBossESP()
+		local myRoot = getRootPart()
+		if not myRoot then
+			for ai, objs in pairs(bossESPObjects) do
+				objs.bbg.Enabled = false
+				objs.hl.Enabled = false
+			end
+			return
+		end
+		
+		local maxDist = Options.ESPDistance and Options.ESPDistance.Value or 1000
+		
+		for ai, objs in pairs(bossESPObjects) do
+			if not ai.Parent or not objs.root.Parent then
+				removeBossESP(ai)
+			else
+				local dist = (objs.root.Position - myRoot.Position).Magnitude
+				local shouldShow = dist <= maxDist and Toggles.ShowBossESP.Value
+				
+				objs.bbg.Enabled = shouldShow
+				objs.hl.Enabled = shouldShow
+				
+				if shouldShow then
+					local hpText = ""
+					if objs.hum then
+						local hp = math.max(0, math.floor(objs.hum.Health))
+						local maxHp = math.floor(objs.hum.MaxHealth)
+						hpText = string.format(" <font color=\"#AAAAAA\">[%d/%d HP]</font>", hp, maxHp)
+					end
+					
+					objs.label.Text = string.format(
+						"<b><font color=\"#FF4B4B\">%s</font></b>%s\n<font color=\"#FFFFFF\">%.0fm</font>",
+						objs.name,
+						hpText,
+						dist
+					)
+				end
+			end
+		end
+	end
+
+	Toggles.ShowBossESP:OnChanged(function()
+		for _, conn in ipairs(bossConnections) do
+			pcall(function() conn:Disconnect() end)
+		end
+		table.clear(bossConnections)
+		
+		for ai, _ in pairs(bossESPObjects) do
+			removeBossESP(ai)
+		end
+		table.clear(bossESPObjects)
+		
+		if not Toggles.ShowBossESP.Value then
+			disconnect("BossESPUpdate")
+			return
+		end
+		
+		local function checkAndSetupAI(ai)
+			task.wait(0.5)
+			if Toggles.ShowBossESP.Value and ai.Parent then
+				createBossESP(ai)
+			end
+		end
+		
+		local aiServer = workspace:FindFirstChild("AI_Server")
+		local aiClient = workspace:FindFirstChild("AI_Client")
+		
+		if aiServer then
+			for _, ai in ipairs(aiServer:GetChildren()) do
+				task.spawn(checkAndSetupAI, ai)
+			end
+			table.insert(bossConnections, aiServer.ChildAdded:Connect(function(ai)
+				task.spawn(checkAndSetupAI, ai)
+			end))
+			table.insert(bossConnections, aiServer.ChildRemoving:Connect(removeBossESP))
+		end
+		
+		if aiClient then
+			for _, ai in ipairs(aiClient:GetChildren()) do
+				task.spawn(checkAndSetupAI, ai)
+			end
+			table.insert(bossConnections, aiClient.ChildAdded:Connect(function(ai)
+				task.spawn(checkAndSetupAI, ai)
+			end))
+			table.insert(bossConnections, aiClient.ChildRemoving:Connect(removeBossESP))
+		end
+		
+		track("BossESPUpdate", RunService.Heartbeat:Connect(updateBossESP))
+	end)
+end
+
 
 
 -- ==========================================
@@ -4680,28 +4843,48 @@ VisualFPS:AddToggle("LowTextures", {
 	Text = "Low Textures",
 	Default = false,
 	Callback = function(state)
+		disconnect("LowTextures")
 		if state then
-			-- Apply to current parts in batches to reduce lag
-			local allDescendants = workspace:GetDescendants()
-			for i = 1, #allDescendants, 100 do
-				task.wait() -- Yield every 100 parts to prevent lag
-				for j = i, math.min(i + 99, #allDescendants) do
-					local v = allDescendants[j]
-					if v and (v:IsA("BasePart") or v:IsA("MeshPart")) then
-						pcall(function() v.Material = Enum.Material.Plastic end)
-					end
+			-- Apply to current parts in batches asynchronously to prevent lag
+			local function applyLowTexture(v)
+				if v:IsA("BasePart") or v:IsA("MeshPart") then
+					pcall(function() v.Material = Enum.Material.Plastic end)
 				end
 			end
+
+			task.spawn(function()
+				local queue = {workspace}
+				local head = 1
+				local tail = 2
+				local count = 0
+				while head < tail and Toggles.LowTextures.Value do
+					local current = queue[head]
+					queue[head] = nil
+					head += 1
+					if current and current.Parent then
+						local success, children = pcall(current.GetChildren, current)
+						if success and children then
+							for i = 1, #children do
+								local child = children[i]
+								applyLowTexture(child)
+								queue[tail] = child
+								tail += 1
+							end
+						end
+					end
+					count += 1
+					if count % 300 == 0 then
+						task.wait()
+					end
+				end
+			end)
+
 			-- Connect descendant added
 			track("LowTextures", workspace.DescendantAdded:Connect(function(v)
 				if Toggles.LowTextures.Value then
-					if v:IsA("BasePart") or v:IsA("MeshPart") then
-						pcall(function() v.Material = Enum.Material.Plastic end)
-					end
+					applyLowTexture(v)
 				end
 			end))
-		else
-			disconnect("LowTextures")
 		end
 	end,
 })
@@ -4734,65 +4917,50 @@ VisualFPS:AddToggle("UncapFPS", {
 
 do
 	local PBR_TYPES = { SurfaceAppearance = true, Texture = true, Decal = true }
-	local pbrQueue = {}
-	local pbrFlushConn = nil
-	local REMOVE_PBR_BATCH = 40
-	local REMOVE_PBR_INTERVAL = 0.05
-
-	local function flushPBRQueue()
-		local processed = 0
-		while processed < REMOVE_PBR_BATCH and #pbrQueue > 0 do
-			local v = table.remove(pbrQueue, 1)
-			if v and v.Parent and PBR_TYPES[v.ClassName] then
-				pcall(function() v:Destroy() end)
-			end
-			processed += 1
-		end
-		if #pbrQueue == 0 and pbrFlushConn then
-			pbrFlushConn:Disconnect()
-			pbrFlushConn = nil
-		end
-	end
-
-	local function queuePBR(v)
-		if not v or not v.Parent or not PBR_TYPES[v.ClassName] then return end
-		table.insert(pbrQueue, v)
-		if not pbrFlushConn then
-			pbrFlushConn = game:GetService("RunService").Heartbeat:Connect(flushPBRQueue)
-			task.delay(REMOVE_PBR_INTERVAL, function()
-				flushPBRQueue()
-			end)
-		end
-	end
 
 	VisualFPS:AddToggle("RemovePBR", {
 		Text = "Remove PBR Textures",
 		Default = false,
 		Callback = function(state)
 			disconnect("RemovePBR")
-			table.clear(pbrQueue)
-			if pbrFlushConn then
-				pbrFlushConn:Disconnect()
-				pbrFlushConn = nil
-			end
 			if state then
+				local function checkAndRemovePBR(v)
+					if PBR_TYPES[v.ClassName] then
+						pcall(v.Destroy, v)
+					end
+				end
+
+				-- Process workspace asynchronously without lag
 				task.spawn(function()
-					local allDescendants = workspace:GetDescendants()
-					local BATCH = 80
-					for i = 1, #allDescendants, BATCH do
-						for j = i, math.min(i + BATCH - 1, #allDescendants) do
-							queuePBR(allDescendants[j])
+					local queue = {workspace}
+					local head = 1
+					local tail = 2
+					local count = 0
+					while head < tail and Toggles.RemovePBR.Value do
+						local current = queue[head]
+						queue[head] = nil
+						head += 1
+						if current and current.Parent then
+							local success, children = pcall(current.GetChildren, current)
+							if success and children then
+								for i = 1, #children do
+									local child = children[i]
+									checkAndRemovePBR(child)
+									queue[tail] = child
+									tail += 1
+								end
+							end
 						end
-						local cycles = 0
-						repeat
-							task.wait(REMOVE_PBR_INTERVAL)
-							cycles += 1
-						until #pbrQueue == 0 or cycles > 2
+						count += 1
+						if count % 300 == 0 then
+							task.wait()
+						end
 					end
 				end)
+
 				track("RemovePBR", workspace.DescendantAdded:Connect(function(v)
 					if Toggles.RemovePBR.Value then
-						task.defer(queuePBR, v)
+						checkAndRemovePBR(v)
 					end
 				end))
 			end
@@ -5790,6 +5958,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.JuggernautAura and Toggles.JuggernautAura.Value then
 		Toggles.JuggernautAura:SetValue(false)
+	end
+	if Toggles.ShowBossESP and Toggles.ShowBossESP.Value then
+		Toggles.ShowBossESP:SetValue(false)
 	end
 	if Toggles.StretchedRES and Toggles.StretchedRES.Value then
 		Toggles.StretchedRES:SetValue(false)
