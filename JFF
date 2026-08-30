@@ -1038,6 +1038,12 @@ local function startDesync()
 				end
 			end
 		end
+
+		-- Keep the real character 500 studs directly above the clone to bypass anticheat rubberbanding
+		local realRoot = RealChar:FindFirstChild("HumanoidRootPart")
+		if realRoot then
+			realRoot.CFrame = fakeRoot.CFrame + Vector3.new(0, 500, 0)
+		end
 	end))
 
 	table.insert(desyncConnections, UserInputService.JumpRequest:Connect(function()
@@ -1074,7 +1080,9 @@ local function stopDesync()
 		if RealChar and RealChar:FindFirstChild("HumanoidRootPart") then
 			RealChar.HumanoidRootPart.Anchored = false
 			if lastCF then
-				RealChar.HumanoidRootPart.CFrame = lastCF
+				pcall(function()
+					RealChar:PivotTo(lastCF)
+				end)
 			end
 			local realHum = RealChar:FindFirstChildOfClass("Humanoid")
 			if realHum then
