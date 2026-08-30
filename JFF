@@ -1496,11 +1496,6 @@ CombatLeft:AddToggle("KillAura", {
 	Default = false,
 })
 
-CombatLeft:AddToggle("AutoEnableKillAura", {
-	Text = "+ Auto Enable",
-	Default = false,
-})
-
 CombatLeft:AddDropdown("KillAuraTarget", {
 	Text = "Target Player",
 	Values = {"All"},
@@ -2113,55 +2108,7 @@ Toggles.KillAura:OnChanged(function()
 	end
 end)
 
-local function checkAutoEnableKillAura()
-	if not Toggles.AutoEnableKillAura or not Toggles.AutoEnableKillAura.Value then return end
-	
-	local myRoot = getRootPart()
-	if not myRoot then return end
-	
-	local myPos = myRoot.Position
-	local foundTarget = false
-	local targetSetting = Options.KillAuraTarget and Options.KillAuraTarget.Value or "All"
-	
-	for _, otherPlayer in ipairs(Players:GetPlayers()) do
-		if otherPlayer ~= LocalPlayer and otherPlayer.Character then
-			if targetSetting == "All" or otherPlayer.Name == targetSetting then
-				local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
-				local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart") or otherPlayer.Character.PrimaryPart
-				if otherHum and otherHum.Health > 0 and otherRoot then
-					local distance = (otherRoot.Position - myPos).Magnitude
-					if distance <= 10 then
-						foundTarget = true
-						break
-					end
-				end
-			end
-		end
-	end
-	
-	if foundTarget then
-		if Toggles.KillAura and not Toggles.KillAura.Value then
-			if Options.KillAuraRange then Options.KillAuraRange:SetValue(10) end
-			if Options.KillAuraAngle then Options.KillAuraAngle:SetValue(15) end
-			Toggles.KillAura:SetValue(true)
-		end
-	else
-		if Toggles.KillAura and Toggles.KillAura.Value then
-			Toggles.KillAura:SetValue(false)
-		end
-	end
-end
 
-Toggles.AutoEnableKillAura:OnChanged(function()
-	disconnect("AutoEnableKillAura")
-	if Toggles.AutoEnableKillAura.Value then
-		track("AutoEnableKillAura", RunService.Heartbeat:Connect(checkAutoEnableKillAura))
-	else
-		if Toggles.KillAura and Toggles.KillAura.Value then
-			Toggles.KillAura:SetValue(false)
-		end
-	end
-end)
 
 local lastAutoSwing = 0
 Toggles.AutoSwing:OnChanged(function()
