@@ -2105,12 +2105,12 @@ end)
 
 local function checkAutoEnableKillAura()
 	if not Toggles.AutoEnableKillAura or not Toggles.AutoEnableKillAura.Value then return end
-	if Toggles.KillAura and Toggles.KillAura.Value then return end
 	
 	local myRoot = getRootPart()
 	if not myRoot then return end
 	
 	local myPos = myRoot.Position
+	local foundTarget = false
 	for _, otherPlayer in ipairs(Players:GetPlayers()) do
 		if otherPlayer ~= LocalPlayer and otherPlayer.Character then
 			local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
@@ -2118,13 +2118,22 @@ local function checkAutoEnableKillAura()
 			if otherHum and otherHum.Health > 0 and otherRoot then
 				local distance = (otherRoot.Position - myPos).Magnitude
 				if distance <= 10 then
-					if Options.KillAuraRange then Options.KillAuraRange:SetValue(10) end
-					if Options.KillAuraAngle then Options.KillAuraAngle:SetValue(15) end
-					Toggles.KillAura:SetValue(true)
-					Library:Notify({ Title = "Auto Enable", Description = "Target close! Kill Aura enabled at 10 range, 15 angle.", Time = 3 })
+					foundTarget = true
 					break
 				end
 			end
+		end
+	end
+	
+	if foundTarget then
+		if Toggles.KillAura and not Toggles.KillAura.Value then
+			if Options.KillAuraRange then Options.KillAuraRange:SetValue(10) end
+			if Options.KillAuraAngle then Options.KillAuraAngle:SetValue(15) end
+			Toggles.KillAura:SetValue(true)
+		end
+	else
+		if Toggles.KillAura and Toggles.KillAura.Value then
+			Toggles.KillAura:SetValue(false)
 		end
 	end
 end
@@ -2133,7 +2142,10 @@ Toggles.AutoEnableKillAura:OnChanged(function()
 	disconnect("AutoEnableKillAura")
 	if Toggles.AutoEnableKillAura.Value then
 		track("AutoEnableKillAura", RunService.Heartbeat:Connect(checkAutoEnableKillAura))
-		Library:Notify({ Title = "Auto Enable", Description = "Auto Enable Kill Aura enabled.", Time = 2 })
+	else
+		if Toggles.KillAura and Toggles.KillAura.Value then
+			Toggles.KillAura:SetValue(false)
+		end
 	end
 end)
 
