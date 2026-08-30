@@ -1495,11 +1495,6 @@ CombatLeft:AddToggle("KillAura", {
 	Default = false,
 })
 
-CombatLeft:AddToggle("AutoEnableKillAura", {
-	Text = "+ Auto Enable",
-	Default = false,
-})
-
 CombatLeft:AddDropdown("KillAuraSlot", {
 	Text = "Tool Slot",
 	Values = {"1","2","3","4","5","6","7","8","9","10"},
@@ -2099,40 +2094,6 @@ Toggles.KillAura:OnChanged(function()
 		end
 		track("KillAura", RunService.Heartbeat:Connect(killAuraLoop))
 		Library:Notify({ Title = "Kill Aura", Description = "Enabled", Time = 2 })
-	end
-end)
-
-local function checkAutoEnableKillAura()
-	if not Toggles.AutoEnableKillAura or not Toggles.AutoEnableKillAura.Value then return end
-	if Toggles.KillAura and Toggles.KillAura.Value then return end
-	
-	local myRoot = getRootPart()
-	if not myRoot then return end
-	
-	local myPos = myRoot.Position
-	for _, otherPlayer in ipairs(Players:GetPlayers()) do
-		if otherPlayer ~= LocalPlayer and otherPlayer.Character then
-			local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
-			local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart") or otherPlayer.Character.PrimaryPart
-			if otherHum and otherHum.Health > 0 and otherRoot then
-				local distance = (otherRoot.Position - myPos).Magnitude
-				if distance <= 10 then
-					if Options.KillAuraRange then Options.KillAuraRange:SetValue(10) end
-					if Options.KillAuraAngle then Options.KillAuraAngle:SetValue(15) end
-					Toggles.KillAura:SetValue(true)
-					Library:Notify({ Title = "Auto Enable", Description = "Target close! Kill Aura enabled at 10 range, 15 angle.", Time = 3 })
-					break
-				end
-			end
-		end
-	end
-end
-
-Toggles.AutoEnableKillAura:OnChanged(function()
-	disconnect("AutoEnableKillAura")
-	if Toggles.AutoEnableKillAura.Value then
-		track("AutoEnableKillAura", RunService.Heartbeat:Connect(checkAutoEnableKillAura))
-		Library:Notify({ Title = "Auto Enable", Description = "Auto Enable Kill Aura enabled.", Time = 2 })
 	end
 end)
 
