@@ -1525,6 +1525,14 @@ CombatLeft:AddSlider("KillAuraAngle", {
 	Rounding = 0,
 })
 
+CombatLeft:AddSlider("KillAuraSpeed", {
+	Text = "Attack Delay (s)",
+	Default = 0.2,
+	Min = 0.2,
+	Max = 2,
+	Rounding = 2,
+})
+
 local CombatPhantomAura = Tabs.Combat:AddLeftGroupbox("Phantom Aura", "ghost")
 
 CombatPhantomAura:AddToggle("PhantomMode", {
@@ -1972,7 +1980,8 @@ local function attackNPC(slot, target)
 end
 
 local function killAuraLoop()
-	if not isAlive() or tick() - lastKillAuraHit < 0.2 then return end
+	local delayVal = Options.KillAuraSpeed and Options.KillAuraSpeed.Value or 0.2
+	if not isAlive() or tick() - lastKillAuraHit < delayVal then return end
 	local root = getRootPart()
 	if not root then return end
 
