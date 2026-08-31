@@ -1532,6 +1532,12 @@ CombatPhantomAura:AddToggle("PhantomMode", {
 	Default = false,
 })
 
+CombatPhantomAura:AddDropdown("PhantomAuraTarget", {
+	Text = "Target Player",
+	Values = {"All"},
+	Default = "All",
+})
+
 CombatPhantomAura:AddSlider("RangeAura", {
 	Text = "Range Aura",
 	Default = 20,
@@ -2561,14 +2567,17 @@ local function getClosestPlayerInRange()
 	local range = Options.RangeAura.Value
 	local closestPlayer = nil
 	local closestDistance = math.huge
+	local targetSetting = Options.PhantomAuraTarget and Options.PhantomAuraTarget.Value or "All"
 
 	for _, player in ipairs(Players:GetPlayers()) do
 		if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-			local targetRoot = player.Character.HumanoidRootPart
-			local distance = (targetRoot.Position - root.Position).Magnitude
-			if distance < closestDistance and distance <= range then
-				closestPlayer = player
-				closestDistance = distance
+			if targetSetting == "All" or player.Name == targetSetting then
+				local targetRoot = player.Character.HumanoidRootPart
+				local distance = (targetRoot.Position - root.Position).Magnitude
+				if distance < closestDistance and distance <= range then
+					closestPlayer = player
+					closestDistance = distance
+				end
 			end
 		end
 	end
@@ -5309,6 +5318,17 @@ local function updateAttachPlayerList()
 				Options.KillAuraTarget:SetValue(current)
 			else
 				Options.KillAuraTarget:SetValue("All")
+			end
+		end
+	end)
+	pcall(function()
+		if Options.PhantomAuraTarget then
+			local current = Options.PhantomAuraTarget.Value
+			Options.PhantomAuraTarget:SetValues(kaList)
+			if table.find(kaList, current) then
+				Options.PhantomAuraTarget:SetValue(current)
+			else
+				Options.PhantomAuraTarget:SetValue("All")
 			end
 		end
 	end)
