@@ -27,6 +27,7 @@ local Options = Library.Options
 local Toggles = Library.Toggles
 local lastDeathPosition = nil
 local shouldTeleportBack = false
+local updateAutoSwingSliderVisibility
 
 Library.ShowToggleFrameInKeybinds = true
 
@@ -1554,6 +1555,32 @@ CombatAutoSwing:AddToggle("AutoSwing", {
 	Default = false,
 })
 
+CombatAutoSwing:AddSlider("AutoSwingSpeed", {
+	Text = "Auto Swing Speed",
+	Default = 10,
+	Min = 0.5,
+	Max = 10,
+	Rounding = 1,
+})
+
+updateAutoSwingSliderVisibility = function()
+	local isToggled = Toggles.AutoSwing and Toggles.AutoSwing.Value
+	if Options.AutoSwingSpeed then
+		Options.AutoSwingSpeed.Visible = isToggled
+		if Options.AutoSwingSpeed.Holder then
+			Options.AutoSwingSpeed.Holder.Visible = isToggled
+		end
+	end
+	CombatAutoSwing:Resize()
+end
+
+task.spawn(function()
+	task.wait()
+	if updateAutoSwingSliderVisibility then
+		updateAutoSwingSliderVisibility()
+	end
+end)
+
 CombatAutoSwing:AddToggle("AutoHop", {
 	Text = "+ Auto Hop",
 	Default = false,
@@ -2113,10 +2140,14 @@ end)
 local lastAutoSwing = 0
 Toggles.AutoSwing:OnChanged(function()
 	disconnect("AutoSwing")
+	if updateAutoSwingSliderVisibility then
+		updateAutoSwingSliderVisibility()
+	end
 	if Toggles.AutoSwing.Value then
 		_G.T = true
 		track("AutoSwing", RunService.Heartbeat:Connect(function()
-                   local delay = 0.1
+			local speedVal = Options.AutoSwingSpeed and Options.AutoSwingSpeed.Value or 10
+			local delay = 1 / math.max(0.1, speedVal)
 			if _G.T and tick() - lastAutoSwing >= delay then
 				local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
 				if tool then
