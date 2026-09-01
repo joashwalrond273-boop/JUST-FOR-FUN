@@ -28,8 +28,6 @@ local Toggles = Library.Toggles
 local lastDeathPosition = nil
 local shouldTeleportBack = false
 local updateAutoSwingSliderVisibility
-local updateAutoHopSliderVisibility
-local updateDodgeSliderVisibility
 
 Library.ShowToggleFrameInKeybinds = true
 
@@ -101,6 +99,8 @@ local function getRootPart()
 	local character = getCharacter()
 	return character and character:FindFirstChild("HumanoidRootPart")
 end
+
+
 
 local function isAlive()
 	local humanoid = getHumanoid()
@@ -1608,32 +1608,6 @@ CombatAutoSwing:AddToggle("AutoHop", {
 	Default = false,
 })
 
-CombatAutoSwing:AddSlider("AutoHopDistance", {
-	Text = "Auto Hop Distance",
-	Default = 20,
-	Min = 5,
-	Max = 60,
-	Rounding = 0,
-})
-
-updateAutoHopSliderVisibility = function()
-	local isToggled = Toggles.AutoHop and Toggles.AutoHop.Value
-	if Options.AutoHopDistance then
-		Options.AutoHopDistance.Visible = isToggled
-		if Options.AutoHopDistance.Holder then
-			Options.AutoHopDistance.Holder.Visible = isToggled
-		end
-	end
-	CombatAutoSwing:Resize()
-end
-
-task.spawn(function()
-	task.wait()
-	if updateAutoHopSliderVisibility then
-		updateAutoHopSliderVisibility()
-	end
-end)
-
 CombatAutoSwing:AddToggle("Camlock", {
 	Text = "+ Camlock",
 	Default = false,
@@ -1730,32 +1704,6 @@ local DodgeAttackToggle = CombatAutoBlock:AddToggle("DodgeAttack", {
 	Default = false,
 })
 
-CombatAutoBlock:AddSlider("DodgeRange", {
-	Text = "Dodge Range",
-	Default = 16,
-	Min = 5,
-	Max = 30,
-	Rounding = 0,
-})
-
-updateDodgeSliderVisibility = function()
-	local isToggled = Toggles.DodgeAttack and Toggles.DodgeAttack.Value
-	if Options.DodgeRange then
-		Options.DodgeRange.Visible = isToggled
-		if Options.DodgeRange.Holder then
-			Options.DodgeRange.Holder.Visible = isToggled
-		end
-	end
-	CombatAutoBlock:Resize()
-end
-
-task.spawn(function()
-	task.wait()
-	if updateDodgeSliderVisibility then
-		updateDodgeSliderVisibility()
-	end
-end)
-
 CombatAutoBlock:AddToggle("QuickVanish", {
 	Text = "Quick Vanish",
 	Default = false,
@@ -1771,8 +1719,7 @@ CombatAutoBlock:AddSlider("QuickVanishThreshold", {
 
 local isDodging = false
 local lastDodgeTime = 0
-local dodgeCooldown = 0.35
-local dodgeRange = 16
+local dodgeCooldown = 0.3
 
 local function isSwingAnimation(trackObj)
 	local anim = trackObj.Animation
@@ -2315,6 +2262,8 @@ Toggles.KillAura:OnChanged(function()
 	end
 end)
 
+
+
 local lastAutoSwing = 0
 Toggles.AutoSwing:OnChanged(function()
 	disconnect("AutoSwing")
@@ -2341,9 +2290,6 @@ end)
 
 Toggles.AutoHop:OnChanged(function()
 	disconnect("AutoHop")
-	if updateAutoHopSliderVisibility then
-		updateAutoHopSliderVisibility()
-	end
 	if Toggles.AutoHop.Value then
 		track("AutoHop", RunService.Heartbeat:Connect(function()
 			if not isAlive() then return end
@@ -2362,7 +2308,6 @@ Toggles.AutoHop:OnChanged(function()
 				end
 			end
 
-			local hopDist = Options.AutoHopDistance and Options.AutoHopDistance.Value or 20
 			local pos = root.Position
 			local playerNearby = false
 			for _, otherPlayer in ipairs(Players:GetPlayers()) do
@@ -2371,7 +2316,7 @@ Toggles.AutoHop:OnChanged(function()
 					local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
 					if otherRoot and otherHum and otherHum.Health > 0 then
 						local dist = (otherRoot.Position - pos).Magnitude
-						if dist <= hopDist then
+						if dist <= 20 then
 							playerNearby = true
 							break
 						end
