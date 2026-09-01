@@ -29,6 +29,9 @@ local lastDeathPosition = nil
 local shouldTeleportBack = false
 local updateAutoSwingSliderVisibility
 local updateAutoHopSliderVisibility
+local updateDodgeSliderVisibility
+local updateCamlockSliderVisibility
+local playSwordSwingSound
 
 Library.ShowToggleFrameInKeybinds = true
 
@@ -480,6 +483,15 @@ MiscGroup:AddButton({
 		pcall(function()
 			loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-AFEM-Max-Open-Alpha-50210"))()
 		end)
+	end,
+})
+
+MiscGroup:AddButton({
+	Text = "HitSound",
+	Func = function()
+		if playSwordSwingSound then
+			playSwordSwingSound()
+		end
 	end,
 })
 
@@ -1640,6 +1652,32 @@ CombatAutoSwing:AddToggle("Camlock", {
 	Default = false,
 })
 
+CombatAutoSwing:AddSlider("CamlockDistance", {
+	Text = "Camlock Distance",
+	Default = 20,
+	Min = 5,
+	Max = 60,
+	Rounding = 0,
+})
+
+updateCamlockSliderVisibility = function()
+	local isToggled = Toggles.Camlock and Toggles.Camlock.Value
+	if Options.CamlockDistance then
+		Options.CamlockDistance.Visible = isToggled
+		if Options.CamlockDistance.Holder then
+			Options.CamlockDistance.Holder.Visible = isToggled
+		end
+	end
+	CombatAutoSwing:Resize()
+end
+
+task.spawn(function()
+	task.wait()
+	if updateCamlockSliderVisibility then
+		updateCamlockSliderVisibility()
+	end
+end)
+
 CombatAutoSwing:AddToggle("AutoShiftlock", {
 	Text = "Shiftlock(Mobile)",
 	Default = false,
@@ -1730,6 +1768,32 @@ local DodgeAttackToggle = CombatAutoBlock:AddToggle("DodgeAttack", {
 	Text = "Dodge Attack",
 	Default = false,
 })
+
+CombatAutoBlock:AddSlider("DodgeRange", {
+	Text = "Dodge Range",
+	Default = 16,
+	Min = 5,
+	Max = 30,
+	Rounding = 0,
+})
+
+updateDodgeSliderVisibility = function()
+	local isToggled = Toggles.DodgeAttack and Toggles.DodgeAttack.Value
+	if Options.DodgeRange then
+		Options.DodgeRange.Visible = isToggled
+		if Options.DodgeRange.Holder then
+			Options.DodgeRange.Holder.Visible = isToggled
+		end
+	end
+	CombatAutoBlock:Resize()
+end
+
+task.spawn(function()
+	task.wait()
+	if updateDodgeSliderVisibility then
+		updateDodgeSliderVisibility()
+	end
+end)
 
 CombatAutoBlock:AddToggle("QuickVanish", {
 	Text = "Quick Vanish",
@@ -1900,13 +1964,15 @@ local function checkDodge()
 	local root = getRootPart()
 	if not root then return end
 
+	local dRange = Options.DodgeRange and Options.DodgeRange.Value or dodgeRange
+
 	for _, player in ipairs(Players:GetPlayers()) do
 		if player ~= LocalPlayer and player.Character then
 			local enemyRoot = player.Character:FindFirstChild("HumanoidRootPart")
 			local enemyHum = player.Character:FindFirstChildOfClass("Humanoid")
 			if enemyRoot and enemyHum and enemyHum.Health > 0 then
 				local dist = (enemyRoot.Position - root.Position).Magnitude
-				if dist <= dodgeRange then
+				if dist <= dRange then
 					local animator = enemyHum:FindFirstChild("Animator")
 					if animator then
 						for _, trackObj in ipairs(animator:GetPlayingAnimationTracks()) do
@@ -1939,8 +2005,9 @@ local function hookEnemyAnimator(character)
 		local enemyRoot = character:FindFirstChild("HumanoidRootPart")
 		if not root or not enemyRoot then return end
 
+		local dRange = Options.DodgeRange and Options.DodgeRange.Value or dodgeRange
 		local dist = (enemyRoot.Position - root.Position).Magnitude
-		if dist <= dodgeRange and isSwingAnimation(trackObj) then
+		if dist <= dRange and isSwingAnimation(trackObj) then
 			performDodge(enemyRoot)
 		end
 	end))
@@ -1969,6 +2036,9 @@ Toggles.DodgeAttack:OnChanged(function()
 		disconnect("Dodge_Anim_" .. player.Name)
 		disconnect("Dodge_CharAdded_" .. player.Name)
 	end
+	if updateDodgeSliderVisibility then
+		updateDodgeSliderVisibility()
+	end
 	if Toggles.DodgeAttack.Value then
 		setupDodgeListeners()
 		track("DodgePlayerAdded", Players.PlayerAdded:Connect(function(player)
@@ -1985,6 +2055,101 @@ Toggles.DodgeAttack:OnChanged(function()
 		track("DodgeAttack", RunService.Heartbeat:Connect(checkDodge))
 	end
 end)
+
+-- ==========================================
+-- HITSOUND LOGIC
+-- ==========================================
+playSwordSwingSound = function()
+	pcall(function()
+		local sound = resolvePath(ReplicatedStorage, "modules", "misc", "Sounds", "GameSounds", "SwordSwing")
+			or (ReplicatedStorage:FindFirstChild("modules")
+				and ReplicatedStorage.modules:FindFirstChild("misc")
+				and ReplicatedStorage.modules.misc:FindFirstChild("Sounds")
+				and ReplicatedStorage.modules.misc.Sounds:FindFirstChild("GameSounds")
+				and ReplicatedStorage.modules.misc.Sounds.GameSounds:FindFirstChild("SwordSwing"))
+
+		if sound then
+			if sound:IsA("Sound") then
+				local clone = sound:Clone()
+				clone.Parent = game:GetService("SoundService")
+				clone:Play()
+				game:GetService("Debris"):AddItem(clone, 3)
+			elseif typeof(sound) == "table" and sound.Play then
+				sound:Play()
+			end
+		end
+	end)
+end
+
+local function hookToolSwing(tool)
+	if not tool or not tool:IsA("Tool") then return end
+	local connName = "HitSound_Tool_" .. tostring(tool)
+	disconnect(connName)
+	track(connName, tool.Activated:Connect(function()
+		playSwordSwingSound()
+	end))
+end
+
+local function setupHitSoundHooks(character)
+	if not character then return end
+
+	for _, child in ipairs(character:GetChildren()) do
+		if child:IsA("Tool") then
+			hookToolSwing(child)
+		end
+	end
+
+	local childConn = "HitSound_CharChildAdded"
+	disconnect(childConn)
+	track(childConn, character.ChildAdded:Connect(function(child)
+		if child:IsA("Tool") then
+			hookToolSwing(child)
+		end
+	end))
+
+	local hum = character:FindFirstChildOfClass("Humanoid") or character:WaitForChild("Humanoid", 5)
+	if hum then
+		local animator = hum:FindFirstChildOfClass("Animator") or hum:WaitForChild("Animator", 5)
+		if animator then
+			local animConn = "HitSound_AnimPlayed"
+			disconnect(animConn)
+			track(animConn, animator.AnimationPlayed:Connect(function(trackObj)
+				if isSwingAnimation(trackObj) then
+					playSwordSwingSound()
+				end
+			end))
+		end
+	end
+end
+
+local function hookBackpackTools()
+	local backpack = LocalPlayer:FindFirstChildOfClass("Backpack") or LocalPlayer:WaitForChild("Backpack", 5)
+	if backpack then
+		for _, child in ipairs(backpack:GetChildren()) do
+			if child:IsA("Tool") then
+				hookToolSwing(child)
+			end
+		end
+		local bpConn = "HitSound_BackpackChildAdded"
+		disconnect(bpConn)
+		track(bpConn, backpack.ChildAdded:Connect(function(child)
+			if child:IsA("Tool") then
+				hookToolSwing(child)
+			end
+		end))
+	end
+end
+
+track("HitSound_CharAdded", LocalPlayer.CharacterAdded:Connect(function(char)
+	task.wait(0.2)
+	setupHitSoundHooks(char)
+	hookBackpackTools()
+end))
+
+if LocalPlayer.Character then
+	setupHitSoundHooks(LocalPlayer.Character)
+end
+hookBackpackTools()
 
 
 
@@ -2551,6 +2716,9 @@ end)
 
 Toggles.Camlock:OnChanged(function()
 	disconnect("Camlock")
+	if updateCamlockSliderVisibility then
+		updateCamlockSliderVisibility()
+	end
 	if Toggles.Camlock.Value then
 		track("Camlock", RunService.Heartbeat:Connect(function()
 			if not isAlive() then return end
@@ -2558,6 +2726,7 @@ Toggles.Camlock:OnChanged(function()
 			local hum = getHumanoid()
 			if not root or not hum then return end
 
+			local camDist = Options.CamlockDistance and Options.CamlockDistance.Value or 20
 			local myPos = root.Position
 			local closestPlayer = nil
 			local closestDist = math.huge
@@ -2568,7 +2737,7 @@ Toggles.Camlock:OnChanged(function()
 					local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
 					if otherRoot and otherHum and otherHum.Health > 0 then
 						local dist = (otherRoot.Position - myPos).Magnitude
-						if dist <= 20 and dist < closestDist then
+						if dist <= camDist and dist < closestDist then
 							closestDist = dist
 							closestPlayer = otherPlayer
 						end
