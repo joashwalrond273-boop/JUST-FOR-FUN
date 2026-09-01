@@ -1704,14 +1704,6 @@ CombatAutoBlock:AddToggle("DodgeAura", {
 	Default = false,
 })
 
-CombatAutoBlock:AddSlider("DodgeAuraTriggerDistance", {
-	Text = "Dodge Range",
-	Min = 5,
-	Max = 30,
-	Default = 15,
-	Rounding = 1,
-})
-
 CombatAutoBlock:AddToggle("QuickVanish", {
 	Text = "Quick Vanish",
 	Default = false,
@@ -1845,7 +1837,7 @@ local function updateDodgeAura()
 	local hum = getHumanoid()
 	if not root or not hum then return end
 
-	local triggerDist = Options.DodgeAuraTriggerDistance and Options.DodgeAuraTriggerDistance.Value or 15
+	local triggerDist = 15
 	local nearestEnemy = nil
 	local shortestDist = triggerDist
 
@@ -1873,11 +1865,24 @@ local function updateDodgeAura()
 			flatLook = flatLook.Unit
 		end
 
-		-- Target position 10 studs directly behind the enemy
-		local behindPos = enemyCFrame.Position - (flatLook * 10)
+		local myPos = root.Position
+		local enemyPos = nearestEnemy.Position
+		local currentDist = (enemyPos - myPos).Magnitude
 
-		-- Move normally towards behind the enemy without snapping or teleporting
-		hum:MoveTo(behindPos)
+		-- Keep target behind distance close (2.5 to 4 studs) so you can get close and attack without being pushed back
+		local targetDistBehind = math.clamp(currentDist * 0.6, 2.5, 4.0)
+		local behindPos = enemyPos - (flatLook * targetDistBehind)
+
+		local moveVector = (behindPos - myPos)
+		local flatMoveVector = Vector3.new(moveVector.X, 0, moveVector.Z)
+
+		if flatMoveVector.Magnitude > 0.35 then
+			local moveDir = flatMoveVector.Unit
+			hum:Move(moveDir, false)
+			local dodgeSpeed = 28
+			local currentVelY = root.AssemblyLinearVelocity.Y
+			root.AssemblyLinearVelocity = Vector3.new(moveDir.X * dodgeSpeed, currentVelY, moveDir.Z * dodgeSpeed)
+		end
 	end
 end
 
@@ -1888,9 +1893,8 @@ Toggles.DodgeAura:OnChanged(function()
 		Library:Notify({ Title = "Dodge Aura", Description = "Enabled", Time = 2 })
 	else
 		local hum = getHumanoid()
-		local root = getRootPart()
-		if hum and root then
-			hum:MoveTo(root.Position)
+		if hum then
+			hum:Move(Vector3.zero, false)
 		end
 	end
 end)
