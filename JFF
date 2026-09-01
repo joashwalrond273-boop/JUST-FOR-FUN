@@ -1839,45 +1839,11 @@ Toggles.ImmortalMode:OnChanged(function()
 	end
 end)
 
-local isDodgeAuraActive = false
-local lastDodgeAuraTime = 0
-
-local function performDodgeAura(enemyRoot)
-	if isDodgeAuraActive or tick() - lastDodgeAuraTime < 0.35 then return end
-	if not enemyRoot or not enemyRoot.Parent then return end
-	local root = getRootPart()
-	if not root or not isAlive() then return end
-
-	isDodgeAuraActive = true
-	lastDodgeAuraTime = tick()
-
-	local enemyCFrame = enemyRoot.CFrame
-	local enemyLook = enemyCFrame.LookVector
-	local flatLook = Vector3.new(enemyLook.X, 0, enemyLook.Z)
-	if flatLook.Magnitude < 0.05 then
-		flatLook = Vector3.new(0, 0, 1)
-	else
-		flatLook = flatLook.Unit
-	end
-
-	local behindPos = enemyCFrame.Position - (flatLook * 10) + Vector3.new(0, 0.5, 0)
-
-	root.CFrame = CFrame.lookAt(behindPos, Vector3.new(enemyRoot.Position.X, behindPos.Y, enemyRoot.Position.Z))
-
-	pcall(function()
-		root.AssemblyLinearVelocity = Vector3.zero
-		root.Velocity = Vector3.zero
-	end)
-
-	task.delay(0.15, function()
-		isDodgeAuraActive = false
-	end)
-end
-
 local function updateDodgeAura()
-	if not isAlive() or not Toggles.DodgeAura.Value or isDodgeAuraActive then return end
+	if not isAlive() or not Toggles.DodgeAura.Value then return end
 	local root = getRootPart()
-	if not root then return end
+	local hum = getHumanoid()
+	if not root or not hum then return end
 
 	local triggerDist = Options.DodgeAuraTriggerDistance and Options.DodgeAuraTriggerDistance.Value or 15
 	local nearestEnemy = nil
@@ -1885,9 +1851,9 @@ local function updateDodgeAura()
 
 	for _, player in ipairs(Players:GetPlayers()) do
 		if player ~= LocalPlayer and player.Character then
-			local hum = player.Character:FindFirstChildOfClass("Humanoid")
+			local targetHum = player.Character:FindFirstChildOfClass("Humanoid")
 			local enemyRoot = player.Character:FindFirstChild("HumanoidRootPart")
-			if enemyRoot and hum and hum.Health > 0 then
+			if enemyRoot and targetHum and targetHum.Health > 0 then
 				local dist = (enemyRoot.Position - root.Position).Magnitude
 				if dist <= shortestDist then
 					shortestDist = dist
@@ -1898,7 +1864,20 @@ local function updateDodgeAura()
 	end
 
 	if nearestEnemy then
-		performDodgeAura(nearestEnemy)
+		local enemyCFrame = nearestEnemy.CFrame
+		local enemyLook = enemyCFrame.LookVector
+		local flatLook = Vector3.new(enemyLook.X, 0, enemyLook.Z)
+		if flatLook.Magnitude < 0.05 then
+			flatLook = Vector3.new(0, 0, 1)
+		else
+			flatLook = flatLook.Unit
+		end
+
+		-- Target position 10 studs directly behind the enemy
+		local behindPos = enemyCFrame.Position - (flatLook * 10)
+
+		-- Move normally towards behind the enemy without snapping or teleporting
+		hum:MoveTo(behindPos)
 	end
 end
 
@@ -1908,7 +1887,11 @@ Toggles.DodgeAura:OnChanged(function()
 		track("DodgeAura", RunService.Heartbeat:Connect(updateDodgeAura))
 		Library:Notify({ Title = "Dodge Aura", Description = "Enabled", Time = 2 })
 	else
-		isDodgeAuraActive = false
+		local hum = getHumanoid()
+		local root = getRootPart()
+		if hum and root then
+			hum:MoveTo(root.Position)
+		end
 	end
 end)
 
