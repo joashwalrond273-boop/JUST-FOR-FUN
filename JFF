@@ -3156,6 +3156,19 @@ InvisibleFlyGroup:AddSlider("InvisibleFlySpeedSlider", {
         Rounding = 1,
 })
 
+InvisibleFlyGroup:AddToggle("QuickVanish", {
+        Text = "Quick Vanish",
+        Default = false,
+})
+
+InvisibleFlyGroup:AddSlider("QuickVanishThreshold", {
+        Text = "Health Threshold",
+        Min = 5,
+        Max = 130,
+        Default = 35,
+        Rounding = 0,
+})
+
 InvisibleFlyGroup:AddLabel("Highlight Fill Color"):AddColorPicker("InvisibleFlyFillColor", {
         Default = Color3.fromRGB(0, 255, 0),
         Title = "Invisible Fly Highlight Fill Color",
@@ -5660,6 +5673,45 @@ end
 
 Toggles.InvisibleFlyToggle:OnChanged(onInvisibleFlyToggle)
 
+local quickVanishTriggered = false
+
+local function checkQuickVanish()
+	if not Toggles.QuickVanish or not Toggles.QuickVanish.Value or not isAlive() then return end
+	local hum = getHumanoid()
+	if not hum or hum.Health <= 0 then return end
+
+	local threshold = Options.QuickVanishThreshold and Options.QuickVanishThreshold.Value or 35
+
+	if hum.Health > threshold then
+		quickVanishTriggered = false
+	elseif hum.Health <= threshold and not quickVanishTriggered then
+		if not (Toggles.InvisibleFlyToggle and Toggles.InvisibleFlyToggle.Value) and not invisibleFlyVars.invisiblefly then
+			quickVanishTriggered = true
+			if Toggles.InvisibleFlyToggle then
+				Toggles.InvisibleFlyToggle:SetValue(true)
+			else
+				onInvisibleFlyToggle(true)
+			end
+			Library:Notify({
+				Title = "Quick Vanish",
+				Description = string.format("Health low (%.0f HP)! Invis Fly activated.", hum.Health),
+				Time = 3,
+			})
+		end
+	end
+end
+
+Toggles.QuickVanish:OnChanged(function()
+	disconnect("QuickVanish")
+	quickVanishTriggered = false
+	if Toggles.QuickVanish.Value then
+		track("QuickVanish", RunService.Heartbeat:Connect(checkQuickVanish))
+		Library:Notify({ Title = "Quick Vanish", Description = "Enabled", Time = 2 })
+	else
+		Library:Notify({ Title = "Quick Vanish", Description = "Disabled", Time = 2 })
+	end
+end)
+
 -- Teleport Script Logic
 local function resetAndTeleport(targetName)
 	if not targetName or targetName == "" then
@@ -5934,6 +5986,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.InvisibleFlyToggle and Toggles.InvisibleFlyToggle.Value then
 		Toggles.InvisibleFlyToggle:SetValue(false)
+	end
+	if Toggles.QuickVanish and Toggles.QuickVanish.Value then
+		Toggles.QuickVanish:SetValue(false)
 	end
 	if Toggles.OreESPToggle and Toggles.OreESPToggle.Value then
 		Toggles.OreESPToggle:SetValue(false)
