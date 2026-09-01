@@ -31,7 +31,6 @@ local updateAutoSwingSliderVisibility
 local updateAutoHopSliderVisibility
 local updateDodgeSliderVisibility
 local updateCamlockSliderVisibility
-local playSwordSwingSound
 
 Library.ShowToggleFrameInKeybinds = true
 
@@ -484,11 +483,6 @@ MiscGroup:AddButton({
 			loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-AFEM-Max-Open-Alpha-50210"))()
 		end)
 	end,
-})
-
-MiscGroup:AddToggle("HitSound", {
-	Text = "HitSound",
-	Default = false,
 })
 
 
@@ -2052,114 +2046,7 @@ Toggles.DodgeAttack:OnChanged(function()
 	end
 end)
 
--- ==========================================
--- HITSOUND LOGIC
--- ==========================================
-playSwordSwingSound = function()
-	pcall(function()
-		local sound = resolvePath(ReplicatedStorage, "modules", "misc", "Sounds", "GameSounds", "SwordSwing")
-			or (ReplicatedStorage:FindFirstChild("modules")
-				and ReplicatedStorage.modules:FindFirstChild("misc")
-				and ReplicatedStorage.modules.misc:FindFirstChild("Sounds")
-				and ReplicatedStorage.modules.misc.Sounds:FindFirstChild("GameSounds")
-				and ReplicatedStorage.modules.misc.Sounds.GameSounds:FindFirstChild("SwordSwing"))
 
-		if sound then
-			if sound:IsA("Sound") then
-				local clone = sound:Clone()
-				clone.Parent = game:GetService("SoundService")
-				clone:Play()
-				game:GetService("Debris"):AddItem(clone, 3)
-			elseif typeof(sound) == "table" and sound.Play then
-				sound:Play()
-			end
-		end
-	end)
-end
-
-local function hookToolSwing(tool)
-	if not tool or not tool:IsA("Tool") then return end
-	local connName = "HitSound_Tool_" .. tostring(tool)
-	disconnect(connName)
-	track(connName, tool.Activated:Connect(function()
-		if Toggles.HitSound and Toggles.HitSound.Value then
-			playSwordSwingSound()
-		end
-	end))
-end
-
-local function setupHitSoundHooks(character)
-	if not character then return end
-
-	for _, child in ipairs(character:GetChildren()) do
-		if child:IsA("Tool") then
-			hookToolSwing(child)
-		end
-	end
-
-	local childConn = "HitSound_CharChildAdded"
-	disconnect(childConn)
-	track(childConn, character.ChildAdded:Connect(function(child)
-		if child:IsA("Tool") then
-			hookToolSwing(child)
-		end
-	end))
-
-	local hum = character:FindFirstChildOfClass("Humanoid") or character:WaitForChild("Humanoid", 5)
-	if hum then
-		local animator = hum:FindFirstChildOfClass("Animator") or hum:WaitForChild("Animator", 5)
-		if animator then
-			local animConn = "HitSound_AnimPlayed"
-			disconnect(animConn)
-			track(animConn, animator.AnimationPlayed:Connect(function(trackObj)
-				if Toggles.HitSound and Toggles.HitSound.Value and isSwingAnimation(trackObj) then
-					playSwordSwingSound()
-				end
-			end))
-		end
-	end
-end
-
-local function hookBackpackTools()
-	local backpack = LocalPlayer:FindFirstChildOfClass("Backpack") or LocalPlayer:WaitForChild("Backpack", 5)
-	if backpack then
-		for _, child in ipairs(backpack:GetChildren()) do
-			if child:IsA("Tool") then
-				hookToolSwing(child)
-			end
-		end
-		local bpConn = "HitSound_BackpackChildAdded"
-		disconnect(bpConn)
-		track(bpConn, backpack.ChildAdded:Connect(function(child)
-			if child:IsA("Tool") then
-				hookToolSwing(child)
-			end
-		end))
-	end
-end
-
-track("HitSound_CharAdded", LocalPlayer.CharacterAdded:Connect(function(char)
-	task.wait(0.2)
-	if Toggles.HitSound and Toggles.HitSound.Value then
-		setupHitSoundHooks(char)
-		hookBackpackTools()
-	end
-end))
-
-Toggles.HitSound:OnChanged(function()
-	if Toggles.HitSound.Value then
-		if LocalPlayer.Character then
-			setupHitSoundHooks(LocalPlayer.Character)
-		end
-		hookBackpackTools()
-		Library:Notify({ Title = "HitSound", Description = "Enabled", Time = 2 })
-	else
-		disconnect("HitSound_CharChildAdded")
-		disconnect("HitSound_AnimPlayed")
-		disconnect("HitSound_BackpackChildAdded")
-		Library:Notify({ Title = "HitSound", Description = "Disabled", Time = 2 })
-	end
-end)
 
 local function updateHighlight(hl, target, toggleValue)
 	if target and toggleValue then
@@ -6237,9 +6124,6 @@ Library:OnUnload(function()
 	end
 	if Toggles.AntiAFK and Toggles.AntiAFK.Value then
 		Toggles.AntiAFK:SetValue(false)
-	end
-	if Toggles.HitSound and Toggles.HitSound.Value then
-		Toggles.HitSound:SetValue(false)
 	end
 	if Toggles.AntiKick and Toggles.AntiKick.Value then
 		Toggles.AntiKick:SetValue(false)
