@@ -1704,6 +1704,19 @@ local DodgeAttackToggle = CombatAutoBlock:AddToggle("DodgeAttack", {
 	Default = false,
 })
 
+CombatAutoBlock:AddToggle("QuickVanish", {
+	Text = "Quick Vanish",
+	Default = false,
+})
+
+CombatAutoBlock:AddSlider("QuickVanishThreshold", {
+	Text = "Health Threshold",
+	Min = 5,
+	Max = 130,
+	Default = 35,
+	Rounding = 0,
+})
+
 local isShielding = false
 local lastShieldFire = 0
 local function updateAutoShield()
@@ -3154,19 +3167,6 @@ InvisibleFlyGroup:AddSlider("InvisibleFlySpeedSlider", {
         Max = 15,
         Default = 5,
         Rounding = 1,
-})
-
-InvisibleFlyGroup:AddToggle("QuickVanish", {
-        Text = "Quick Vanish",
-        Default = false,
-})
-
-InvisibleFlyGroup:AddSlider("QuickVanishThreshold", {
-        Text = "Health Threshold",
-        Min = 5,
-        Max = 130,
-        Default = 35,
-        Rounding = 0,
 })
 
 InvisibleFlyGroup:AddLabel("Highlight Fill Color"):AddColorPicker("InvisibleFlyFillColor", {
