@@ -2344,8 +2344,6 @@ Toggles.KillAura:OnChanged(function()
 	end
 end)
 
-
-
 local lastAutoSwing = 0
 Toggles.AutoSwing:OnChanged(function()
 	disconnect("AutoSwing")
