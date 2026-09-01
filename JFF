@@ -3261,28 +3261,80 @@ InvisibleFlyGroup:AddLabel("Highlight Outline Color"):AddColorPicker("InvisibleF
 })
 
 local noclipParts = {}
+local noclipConnections = {}
+
+local function updateNoclipCache(character)
+	table.clear(noclipParts)
+	if not character then return end
+	for _, part in ipairs(character:GetDescendants()) do
+		if part:IsA("BasePart") then
+			noclipParts[part] = true
+		end
+	end
+end
+
+local function setupNoclipCharacter(character)
+	for _, conn in ipairs(noclipConnections) do
+		pcall(function() conn:Disconnect() end)
+	end
+	table.clear(noclipConnections)
+
+	if not character then return end
+	updateNoclipCache(character)
+
+	table.insert(noclipConnections, character.DescendantAdded:Connect(function(part)
+		if part:IsA("BasePart") then
+			noclipParts[part] = true
+			if Toggles.Noclip and Toggles.Noclip.Value then
+				part.CanCollide = false
+			end
+		end
+	end))
+
+	table.insert(noclipConnections, character.DescendantRemoving:Connect(function(part)
+		if noclipParts[part] then
+			noclipParts[part] = nil
+		end
+	end))
+end
+
 Toggles.Noclip:OnChanged(function()
 	disconnect("Noclip")
-	table.clear(noclipParts)
+	disconnect("Noclip_Respawn")
+	for _, conn in ipairs(noclipConnections) do
+		pcall(function() conn:Disconnect() end)
+	end
+	table.clear(noclipConnections)
+
 	if Toggles.Noclip.Value then
-		track("Noclip", RunService.Stepped:Connect(function()
-			local character = getCharacter()
-			if not character then
-				return
+		local char = getCharacter()
+		if char then
+			setupNoclipCharacter(char)
+		end
+
+		track("Noclip_Respawn", LocalPlayer.CharacterAdded:Connect(function(newChar)
+			if Toggles.Noclip and Toggles.Noclip.Value then
+				setupNoclipCharacter(newChar)
 			end
-			for _, part in ipairs(character:GetDescendants()) do
-				if part:IsA("BasePart") and part.CanCollide then
+		end))
+
+		track("Noclip", RunService.Stepped:Connect(function()
+			if not Toggles.Noclip.Value then return end
+			for part in pairs(noclipParts) do
+				if part.Parent and part.CanCollide then
 					part.CanCollide = false
-					noclipParts[part] = true
 				end
 			end
 		end))
+
+		Library:Notify({ Title = "Noclip", Description = "Enabled (Optimized)", Time = 2 })
 	else
 		for part in pairs(noclipParts) do
 			if part.Parent then
 				part.CanCollide = true
 			end
 		end
+		table.clear(noclipParts)
 	end
 end)
 
@@ -3322,38 +3374,61 @@ local xrayParts = {}
 local xrayActive = false
 
 local function applyXray(v)
-	if v:IsA("BasePart") and not v:IsDescendantOf(LocalPlayer.Character) and not v:IsA("Terrain") then
-		if not xrayParts[v] then
-			xrayParts[v] = v.Transparency
+	if v:IsA("BasePart") and not v:IsA("Terrain") and v.Transparency < 0.9 then
+		if not v:IsDescendantOf(LocalPlayer.Character) and not (workspace:FindFirstChild("droppedItems") and v:IsDescendantOf(workspace.droppedItems)) then
+			if not xrayParts[v] then
+				xrayParts[v] = v.Transparency
+			end
+			v.Transparency = 0.65
 		end
-		v.Transparency = 0.5
 	end
 end
 
 local function removeXray(v)
 	local orig = xrayParts[v]
-	if orig then
-		v.Transparency = orig
+	if orig ~= nil then
+		if v and v.Parent then
+			v.Transparency = orig
+		end
 		xrayParts[v] = nil
 	end
 end
 
-Toggles.Xray:OnChanged(function()
-	xrayActive = Toggles.Xray.Value
-	if xrayActive then
-		for _, v in ipairs(workspace:GetDescendants()) do
+local function scanAndApplyXray()
+	local placed = workspace:FindFirstChild("placedStructures")
+	if placed then
+		for _, v in ipairs(placed:GetDescendants()) do
 			applyXray(v)
 		end
-		track("XrayAdded", workspace.DescendantAdded:Connect(function(v)
-			if xrayActive then
-				applyXray(v)
-			end
-		end))
+	end
+
+	local mapFolder = workspace:FindFirstChild("Map") or workspace:FindFirstChild("Structures")
+	if mapFolder then
+		for _, v in ipairs(mapFolder:GetDescendants()) do
+			applyXray(v)
+		end
+	end
+end
+
+Toggles.Xray:OnChanged(function()
+	disconnect("XrayAdded")
+	xrayActive = Toggles.Xray.Value
+	if xrayActive then
+		scanAndApplyXray()
+		local placed = workspace:FindFirstChild("placedStructures")
+		if placed then
+			track("XrayAdded", placed.DescendantAdded:Connect(function(v)
+				if xrayActive then
+					applyXray(v)
+				end
+			end))
+		end
+		Library:Notify({ Title = "X-Ray", Description = "Enabled (Optimized)", Time = 2 })
 	else
-		disconnect("XrayAdded")
 		for v in pairs(xrayParts) do
 			removeXray(v)
 		end
+		table.clear(xrayParts)
 	end
 end)
 
@@ -5964,6 +6039,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.FakeLag and Toggles.FakeLag.Value then
 		Toggles.FakeLag:SetValue(false)
+	end
+	if Toggles.Noclip and Toggles.Noclip.Value then
+		Toggles.Noclip:SetValue(false)
 	end
 	if Toggles.Xray and Toggles.Xray.Value then
 		Toggles.Xray:SetValue(false)
