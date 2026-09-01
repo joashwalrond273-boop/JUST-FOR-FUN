@@ -102,8 +102,6 @@ local function getRootPart()
 	return character and character:FindFirstChild("HumanoidRootPart")
 end
 
-
-
 local function isAlive()
 	local humanoid = getHumanoid()
 	return humanoid and humanoid.Health > 0
