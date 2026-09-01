@@ -2161,8 +2161,6 @@ Toggles.HitSound:OnChanged(function()
 	end
 end)
 
-
-
 local function updateHighlight(hl, target, toggleValue)
 	if target and toggleValue then
 		hl.Adornee = target
