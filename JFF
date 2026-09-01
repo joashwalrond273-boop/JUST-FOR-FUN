@@ -1562,6 +1562,14 @@ CombatPhantomAura:AddSlider("OrbitAdjust", {
 	Rounding = 1,
 })
 
+CombatPhantomAura:AddSlider("OrbitSpeed", {
+	Text = "Orbit Speed",
+	Default = 60,
+	Min = 1,
+	Max = 60,
+	Rounding = 0,
+})
+
 local CombatAutoSwing = Tabs.Combat:AddLeftGroupbox("Auto PVP", "swords")
 
 CombatAutoSwing:AddToggle("AutoSwing", {
@@ -2566,7 +2574,7 @@ local phantomModeVars = {
 	orbitAngle = 0,
 	orbitRadius = 5,
 	orbitHeight = Options.OrbitAdjust.Value,
-	orbitSpeed = 60,
+	orbitSpeed = Options.OrbitSpeed and Options.OrbitSpeed.Value or 60,
 	targetPlayer = nil
 }
 
@@ -2684,6 +2692,10 @@ end)
 
 Options.OrbitAdjust:OnChanged(function()
 	phantomModeVars.orbitHeight = Options.OrbitAdjust.Value
+end)
+
+Options.OrbitSpeed:OnChanged(function()
+	phantomModeVars.orbitSpeed = Options.OrbitSpeed.Value
 end)
 
 Toggles.Reach:OnChanged(function()
