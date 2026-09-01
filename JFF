@@ -30,7 +30,6 @@ local shouldTeleportBack = false
 local updateAutoSwingSliderVisibility
 local updateAutoHopSliderVisibility
 local updateDodgeSliderVisibility
-local updateCamlockSliderVisibility
 
 Library.ShowToggleFrameInKeybinds = true
 
@@ -1642,32 +1641,6 @@ CombatAutoSwing:AddToggle("Camlock", {
 	Default = false,
 })
 
-CombatAutoSwing:AddSlider("CamlockDistance", {
-	Text = "Camlock Distance",
-	Default = 20,
-	Min = 5,
-	Max = 60,
-	Rounding = 0,
-})
-
-updateCamlockSliderVisibility = function()
-	local isToggled = Toggles.Camlock and Toggles.Camlock.Value
-	if Options.CamlockDistance then
-		Options.CamlockDistance.Visible = isToggled
-		if Options.CamlockDistance.Holder then
-			Options.CamlockDistance.Holder.Visible = isToggled
-		end
-	end
-	CombatAutoSwing:Resize()
-end
-
-task.spawn(function()
-	task.wait()
-	if updateCamlockSliderVisibility then
-		updateCamlockSliderVisibility()
-	end
-end)
-
 CombatAutoSwing:AddToggle("AutoShiftlock", {
 	Text = "Shiftlock(Mobile)",
 	Default = false,
@@ -2609,9 +2582,6 @@ end)
 
 Toggles.Camlock:OnChanged(function()
 	disconnect("Camlock")
-	if updateCamlockSliderVisibility then
-		updateCamlockSliderVisibility()
-	end
 	if Toggles.Camlock.Value then
 		track("Camlock", RunService.Heartbeat:Connect(function()
 			if not isAlive() then return end
@@ -2619,7 +2589,6 @@ Toggles.Camlock:OnChanged(function()
 			local hum = getHumanoid()
 			if not root or not hum then return end
 
-			local camDist = Options.CamlockDistance and Options.CamlockDistance.Value or 20
 			local myPos = root.Position
 			local closestPlayer = nil
 			local closestDist = math.huge
@@ -2630,7 +2599,7 @@ Toggles.Camlock:OnChanged(function()
 					local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
 					if otherRoot and otherHum and otherHum.Health > 0 then
 						local dist = (otherRoot.Position - myPos).Magnitude
-						if dist <= camDist and dist < closestDist then
+						if dist <= 20 and dist < closestDist then
 							closestDist = dist
 							closestPlayer = otherPlayer
 						end
