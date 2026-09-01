@@ -116,8 +116,6 @@ local function getRootPart()
 	return character and character:FindFirstChild("HumanoidRootPart")
 end
 
-
-
 local function isAlive()
 	local humanoid = getHumanoid()
 	return humanoid and humanoid.Health > 0
@@ -270,8 +268,6 @@ TSG.MineRemote = (keyedRemotes and rawget(keyedRemotes, "mine")) or (interaction
 TSG.ChopRemote = (keyedRemotes and rawget(keyedRemotes, "chop")) or (interactionsFolder and interactionsFolder:FindFirstChild("chop"))
 TSG.MeleeAI = interactionsFolder and interactionsFolder:FindFirstChild("meleeAI")
 
-
-
 -- No Bear Trap DMG Remote Interception
 pcall(function()
 	local Event = resolvePath(ReplicatedStorage, "remoteInterface", "traps", "Run") or (ReplicatedStorage:FindFirstChild("remoteInterface") and ReplicatedStorage.remoteInterface:FindFirstChild("traps") and ReplicatedStorage.remoteInterface.traps:FindFirstChild("Run"))
@@ -332,8 +328,6 @@ pcall(function()
 	end
 end)
 
-
-
 Library.Font = Enum.Font.Jura
 
 -- Window
@@ -359,7 +353,7 @@ task.spawn(function()
 			end
 		end
 	end
-	
+
 	if footerLabel then
 		local lastTick = tick()
 		local frameCount = 0
@@ -370,7 +364,7 @@ task.spawn(function()
 				local fps = math.floor(frameCount / (curTick - lastTick))
 				frameCount = 0
 				lastTick = curTick
-				
+
 				local ping = 0
 				local success, pingVal = pcall(function()
 					return LocalPlayer:GetNetworkPing() * 1000
@@ -418,17 +412,17 @@ FastArmorGroup:AddButton({
 		local root = character and character:FindFirstChild("HumanoidRootPart")
 		if not root then return end
 		local playerPosition = root.Position
-		
+
 		local argsPlaceFurnace = {
 			[1] = 199,
 			[2] = CFrame.new(playerPosition.X, playerPosition.Y - 3, playerPosition.Z) * CFrame.Angles(0, 0, 0),
 			[3] = -3.141592653589793
 		}
-		
+
 		pcall(function()
 			game:GetService("ReplicatedStorage").remoteInterface.interactions.build:InvokeServer(unpack(argsPlaceFurnace))
 		end)
-		
+
 		local furnace = nil
 		for _, structure in pairs(workspace.placedStructures:GetChildren()) do
 			if structure:FindFirstChild("Bluesteel Furnace") then
@@ -436,14 +430,14 @@ FastArmorGroup:AddButton({
 				break
 			end
 		end
-		
+
 		local itemsToCraft = {
 			{197, "Bluesteel Sword"},
 			{201, "Bluesteel Chestplate"},
 			{202, "Bluesteel Pants"},
 			{200, "Bluesteel Helmet"}
 		}
-		
+
 		for _, item in ipairs(itemsToCraft) do
 			local argsCraft = {
 				[1] = item[1],
@@ -455,14 +449,14 @@ FastArmorGroup:AddButton({
 				game:GetService("ReplicatedStorage").remoteInterface.interactions.craft:InvokeServer(unpack(argsCraft))
 			end)
 		end
-		
+
 		local itemsToEquip = {
 			{197, "inventory", 1, "equipHotbar"},
 			{200, "inventory", 1, "equipClothing"},
 			{201, "inventory", 2, "equipClothing"},
 			{202, "inventory", 3, "equipClothing"}
 		}
-		
+
 		for _, equip in ipairs(itemsToEquip) do
 			local argsEquip = {
 				equip[2],
@@ -473,7 +467,7 @@ FastArmorGroup:AddButton({
 				game:GetService("ReplicatedStorage").remoteInterface.inventory[equip[4]]:InvokeServer(unpack(argsEquip))
 			end)
 		end
-		
+
 		if furnace then
 			pcall(function()
 				game:GetService("ReplicatedStorage").remoteInterface.interactions.deleteStructure:FireServer(furnace)
@@ -497,7 +491,6 @@ MiscGroup:AddButton({
 		end)
 	end,
 })
-
 
 local MainRight = Tabs.Player:AddRightGroupbox("Settings", "settings")
 
@@ -647,8 +640,6 @@ TeleportGroup:AddButton({
 	end,
 })
 
-
-
 MainLeft:AddToggle("InfiniteBackpack", {
 	Text = "Infinite Backpack",
 	Default = false,
@@ -690,8 +681,6 @@ ImmunityGroup:AddToggle("NoFallDamage", {
 	Text = "No Fall Damage",
 	Default = false,
 })
-
-
 
 ImmunityGroup:AddToggle("NoBearTrapDMG", {
 	Text = "No Bear Trap DMG",
@@ -835,7 +824,7 @@ MainRight:AddButton({
 		local Memory
 		pcall(function()
 			for __, v in pairs(game.CoreGui.RobloxGui.PerformanceStats:GetChildren()) do
-				if v.Name == 'PS_Button' and v.StatsMiniTextPanelClass.TitleLabel.Text == 'Ping' then 
+				if v.Name == 'PS_Button' and v.StatsMiniTextPanelClass.TitleLabel.Text == 'Ping' then
 					Memory = v.StatsMiniTextPanelClass.ValueLabel
 				end
 			end
@@ -877,10 +866,10 @@ local originalCF = nil
 local function startDesync()
 	local RealChar = LocalPlayer.Character
 	if not RealChar or not RealChar:FindFirstChild("HumanoidRootPart") then return end
-	
+
 	originalCF = RealChar.HumanoidRootPart.CFrame
 	RealChar.Archivable = true
-	
+
 	local ok, err = pcall(function()
 		fakeChar = RealChar:Clone()
 	end)
@@ -889,15 +878,15 @@ local function startDesync()
 		Toggles.DesyncToggle:SetValue(false)
 		return
 	end
-	
+
 	fakeChar.Name = "Desync_Clone"
 	fakeChar.Parent = workspace
-	
+
 	RealChar.HumanoidRootPart.Anchored = true
-	
+
 	local fakeHum = fakeChar:FindFirstChild("Humanoid")
 	local fakeRoot = fakeChar:FindFirstChild("HumanoidRootPart")
-	
+
 	if not fakeHum or not fakeRoot then
 		fakeChar:Destroy()
 		fakeChar = nil
@@ -906,7 +895,7 @@ local function startDesync()
 		Toggles.DesyncToggle:SetValue(false)
 		return
 	end
-	
+
 	for _, v in pairs(fakeChar:GetDescendants()) do
 		if v:IsA("LocalScript") or v:IsA("Script") then
 			pcall(function() v:Destroy() end)
@@ -926,7 +915,7 @@ local function startDesync()
 		end)
 		return trackObj
 	end
-	
+
 	local OfficialIDs = {
 		Idle  = "rbxassetid://507766388",
 		Walk  = "rbxassetid://507777826",
@@ -1004,13 +993,13 @@ local function startDesync()
 
 	table.insert(desyncConnections, RunService.RenderStepped:Connect(function()
 		if not Toggles.DesyncToggle.Value or not fakeHum or not fakeRoot then return end
-		
+
 		for _, v in pairs(fakeChar:GetDescendants()) do
 			if v:IsA("BasePart") then
 				v.CanCollide = (v.Name == "HumanoidRootPart")
 			end
 		end
-		
+
 		local currentSpeed = 16
 		if Toggles.SpeedHack and Toggles.SpeedHack.Value and Options.SpeedValue then
 			currentSpeed = Options.SpeedValue.Value
@@ -1018,7 +1007,7 @@ local function startDesync()
 			currentSpeed = RealChar:FindFirstChildOfClass("Humanoid").WalkSpeed
 		end
 		fakeHum.WalkSpeed = currentSpeed
-		
+
 		local inputVector = Vector3.new(0, 0, 0)
 		if Controls then
 			inputVector = Controls:GetMoveVector()
@@ -1028,16 +1017,16 @@ local function startDesync()
 			if UserInputService:IsKeyDown(Enum.KeyCode.A) then inputVector = inputVector + Vector3.new(-1, 0, 0) end
 			if UserInputService:IsKeyDown(Enum.KeyCode.D) then inputVector = inputVector + Vector3.new(1, 0, 0) end
 		end
-		
+
 		local camCF = workspace.CurrentCamera.CFrame
 		fakeHum.PlatformStand = false
-		
+
 		local finalDir = (camCF.RightVector * inputVector.X) + (camCF.LookVector * -inputVector.Z)
 		finalDir = Vector3.new(finalDir.X, 0, finalDir.Z)
-		
+
 		local currentState = fakeHum:GetState()
 		local isGrounded = (currentState == Enum.HumanoidStateType.Running or currentState == Enum.HumanoidStateType.RunningNoPhysics)
-		
+
 		if finalDir.Magnitude > 0 then
 			fakeHum:Move(finalDir.Unit, false)
 			if isGrounded then
@@ -1069,14 +1058,14 @@ local function stopDesync()
 		pcall(function() conn:Disconnect() end)
 	end
 	table.clear(desyncConnections)
-	
+
 	for _, trackObj in pairs(desyncAnimTracks) do
 		if trackObj and trackObj.IsPlaying then
 			pcall(function() trackObj:Stop() end)
 		end
 	end
 	table.clear(desyncAnimTracks)
-	
+
 	originalCF = nil
 
 	if fakeChar then
@@ -1086,7 +1075,7 @@ local function stopDesync()
 		end)
 		pcall(function() fakeChar:Destroy() end)
 		fakeChar = nil
-		
+
 		local RealChar = LocalPlayer.Character
 		if RealChar and RealChar:FindFirstChild("HumanoidRootPart") then
 			RealChar.HumanoidRootPart.Anchored = false
@@ -1154,7 +1143,7 @@ local function isAdmin(player)
 	if success and rank and rank >= 10 then
 		return true
 	end
-	
+
 	local successRole, role = pcall(function()
 		return player:GetRoleInGroup(7312028)
 	end)
@@ -1164,7 +1153,7 @@ local function isAdmin(player)
 			return true
 		end
 	end
-	
+
 	local isRobloxStaff = false
 	pcall(function()
 		isRobloxStaff = player:IsInGroup(1200769)
@@ -1172,7 +1161,7 @@ local function isAdmin(player)
 	if isRobloxStaff then
 		return true
 	end
-	
+
 	return false
 end
 
@@ -1647,8 +1636,6 @@ CombatSwordBot:AddDropdown("ChooseVictim", {
 	Default = "",
 })
 
-
-
 CombatRight:AddToggle("TargetPlayers", {
 	Text = "Target Players",
 	Default = true,
@@ -1697,7 +1684,6 @@ CombatReach:AddDropdown("AdvancePreset", {
 	Default = "",
 })
 
-
 CombatReach:AddSlider("ReachRange", {
 	Text = "Reach Range",
 	Default = 15,
@@ -1705,8 +1691,6 @@ CombatReach:AddSlider("ReachRange", {
 	Max = 30,
 	Rounding = 1,
 })
-
-
 
 local CombatAutoBlock = Tabs.Combat:AddRightGroupbox("Auto Block", "shield")
 
@@ -1733,12 +1717,12 @@ local function isSwingAnimation(trackObj)
 	if not anim then return false end
 	local id = anim.AnimationId
 	local name = anim.Name:lower()
-	
-	if name:find("idle") or name:find("walk") or name:find("run") or name:find("jump") or 
+
+	if name:find("idle") or name:find("walk") or name:find("run") or name:find("jump") or
 	   name:find("fall") or name:find("swim") or name:find("climb") or name:find("strafe") then
 		return false
 	end
-	
+
 	local movementIds = {
 		["507766388"] = true, ["507777826"] = true, ["507767714"] = true,
 		["507765000"] = true, ["507767968"] = true, ["507765644"] = true,
@@ -1750,7 +1734,7 @@ local function isSwingAnimation(trackObj)
 			return false
 		end
 	end
-	
+
 	return true
 end
 
@@ -1766,16 +1750,16 @@ local function updateImmortalMode()
 		end
 		return
 	end
-	
+
 	local root = getRootPart()
 	if not root then return end
-	
+
 	local shouldShield = false
 	local checkDistance = 18
 	local nearestEnemy = nil
 	local nearestDist = math.huge
 	local activeAttacker = nil
-	
+
 	for _, player in ipairs(Players:GetPlayers()) do
 		if player ~= LocalPlayer and player.Character then
 			local targetRoot = player.Character:FindFirstChild("HumanoidRootPart")
@@ -1802,7 +1786,7 @@ local function updateImmortalMode()
 			end
 		end
 	end
-	
+
 	if shouldShield then
 		-- 360 protection: automatically orient shield towards swinging attacker or closest enemy
 		local targetToFace = activeAttacker or nearestEnemy
@@ -1841,8 +1825,6 @@ Toggles.ImmortalMode:OnChanged(function()
 		end
 	end
 end)
-
-
 
 local function updateHighlight(hl, target, toggleValue)
 	if target and toggleValue then
@@ -2140,8 +2122,6 @@ Toggles.KillAura:OnChanged(function()
 	end
 end)
 
-
-
 local lastAutoSwing = 0
 Toggles.AutoSwing:OnChanged(function()
 	disconnect("AutoSwing")
@@ -2174,7 +2154,7 @@ Toggles.AutoHop:OnChanged(function()
 			local root = getRootPart()
 			local hum = getHumanoid()
 			if not root or not hum then return end
-			
+
 			if not hum:GetAttribute("JumpAdjusted") then
 				hum:SetAttribute("JumpAdjusted", true)
 				hum:SetAttribute("OrigJumpPower", hum.JumpPower)
@@ -2201,7 +2181,7 @@ Toggles.AutoHop:OnChanged(function()
 					end
 				end
 			end
-			
+
 			if playerNearby then
 				if hum.FloorMaterial ~= Enum.Material.Air then
 					hum.Jump = true
@@ -2700,8 +2680,6 @@ Options.AdvancePreset:OnChanged(function()
 	end
 end)
 
-
-
 local reachToolConn = nil
 local function connectReachTool(tool)
 	disconnect("ReachToolConn")
@@ -2792,8 +2770,7 @@ local function connectReachTool(tool)
 			end
 		end
 
-
-	end))
+end))
 end
 
 local function setupReachTracking()
@@ -2986,8 +2963,6 @@ do
 	end)
 end
 
-
-
 do
 	local waterPlatform = nil
 
@@ -3147,8 +3122,6 @@ InvisibleFlyGroup:AddLabel("Highlight Outline Color"):AddColorPicker("InvisibleF
         Default = Color3.fromRGB(255, 255, 255),
         Title = "Invisible Fly Highlight Outline Color",
 })
-
-
 
 local noclipParts = {}
 Toggles.Noclip:OnChanged(function()
@@ -3627,7 +3600,7 @@ OreFarm:AddButton({
 		if root then
 			lastDeathPosition = root.Position
 		end
-		
+
 		local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
 		if remoteInterface then
 			local characterFolder = remoteInterface:FindFirstChild("character")
@@ -3752,8 +3725,6 @@ FarmRight:AddLabel("Outline Color"):AddColorPicker("AuraOutlineColor", {
 	end,
 })
 
-
-
 -- Aura highlights (one per aura type, created after makeAuraHighlight is defined)
 local hlMine = makeAuraHighlight()
 local hlChop = makeAuraHighlight()
@@ -3847,8 +3818,6 @@ Toggles.AutoMine:OnChanged(function()
 		updateHighlight(hlMine, nil, false)
 	end
 end)
-
-
 
 -- ==========================================
 local function chopObject(obj)
@@ -4278,16 +4247,10 @@ Toggles.JuggernautAura:OnChanged(function()
 	end
 end)
 
-
-
-
 -- ==========================================
 -- TELEPORT
 -- ==========================================
 local TeleportLeft = Tabs.Teleport:AddLeftGroupbox("Boss Locations", "map-pin")
-
-
-
 
 local bossTeleports = {
 	{ name = "Juggernaut", pos = Vector3.new(-1601.49, 108.01, -2890.59) },
@@ -4390,7 +4353,7 @@ Toggles.ResetCharacter:OnChanged(function()
 			lastDeathPosition = root.Position
 			shouldTeleportBack = true
 		end
-		
+
 		local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
 		if remoteInterface then
 			local characterFolder = remoteInterface:FindFirstChild("character")
@@ -4403,7 +4366,7 @@ Toggles.ResetCharacter:OnChanged(function()
 				end
 			end
 		end
-		
+
 		task.spawn(function()
 			task.wait(0.5)
 			Toggles.ResetCharacter:SetValue(false)
@@ -4533,8 +4496,6 @@ for _, merchant in ipairs(merchantTeleports) do
 	})
 end
 
-
-
 -- ==========================================
 -- VISUALS
 -- ==========================================
@@ -4583,11 +4544,11 @@ VisualFPS:AddToggle("DisableShadows", {
 	Default = false,
 	Callback = function(state)
 		game:GetService("Lighting").GlobalShadows = not state
-		
+
 		if state then
 			-- Disable player shadows
 			setPlayerShadows(false)
-			
+
 			-- Connect for new players
 			track("DisableShadows_PlayerAdded", Players.PlayerAdded:Connect(function(player)
 				player.CharacterAdded:Connect(function(char)
@@ -4600,7 +4561,7 @@ VisualFPS:AddToggle("DisableShadows", {
 					end
 				end)
 			end))
-			
+
 			-- Connect for existing players' new characters
 			for _, player in ipairs(Players:GetPlayers()) do
 				track("DisableShadows_CharAdded_" .. player.Name, player.CharacterAdded:Connect(function(char)
@@ -4636,14 +4597,14 @@ VisualFPS:AddToggle("NoWaterColor", {
 					end)
 				end
 			end
-			
+
 			local water = game:GetService("Lighting"):FindFirstChild("water")
 			if water then
 				disableWaterColor(water)
 			end
-			
+
 			track("NoWaterColor_ChildAdded", game:GetService("Lighting").ChildAdded:Connect(disableWaterColor))
-			
+
 			track("NoWaterColor_EnabledChange", RunService.Heartbeat:Connect(function()
 				local wc = game:GetService("Lighting"):FindFirstChild("water")
 				if wc and wc.Enabled then
@@ -4677,14 +4638,14 @@ VisualFPS:AddToggle("NoWaterBlur", {
 					end)
 				end
 			end
-			
+
 			local waterBlur = game:GetService("Lighting"):FindFirstChild("waterBlur")
 			if waterBlur then
 				disableBlur(waterBlur)
 			end
-			
+
 			track("NoWaterBlur_ChildAdded", game:GetService("Lighting").ChildAdded:Connect(disableBlur))
-			
+
 			track("NoWaterBlur_EnabledChange", RunService.Heartbeat:Connect(function()
 				local wb = game:GetService("Lighting"):FindFirstChild("waterBlur")
 				if wb and wb.Enabled then
@@ -4890,10 +4851,10 @@ do
 
 	local function disableParticle(v)
 		if not (v:IsA("ParticleEmitter") or v:IsA("Fire") or v:IsA("Smoke") or v:IsA("Sparkles")) then return end
-		
+
 		local particlesFolder = ReplicatedStorage:FindFirstChild("Particles")
 		if not particlesFolder then return end
-		
+
 		if particlesFolder:FindFirstChild(v.Name, true) then
 			if originalEnabledStates[v] == nil then
 				originalEnabledStates[v] = v.Enabled
@@ -4901,7 +4862,7 @@ do
 			pcall(function()
 				v.Enabled = false
 			end)
-			
+
 			local conn = v:GetPropertyChangedSignal("Enabled"):Connect(function()
 				if Toggles.RemoveParticles and Toggles.RemoveParticles.Value and v.Enabled then
 					pcall(function()
@@ -4944,7 +4905,7 @@ do
 			else
 				disconnect("RemoveParticles_Templates")
 				disconnect("RemoveParticles_Workspace")
-				
+
 				-- Restore original states
 				for v, originalState in pairs(originalEnabledStates) do
 					if v and v.Parent then
@@ -4958,8 +4919,6 @@ do
 		end,
 	})
 end
-
-
 
 VisualFPS:AddToggle("UncapFPS", {
 	Text = "Uncap FPS",
@@ -4990,7 +4949,6 @@ VisualFPS:AddSlider("FPSCapSlider", {
 		end
 	end,
 })
-
 
 VisualLeft:AddToggle("PlayerESP", {
 	Text = "Player ESP",
@@ -5198,8 +5156,6 @@ end)
 Options.ShowDistanceColor:OnChanged(function()
 end)
 
-
-
 Toggles.AlwaysDay:OnChanged(function()
 	if Toggles.AlwaysDay.Value then
 		Toggles.Midday:SetValue(false)
@@ -5348,13 +5304,13 @@ local function startAttach()
 			if not Toggles.AttachToggle.Value then return end
 			local targetName = Options.AttachPlayerList.Value
 			if not targetName or targetName == "" then return end
-			
+
 			local targetPlayer = Players:FindFirstChild(targetName)
 			local targetChar = targetPlayer and targetPlayer.Character
 			local targetRoot = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
 			local char = getCharacter()
 			local myRoot = getRootPart()
-			
+
 			if targetRoot and myRoot and isAlive() then
 				for _, part in ipairs(char:GetDescendants()) do
 					if part:IsA("BasePart") then
@@ -5434,7 +5390,7 @@ local function startSpectate()
 			local targetPlayer = targetName and Players:FindFirstChild(targetName)
 			local targetHum = targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChildOfClass("Humanoid")
 			local camera = workspace.CurrentCamera
-			
+
 			if targetHum then
 				if camera.CameraSubject ~= targetHum then
 					camera.CameraSubject = targetHum
@@ -5520,7 +5476,7 @@ local function onInvisibleFlyToggle(state)
 
 			invisibleFlyVars.playerClone = LocalPlayer.Character:Clone()
 			invisibleFlyVars.playerClone.Parent = workspace
-			
+
 			-- Create and apply highlight
 			local hl = Instance.new("Highlight")
 			hl.FillColor = Options.InvisibleFlyFillColor.Value
@@ -5538,7 +5494,7 @@ local function onInvisibleFlyToggle(state)
 				if not (invisibleFlyVars.playerClone and invisibleFlyVars.playerClone:FindFirstChild("HumanoidRootPart")) then
 					break
 				end
-				
+
 				-- Update highlight colors in real-time
 				if invisibleFlyVars.highlight then
 					invisibleFlyVars.highlight.FillColor = Options.InvisibleFlyFillColor.Value
@@ -5600,7 +5556,7 @@ local function onInvisibleFlyToggle(state)
 				invisibleFlyVars.highlight:Destroy()
 				invisibleFlyVars.highlight = nil
 			end
-			
+
 			if invisibleFlyVars.playerClone then
 				local finalPivot = invisibleFlyVars.lastClonePivot or invisibleFlyVars.playerClone:GetPivot()
 				invisibleFlyVars.playerClone:Destroy()
@@ -5687,7 +5643,7 @@ local function resetAndTeleport(targetName)
 		Library:Notify({ Title = "Teleport", Description = "Please select a player first.", Time = 3 })
 		return
 	end
-	
+
 	local targetPlayer = Players:FindFirstChild(targetName)
 	if not targetPlayer then
 		Library:Notify({ Title = "Teleport", Description = "Target player not found in server.", Time = 3 })
@@ -5708,31 +5664,31 @@ local function resetAndTeleport(targetName)
 		spawned = true
 		connection:Disconnect()
 	end)
-	
+
 	-- Fallback check if it already spawned
 	task.delay(5, function()
 		if connection then
 			connection:Disconnect()
 		end
 	end)
-	
+
 	local timeout = 0
 	while not spawned and timeout < 50 do
 		task.wait(0.1)
 		timeout = timeout + 1
 	end
-	
+
 	local char = LocalPlayer.Character
 	local root = char and char:WaitForChild("HumanoidRootPart", 10)
-	
+
 	if root then
 		task.wait(0.7) -- extra cushion wait to let player parts replicate fully
-		
+
 		-- Fetch target player again to make sure they didn't leave during reset
 		local activeTarget = Players:FindFirstChild(targetName)
 		local targetChar = activeTarget and activeTarget.Character
 		local targetRoot = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
-		
+
 		if targetRoot then
 			root.CFrame = targetRoot.CFrame + Vector3.new(0, 3, 0)
 			Library:Notify({ Title = "Teleport", Description = "Teleported successfully!", Time = 2 })
@@ -5766,9 +5722,6 @@ end
 track("TeleportPlayerAdded", Players.PlayerAdded:Connect(updateTeleportPlayerList))
 track("TeleportPlayerRemoving", Players.PlayerRemoving:Connect(updateTeleportPlayerList))
 task.spawn(updateTeleportPlayerList)
-
-
-
 
 -- ==========================================
 -- UI SETTINGS
