@@ -23,6 +23,22 @@ local Library = loadstring(game:HttpGet(repo .. "Library.lua"))()
 local ThemeManager = loadstring(game:HttpGet(repo .. "addons/ThemeManager.lua"))()
 local SaveManager = loadstring(game:HttpGet(repo .. "addons/SaveManager.lua"))()
 
+-- Ensure Lucide Icons are properly loaded for tabs & groupboxes
+pcall(function()
+	local lucideModule = nil
+	pcall(function()
+		lucideModule = loadstring(game:HttpGet("https://raw.githubusercontent.com/mstudio45/lucide-roblox-direct/main/source.lua"))()
+	end)
+	if not lucideModule then
+		pcall(function()
+			lucideModule = loadstring(game:HttpGet("https://raw.githubusercontent.com/mstudio45/lucide-roblox/main/src/modules/util/lucide.lua"))()
+		end)
+	end
+	if lucideModule and Library.SetIconModule then
+		Library:SetIconModule(lucideModule)
+	end
+end)
+
 local Options = Library.Options
 local Toggles = Library.Toggles
 local lastDeathPosition = nil
@@ -369,13 +385,13 @@ task.spawn(function()
 end)
 
 local Tabs = {
-	Main = Window:AddTab("Main", "info"),
-	Player = Window:AddTab("Player", "torch"),
-	Combat = Window:AddTab("Combat", "sword"),
+	Main = Window:AddTab("Main", "badge-info"),
+	Player = Window:AddTab("Player", "user"),
+	Combat = Window:AddTab("Combat", "swords"),
 	Movement = Window:AddTab("Movement", "move"),
-	Farming = Window:AddTab("Farming", "pickaxe"),
+	Farming = Window:AddTab("Farming", "sprout"),
 	Teleport = Window:AddTab("Teleport", "map-pin"),
-	Visuals = Window:AddTab("Visuals", "eye"),
+	Visuals = Window:AddTab("Visuals", "scan-eye"),
 	["UI Settings"] = Window:AddTab("UI Settings", "settings"),
 }
 
@@ -545,7 +561,7 @@ FunAttach:AddToggle("FloatOverToggle", {
         Default = false,
 })
 
-local SpectateGroup = Tabs.Main:AddRightGroupbox("SPECTATE", "eye")
+local SpectateGroup = Tabs.Main:AddRightGroupbox("SPECTATE", "scan-eye")
 
 SpectateGroup:AddToggle("SpectateToggle", {
 	Text = "Spectate",
@@ -1648,7 +1664,7 @@ CombatRight:AddToggle("HighlightTarget", {
 	Default = true,
 })
 
-local CombatAimbot = Tabs.Combat:AddRightGroupbox("AIMBOT", "eye")
+local CombatAimbot = Tabs.Combat:AddRightGroupbox("AIMBOT", "crosshair")
 
 CombatAimbot:AddToggle("AimbotLockOn", {
 	Text = "Lock On",
@@ -3503,7 +3519,7 @@ end
 local FarmRight = Tabs.Farming:AddRightGroupbox("Highlight Settings", "palette")
 
 -- ==========================================
-local BossFarm = Tabs.Farming:AddLeftGroupbox("Boss Farm", "sword")
+local BossFarm = Tabs.Farming:AddLeftGroupbox("Boss Farm", "swords")
 
 BossFarm:AddToggle("TitanAura", {
 	Text = "Titan Aura",
@@ -3521,7 +3537,7 @@ BossFarm:AddToggle("JuggernautAura", {
 })
 
 -- ==========================================
-local FarmMine = Tabs.Farming:AddLeftGroupbox("Auto Mine", "pickaxe")
+local FarmMine = Tabs.Farming:AddLeftGroupbox("Auto Mine", "gem")
 
 FarmMine:AddToggle("AutoMine", {
 	Text = "Auto Mine",
