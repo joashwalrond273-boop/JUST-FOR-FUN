@@ -1832,12 +1832,13 @@ Toggles.ImmortalMode:OnChanged(function()
 end)
 
 local lastDodgeTime = 0
-local dodgeCooldown = 0.45
+local dodgeCooldown = 0.2
 
 local function performInstantDodgeBehind(enemyRoot)
 	if not enemyRoot or not enemyRoot.Parent or not isAlive() then return end
 	local root = getRootPart()
-	if not root then return end
+	local char = getCharacter()
+	if not root or not char then return end
 
 	lastDodgeTime = tick()
 
@@ -1850,9 +1851,12 @@ local function performInstantDodgeBehind(enemyRoot)
 		flatLook = flatLook.Unit
 	end
 
-	-- Instant teleport 5 studs directly behind the enemy, facing their back
+	-- Instant snap 5 studs directly behind enemy, facing their back
 	local behindPos = enemyRoot.Position - (flatLook * 5)
-	root.CFrame = CFrame.lookAt(behindPos, Vector3.new(enemyRoot.Position.X, behindPos.Y, enemyRoot.Position.Z))
+	local targetCF = CFrame.lookAt(behindPos, Vector3.new(enemyRoot.Position.X, behindPos.Y, enemyRoot.Position.Z))
+
+	char:PivotTo(targetCF)
+	root.CFrame = targetCF
 end
 
 local function checkAndPerformDodge()
@@ -1909,6 +1913,7 @@ local function hookEnemyDodgeAnimator(animator, enemyChar)
 end
 
 Toggles.DodgeAura:OnChanged(function()
+	disconnect("DodgeAura_Render")
 	disconnect("DodgeAura_Heartbeat")
 	for name in pairs(Connections) do
 		if name:sub(1, 10) == "DodgeAnim_" then
@@ -1917,6 +1922,7 @@ Toggles.DodgeAura:OnChanged(function()
 	end
 
 	if Toggles.DodgeAura.Value then
+		track("DodgeAura_Render", RunService.RenderStepped:Connect(checkAndPerformDodge))
 		track("DodgeAura_Heartbeat", RunService.Heartbeat:Connect(checkAndPerformDodge))
 
 		for _, player in ipairs(Players:GetPlayers()) do
@@ -1953,7 +1959,7 @@ Toggles.DodgeAura:OnChanged(function()
 			end
 		end
 
-		Library:Notify({ Title = "Dodge Aura", Description = "Enabled (10-stud swing dodge)", Time = 2 })
+		Library:Notify({ Title = "Dodge Aura", Description = "Enabled (Fast Instant Dodge)", Time = 2 })
 	end
 end)
 
