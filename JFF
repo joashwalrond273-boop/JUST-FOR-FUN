@@ -28,6 +28,7 @@ local Toggles = Library.Toggles
 local lastDeathPosition = nil
 local shouldTeleportBack = false
 local updateAutoSwingSliderVisibility
+local updateAutoHopSliderVisibility
 
 Library.ShowToggleFrameInKeybinds = true
 
@@ -1608,6 +1609,32 @@ CombatAutoSwing:AddToggle("AutoHop", {
 	Default = false,
 })
 
+CombatAutoSwing:AddSlider("AutoHopDistance", {
+	Text = "Auto Hop Distance",
+	Default = 20,
+	Min = 5,
+	Max = 60,
+	Rounding = 0,
+})
+
+updateAutoHopSliderVisibility = function()
+	local isToggled = Toggles.AutoHop and Toggles.AutoHop.Value
+	if Options.AutoHopDistance then
+		Options.AutoHopDistance.Visible = isToggled
+		if Options.AutoHopDistance.Holder then
+			Options.AutoHopDistance.Holder.Visible = isToggled
+		end
+	end
+	CombatAutoSwing:Resize()
+end
+
+task.spawn(function()
+	task.wait()
+	if updateAutoHopSliderVisibility then
+		updateAutoHopSliderVisibility()
+	end
+end)
+
 CombatAutoSwing:AddToggle("Camlock", {
 	Text = "+ Camlock",
 	Default = false,
@@ -1694,8 +1721,8 @@ CombatReach:AddSlider("ReachRange", {
 
 local CombatAutoBlock = Tabs.Combat:AddRightGroupbox("Auto Block", "shield")
 
-local AutoShieldToggle = CombatAutoBlock:AddToggle("AutoShield", {
-	Text = "Auto Shield",
+local AutoShieldToggle = CombatAutoBlock:AddToggle("ImmortalMode", {
+	Text = "Immortal Mode",
 	Default = false,
 })
 
@@ -1719,7 +1746,8 @@ CombatAutoBlock:AddSlider("QuickVanishThreshold", {
 
 local isDodging = false
 local lastDodgeTime = 0
-local dodgeCooldown = 0.3
+local dodgeCooldown = 0.35
+local dodgeRange = 16
 
 local function isSwingAnimation(trackObj)
 	local anim = trackObj.Animation
@@ -1749,8 +1777,8 @@ end
 
 local isShielding = false
 local lastShieldFire = 0
-local function updateAutoShield()
-	if not isAlive() or not Toggles.AutoShield.Value then
+local function updateImmortalMode()
+	if not isAlive() or not Toggles.ImmortalMode.Value then
 		if isShielding then
 			isShielding = false
 			pcall(function()
@@ -1821,10 +1849,10 @@ local function updateAutoShield()
 	end
 end
 
-Toggles.AutoShield:OnChanged(function()
-	disconnect("AutoShield")
-	if Toggles.AutoShield.Value then
-		track("AutoShield", RunService.Heartbeat:Connect(updateAutoShield))
+Toggles.ImmortalMode:OnChanged(function()
+	disconnect("ImmortalMode")
+	if Toggles.ImmortalMode.Value then
+		track("ImmortalMode", RunService.Heartbeat:Connect(updateImmortalMode))
 	else
 		if isShielding then
 			isShielding = false
@@ -1837,49 +1865,55 @@ end)
 
 local function performDodge(enemyRoot)
 	if isDodging or tick() - lastDodgeTime < dodgeCooldown then return end
+	if not enemyRoot or not enemyRoot.Parent then return end
+	local root = getRootPart()
+	if not root or not isAlive() then return end
+
 	isDodging = true
 	lastDodgeTime = tick()
+
+	-- Teleport behind the attacker facing their back for instant counter-attack
+	local enemyCFrame = enemyRoot.CFrame
+	local enemyLook = enemyCFrame.LookVector
+	local flatLook = Vector3.new(enemyLook.X, 0, enemyLook.Z)
+	if flatLook.Magnitude < 0.1 then
+		flatLook = Vector3.new(0, 0, 1)
+	else
+		flatLook = flatLook.Unit
+	end
 	
-	local root = getRootPart()
-	if not root then
+	local behindPosition = enemyCFrame.Position - (flatLook * 5.5) + Vector3.new(0, 0.5, 0)
+	root.CFrame = CFrame.lookAt(behindPosition, enemyRoot.Position)
+	
+	pcall(function()
+		root.AssemblyLinearVelocity = Vector3.zero
+		root.Velocity = Vector3.zero
+	end)
+
+	task.delay(0.2, function()
 		isDodging = false
-		return
-	end
-	
-	local originalCFrame = root.CFrame
-	
-	-- Teleport fast in the air (e.g. 18 studs up)
-	root.CFrame = originalCFrame + Vector3.new(0, 18, 0)
-	
-	-- Wait a short time
-	task.wait(0.3)
-	
-	-- Teleport back fast to original position
-	if isAlive() and getRootPart() == root then
-		root.CFrame = originalCFrame
-	end
-	isDodging = false
+	end)
 end
 
 local function checkDodge()
 	if not isAlive() or not Toggles.DodgeAttack.Value or isDodging then return end
 	local root = getRootPart()
 	if not root then return end
-	
+
 	for _, player in ipairs(Players:GetPlayers()) do
 		if player ~= LocalPlayer and player.Character then
 			local enemyRoot = player.Character:FindFirstChild("HumanoidRootPart")
 			local enemyHum = player.Character:FindFirstChildOfClass("Humanoid")
 			if enemyRoot and enemyHum and enemyHum.Health > 0 then
 				local dist = (enemyRoot.Position - root.Position).Magnitude
-				if dist <= 12 then
+				if dist <= dodgeRange then
 					local animator = enemyHum:FindFirstChild("Animator")
 					if animator then
 						for _, trackObj in ipairs(animator:GetPlayingAnimationTracks()) do
-							if trackObj.TimePosition < 0.15 and trackObj.Speed > 0 then
+							if trackObj.TimePosition < 0.45 and trackObj.Speed > 0 then
 								if isSwingAnimation(trackObj) then
-									task.spawn(performDodge, enemyRoot)
-									break
+									performDodge(enemyRoot)
+									return
 								end
 							end
 						end
@@ -1890,9 +1924,64 @@ local function checkDodge()
 	end
 end
 
+local function hookEnemyAnimator(character)
+	if not character then return end
+	local hum = character:FindFirstChildOfClass("Humanoid") or character:WaitForChild("Humanoid", 3)
+	if not hum then return end
+	local animator = hum:FindFirstChild("Animator") or hum:WaitForChild("Animator", 3)
+	if not animator then return end
+
+	local connName = "Dodge_Anim_" .. character.Name
+	disconnect(connName)
+	track(connName, animator.AnimationPlayed:Connect(function(trackObj)
+		if not Toggles.DodgeAttack.Value or not isAlive() or isDodging then return end
+		local root = getRootPart()
+		local enemyRoot = character:FindFirstChild("HumanoidRootPart")
+		if not root or not enemyRoot then return end
+
+		local dist = (enemyRoot.Position - root.Position).Magnitude
+		if dist <= dodgeRange and isSwingAnimation(trackObj) then
+			performDodge(enemyRoot)
+		end
+	end))
+end
+
+local function setupDodgeListeners()
+	for _, player in ipairs(Players:GetPlayers()) do
+		if player ~= LocalPlayer then
+			if player.Character then
+				hookEnemyAnimator(player.Character)
+			end
+			local charConnName = "Dodge_CharAdded_" .. player.Name
+			disconnect(charConnName)
+			track(charConnName, player.CharacterAdded:Connect(function(char)
+				task.wait(0.2)
+				hookEnemyAnimator(char)
+			end))
+		end
+	end
+end
+
 Toggles.DodgeAttack:OnChanged(function()
 	disconnect("DodgeAttack")
+	disconnect("DodgePlayerAdded")
+	for _, player in ipairs(Players:GetPlayers()) do
+		disconnect("Dodge_Anim_" .. player.Name)
+		disconnect("Dodge_CharAdded_" .. player.Name)
+	end
 	if Toggles.DodgeAttack.Value then
+		setupDodgeListeners()
+		track("DodgePlayerAdded", Players.PlayerAdded:Connect(function(player)
+			local charConnName = "Dodge_CharAdded_" .. player.Name
+			disconnect(charConnName)
+			track(charConnName, player.CharacterAdded:Connect(function(char)
+				task.wait(0.2)
+				hookEnemyAnimator(char)
+			end))
+			if player.Character then
+				hookEnemyAnimator(player.Character)
+			end
+		end))
 		track("DodgeAttack", RunService.Heartbeat:Connect(checkDodge))
 	end
 end)
@@ -2223,6 +2312,9 @@ end)
 
 Toggles.AutoHop:OnChanged(function()
 	disconnect("AutoHop")
+	if updateAutoHopSliderVisibility then
+		updateAutoHopSliderVisibility()
+	end
 	if Toggles.AutoHop.Value then
 		track("AutoHop", RunService.Heartbeat:Connect(function()
 			if not isAlive() then return end
@@ -2241,6 +2333,7 @@ Toggles.AutoHop:OnChanged(function()
 				end
 			end
 
+			local hopDist = Options.AutoHopDistance and Options.AutoHopDistance.Value or 20
 			local pos = root.Position
 			local playerNearby = false
 			for _, otherPlayer in ipairs(Players:GetPlayers()) do
@@ -2249,7 +2342,7 @@ Toggles.AutoHop:OnChanged(function()
 					local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
 					if otherRoot and otherHum and otherHum.Health > 0 then
 						local dist = (otherRoot.Position - pos).Magnitude
-						if dist <= 20 then
+						if dist <= hopDist then
 							playerNearby = true
 							break
 						end
@@ -5912,8 +6005,8 @@ Library:OnUnload(function()
 	if Toggles.DesyncToggle and Toggles.DesyncToggle.Value then
 		Toggles.DesyncToggle:SetValue(false)
 	end
-	if Toggles.AutoShield and Toggles.AutoShield.Value then
-		Toggles.AutoShield:SetValue(false)
+	if Toggles.ImmortalMode and Toggles.ImmortalMode.Value then
+		Toggles.ImmortalMode:SetValue(false)
 	end
 	if Toggles.DodgeAttack and Toggles.DodgeAttack.Value then
 		Toggles.DodgeAttack:SetValue(false)
