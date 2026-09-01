@@ -486,13 +486,9 @@ MiscGroup:AddButton({
 	end,
 })
 
-MiscGroup:AddButton({
+MiscGroup:AddToggle("HitSound", {
 	Text = "HitSound",
-	Func = function()
-		if playSwordSwingSound then
-			playSwordSwingSound()
-		end
-	end,
+	Default = false,
 })
 
 
@@ -2086,7 +2082,9 @@ local function hookToolSwing(tool)
 	local connName = "HitSound_Tool_" .. tostring(tool)
 	disconnect(connName)
 	track(connName, tool.Activated:Connect(function()
-		playSwordSwingSound()
+		if Toggles.HitSound and Toggles.HitSound.Value then
+			playSwordSwingSound()
+		end
 	end))
 end
 
@@ -2114,7 +2112,7 @@ local function setupHitSoundHooks(character)
 			local animConn = "HitSound_AnimPlayed"
 			disconnect(animConn)
 			track(animConn, animator.AnimationPlayed:Connect(function(trackObj)
-				if isSwingAnimation(trackObj) then
+				if Toggles.HitSound and Toggles.HitSound.Value and isSwingAnimation(trackObj) then
 					playSwordSwingSound()
 				end
 			end))
@@ -2142,14 +2140,26 @@ end
 
 track("HitSound_CharAdded", LocalPlayer.CharacterAdded:Connect(function(char)
 	task.wait(0.2)
-	setupHitSoundHooks(char)
-	hookBackpackTools()
+	if Toggles.HitSound and Toggles.HitSound.Value then
+		setupHitSoundHooks(char)
+		hookBackpackTools()
+	end
 end))
 
-if LocalPlayer.Character then
-	setupHitSoundHooks(LocalPlayer.Character)
-end
-hookBackpackTools()
+Toggles.HitSound:OnChanged(function()
+	if Toggles.HitSound.Value then
+		if LocalPlayer.Character then
+			setupHitSoundHooks(LocalPlayer.Character)
+		end
+		hookBackpackTools()
+		Library:Notify({ Title = "HitSound", Description = "Enabled", Time = 2 })
+	else
+		disconnect("HitSound_CharChildAdded")
+		disconnect("HitSound_AnimPlayed")
+		disconnect("HitSound_BackpackChildAdded")
+		Library:Notify({ Title = "HitSound", Description = "Disabled", Time = 2 })
+	end
+end)
 
 
 
@@ -6229,6 +6239,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.AntiAFK and Toggles.AntiAFK.Value then
 		Toggles.AntiAFK:SetValue(false)
+	end
+	if Toggles.HitSound and Toggles.HitSound.Value then
+		Toggles.HitSound:SetValue(false)
 	end
 	if Toggles.AntiKick and Toggles.AntiKick.Value then
 		Toggles.AntiKick:SetValue(false)
