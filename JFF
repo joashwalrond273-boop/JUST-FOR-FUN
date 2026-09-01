@@ -1831,71 +1831,129 @@ Toggles.ImmortalMode:OnChanged(function()
 	end
 end)
 
-local function updateDodgeAura()
-	if not isAlive() or not Toggles.DodgeAura.Value then return end
-	local root = getRootPart()
-	local hum = getHumanoid()
-	if not root or not hum then return end
+local lastDodgeTime = 0
+local dodgeCooldown = 0.45
 
-	local triggerDist = 15
-	local nearestEnemy = nil
-	local shortestDist = triggerDist
+local function performInstantDodgeBehind(enemyRoot)
+	if not enemyRoot or not enemyRoot.Parent or not isAlive() then return end
+	local root = getRootPart()
+	if not root then return end
+
+	lastDodgeTime = tick()
+
+	local enemyCFrame = enemyRoot.CFrame
+	local enemyLook = enemyCFrame.LookVector
+	local flatLook = Vector3.new(enemyLook.X, 0, enemyLook.Z)
+	if flatLook.Magnitude < 0.05 then
+		flatLook = Vector3.new(0, 0, 1)
+	else
+		flatLook = flatLook.Unit
+	end
+
+	-- Instant teleport 5 studs directly behind the enemy, facing their back
+	local behindPos = enemyRoot.Position - (flatLook * 5)
+	root.CFrame = CFrame.lookAt(behindPos, Vector3.new(enemyRoot.Position.X, behindPos.Y, enemyRoot.Position.Z))
+end
+
+local function checkAndPerformDodge()
+	if not isAlive() or not Toggles.DodgeAura or not Toggles.DodgeAura.Value then return end
+	if tick() - lastDodgeTime < dodgeCooldown then return end
+
+	local root = getRootPart()
+	if not root then return end
 
 	for _, player in ipairs(Players:GetPlayers()) do
 		if player ~= LocalPlayer and player.Character then
-			local targetHum = player.Character:FindFirstChildOfClass("Humanoid")
 			local enemyRoot = player.Character:FindFirstChild("HumanoidRootPart")
-			if enemyRoot and targetHum and targetHum.Health > 0 then
+			local hum = player.Character:FindFirstChildOfClass("Humanoid")
+			if enemyRoot and hum and hum.Health > 0 then
 				local dist = (enemyRoot.Position - root.Position).Magnitude
-				if dist <= shortestDist then
-					shortestDist = dist
-					nearestEnemy = enemyRoot
+				if dist <= 10 then
+					local isSwinging = false
+					local animator = hum:FindFirstChild("Animator")
+					if animator then
+						for _, trackObj in ipairs(animator:GetPlayingAnimationTracks()) do
+							if trackObj.Speed > 0 and isSwingAnimation(trackObj) then
+								isSwinging = true
+								break
+							end
+						end
+					end
+
+					if isSwinging then
+						performInstantDodgeBehind(enemyRoot)
+						break
+					end
 				end
 			end
 		end
 	end
+end
 
-	if nearestEnemy then
-		local enemyCFrame = nearestEnemy.CFrame
-		local enemyLook = enemyCFrame.LookVector
-		local flatLook = Vector3.new(enemyLook.X, 0, enemyLook.Z)
-		if flatLook.Magnitude < 0.05 then
-			flatLook = Vector3.new(0, 0, 1)
-		else
-			flatLook = flatLook.Unit
+local function hookEnemyDodgeAnimator(animator, enemyChar)
+	if not animator then return end
+	track("DodgeAnim_" .. enemyChar.Name, animator.AnimationPlayed:Connect(function(trackObj)
+		if not Toggles.DodgeAura or not Toggles.DodgeAura.Value or not isAlive() then return end
+		if tick() - lastDodgeTime < dodgeCooldown then return end
+		if not isSwingAnimation(trackObj) then return end
+
+		local root = getRootPart()
+		local enemyRoot = enemyChar:FindFirstChild("HumanoidRootPart")
+		if not root or not enemyRoot then return end
+
+		local dist = (enemyRoot.Position - root.Position).Magnitude
+		if dist <= 10 then
+			performInstantDodgeBehind(enemyRoot)
 		end
-
-		local myPos = root.Position
-		local enemyPos = nearestEnemy.Position
-		local currentDist = (enemyPos - myPos).Magnitude
-
-		-- Keep target behind distance close (2.5 to 4 studs) so you can get close and attack without being pushed back
-		local targetDistBehind = math.clamp(currentDist * 0.6, 2.5, 4.0)
-		local behindPos = enemyPos - (flatLook * targetDistBehind)
-
-		local moveVector = (behindPos - myPos)
-		local flatMoveVector = Vector3.new(moveVector.X, 0, moveVector.Z)
-
-		if flatMoveVector.Magnitude > 0.35 then
-			local moveDir = flatMoveVector.Unit
-			hum:Move(moveDir, false)
-			local dodgeSpeed = 28
-			local currentVelY = root.AssemblyLinearVelocity.Y
-			root.AssemblyLinearVelocity = Vector3.new(moveDir.X * dodgeSpeed, currentVelY, moveDir.Z * dodgeSpeed)
-		end
-	end
+	end))
 end
 
 Toggles.DodgeAura:OnChanged(function()
-	disconnect("DodgeAura")
-	if Toggles.DodgeAura.Value then
-		track("DodgeAura", RunService.Heartbeat:Connect(updateDodgeAura))
-		Library:Notify({ Title = "Dodge Aura", Description = "Enabled", Time = 2 })
-	else
-		local hum = getHumanoid()
-		if hum then
-			hum:Move(Vector3.zero, false)
+	disconnect("DodgeAura_Heartbeat")
+	for name in pairs(Connections) do
+		if name:sub(1, 10) == "DodgeAnim_" then
+			disconnect(name)
 		end
+	end
+
+	if Toggles.DodgeAura.Value then
+		track("DodgeAura_Heartbeat", RunService.Heartbeat:Connect(checkAndPerformDodge))
+
+		for _, player in ipairs(Players:GetPlayers()) do
+			if player ~= LocalPlayer and player.Character then
+				local hum = player.Character:FindFirstChildOfClass("Humanoid")
+				local animator = hum and hum:FindFirstChild("Animator")
+				if animator then
+					hookEnemyDodgeAnimator(animator, player.Character)
+				end
+			end
+		end
+
+		track("DodgeAura_PlayerAdded", Players.PlayerAdded:Connect(function(player)
+			if player ~= LocalPlayer then
+				player.CharacterAdded:Connect(function(char)
+					local hum = char:WaitForChild("Humanoid", 5)
+					local animator = hum and hum:WaitForChild("Animator", 5)
+					if animator and Toggles.DodgeAura and Toggles.DodgeAura.Value then
+						hookEnemyDodgeAnimator(animator, char)
+					end
+				end)
+			end
+		end))
+
+		for _, player in ipairs(Players:GetPlayers()) do
+			if player ~= LocalPlayer then
+				track("DodgeAura_CharAdded_" .. player.Name, player.CharacterAdded:Connect(function(char)
+					local hum = char:WaitForChild("Humanoid", 5)
+					local animator = hum and hum:WaitForChild("Animator", 5)
+					if animator and Toggles.DodgeAura and Toggles.DodgeAura.Value then
+						hookEnemyDodgeAnimator(animator, char)
+					end
+				end))
+			end
+		end
+
+		Library:Notify({ Title = "Dodge Aura", Description = "Enabled (10-stud swing dodge)", Time = 2 })
 	end
 end)
 
