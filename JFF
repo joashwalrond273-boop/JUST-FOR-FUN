@@ -1717,6 +1717,36 @@ CombatAutoBlock:AddSlider("QuickVanishThreshold", {
 	Rounding = 0,
 })
 
+local isDodging = false
+local lastDodgeTime = 0
+local dodgeCooldown = 0.3
+
+local function isSwingAnimation(trackObj)
+	local anim = trackObj.Animation
+	if not anim then return false end
+	local id = anim.AnimationId
+	local name = anim.Name:lower()
+	
+	if name:find("idle") or name:find("walk") or name:find("run") or name:find("jump") or 
+	   name:find("fall") or name:find("swim") or name:find("climb") or name:find("strafe") then
+		return false
+	end
+	
+	local movementIds = {
+		["507766388"] = true, ["507777826"] = true, ["507767714"] = true,
+		["507765000"] = true, ["507767968"] = true, ["507765644"] = true,
+		["507784064"] = true, ["180426354"] = true, ["180415668"] = true,
+		["180419271"] = true, ["180435571"] = true
+	}
+	for mId in pairs(movementIds) do
+		if id:find(mId) then
+			return false
+		end
+	end
+	
+	return true
+end
+
 local isShielding = false
 local lastShieldFire = 0
 local function updateAutoShield()
@@ -1735,6 +1765,9 @@ local function updateAutoShield()
 	
 	local shouldShield = false
 	local checkDistance = 18
+	local nearestEnemy = nil
+	local nearestDist = math.huge
+	local activeAttacker = nil
 	
 	for _, player in ipairs(Players:GetPlayers()) do
 		if player ~= LocalPlayer and player.Character then
@@ -1744,13 +1777,33 @@ local function updateAutoShield()
 				local dist = (targetRoot.Position - root.Position).Magnitude
 				if dist <= checkDistance then
 					shouldShield = true
-					break
+					if dist < nearestDist then
+						nearestDist = dist
+						nearestEnemy = targetRoot
+					end
+
+					local animator = hum:FindFirstChild("Animator")
+					if animator then
+						for _, trackObj in ipairs(animator:GetPlayingAnimationTracks()) do
+							if trackObj.Speed > 0 and isSwingAnimation(trackObj) then
+								activeAttacker = targetRoot
+								break
+							end
+						end
+					end
 				end
 			end
 		end
 	end
 	
 	if shouldShield then
+		-- 360 protection: automatically orient shield towards swinging attacker or closest enemy
+		local targetToFace = activeAttacker or nearestEnemy
+		if targetToFace then
+			local targetPos = targetToFace.Position
+			root.CFrame = CFrame.lookAt(root.Position, Vector3.new(targetPos.X, root.Position.Y, targetPos.Z))
+		end
+
 		if tick() - lastShieldFire > 0.05 then
 			lastShieldFire = tick()
 			pcall(function()
@@ -1781,35 +1834,6 @@ Toggles.AutoShield:OnChanged(function()
 		end
 	end
 end)
-
-local isDodging = false
-local lastDodgeTime = 0
-local dodgeCooldown = 0.3
-
-local function isSwingAnimation(trackObj)
-	local anim = trackObj.Animation
-	local id = anim.AnimationId
-	local name = anim.Name:lower()
-	
-	if name:find("idle") or name:find("walk") or name:find("run") or name:find("jump") or 
-	   name:find("fall") or name:find("swim") or name:find("climb") or name:find("strafe") then
-		return false
-	end
-	
-	local movementIds = {
-		["507766388"] = true, ["507777826"] = true, ["507767714"] = true,
-		["507765000"] = true, ["507767968"] = true, ["507765644"] = true,
-		["507784064"] = true, ["180426354"] = true, ["180415668"] = true,
-		["180419271"] = true, ["180435571"] = true
-	}
-	for mId in pairs(movementIds) do
-		if id:find(mId) then
-			return false
-		end
-	end
-	
-	return true
-end
 
 local function performDodge(enemyRoot)
 	if isDodging or tick() - lastDodgeTime < dodgeCooldown then return end
