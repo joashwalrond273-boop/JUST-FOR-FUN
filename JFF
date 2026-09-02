@@ -2906,8 +2906,7 @@ local function connectReachTool(tool)
 				end
 			end
 		end
-
-end))
+	end))
 end
 
 local function setupReachTracking()
@@ -3201,30 +3200,30 @@ MoveRight:AddSlider("FlySpeed", {
 local MoveLowGravity = Tabs.Movement:AddRightGroupbox("Low Gravity", "arrow-down")
 
 MoveLowGravity:AddToggle("LowGravity", {
-        Text = "Low Gravity",
-        Default = false,
+	Text = "Low Gravity",
+	Default = false,
 })
 
 MoveLowGravity:AddSlider("LowGravityHeight", {
-        Text = "Low Gravity Height",
-        Default = 100,
-        Min = 0,
-        Max = 300,
-        Rounding = 0,
+	Text = "Low Gravity Height",
+	Default = 100,
+	Min = 0,
+	Max = 300,
+	Rounding = 0,
 })
 
 Toggles.LowGravity:OnChanged(function()
-        if Toggles.LowGravity.Value then
-           workspace.Gravity = math.max(0, 196.2 - Options.LowGravityHeight.Value)
-        else
-                workspace.Gravity = 196.2
-        end
+	if Toggles.LowGravity.Value then
+		workspace.Gravity = math.max(0, 196.2 - Options.LowGravityHeight.Value)
+	else
+		workspace.Gravity = 196.2
+	end
 end)
 
 Options.LowGravityHeight:OnChanged(function()
-        if Toggles.LowGravity.Value then
-           workspace.Gravity = math.max(0, 196.2 - Options.LowGravityHeight.Value)
-        end
+	if Toggles.LowGravity.Value then
+		workspace.Gravity = math.max(0, 196.2 - Options.LowGravityHeight.Value)
+	end
 end)
 
 local FakeLagGroup = Tabs.Movement:AddRightGroupbox("Fake Lag", "zap")
@@ -3246,26 +3245,26 @@ FakeLagGroup:AddSlider("FakeLagValue", {
 local InvisibleFlyGroup = Tabs.Movement:AddRightGroupbox("Invisible Fly", "plane")
 
 InvisibleFlyGroup:AddToggle("InvisibleFlyToggle", {
-        Text = "Invis Fly",
-        Default = false,
+	Text = "Invis Fly",
+	Default = false,
 })
 
 InvisibleFlyGroup:AddSlider("InvisibleFlySpeedSlider", {
-        Text = "Fly Speed",
-        Min = 1,
-        Max = 15,
-        Default = 5,
-        Rounding = 1,
+	Text = "Fly Speed",
+	Min = 1,
+	Max = 15,
+	Default = 5,
+	Rounding = 1,
 })
 
 InvisibleFlyGroup:AddLabel("Highlight Fill Color"):AddColorPicker("InvisibleFlyFillColor", {
-        Default = Color3.fromRGB(0, 255, 0),
-        Title = "Invisible Fly Highlight Fill Color",
+	Default = Color3.fromRGB(0, 255, 0),
+	Title = "Invisible Fly Highlight Fill Color",
 })
 
 InvisibleFlyGroup:AddLabel("Highlight Outline Color"):AddColorPicker("InvisibleFlyOutlineColor", {
-        Default = Color3.fromRGB(255, 255, 255),
-        Title = "Invisible Fly Highlight Outline Color",
+	Default = Color3.fromRGB(255, 255, 255),
+	Title = "Invisible Fly Highlight Outline Color",
 })
 
 local noclipCharParts = {}
@@ -5087,7 +5086,6 @@ VisualFPS:AddToggle("DisableEffects", {
 
 do
 	local PBR_TYPES = { SurfaceAppearance = true, Texture = true, Decal = true }
-
 	VisualFPS:AddToggle("RemovePBR", {
 		Text = "Remove PBR Textures",
 		Default = false,
@@ -6049,13 +6047,10 @@ MenuGroup:AddDropdown("NotificationSide", {
 MenuGroup:AddDropdown("DPIDropdown", {
 	Values = { "50%", "75%", "100%", "125%", "150%", "175%", "200%" },
 	Default = "100%",
-
 	Text = "DPI Scale",
-
 	Callback = function(Value)
 		Value = Value:gsub("%%", "")
 		local DPI = tonumber(Value)
-
 		Library:SetDPIScale(DPI)
 	end,
 })
@@ -6099,7 +6094,6 @@ ThemeManager:ApplyToTab(Tabs["UI Settings"])
 SaveManager:LoadAutoloadConfig()
 
 Library:OnUnload(function()
-
 	if Toggles.DesyncToggle and Toggles.DesyncToggle.Value then
 		Toggles.DesyncToggle:SetValue(false)
 	end
