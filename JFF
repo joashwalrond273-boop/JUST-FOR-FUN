@@ -1699,11 +1699,6 @@ local AutoShieldToggle = CombatAutoBlock:AddToggle("ImmortalMode", {
 	Default = false,
 })
 
-CombatAutoBlock:AddToggle("ShieldBypassAttacks", {
-	Text = "Attack Through Shield",
-	Default = false,
-})
-
 CombatAutoBlock:AddToggle("DodgeAura", {
 	Text = "Dodge Aura",
 	Default = false,
@@ -1750,8 +1745,6 @@ end
 
 local isShielding = false
 local lastShieldFire = 0
-local attackLockUntil = 0
-local shieldBlinkBusy = false
 
 local setShieldRemote
 pcall(function()
@@ -1764,27 +1757,11 @@ local function sendSetShield(state)
 	end
 end
 
-local function shouldBypassShield()
-	return Toggles.ImmortalMode and Toggles.ImmortalMode.Value
-		and Toggles.ShieldBypassAttacks and Toggles.ShieldBypassAttacks.Value
-end
-
-local function raiseAttackWindow(seconds)
-	seconds = seconds or 0.04
-	attackLockUntil = math.max(attackLockUntil, tick() + seconds)
-end
-
-local function withShieldBlink(fn)
-	if not shouldBypassShield() then
+local function swingShieldBlink(fn)
+	if not (Toggles.ImmortalMode and Toggles.ImmortalMode.Value) then
 		fn()
 		return
 	end
-	if shieldBlinkBusy then
-		fn()
-		return
-	end
-	shieldBlinkBusy = true
-	raiseAttackWindow(0.06)
 	sendSetShield(false)
 	isShielding = false
 	task.wait()
@@ -1795,7 +1772,6 @@ local function withShieldBlink(fn)
 			sendSetShield(true)
 			isShielding = true
 		end
-		shieldBlinkBusy = false
 	end)
 	if not ok then error(err) end
 end
@@ -1806,9 +1782,6 @@ local function updateImmortalMode()
 			isShielding = false
 			sendSetShield(false)
 		end
-		return
-	end
-	if tick() < attackLockUntil then
 		return
 	end
 
@@ -1849,12 +1822,10 @@ local function updateImmortalMode()
 	end
 
 	if shouldShield then
-		if not shouldBypassShield() then
-			local targetToFace = activeAttacker or nearestEnemy
-			if targetToFace then
-				local targetPos = targetToFace.Position
-				root.CFrame = CFrame.lookAt(root.Position, Vector3.new(targetPos.X, root.Position.Y, targetPos.Z))
-			end
+		local targetToFace = activeAttacker or nearestEnemy
+		if targetToFace then
+			local targetPos = targetToFace.Position
+			root.CFrame = CFrame.lookAt(root.Position, Vector3.new(targetPos.X, root.Position.Y, targetPos.Z))
 		end
 
 		if tick() - lastShieldFire > 0.05 then
@@ -1880,19 +1851,16 @@ Toggles.ImmortalMode:OnChanged(function()
 		local function hookToolActivated(tool)
 			if not tool or not tool:IsA("Tool") then return end
 			track("ShieldBlink_ToolActivated_" .. tool:GetFullName(), tool.Activated:Connect(function()
-				if shouldBypassShield() then
-					raiseAttackWindow(0.08)
-					sendSetShield(false)
-					isShielding = false
-					task.defer(function()
-						task.wait(0.06)
-						if Toggles.ImmortalMode and Toggles.ImmortalMode.Value then
-							lastShieldFire = tick()
-							sendSetShield(true)
-							isShielding = true
-						end
-					end)
-				end
+				sendSetShield(false)
+				isShielding = false
+				task.defer(function()
+					task.wait()
+					if Toggles.ImmortalMode and Toggles.ImmortalMode.Value then
+						lastShieldFire = tick()
+						sendSetShield(true)
+						isShielding = true
+					end
+				end)
 			end))
 		end
 
@@ -2241,7 +2209,7 @@ local function killAuraLoop()
 
 	lastKillAuraHit = tick()
 	local targetPlayer = Players:GetPlayerFromCharacter(nearestTarget)
-	withShieldBlink(function()
+	swingShieldBlink(function()
 		if targetPlayer then
 			if Crypt then
 				pcall(function()
@@ -2361,7 +2329,7 @@ Toggles.AutoSwing:OnChanged(function()
 			if _G.T and tick() - lastAutoSwing >= delay then
 				local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
 				if tool then
-					withShieldBlink(function()
+					swingShieldBlink(function()
 						tool:Activate()
 					end)
 					lastAutoSwing = tick()
@@ -2728,7 +2696,7 @@ Toggles.SwordBot:OnChanged(function()
 				if tick() - lastSwing >= delay then
 					local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
 					if tool then
-						withShieldBlink(function()
+						swingShieldBlink(function()
 							tool:Activate()
 						end)
 						lastSwing = tick()
@@ -2980,7 +2948,7 @@ local function connectReachTool(tool)
 				if nearestTarget then
 					local slot = tonumber(tool.Name) or 1
 					local targetPlayer = Players:GetPlayerFromCharacter(nearestTarget)
-					withShieldBlink(function()
+					swingShieldBlink(function()
 						if targetPlayer then
 							if Crypt then
 								pcall(function()
@@ -6231,8 +6199,6 @@ Library:OnUnload(function()
 	if Toggles.ImmortalMode and Toggles.ImmortalMode.Value then
 		Toggles.ImmortalMode:SetValue(false)
 	end
-	attackLockUntil = 0
-	shieldBlinkBusy = false
 	isShielding = false
 
 	pcall(function()
