@@ -23,85 +23,19 @@ local Library = loadstring(game:HttpGet(repo .. "Library.lua"))()
 local ThemeManager = loadstring(game:HttpGet(repo .. "addons/ThemeManager.lua"))()
 local SaveManager = loadstring(game:HttpGet(repo .. "addons/SaveManager.lua"))()
 
--- ==========================================
--- UNIVERSAL LUCIDE ICON LOADER (Tabs & Menu Symbols)
--- ==========================================
-local FluentIcons = nil
+-- Ensure Lucide Icons are properly loaded for tabs & groupboxes
 pcall(function()
-	local content = game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/src/Icons.lua")
-	if content and #content > 0 then
-		FluentIcons = loadstring(content)()
+	local lucideModule = nil
+	pcall(function()
+		lucideModule = loadstring(game:HttpGet("https://raw.githubusercontent.com/mstudio45/lucide-roblox-direct/main/source.lua"))()
+	end)
+	if not lucideModule then
+		pcall(function()
+			lucideModule = loadstring(game:HttpGet("https://raw.githubusercontent.com/mstudio45/lucide-roblox/main/src/modules/util/lucide.lua"))()
+		end)
 	end
-end)
-
-local FallbackIcons = {
-	["badge-info"] = "rbxassetid://10709778785",
-	["user"] = "rbxassetid://10747373176",
-	["swords"] = "rbxassetid://10734975486",
-	["move"] = "rbxassetid://10734898102",
-	["sprout"] = "rbxassetid://10734963020",
-	["map-pin"] = "rbxassetid://10734886004",
-	["scan-eye"] = "rbxassetid://10734950309",
-	["scan"] = "rbxassetid://10734950309",
-	["settings"] = "rbxassetid://10734950309",
-	["shield"] = "rbxassetid://10734952479",
-	["sparkles"] = "rbxassetid://10734958691",
-	["skull"] = "rbxassetid://10734955684",
-	["link"] = "rbxassetid://10734884302",
-	["heart"] = "rbxassetid://10723354541",
-	["clock"] = "rbxassetid://10709810712",
-	["crosshair"] = "rbxassetid://10709818834",
-	["ghost"] = "rbxassetid://10723347102",
-	["expand"] = "rbxassetid://10723343321",
-	["zap"] = "rbxassetid://10734984900",
-	["gauge"] = "rbxassetid://10723346959",
-	["plane"] = "rbxassetid://10734934585",
-	["droplet"] = "rbxassetid://10709819883",
-	["anchor"] = "rbxassetid://10709761530",
-	["arrow-down"] = "rbxassetid://10709767827",
-	["palette"] = "rbxassetid://10734923549",
-	["gem"] = "rbxassetid://10723346871",
-	["axe"] = "rbxassetid://10709769508",
-	["alert-circle"] = "rbxassetid://10709752996",
-	["refresh-cw"] = "rbxassetid://10734940380",
-	["sliders-horizontal"] = "rbxassetid://10734956380",
-	["sun"] = "rbxassetid://10734974297",
-	["wrench"] = "rbxassetid://10734983868",
-	["check"] = "rbxassetid://10709790948",
-	["chevron-up"] = "rbxassetid://10709790537",
-	["move-diagonal-2"] = "rbxassetid://10734898102",
-	["key"] = "rbxassetid://10723356507",
-	["square-arrow-down-left"] = "rbxassetid://10709767656",
-	["x"] = "rbxassetid://10747384394",
-}
-
-local UniversalIconModule = {
-	GetAsset = function(name)
-		if not name or typeof(name) ~= "string" then return nil end
-
-		local assetId = nil
-		if FluentIcons and FluentIcons.assets then
-			assetId = FluentIcons.assets["lucide-" .. name] or FluentIcons.assets[name]
-		end
-
-		if not assetId then
-			assetId = FallbackIcons[name] or FallbackIcons[name:lower()]
-		end
-
-		if assetId then
-			return {
-				Url = assetId,
-				ImageRectOffset = Vector2.zero,
-				ImageRectSize = Vector2.zero,
-			}
-		end
-		return nil
-	end
-}
-
-pcall(function()
-	if Library.SetIconModule then
-		Library:SetIconModule(UniversalIconModule)
+	if lucideModule and Library.SetIconModule then
+		Library:SetIconModule(lucideModule)
 	end
 end)
 
@@ -5067,7 +5001,6 @@ VisualFPS:AddToggle("LowTextures", {
 					pcall(function() v.Material = Enum.Material.Plastic end)
 				end
 			end
-
 			task.spawn(function()
 				local queue = {workspace}
 				local head = 1
@@ -5094,7 +5027,6 @@ VisualFPS:AddToggle("LowTextures", {
 					end
 				end
 			end)
-
 			-- Connect descendant added
 			track("LowTextures", workspace.DescendantAdded:Connect(function(v)
 				if Toggles.LowTextures.Value then
@@ -5130,7 +5062,6 @@ do
 						pcall(v.Destroy, v)
 					end
 				end
-
 				-- Process workspace asynchronously without lag
 				task.spawn(function()
 					local queue = {workspace}
@@ -5158,7 +5089,6 @@ do
 						end
 					end
 				end)
-
 				track("RemovePBR", workspace.DescendantAdded:Connect(function(v)
 					if Toggles.RemovePBR.Value then
 						checkAndRemovePBR(v)
@@ -5218,18 +5148,15 @@ do
 					-- Listen for new templates added to ReplicatedStorage
 					track("RemoveParticles_Templates", particlesFolder.DescendantAdded:Connect(disableParticle))
 				end
-
 				-- Disable existing particles in workspace
 				for _, v in ipairs(workspace:GetDescendants()) do
 					disableParticle(v)
 				end
-
 				-- Listen for new particles added to workspace
 				track("RemoveParticles_Workspace", workspace.DescendantAdded:Connect(disableParticle))
 			else
 				disconnect("RemoveParticles_Templates")
 				disconnect("RemoveParticles_Workspace")
-
 				-- Restore original states
 				for v, originalState in pairs(originalEnabledStates) do
 					if v and v.Parent then
