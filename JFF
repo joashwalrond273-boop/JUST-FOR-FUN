@@ -3264,9 +3264,9 @@ local noclipParts = {}
 local noclipFrame = 0
 Toggles.Noclip:OnChanged(function()
 	disconnect("Noclip")
-	table.clear(noclipParts)
 	noclipFrame = 0
 	if Toggles.Noclip.Value then
+		table.clear(noclipParts)
 		track("Noclip", RunService.Stepped:Connect(function()
 			noclipFrame = noclipFrame + 1
 			if noclipFrame % 2 ~= 0 then
@@ -3287,6 +3287,15 @@ Toggles.Noclip:OnChanged(function()
 		for part in pairs(noclipParts) do
 			if part.Parent then
 				part.CanCollide = true
+			end
+		end
+		table.clear(noclipParts)
+		local character = getCharacter()
+		if character then
+			for _, part in ipairs(character:GetDescendants()) do
+				if part:IsA("BasePart") and not part.CanCollide then
+					part.CanCollide = true
+				end
 			end
 		end
 	end
