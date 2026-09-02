@@ -45,6 +45,21 @@ local lastDeathPosition = nil
 local shouldTeleportBack = false
 local updateAutoSwingSliderVisibility
 
+local vars = {
+	flashback = {
+		enabled = false,
+		isRewinding = false,
+		frames = {},
+		lastInput = false,
+		canRevert = true,
+		flashbackLength = 60,
+		flashbackSpeed = 0,
+		sessionId = nil,
+		holdGui = nil,
+		holdButton = nil,
+	}
+}
+
 Library.ShowToggleFrameInKeybinds = true
 
 -- Hook Kick function to prevent kicks when Anti-Kick is enabled
@@ -3177,6 +3192,28 @@ MoveSwingSpeed:AddSlider("SwingSpeedVal", {
 	Rounding = 1,
 })
 
+local MoveFlashback = Tabs.Movement:AddLeftGroupbox("Flashback", "rewind")
+
+MoveFlashback:AddToggle("FlashbackToggle", {
+	Text = "Flashback Mode",
+	Default = false,
+})
+
+MoveFlashback:AddLabel("Hold to Rewind"):AddKeyPicker("FlashbackRewindKey", {
+	Default = "LeftAlt",
+	NoUI = false,
+	Text = "Rewind Key",
+})
+
+MoveFlashback:AddButton({
+	Text = "Reset History",
+	Func = function()
+		table.clear(vars.flashback.frames)
+		vars.flashback.canRevert = true
+		Library:Notify({ Title = "Flashback", Description = "History buffer cleared.", Time = 2 })
+	end,
+})
+
 MoveRight:AddToggle("Fly", {
 	Text = "Fly",
 	Default = false,
@@ -3681,6 +3718,264 @@ end))
 
 if LocalPlayer.Character then
 	setupAnimationSpeedHacks(LocalPlayer.Character)
+end
+
+-- ==========================================
+-- FLASHBACK (record + hold-to-rewind)
+-- ==========================================
+do
+	local fb = vars.flashback
+	pcall(function()
+		fb.sessionId = game:GetService("RbxAnalyticsService"):GetSessionId()
+	end)
+	if not fb.sessionId then
+		fb.sessionId = "UrielFlashback_" .. tostring(math.random(100000, 999999))
+	end
+
+	local function getHRP(c)
+		c = c or getCharacter()
+		if not c then return nil end
+		return c:FindFirstChild("HumanoidRootPart") or c.RootPart or c.PrimaryPart or c:FindFirstChild("Torso") or c:FindFirstChild("UpperTorso") or c:FindFirstChildWhichIsA("BasePart")
+	end
+
+	function fb:Advance(char, hrp, hum)
+		local maxFrames = self.flashbackLength * 60
+		if #self.frames > maxFrames then
+			table.remove(self.frames, 1)
+		end
+
+		if not self.canRevert then
+			self.canRevert = true
+		end
+
+		if self.lastInput then
+			pcall(function() hum.PlatformStand = false end)
+			self.lastInput = false
+		end
+
+		table.insert(self.frames, {
+			hrp.CFrame,
+			hrp.Velocity,
+			hum:GetState(),
+			hum.PlatformStand,
+			char:FindFirstChildOfClass("Tool"),
+		})
+	end
+
+	function fb:Revert(char, hrp, hum)
+		local num = #self.frames
+		if num == 0 or not self.canRevert then
+			self.canRevert = false
+			self:Advance(char, hrp, hum)
+			return
+		end
+		for _ = 1, self.flashbackSpeed do
+			table.remove(self.frames, num)
+			num = num - 1
+			if num == 0 then break end
+		end
+		self.lastInput = true
+		local lastFrame = self.frames[num]
+		table.remove(self.frames, num)
+		hrp.CFrame = lastFrame[1]
+		hrp.Velocity = -lastFrame[2]
+		pcall(function() hum:ChangeState(lastFrame[3]) end)
+		hum.PlatformStand = lastFrame[4]
+		local currentTool = char:FindFirstChildOfClass("Tool")
+		if lastFrame[5] then
+			if not currentTool then
+				pcall(function() hum:EquipTool(lastFrame[5]) end)
+			end
+		else
+			pcall(function() hum:UnequipTools() end)
+		end
+	end
+
+	local function flashbackStep()
+		if not fb.enabled then return end
+		local char = getCharacter()
+		if not char then return end
+		local hrp = getHRP(char)
+		local hum = char:FindFirstChildWhichIsA("Humanoid")
+		if not hrp or not hum then return end
+
+		if fb.isRewinding then
+			fb:Revert(char, hrp, hum)
+		else
+			fb:Advance(char, hrp, hum)
+		end
+	end
+
+	local function destroyFlashbackHoldGui()
+		disconnect("Flashback_HoldBegan")
+		disconnect("Flashback_HoldEnded")
+		if fb.holdGui then
+			pcall(function() fb.holdGui:Destroy() end)
+			fb.holdGui = nil
+			fb.holdButton = nil
+		end
+	end
+
+	local function createFlashbackHoldGui()
+		destroyFlashbackHoldGui()
+
+		local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
+		if not playerGui then return end
+
+		local sg = Instance.new("ScreenGui")
+		sg.Name = "UrielFlashbackGUI"
+		sg.ResetOnSpawn = false
+		sg.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+		sg.Parent = playerGui
+		fb.holdGui = sg
+
+		local btn = Instance.new("TextButton")
+		btn.Name = "RewindHoldButton"
+		btn.BackgroundColor3 = Color3.fromRGB(180, 20, 20)
+		btn.BackgroundTransparency = 0.25
+		btn.BorderSizePixel = 0
+		btn.Size = UDim2.new(0, 140, 0, 60)
+		btn.Position = UDim2.new(0.5, -70, 0.92, -30)
+		btn.Font = Enum.Font.Jura
+		btn.Text = "HOLD TO REWIND"
+		btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+		btn.TextScaled = true
+		btn.TextStrokeTransparency = 0.4
+		btn.AutoLocalize = false
+		btn.Active = true
+		btn.Parent = sg
+		fb.holdButton = btn
+
+		local corner = Instance.new("UICorner")
+		corner.CornerRadius = UDim.new(0, 10)
+		corner.Parent = btn
+
+		local stroke = Instance.new("UIStroke")
+		stroke.Color = Color3.fromRGB(255, 60, 60)
+		stroke.Thickness = 2
+		stroke.Parent = btn
+
+		local function startHold()
+			if fb.enabled then
+				fb.isRewinding = true
+				btn.BackgroundColor3 = Color3.fromRGB(60, 20, 180)
+				btn.Text = "REWINDING..."
+				stroke.Color = Color3.fromRGB(120, 120, 255)
+			end
+		end
+		local function endHold()
+			fb.isRewinding = false
+			btn.BackgroundColor3 = Color3.fromRGB(180, 20, 20)
+			btn.Text = "HOLD TO REWIND"
+			stroke.Color = Color3.fromRGB(255, 60, 60)
+		end
+
+		track("Flashback_HoldBegan", btn.InputBegan:Connect(function(input, gpe)
+			if gpe then return end
+			if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+				startHold()
+				input.Changed:Connect(function()
+					if input.UserInputState == Enum.UserInputState.End then
+						endHold()
+					end
+				end)
+			end
+		end))
+		track("Flashback_HoldEnded", btn.InputEnded:Connect(function(input, gpe)
+			if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+				endHold()
+			end
+		end))
+	end
+
+	local function keyMatches(input, keyOptionValue)
+		if not input or not keyOptionValue then return false end
+		local inputKeyCode = input.KeyCode
+		if not inputKeyCode then return false end
+		local inputKeyName = inputKeyCode.Name
+
+		local function valueMatches(v)
+			if typeof(v) == "EnumItem" then
+				return v == inputKeyCode
+			end
+			if type(v) == "string" then
+				if v == inputKeyName then return true end
+				local ok, parsed = pcall(function() return Enum.KeyCode[v] end)
+				if ok and parsed then return parsed == inputKeyCode end
+			end
+			return false
+		end
+
+		if type(keyOptionValue) == "table" and not typeof(keyOptionValue):find("Enum") then
+			for _, k in ipairs(keyOptionValue) do
+				if valueMatches(k) then return true end
+			end
+			return false
+		end
+		return valueMatches(keyOptionValue)
+	end
+
+	local function startFlashback()
+		fb.enabled = true
+		table.clear(fb.frames)
+		fb.canRevert = true
+		fb.isRewinding = false
+
+		pcall(RunService.UnbindFromRenderStep, RunService, fb.sessionId)
+		pcall(function()
+			RunService:BindToRenderStep(fb.sessionId, 1, flashbackStep)
+		end)
+
+		track("Flashback_KeyBegan", UserInputService.InputBegan:Connect(function(input, processed)
+			if processed then return end
+			if not fb.enabled then return end
+			local keyVal = Options and Options.FlashbackRewindKey and Options.FlashbackRewindKey.Value
+			if keyMatches(input, keyVal) then
+				fb.isRewinding = true
+			end
+		end))
+
+		track("Flashback_KeyEnded", UserInputService.InputEnded:Connect(function(input)
+			local keyVal = Options and Options.FlashbackRewindKey and Options.FlashbackRewindKey.Value
+			if keyMatches(input, keyVal) then
+				fb.isRewinding = false
+			end
+		end))
+
+		track("Flashback_CharAdded", LocalPlayer.CharacterAdded:Connect(function()
+			table.clear(fb.frames)
+			fb.canRevert = true
+		end))
+
+		createFlashbackHoldGui()
+		Library:Notify({ Title = "Flashback", Description = "Recording. Hold key or screen button to rewind.", Time = 3 })
+	end
+
+	local function stopFlashback()
+		fb.enabled = false
+		fb.isRewinding = false
+
+		pcall(RunService.UnbindFromRenderStep, RunService, fb.sessionId)
+		disconnect("Flashback_KeyBegan")
+		disconnect("Flashback_KeyEnded")
+		disconnect("Flashback_CharAdded")
+		destroyFlashbackHoldGui()
+		table.clear(fb.frames)
+
+		local hum = getHumanoid()
+		if hum then
+			pcall(function() hum.PlatformStand = false end)
+		end
+	end
+
+	Toggles.FlashbackToggle:OnChanged(function(state)
+		if state then
+			startFlashback()
+		else
+			stopFlashback()
+			Library:Notify({ Title = "Flashback", Description = "Stopped recording.", Time = 2 })
+		end
+	end)
 end
 
 -- ==========================================
@@ -6133,6 +6428,9 @@ Library:OnUnload(function()
 
 	if Toggles.NoGliderCooldown and Toggles.NoGliderCooldown.Value then
 		Toggles.NoGliderCooldown:SetValue(false)
+	end
+	if Toggles.FlashbackToggle and Toggles.FlashbackToggle.Value then
+		Toggles.FlashbackToggle:SetValue(false)
 	end
 
 	pcall(function()
