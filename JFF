@@ -1699,11 +1699,6 @@ local AutoShieldToggle = CombatAutoBlock:AddToggle("ImmortalMode", {
 	Default = false,
 })
 
-CombatAutoBlock:AddToggle("AttackThroughShield", {
-	Text = "+ Attack Through Shield",
-	Default = true,
-})
-
 CombatAutoBlock:AddToggle("DodgeAura", {
 	Text = "Dodge Aura",
 	Default = false,
@@ -1750,179 +1745,6 @@ end
 
 local isShielding = false
 local lastShieldFire = 0
-local attackLockUntil = 0
-local atsBlinkWindow = 0.1
-local blinkHeartbeatsRemaining = 0
-
-local function getSetShieldRemote()
-	local remote = nil
-	pcall(function()
-		remote = game:GetService("ReplicatedStorage").remoteInterface.character.setShield
-	end)
-	return remote
-end
-
-local function forceSetShieldAttributes(bool)
-	local char = getCharacter()
-	local root = getRootPart()
-	if not char and not root then return end
-	local targets = {}
-	if char then table.insert(targets, char) end
-	if root then table.insert(targets, root) end
-	local hum = char and char:FindFirstChildOfClass("Humanoid")
-	if hum then table.insert(targets, hum) end
-	local head = char and char:FindFirstChild("Head")
-	if head then table.insert(targets, head) end
-	for _, instance in ipairs(targets) do
-		pcall(function() instance:SetAttribute("setShield", bool) end)
-		pcall(function() instance:SetAttribute("ShieldBlocked", not bool) end)
-		pcall(function() instance:SetAttribute("IsBlocking", bool) end)
-		pcall(function() instance:SetAttribute("isBlocking", bool) end)
-		pcall(function()
-			if bool then
-				instance:SetAttribute("ShieldBlockedEnd", tick() + 99999)
-			else
-				instance:SetAttribute("ShieldBlockedEnd", 0)
-			end
-		end)
-	end
-end
-
-local function setShieldState(bool)
-	isShielding = bool
-	forceSetShieldAttributes(bool)
-	local remote = getSetShieldRemote()
-	if remote then
-		if bool then
-			if tick() - lastShieldFire > 0.03 then
-				lastShieldFire = tick()
-				pcall(function() remote:FireServer(true) end)
-			end
-		else
-			pcall(function() remote:FireServer(false) end)
-		end
-	end
-end
-
-local function atsEnabled()
-	return (Toggles.ImmortalMode and Toggles.ImmortalMode.Value)
-		and (Toggles.AttackThroughShield and Toggles.AttackThroughShield.Value)
-end
-
-local function doAttackBlink(innerFn)
-	if not atsEnabled() then
-		if innerFn then innerFn() end
-		return
-	end
-
-	blinkHeartbeatsRemaining = 3
-	attackLockUntil = tick() + atsBlinkWindow
-	setShieldState(false)
-
-	local result = nil
-	if innerFn then
-		local ok, err = pcall(innerFn)
-		if not ok then
-			task.defer(function()
-				if isAlive() and Toggles.ImmortalMode and Toggles.ImmortalMode.Value then
-					forceSetShieldAttributes(true)
-				end
-			end)
-			error(err)
-		end
-	end
-
-	task.defer(function()
-		attackLockUntil = tick() + 0.05
-		if isAlive() and Toggles.ImmortalMode and Toggles.ImmortalMode.Value then
-			forceSetShieldAttributes(true)
-			isShielding = true
-			if tick() - lastShieldFire > 0.03 then
-				lastShieldFire = tick()
-				local remote = getSetShieldRemote()
-				if remote then
-					pcall(function() remote:FireServer(true) end)
-				end
-			end
-		end
-	end)
-	return result
-end
-
-task.spawn(function()
-	while true do
-		task.wait()
-		if blinkHeartbeatsRemaining > 0 then
-			blinkHeartbeatsRemaining = blinkHeartbeatsRemaining - 1
-			if blinkHeartbeatsRemaining <= 0 then
-				if isAlive() and Toggles.ImmortalMode and Toggles.ImmortalMode.Value then
-					forceSetShieldAttributes(true)
-					isShielding = true
-				end
-			end
-		end
-	end
-end)
-
-local function withShieldBlink(callback)
-	return doAttackBlink(callback)
-end
-
-local hookActive = false
-local function hookToolActivatedForATS(tool)
-	if not tool or not tool:IsA("Tool") then return end
-	local key = "ATS_Tool_" .. tool:GetFullName()
-	if Connections[key] then return end
-	track(key, tool.Activated:Connect(function()
-		if hookActive then return end
-		hookActive = true
-		doAttackBlink()
-		hookActive = false
-	end))
-end
-
-local function setupATSCharacterHooks()
-	local char = LocalPlayer.Character
-	if not char then return end
-
-	for _, child in ipairs(char:GetChildren()) do
-		if child:IsA("Tool") then
-			hookToolActivatedForATS(child)
-		end
-	end
-	track("ATS_CharChild", char.ChildAdded:Connect(function(child)
-		if child:IsA("Tool") then
-			hookToolActivatedForATS(child)
-		end
-	end))
-
-	local hum = char:FindFirstChildOfClass("Humanoid")
-	if hum then
-		local animator = hum:FindFirstChildOfClass("Animator") or hum:WaitForChild("Animator", 2)
-		if animator then
-			track("ATS_AnimPlayed", animator.AnimationPlayed:Connect(function(track)
-				if not track or not track.Animation then return end
-				local name = (track.Animation.Name or ""):lower()
-				local id = tostring(track.Animation.AnimationId or ""):lower()
-				if name:find("swing") or name:find("slash") or name:find("attack")
-					or name:find("hit") or name:find("melee") then
-					if not hookActive then
-						hookActive = true
-						doAttackBlink()
-						hookActive = false
-					end
-				end
-			end))
-		end
-	end
-end
-
-track("ATS_CharacterAdded", LocalPlayer.CharacterAdded:Connect(function()
-	task.wait(1)
-	setupATSCharacterHooks()
-end))
-task.defer(setupATSCharacterHooks)
-
 local function updateImmortalMode()
 	if not isAlive() or not Toggles.ImmortalMode.Value then
 		if isShielding then
@@ -1971,20 +1793,15 @@ local function updateImmortalMode()
 	end
 
 	if shouldShield then
-		local inAttackWindow = tick() < attackLockUntil or blinkHeartbeatsRemaining > 0
-		local atsOn = Toggles.AttackThroughShield and Toggles.AttackThroughShield.Value
-
-		if not (inAttackWindow and atsOn) then
-			local targetToFace = activeAttacker or nearestEnemy
-			if targetToFace then
-				local targetPos = targetToFace.Position
-				root.CFrame = CFrame.lookAt(root.Position, Vector3.new(targetPos.X, root.Position.Y, targetPos.Z))
-			end
+		-- 360 protection: automatically orient shield towards swinging attacker or closest enemy
+		local targetToFace = activeAttacker or nearestEnemy
+		if targetToFace then
+			local targetPos = targetToFace.Position
+			root.CFrame = CFrame.lookAt(root.Position, Vector3.new(targetPos.X, root.Position.Y, targetPos.Z))
 		end
 
-		if not (inAttackWindow and atsOn) and tick() - lastShieldFire > 0.05 then
+		if tick() - lastShieldFire > 0.05 then
 			lastShieldFire = tick()
-			forceSetShieldAttributes(true)
 			pcall(function()
 				game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(true)
 			end)
@@ -1993,7 +1810,6 @@ local function updateImmortalMode()
 	else
 		if isShielding then
 			isShielding = false
-			forceSetShieldAttributes(false)
 			pcall(function()
 				game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(false)
 			end)
@@ -2251,26 +2067,24 @@ local function attackNPC(slot, target)
 	end
 
 	if isServerModel then
-		withShieldBlink(function()
-			if TSG.MeleeAI then
-				pcall(TSG.MeleeAI.FireServer, TSG.MeleeAI, slot, target)
-			else
-				pcall(TSG.MeleeAnimalRemote.FireServer, TSG.MeleeAnimalRemote, slot, target)
-			end
-		end)
+		-- It's already the server model! Fire meleeAI directly with target
+		if TSG.MeleeAI then
+			pcall(TSG.MeleeAI.FireServer, TSG.MeleeAI, slot, target)
+		else
+			pcall(TSG.MeleeAnimalRemote.FireServer, TSG.MeleeAnimalRemote, slot, target)
+		end
 	else
-		withShieldBlink(function()
-			if AiController and TSG.MeleeAI then
-				local serverModel = AiController:GetServerModelFromClientModel(target)
-				if serverModel then
-					pcall(TSG.MeleeAI.FireServer, TSG.MeleeAI, slot, serverModel)
-				else
-					pcall(TSG.MeleeAnimalRemote.FireServer, TSG.MeleeAnimalRemote, slot, target)
-				end
+		-- It's a client model (from AI_Client or animals folder)
+		if AiController and TSG.MeleeAI then
+			local serverModel = AiController:GetServerModelFromClientModel(target)
+			if serverModel then
+				pcall(TSG.MeleeAI.FireServer, TSG.MeleeAI, slot, serverModel)
 			else
 				pcall(TSG.MeleeAnimalRemote.FireServer, TSG.MeleeAnimalRemote, slot, target)
 			end
-		end)
+		else
+			pcall(TSG.MeleeAnimalRemote.FireServer, TSG.MeleeAnimalRemote, slot, target)
+		end
 	end
 end
 
@@ -2341,19 +2155,18 @@ local function killAuraLoop()
 	lastKillAuraHit = tick()
 	local targetPlayer = Players:GetPlayerFromCharacter(nearestTarget)
 	if targetPlayer then
-		withShieldBlink(function()
-			if Crypt then
-				pcall(function()
-					local k1, k2, k3 = Crypt.checkpublickeys()
-					if k1 and k2 and k3 then
-						local encryptedUserId = Crypt.crypt(k1, math.abs(targetPlayer.UserId) + k3, k2)
-						TSG.MeleePlayerRemote:FireServer(slot, encryptedUserId)
-					end
-				end)
-			else
-				pcall(TSG.MeleePlayerRemote.FireServer, TSG.MeleePlayerRemote, slot, targetPlayer)
-			end
-		end)
+		-- Player: use Crypt encryption, fire (slot, encryptedUserId)
+		if Crypt then
+			pcall(function()
+				local k1, k2, k3 = Crypt.checkpublickeys()
+				if k1 and k2 and k3 then
+					local encryptedUserId = Crypt.crypt(k1, math.abs(targetPlayer.UserId) + k3, k2)
+					TSG.MeleePlayerRemote:FireServer(slot, encryptedUserId)
+				end
+			end)
+		else
+			pcall(TSG.MeleePlayerRemote.FireServer, TSG.MeleePlayerRemote, slot, targetPlayer)
+		end
 	else
 		attackNPC(slot, nearestTarget)
 	end
@@ -2460,9 +2273,7 @@ Toggles.AutoSwing:OnChanged(function()
 			if _G.T and tick() - lastAutoSwing >= delay then
 				local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
 				if tool then
-					withShieldBlink(function()
-						tool:Activate()
-					end)
+					tool:Activate()
 					lastAutoSwing = tick()
 				end
 			end
@@ -2827,9 +2638,7 @@ Toggles.SwordBot:OnChanged(function()
 				if tick() - lastSwing >= delay then
 					local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
 					if tool then
-						withShieldBlink(function()
-							tool:Activate()
-						end)
+						tool:Activate()
 						lastSwing = tick()
 					end
 				end
@@ -3080,19 +2889,17 @@ local function connectReachTool(tool)
 					local slot = tonumber(tool.Name) or 1
 					local targetPlayer = Players:GetPlayerFromCharacter(nearestTarget)
 					if targetPlayer then
-						withShieldBlink(function()
-							if Crypt then
-								pcall(function()
-									local k1, k2, k3 = Crypt.checkpublickeys()
-									if k1 and k2 and k3 then
-										local encryptedUserId = Crypt.crypt(k1, math.abs(targetPlayer.UserId) + k3, k2)
-										TSG.MeleePlayerRemote:FireServer(slot, encryptedUserId)
-									end
-								end)
-							else
-								pcall(TSG.MeleePlayerRemote.FireServer, TSG.MeleePlayerRemote, slot, targetPlayer)
-							end
-						end)
+						if Crypt then
+							pcall(function()
+								local k1, k2, k3 = Crypt.checkpublickeys()
+								if k1 and k2 and k3 then
+									local encryptedUserId = Crypt.crypt(k1, math.abs(targetPlayer.UserId) + k3, k2)
+									TSG.MeleePlayerRemote:FireServer(slot, encryptedUserId)
+								end
+							end)
+						else
+                                                        pcall(TSG.MeleePlayerRemote.FireServer, TSG.MeleePlayerRemote, slot, targetPlayer)
+						end
 					else
 						attackNPC(slot, nearestTarget)
 					end
@@ -3454,28 +3261,83 @@ InvisibleFlyGroup:AddLabel("Highlight Outline Color"):AddColorPicker("InvisibleF
 })
 
 local noclipParts = {}
+local noclipLastGuard = 0
+local noclipCurrentChar = nil
+
+local function noclipApplyToPart(part)
+	if part:IsA("BasePart") and part.CanCollide and part.Name ~= "HumanoidRootPart" then
+		part.CanCollide = false
+		noclipParts[part] = true
+	end
+end
+
+local function noclipApplyToCharacter(character)
+	if not character then
+		return
+	end
+	for _, part in ipairs(character:GetDescendants()) do
+		noclipApplyToPart(part)
+	end
+end
+
+local function noclipCleanup()
+	for part in pairs(noclipParts) do
+		if part.Parent then
+			part.CanCollide = true
+		end
+	end
+	table.clear(noclipParts)
+	noclipCurrentChar = nil
+end
+
 Toggles.Noclip:OnChanged(function()
 	disconnect("Noclip")
-	table.clear(noclipParts)
+	disconnect("Noclip_Descendant")
+	disconnect("Noclip_CharAdded")
+	noclipCleanup()
+
 	if Toggles.Noclip.Value then
-		track("Noclip", RunService.Stepped:Connect(function()
-			local character = getCharacter()
-			if not character then
+		local character = getCharacter()
+		noclipCurrentChar = character
+		noclipApplyToCharacter(character)
+
+		track("Noclip_CharAdded", LocalPlayer.CharacterAdded:Connect(function(newChar)
+			noclipCurrentChar = newChar
+			task.defer(function()
+				if Toggles.Noclip.Value and noclipCurrentChar == newChar then
+					noclipApplyToCharacter(newChar)
+				end
+			end)
+		end))
+
+		track("Noclip_Descendant", workspace.DescendantAdded:Connect(function(desc)
+			if not Toggles.Noclip.Value then
 				return
 			end
-			for _, part in ipairs(character:GetDescendants()) do
-				if part:IsA("BasePart") and part.CanCollide then
+			local char = noclipCurrentChar or getCharacter()
+			if char and desc:IsDescendantOf(char) then
+				noclipApplyToPart(desc)
+			end
+		end))
+
+		track("Noclip", RunService.Heartbeat:Connect(function()
+			local now = os.clock()
+			if now - noclipLastGuard < 0.25 then
+				return
+			end
+			noclipLastGuard = now
+			local char = noclipCurrentChar or getCharacter()
+			if not char then
+				return
+			end
+			noclipCurrentChar = char
+			for _, part in ipairs(char:GetChildren()) do
+				if part:IsA("BasePart") and part.CanCollide and part.Name ~= "HumanoidRootPart" then
 					part.CanCollide = false
 					noclipParts[part] = true
 				end
 			end
 		end))
-	else
-		for part in pairs(noclipParts) do
-			if part.Parent then
-				part.CanCollide = true
-			end
-		end
 	end
 end)
 
