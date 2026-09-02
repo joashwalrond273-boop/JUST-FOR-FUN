@@ -2945,8 +2945,16 @@ MoveFaze:AddToggle("Noclip", {
 })
 
 MoveFaze:AddToggle("Xray", {
-	Text = "Xray",
+	Text = "Building Xray",
 	Default = false,
+})
+
+MoveFaze:AddSlider("XrayTransparency", {
+	Text = "Building Transparency",
+	Default = 0.5,
+	Min = 0.1,
+	Max = 0.9,
+	Rounding = 2,
 })
 
 local MoveLeft = Tabs.Movement:AddLeftGroupbox("Speed", "gauge")
@@ -3260,84 +3268,97 @@ InvisibleFlyGroup:AddLabel("Highlight Outline Color"):AddColorPicker("InvisibleF
         Title = "Invisible Fly Highlight Outline Color",
 })
 
-local noclipParts = {}
-local noclipLastGuard = 0
-local noclipCurrentChar = nil
+local noclipCharParts = {}
+local noclipChar = nil
+local noclipConnections = {}
 
-local function noclipApplyToPart(part)
-	if part:IsA("BasePart") and part.CanCollide and part.Name ~= "HumanoidRootPart" then
-		part.CanCollide = false
-		noclipParts[part] = true
-	end
-end
-
-local function noclipApplyToCharacter(character)
-	if not character then
-		return
-	end
-	for _, part in ipairs(character:GetDescendants()) do
-		noclipApplyToPart(part)
-	end
-end
-
-local function noclipCleanup()
-	for part in pairs(noclipParts) do
-		if part.Parent then
-			part.CanCollide = true
+local function cleanNoclipConnections()
+	for _, conn in ipairs(noclipConnections) do
+		if conn and conn.Connected then
+			conn:Disconnect()
 		end
 	end
-	table.clear(noclipParts)
-	noclipCurrentChar = nil
+	table.clear(noclipConnections)
+end
+
+local function rebuildNoclipParts(char)
+	table.clear(noclipCharParts)
+	noclipChar = char
+	if char then
+		for _, part in ipairs(char:GetDescendants()) do
+			if part:IsA("BasePart") then
+				table.insert(noclipCharParts, part)
+			end
+		end
+	end
+end
+
+local function hookNoclipCharacter(char)
+	cleanNoclipConnections()
+	rebuildNoclipParts(char)
+
+	if not char then return end
+
+	local addConn = char.DescendantAdded:Connect(function(desc)
+		if desc:IsA("BasePart") then
+			table.insert(noclipCharParts, desc)
+		end
+	end)
+	table.insert(noclipConnections, addConn)
+
+	local remConn = char.DescendantRemoving:Connect(function(desc)
+		if desc:IsA("BasePart") then
+			local idx = table.find(noclipCharParts, desc)
+			if idx then
+				table.remove(noclipCharParts, idx)
+			end
+		end
+	end)
+	table.insert(noclipConnections, remConn)
+end
+
+local function restoreCharacterCollisions(char)
+	if not char then return end
+	for _, part in ipairs(char:GetDescendants()) do
+		if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+			pcall(function()
+				part.CanCollide = true
+			end)
+		end
+	end
 end
 
 Toggles.Noclip:OnChanged(function()
 	disconnect("Noclip")
-	disconnect("Noclip_Descendant")
-	disconnect("Noclip_CharAdded")
-	noclipCleanup()
+	cleanNoclipConnections()
 
 	if Toggles.Noclip.Value then
-		local character = getCharacter()
-		noclipCurrentChar = character
-		noclipApplyToCharacter(character)
+		local char = LocalPlayer.Character
+		if char then
+			hookNoclipCharacter(char)
+		end
 
-		track("Noclip_CharAdded", LocalPlayer.CharacterAdded:Connect(function(newChar)
-			noclipCurrentChar = newChar
-			task.defer(function()
-				if Toggles.Noclip.Value and noclipCurrentChar == newChar then
-					noclipApplyToCharacter(newChar)
-				end
-			end)
-		end))
+		track("Noclip", RunService.Stepped:Connect(function()
+			if not Toggles.Noclip.Value then return end
+			local currentChar = LocalPlayer.Character
+			if not currentChar then return end
 
-		track("Noclip_Descendant", workspace.DescendantAdded:Connect(function(desc)
-			if not Toggles.Noclip.Value then
-				return
+			if noclipChar ~= currentChar then
+				hookNoclipCharacter(currentChar)
 			end
-			local char = noclipCurrentChar or getCharacter()
-			if char and desc:IsDescendantOf(char) then
-				noclipApplyToPart(desc)
-			end
-		end))
 
-		track("Noclip", RunService.Heartbeat:Connect(function()
-			local now = os.clock()
-			if now - noclipLastGuard < 0.25 then
-				return
-			end
-			noclipLastGuard = now
-			local char = noclipCurrentChar or getCharacter()
-			if not char then
-				return
-			end
-			noclipCurrentChar = char
-			for _, part in ipairs(char:GetChildren()) do
-				if part:IsA("BasePart") and part.CanCollide and part.Name ~= "HumanoidRootPart" then
+			for i = 1, #noclipCharParts do
+				local part = noclipCharParts[i]
+				if part and part.CanCollide then
 					part.CanCollide = false
-					noclipParts[part] = true
 				end
 			end
 		end))
+	else
+		local char = LocalPlayer.Character
+		restoreCharacterCollisions(char)
+		table.clear(noclipCharParts)
+		noclipChar = nil
 	end
 end)
 
@@ -3375,39 +3396,119 @@ end)
 
 local xrayParts = {}
 local xrayActive = false
+local xrayConnections = {}
 
-local function applyXray(v)
-	if v:IsA("BasePart") and not v:IsDescendantOf(LocalPlayer.Character) and not v:IsA("Terrain") then
-		if not xrayParts[v] then
-			xrayParts[v] = v.Transparency
+local function cleanXrayConnections()
+	for _, conn in ipairs(xrayConnections) do
+		if conn and conn.Connected then
+			conn:Disconnect()
 		end
-		v.Transparency = 0.5
+	end
+	table.clear(xrayConnections)
+end
+
+local function applyXrayToPart(part, targetAlpha)
+	if not part:IsA("BasePart") then return end
+	if part:IsA("Terrain") then return end
+	local char = LocalPlayer.Character
+	if char and part:IsDescendantOf(char) then return end
+
+	if xrayParts[part] == nil then
+		xrayParts[part] = part.Transparency
+	end
+	part.Transparency = targetAlpha
+end
+
+local function removeXrayFromPart(part)
+	local orig = xrayParts[part]
+	if orig ~= nil then
+		if part.Parent then
+			pcall(function()
+				part.Transparency = orig
+			end)
+		end
+		xrayParts[part] = nil
 	end
 end
 
-local function removeXray(v)
-	local orig = xrayParts[v]
-	if orig then
-		v.Transparency = orig
-		xrayParts[v] = nil
+local function getTargetXrayTransparency()
+	if Options.XrayTransparency and typeof(Options.XrayTransparency.Value) == "number" then
+		return Options.XrayTransparency.Value
 	end
+	return 0.5
+end
+
+local function attachToStructureFolder(folder)
+	if not folder then return end
+	local targetAlpha = getTargetXrayTransparency()
+
+	for _, desc in ipairs(folder:GetDescendants()) do
+		applyXrayToPart(desc, targetAlpha)
+	end
+
+	local addConn = folder.DescendantAdded:Connect(function(desc)
+		if xrayActive then
+			applyXrayToPart(desc, getTargetXrayTransparency())
+		end
+	end)
+	table.insert(xrayConnections, addConn)
+
+	local remConn = folder.DescendantRemoving:Connect(function(desc)
+		if desc:IsA("BasePart") then
+			xrayParts[desc] = nil
+		end
+	end)
+	table.insert(xrayConnections, remConn)
+end
+
+local function setupBuildingXray()
+	cleanXrayConnections()
+
+	local knownContainers = {
+		workspace:FindFirstChild("placedStructures"),
+		workspace:FindFirstChild("structures"),
+		workspace:FindFirstChild("Buildings"),
+		workspace:FindFirstChild("PlayerStructures"),
+	}
+
+	for _, container in ipairs(knownContainers) do
+		if container then
+			attachToStructureFolder(container)
+		end
+	end
+
+	local wsConn = workspace.ChildAdded:Connect(function(child)
+		if not xrayActive then return end
+		local nameLower = child.Name:lower()
+		if nameLower:find("structure") or nameLower:find("building") then
+			attachToStructureFolder(child)
+		end
+	end)
+	table.insert(xrayConnections, wsConn)
 end
 
 Toggles.Xray:OnChanged(function()
 	xrayActive = Toggles.Xray.Value
 	if xrayActive then
-		for _, v in ipairs(workspace:GetDescendants()) do
-			applyXray(v)
-		end
-		track("XrayAdded", workspace.DescendantAdded:Connect(function(v)
-			if xrayActive then
-				applyXray(v)
-			end
-		end))
+		setupBuildingXray()
 	else
-		disconnect("XrayAdded")
-		for v in pairs(xrayParts) do
-			removeXray(v)
+		cleanXrayConnections()
+		for part in pairs(xrayParts) do
+			removeXrayFromPart(part)
+		end
+		table.clear(xrayParts)
+	end
+end)
+
+Options.XrayTransparency:OnChanged(function()
+	if xrayActive then
+		local newAlpha = getTargetXrayTransparency()
+		for part in pairs(xrayParts) do
+			if part and part.Parent then
+				pcall(function()
+					part.Transparency = newAlpha
+				end)
+			end
 		end
 	end
 end)
@@ -6019,6 +6120,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.FakeLag and Toggles.FakeLag.Value then
 		Toggles.FakeLag:SetValue(false)
+	end
+	if Toggles.Noclip and Toggles.Noclip.Value then
+		Toggles.Noclip:SetValue(false)
 	end
 	if Toggles.Xray and Toggles.Xray.Value then
 		Toggles.Xray:SetValue(false)
