@@ -5001,6 +5001,7 @@ VisualFPS:AddToggle("LowTextures", {
 					pcall(function() v.Material = Enum.Material.Plastic end)
 				end
 			end
+
 			task.spawn(function()
 				local queue = {workspace}
 				local head = 1
@@ -5027,6 +5028,7 @@ VisualFPS:AddToggle("LowTextures", {
 					end
 				end
 			end)
+
 			-- Connect descendant added
 			track("LowTextures", workspace.DescendantAdded:Connect(function(v)
 				if Toggles.LowTextures.Value then
@@ -5062,6 +5064,7 @@ do
 						pcall(v.Destroy, v)
 					end
 				end
+
 				-- Process workspace asynchronously without lag
 				task.spawn(function()
 					local queue = {workspace}
@@ -5089,6 +5092,7 @@ do
 						end
 					end
 				end)
+
 				track("RemovePBR", workspace.DescendantAdded:Connect(function(v)
 					if Toggles.RemovePBR.Value then
 						checkAndRemovePBR(v)
@@ -5148,15 +5152,18 @@ do
 					-- Listen for new templates added to ReplicatedStorage
 					track("RemoveParticles_Templates", particlesFolder.DescendantAdded:Connect(disableParticle))
 				end
+
 				-- Disable existing particles in workspace
 				for _, v in ipairs(workspace:GetDescendants()) do
 					disableParticle(v)
 				end
+
 				-- Listen for new particles added to workspace
 				track("RemoveParticles_Workspace", workspace.DescendantAdded:Connect(disableParticle))
 			else
 				disconnect("RemoveParticles_Templates")
 				disconnect("RemoveParticles_Workspace")
+
 				-- Restore original states
 				for v, originalState in pairs(originalEnabledStates) do
 					if v and v.Parent then
