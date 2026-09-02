@@ -3259,101 +3259,31 @@ InvisibleFlyGroup:AddLabel("Highlight Outline Color"):AddColorPicker("InvisibleF
 	Title = "Invisible Fly Highlight Outline Color",
 })
 
-local noclipConnection = nil
-local noclipDescendantConnection = nil
-
-local function setCharacterCollisions(char, canCollide)
-	if not char then return end
-	for _, part in ipairs(char:GetDescendants()) do
-		if part:IsA("BasePart") then
-			if canCollide then
-				if part.Name == "HumanoidRootPart" then
+local noclipParts = {}
+Toggles.Noclip:OnChanged(function()
+	disconnect("Noclip")
+	table.clear(noclipParts)
+	if Toggles.Noclip.Value then
+		track("Noclip", RunService.Stepped:Connect(function()
+			local character = getCharacter()
+			if not character then
+				return
+			end
+			for _, part in ipairs(character:GetDescendants()) do
+				if part:IsA("BasePart") and part.CanCollide then
 					part.CanCollide = false
-				else
-					part.CanCollide = true
+					noclipParts[part] = true
 				end
-			else
-				part.CanCollide = false
 			end
-		end
-	end
-end
-
-local function stopNoclip()
-	if noclipConnection then
-		noclipConnection:Disconnect()
-		noclipConnection = nil
-	end
-	if noclipDescendantConnection then
-		noclipDescendantConnection:Disconnect()
-		noclipDescendantConnection = nil
-	end
-	disconnect("NoclipLoop")
-	disconnect("NoclipDescAdded")
-
-	local char = LocalPlayer.Character
-	if char then
-		setCharacterCollisions(char, true)
-	end
-end
-
-local function startNoclip()
-	stopNoclip()
-
-	local char = LocalPlayer.Character
-	if char then
-		setCharacterCollisions(char, false)
-
-		noclipDescendantConnection = char.DescendantAdded:Connect(function(desc)
-			if desc:IsA("BasePart") and Toggles.Noclip and Toggles.Noclip.Value then
-				desc.CanCollide = false
-			end
-		end)
-		track("NoclipDescAdded", noclipDescendantConnection)
-	end
-
-	noclipConnection = RunService.Stepped:Connect(function()
-		if not (Toggles.Noclip and Toggles.Noclip.Value) then
-			stopNoclip()
-			return
-		end
-		local currentChar = LocalPlayer.Character
-		if not currentChar then return end
-
-		for _, part in ipairs(currentChar:GetChildren()) do
-			if part:IsA("BasePart") and part.CanCollide then
-				part.CanCollide = false
-			end
-		end
-	end)
-	track("NoclipLoop", noclipConnection)
-end
-
-Toggles.Noclip:OnChanged(function(state)
-	local isEnabled = false
-	if typeof(state) == "boolean" then
-		isEnabled = state
-	elseif Toggles.Noclip then
-		isEnabled = Toggles.Noclip.Value
-	end
-
-	if isEnabled then
-		startNoclip()
-		Library:Notify({ Title = "Noclip", Description = "Enabled", Time = 2 })
+		end))
 	else
-		stopNoclip()
-		Library:Notify({ Title = "Noclip", Description = "Disabled", Time = 2 })
+		for part in pairs(noclipParts) do
+			if part.Parent then
+				part.CanCollide = true
+			end
+		end
 	end
 end)
-
-track("Noclip_Respawn", LocalPlayer.CharacterAdded:Connect(function(newChar)
-	task.wait(0.2)
-	if Toggles.Noclip and Toggles.Noclip.Value then
-		startNoclip()
-	else
-		setCharacterCollisions(newChar, true)
-	end
-end))
 
 Toggles.FakeLag:OnChanged(function()
 	disconnect("FakeLag")
@@ -6028,9 +5958,6 @@ Library:OnUnload(function()
 	end
 	if Toggles.FakeLag and Toggles.FakeLag.Value then
 		Toggles.FakeLag:SetValue(false)
-	end
-	if Toggles.Noclip and Toggles.Noclip.Value then
-		Toggles.Noclip:SetValue(false)
 	end
 	if Toggles.Xray and Toggles.Xray.Value then
 		Toggles.Xray:SetValue(false)
