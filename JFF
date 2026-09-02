@@ -3389,108 +3389,40 @@ end)
 
 local xrayParts = {}
 local xrayActive = false
-local xrayConnections = {}
 
-local function cleanXrayConnections()
-	for _, conn in ipairs(xrayConnections) do
-		if conn and conn.Connected then
-			conn:Disconnect()
+local function applyXray(v)
+	if v:IsA("BasePart") and not v:IsDescendantOf(LocalPlayer.Character) and not v:IsA("Terrain") then
+		if not xrayParts[v] then
+			xrayParts[v] = v.Transparency
 		end
-	end
-	table.clear(xrayConnections)
-end
-
-local function applyXrayToStructurePart(part)
-	if not part:IsA("BasePart") then return end
-	if part:IsA("Terrain") then return end
-	local char = LocalPlayer.Character
-	if char and part:IsDescendantOf(char) then return end
-
-	if xrayParts[part] == nil then
-		xrayParts[part] = part.Transparency
-	end
-	part.Transparency = 0.6
-end
-
-local function restoreXrayStructurePart(part)
-	local orig = xrayParts[part]
-	if orig ~= nil then
-		if part.Parent then
-			pcall(function()
-				part.Transparency = orig
-			end)
-		end
-		xrayParts[part] = nil
+		v.Transparency = 0.5
 	end
 end
 
-local function attachToStructureFolder(folder)
-	if not folder then return end
-
-	for _, desc in ipairs(folder:GetDescendants()) do
-		applyXrayToStructurePart(desc)
+local function removeXray(v)
+	local orig = xrayParts[v]
+	if orig then
+		v.Transparency = orig
+		xrayParts[v] = nil
 	end
-
-	local addConn = folder.DescendantAdded:Connect(function(desc)
-		if xrayActive then
-			applyXrayToStructurePart(desc)
-		end
-	end)
-	table.insert(xrayConnections, addConn)
-
-	local remConn = folder.DescendantRemoving:Connect(function(desc)
-		if desc:IsA("BasePart") then
-			xrayParts[desc] = nil
-		end
-	end)
-	table.insert(xrayConnections, remConn)
 end
 
-local function setupStructureXray()
-	cleanXrayConnections()
-
-	local knownContainers = {
-		workspace:FindFirstChild("placedStructures"),
-		workspace:FindFirstChild("structures"),
-		workspace:FindFirstChild("Buildings"),
-		workspace:FindFirstChild("PlayerStructures"),
-	}
-
-	for _, container in ipairs(knownContainers) do
-		if container then
-			attachToStructureFolder(container)
-		end
-	end
-
-	local wsConn = workspace.ChildAdded:Connect(function(child)
-		if not xrayActive then return end
-		local nameLower = child.Name:lower()
-		if nameLower:find("structure") or nameLower:find("building") then
-			attachToStructureFolder(child)
-		end
-	end)
-	table.insert(xrayConnections, wsConn)
-end
-
-Toggles.Xray:OnChanged(function(state)
-	local isEnabled = false
-	if typeof(state) == "boolean" then
-		isEnabled = state
-	elseif Toggles.Xray then
-		isEnabled = Toggles.Xray.Value
-	end
-
-	xrayActive = isEnabled
+Toggles.Xray:OnChanged(function()
+	xrayActive = Toggles.Xray.Value
 	if xrayActive then
-		setupStructureXray()
-		Library:Notify({ Title = "Xray", Description = "Enabled", Time = 2 })
-	else
-		cleanXrayConnections()
-		for part in pairs(xrayParts) do
-			restoreXrayStructurePart(part)
+		for _, v in ipairs(workspace:GetDescendants()) do
+			applyXray(v)
 		end
-		table.clear(xrayParts)
-		Library:Notify({ Title = "Xray", Description = "Disabled", Time = 2 })
+		track("XrayAdded", workspace.DescendantAdded:Connect(function(v)
+			if xrayActive then
+				applyXray(v)
+			end
+		end))
+	else
+		disconnect("XrayAdded")
+		for v in pairs(xrayParts) do
+			removeXray(v)
+		end
 	end
 end)
 
