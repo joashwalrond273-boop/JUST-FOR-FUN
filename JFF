@@ -3261,56 +3261,25 @@ InvisibleFlyGroup:AddLabel("Highlight Outline Color"):AddColorPicker("InvisibleF
 })
 
 local noclipParts = {}
-local keyPartNames = {
-	HumanoidRootPart = true,
-	Head = true,
-	Torso = true,
-	UpperTorso = true,
-	LowerTorso = true,
-	LeftUpperArm = true,
-	LeftLowerArm = true,
-	LeftHand = true,
-	RightUpperArm = true,
-	RightLowerArm = true,
-	RightHand = true,
-	LeftUpperLeg = true,
-	LeftLowerLeg = true,
-	LeftFoot = true,
-	RightUpperLeg = true,
-	RightLowerLeg = true,
-	RightFoot = true,
-	HumanoidRootPart = true,
-}
+local noclipFrame = 0
 Toggles.Noclip:OnChanged(function()
 	disconnect("Noclip")
 	table.clear(noclipParts)
+	noclipFrame = 0
 	if Toggles.Noclip.Value then
 		track("Noclip", RunService.Stepped:Connect(function()
+			noclipFrame = noclipFrame + 1
+			if noclipFrame % 2 ~= 0 then
+				return
+			end
 			local character = getCharacter()
 			if not character then
 				return
 			end
-			for _, part in ipairs(character:GetChildren()) do
-				if part:IsA("BasePart") and keyPartNames[part.Name] then
-					if part.CanCollide then
-						part.CanCollide = false
-						noclipParts[part] = true
-					else
-						noclipParts[part] = true
-					end
-				end
-			end
-			for _, tool in ipairs(character:GetChildren()) do
-				if tool:IsA("Tool") then
-					local handle = tool:FindFirstChild("Handle")
-					if handle and handle:IsA("BasePart") then
-						if handle.CanCollide then
-							handle.CanCollide = false
-							noclipParts[handle] = true
-						else
-							noclipParts[handle] = true
-						end
-					end
+			for _, part in ipairs(character:GetDescendants()) do
+				if part:IsA("BasePart") and part.CanCollide then
+					part.CanCollide = false
+					noclipParts[part] = true
 				end
 			end
 		end))
@@ -3357,38 +3326,16 @@ end)
 
 local xrayParts = {}
 local xrayActive = false
-local skipPartNames = {
-	Grass = true, Leaf = true, Leaves = true, Tree = true, Trunk = true,
-	Branch = true, Flower = true, Bush = true, Plant = true, Vine = true,
-	Drop = true, Item = true, Pickup = true, Loot = true, Sack = true,
-	Rupee = true, Coin = true, Gem = true, Arrow = true, Bolt = true,
-	Splatter = true, Blood = true, Decal = true, Effect = true, Spark = true,
-	Particle = true, Smoke = true, Fire = true, Explosion = true, Debris = true,
-}
-
-local function shouldApplyXray(v)
-	if not v:IsA("BasePart") then return false end
-	if v:IsA("Terrain") then return false end
-	if not v.CanCollide then return false end
-	if v.Transparency > 0.1 then return false end
-	if v:IsDescendantOf(LocalPlayer.Character) then return false end
-	local s = v.Size
-	if (s.X * s.Y * s.Z) < 3 then return false end
-	local name = v.Name
-	if skipPartNames[name] then return false end
-	for skip in pairs(skipPartNames) do
-		if string.find(name, skip, 1, true) then return false end
-	end
-	if v.Parent and (v.Parent:IsA("Tool") or v.Parent:IsA("Accessory") or v.Parent:IsA("Hat")) then return false end
-	return true
-end
+local xrayScanCo = nil
 
 local function applyXray(v)
-	if not shouldApplyXray(v) then return end
-	if not xrayParts[v] then
-		xrayParts[v] = v.Transparency
+	if v:IsA("BasePart") and not v:IsDescendantOf(LocalPlayer.Character) and not v:IsA("Terrain") then
+		if v.Transparency > 0.1 then return end
+		if not xrayParts[v] then
+			xrayParts[v] = v.Transparency
+		end
+		v.Transparency = 0.5
 	end
-	v.Transparency = 0.5
 end
 
 local function removeXray(v)
@@ -3399,11 +3346,33 @@ local function removeXray(v)
 	end
 end
 
+local function batchXrayScan(descendants)
+	local batchSize = 200
+	local i = 1
+	local n = #descendants
+	while i <= n do
+		local j = math.min(i + batchSize - 1, n)
+		for k = i, j do
+			local v = descendants[k]
+			if xrayActive then
+				applyXray(v)
+			end
+		end
+		i = j + 1
+		task.wait()
+	end
+end
+
 Toggles.Xray:OnChanged(function()
 	xrayActive = Toggles.Xray.Value
 	if xrayActive then
-		for _, v in ipairs(workspace:GetDescendants()) do
-			applyXray(v)
+		local all = workspace:GetDescendants()
+		xrayScanCo = coroutine.create(function()
+			batchXrayScan(all)
+		end)
+		local ok, err = coroutine.resume(xrayScanCo)
+		if not ok then
+			warn("Xray scan error:", err)
 		end
 		track("XrayAdded", workspace.DescendantAdded:Connect(function(v)
 			if xrayActive then
@@ -3412,6 +3381,10 @@ Toggles.Xray:OnChanged(function()
 		end))
 	else
 		disconnect("XrayAdded")
+		xrayActive = false
+		if xrayScanCo then
+			xrayScanCo = nil
+		end
 		for v in pairs(xrayParts) do
 			removeXray(v)
 		end
