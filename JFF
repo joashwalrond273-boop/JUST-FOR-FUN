@@ -397,6 +397,7 @@ local Tabs = {
 	Main = Window:AddTab("Main", "badge-info"),
 	Player = Window:AddTab("Player", "user"),
 	Combat = Window:AddTab("Combat", "swords"),
+	Flashback = Window:AddTab("Flashback", "rewind"),
 	Movement = Window:AddTab("Movement", "move"),
 	Farming = Window:AddTab("Farming", "sprout"),
 	Teleport = Window:AddTab("Teleport", "map-pin"),
@@ -2950,6 +2951,71 @@ end))
 setupReachTracking()
 
 -- ==========================================
+-- FLASHBACK (dedicated tab)
+-- ==========================================
+local FlashbackMain = Tabs.Flashback:AddLeftGroupbox("Flashback", "rewind")
+
+FlashbackMain:AddToggle("FlashbackToggle", {
+	Text = "Flashback Mode",
+	Default = false,
+})
+
+FlashbackMain:AddLabel("Hold to Rewind"):AddKeyPicker("FlashbackRewindKey", {
+	Default = "LeftAlt",
+	NoUI = false,
+	Text = "Rewind Key",
+})
+
+FlashbackMain:AddButton({
+	Text = "Reset History",
+	Func = function()
+		table.clear(vars.flashback.frames)
+		vars.flashback.canRevert = true
+		Library:Notify({ Title = "Flashback", Description = "History buffer cleared.", Time = 2 })
+	end,
+})
+
+local FlashbackSettings = Tabs.Flashback:AddRightGroupbox("Settings", "sliders-horizontal")
+
+FlashbackSettings:AddSlider("FlashbackLength", {
+	Text = "Record Length (s)",
+	Default = 60,
+	Min = 10,
+	Max = 180,
+	Rounding = 0,
+	Callback = function(val)
+		vars.flashback.flashbackLength = val
+	end,
+})
+
+FlashbackSettings:AddSlider("FlashbackSpeed", {
+	Text = "Rewind Speed Boost",
+	Default = 0,
+	Min = 0,
+	Max = 5,
+	Rounding = 0,
+	Callback = function(val)
+		vars.flashback.flashbackSpeed = val
+	end,
+})
+
+local FlashbackHelp = Tabs.Flashback:AddRightGroupbox("How to Use", "help-circle")
+do
+	local tip1 = FlashbackHelp:AddLabel("1. Toggle Flashback Mode ON")
+	local tip2 = FlashbackHelp:AddLabel("2. HOLD Rewind Key or button")
+	local tip3 = FlashbackHelp:AddLabel("3. Release to stop rewinding")
+	local tip4 = FlashbackHelp:AddLabel("Red button appears bottom-center")
+	for _, lbl in ipairs({ tip1, tip2, tip3, tip4 }) do
+		pcall(function()
+			if lbl and lbl.Label then
+				lbl.Label.TextWrapped = true
+				lbl.Label.TextSize = 13
+			end
+		end)
+	end
+end
+
+-- ==========================================
 -- MOVEMENT
 -- ==========================================
 local MoveFaze = Tabs.Movement:AddLeftGroupbox("FAZE", "zap")
@@ -3190,28 +3256,6 @@ MoveSwingSpeed:AddSlider("SwingSpeedVal", {
 	Min = 1,
 	Max = 15,
 	Rounding = 1,
-})
-
-local MoveFlashback = Tabs.Movement:AddLeftGroupbox("Flashback", "rewind")
-
-MoveFlashback:AddToggle("FlashbackToggle", {
-	Text = "Flashback Mode",
-	Default = false,
-})
-
-MoveFlashback:AddLabel("Hold to Rewind"):AddKeyPicker("FlashbackRewindKey", {
-	Default = "LeftAlt",
-	NoUI = false,
-	Text = "Rewind Key",
-})
-
-MoveFlashback:AddButton({
-	Text = "Reset History",
-	Func = function()
-		table.clear(vars.flashback.frames)
-		vars.flashback.canRevert = true
-		Library:Notify({ Title = "Flashback", Description = "History buffer cleared.", Time = 2 })
-	end,
 })
 
 MoveRight:AddToggle("Fly", {
@@ -3917,6 +3961,8 @@ do
 
 	local function startFlashback()
 		fb.enabled = true
+		if Options and Options.FlashbackLength then fb.flashbackLength = Options.FlashbackLength.Value end
+		if Options and Options.FlashbackSpeed  then fb.flashbackSpeed  = Options.FlashbackSpeed.Value  end
 		table.clear(fb.frames)
 		fb.canRevert = true
 		fb.isRewinding = false
