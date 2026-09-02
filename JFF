@@ -3259,99 +3259,101 @@ InvisibleFlyGroup:AddLabel("Highlight Outline Color"):AddColorPicker("InvisibleF
 	Title = "Invisible Fly Highlight Outline Color",
 })
 
-local noclipCharParts = {}
-local noclipChar = nil
-local noclipConnections = {}
+local noclipConnection = nil
+local noclipDescendantConnection = nil
 
-local function cleanNoclipConnections()
-	for _, conn in ipairs(noclipConnections) do
-		if conn and conn.Connected then
-			conn:Disconnect()
-		end
-	end
-	table.clear(noclipConnections)
-end
-
-local function rebuildNoclipParts(char)
-	table.clear(noclipCharParts)
-	noclipChar = char
-	if char then
-		for _, part in ipairs(char:GetDescendants()) do
-			if part:IsA("BasePart") then
-				table.insert(noclipCharParts, part)
-			end
-		end
-	end
-end
-
-local function hookNoclipCharacter(char)
-	cleanNoclipConnections()
-	rebuildNoclipParts(char)
-
-	if not char then return end
-
-	local addConn = char.DescendantAdded:Connect(function(desc)
-		if desc:IsA("BasePart") then
-			table.insert(noclipCharParts, desc)
-		end
-	end)
-	table.insert(noclipConnections, addConn)
-
-	local remConn = char.DescendantRemoving:Connect(function(desc)
-		if desc:IsA("BasePart") then
-			local idx = table.find(noclipCharParts, desc)
-			if idx then
-				table.remove(noclipCharParts, idx)
-			end
-		end
-	end)
-	table.insert(noclipConnections, remConn)
-end
-
-local function restoreCharacterCollisions(char)
+local function setCharacterCollisions(char, canCollide)
 	if not char then return end
 	for _, part in ipairs(char:GetDescendants()) do
-		if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
-			pcall(function()
-				part.CanCollide = true
-			end)
+		if part:IsA("BasePart") then
+			if canCollide then
+				if part.Name == "HumanoidRootPart" then
+					part.CanCollide = false
+				else
+					part.CanCollide = true
+				end
+			else
+				part.CanCollide = false
+			end
 		end
 	end
 end
 
-Toggles.Noclip:OnChanged(function()
-	disconnect("Noclip")
-	cleanNoclipConnections()
+local function stopNoclip()
+	if noclipConnection then
+		noclipConnection:Disconnect()
+		noclipConnection = nil
+	end
+	if noclipDescendantConnection then
+		noclipDescendantConnection:Disconnect()
+		noclipDescendantConnection = nil
+	end
+	disconnect("NoclipLoop")
+	disconnect("NoclipDescAdded")
 
-	if Toggles.Noclip.Value then
-		local char = LocalPlayer.Character
-		if char then
-			hookNoclipCharacter(char)
+	local char = LocalPlayer.Character
+	if char then
+		setCharacterCollisions(char, true)
+	end
+end
+
+local function startNoclip()
+	stopNoclip()
+
+	local char = LocalPlayer.Character
+	if char then
+		setCharacterCollisions(char, false)
+
+		noclipDescendantConnection = char.DescendantAdded:Connect(function(desc)
+			if desc:IsA("BasePart") and Toggles.Noclip and Toggles.Noclip.Value then
+				desc.CanCollide = false
+			end
+		end)
+		track("NoclipDescAdded", noclipDescendantConnection)
+	end
+
+	noclipConnection = RunService.Stepped:Connect(function()
+		if not (Toggles.Noclip and Toggles.Noclip.Value) then
+			stopNoclip()
+			return
 		end
+		local currentChar = LocalPlayer.Character
+		if not currentChar then return end
 
-		track("Noclip", RunService.Stepped:Connect(function()
-			if not Toggles.Noclip.Value then return end
-			local currentChar = LocalPlayer.Character
-			if not currentChar then return end
-
-			if noclipChar ~= currentChar then
-				hookNoclipCharacter(currentChar)
+		for _, part in ipairs(currentChar:GetChildren()) do
+			if part:IsA("BasePart") and part.CanCollide then
+				part.CanCollide = false
 			end
+		end
+	end)
+	track("NoclipLoop", noclipConnection)
+end
 
-			for i = 1, #noclipCharParts do
-				local part = noclipCharParts[i]
-				if part and part.CanCollide then
-					part.CanCollide = false
-				end
-			end
-		end))
+Toggles.Noclip:OnChanged(function(state)
+	local isEnabled = false
+	if typeof(state) == "boolean" then
+		isEnabled = state
+	elseif Toggles.Noclip then
+		isEnabled = Toggles.Noclip.Value
+	end
+
+	if isEnabled then
+		startNoclip()
+		Library:Notify({ Title = "Noclip", Description = "Enabled", Time = 2 })
 	else
-		local char = LocalPlayer.Character
-		restoreCharacterCollisions(char)
-		table.clear(noclipCharParts)
-		noclipChar = nil
+		stopNoclip()
+		Library:Notify({ Title = "Noclip", Description = "Disabled", Time = 2 })
 	end
 end)
+
+track("Noclip_Respawn", LocalPlayer.CharacterAdded:Connect(function(newChar)
+	task.wait(0.2)
+	if Toggles.Noclip and Toggles.Noclip.Value then
+		startNoclip()
+	else
+		setCharacterCollisions(newChar, true)
+	end
+end))
 
 Toggles.FakeLag:OnChanged(function()
 	disconnect("FakeLag")
@@ -3398,7 +3400,7 @@ local function cleanXrayConnections()
 	table.clear(xrayConnections)
 end
 
-local function applyXrayToPart(part)
+local function applyXrayToStructurePart(part)
 	if not part:IsA("BasePart") then return end
 	if part:IsA("Terrain") then return end
 	local char = LocalPlayer.Character
@@ -3407,10 +3409,10 @@ local function applyXrayToPart(part)
 	if xrayParts[part] == nil then
 		xrayParts[part] = part.Transparency
 	end
-	part.Transparency = 0.5
+	part.Transparency = 0.6
 end
 
-local function removeXrayFromPart(part)
+local function restoreXrayStructurePart(part)
 	local orig = xrayParts[part]
 	if orig ~= nil then
 		if part.Parent then
@@ -3426,12 +3428,12 @@ local function attachToStructureFolder(folder)
 	if not folder then return end
 
 	for _, desc in ipairs(folder:GetDescendants()) do
-		applyXrayToPart(desc)
+		applyXrayToStructurePart(desc)
 	end
 
 	local addConn = folder.DescendantAdded:Connect(function(desc)
 		if xrayActive then
-			applyXrayToPart(desc)
+			applyXrayToStructurePart(desc)
 		end
 	end)
 	table.insert(xrayConnections, addConn)
@@ -3444,7 +3446,7 @@ local function attachToStructureFolder(folder)
 	table.insert(xrayConnections, remConn)
 end
 
-local function setupXray()
+local function setupStructureXray()
 	cleanXrayConnections()
 
 	local knownContainers = {
@@ -3470,16 +3472,25 @@ local function setupXray()
 	table.insert(xrayConnections, wsConn)
 end
 
-Toggles.Xray:OnChanged(function()
-	xrayActive = Toggles.Xray.Value
+Toggles.Xray:OnChanged(function(state)
+	local isEnabled = false
+	if typeof(state) == "boolean" then
+		isEnabled = state
+	elseif Toggles.Xray then
+		isEnabled = Toggles.Xray.Value
+	end
+
+	xrayActive = isEnabled
 	if xrayActive then
-		setupXray()
+		setupStructureXray()
+		Library:Notify({ Title = "Xray", Description = "Enabled", Time = 2 })
 	else
 		cleanXrayConnections()
 		for part in pairs(xrayParts) do
-			removeXrayFromPart(part)
+			restoreXrayStructurePart(part)
 		end
 		table.clear(xrayParts)
+		Library:Notify({ Title = "Xray", Description = "Disabled", Time = 2 })
 	end
 end)
 
