@@ -1699,6 +1699,11 @@ local AutoShieldToggle = CombatAutoBlock:AddToggle("ImmortalMode", {
 	Default = false,
 })
 
+CombatAutoBlock:AddToggle("AttackThroughShield", {
+	Text = "+ Attack Through Shield",
+	Default = true,
+})
+
 CombatAutoBlock:AddToggle("DodgeAura", {
 	Text = "Dodge Aura",
 	Default = false,
@@ -1745,42 +1750,74 @@ end
 
 local isShielding = false
 local lastShieldFire = 0
+local attackLockUntil = 0
+local atsBlinkWindow = 0.05
 
-local setShieldRemote
-pcall(function()
-	setShieldRemote = game:GetService("ReplicatedStorage").remoteInterface.character.setShield
-end)
-
-local function sendSetShield(state)
-	if setShieldRemote then
-		pcall(setShieldRemote.FireServer, setShieldRemote, state)
-	end
-end
-
-local function swingShieldBlink(fn)
-	if not (Toggles.ImmortalMode and Toggles.ImmortalMode.Value) then
-		fn()
+local function withShieldBlink(callback)
+	if not (Toggles.ImmortalMode and Toggles.ImmortalMode.Value)
+		or not (Toggles.AttackThroughShield and Toggles.AttackThroughShield.Value) then
+		callback()
 		return
 	end
-	sendSetShield(false)
-	isShielding = false
-	task.wait()
-	local ok, err = pcall(fn)
+
+	local setShieldRemote = nil
+	pcall(function()
+		setShieldRemote = game:GetService("ReplicatedStorage").remoteInterface.character.setShield
+	end)
+	if setShieldRemote then
+		pcall(function()
+			setShieldRemote:FireServer(false)
+		end)
+		isShielding = false
+	end
+
+	attackLockUntil = tick() + atsBlinkWindow
+
+	local ok, err = pcall(callback)
+
 	task.defer(function()
-		if Toggles.ImmortalMode and Toggles.ImmortalMode.Value then
-			lastShieldFire = tick()
-			sendSetShield(true)
-			isShielding = true
+		attackLockUntil = tick() + atsBlinkWindow
+		if isAlive() and Toggles.ImmortalMode and Toggles.ImmortalMode.Value then
+			local root = getRootPart()
+			if root then
+				local checkDistance = 18
+				local nearby = false
+				for _, player in ipairs(Players:GetPlayers()) do
+					if player ~= LocalPlayer and player.Character then
+						local targetRoot = player.Character:FindFirstChild("HumanoidRootPart")
+						local hum = player.Character:FindFirstChildOfClass("Humanoid")
+						if targetRoot and hum and hum.Health > 0 then
+							local dist = (targetRoot.Position - root.Position).Magnitude
+							if dist <= checkDistance then
+								nearby = true
+								break
+							end
+						end
+					end
+				end
+				if nearby and setShieldRemote then
+					pcall(function()
+						setShieldRemote:FireServer(true)
+					end)
+					isShielding = true
+					lastShieldFire = tick()
+				end
+			end
 		end
 	end)
-	if not ok then error(err) end
+
+	if not ok then
+		error(err)
+	end
 end
 
 local function updateImmortalMode()
 	if not isAlive() or not Toggles.ImmortalMode.Value then
 		if isShielding then
 			isShielding = false
-			sendSetShield(false)
+			pcall(function()
+				game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(false)
+			end)
 		end
 		return
 	end
@@ -1822,66 +1859,44 @@ local function updateImmortalMode()
 	end
 
 	if shouldShield then
-		local targetToFace = activeAttacker or nearestEnemy
-		if targetToFace then
-			local targetPos = targetToFace.Position
-			root.CFrame = CFrame.lookAt(root.Position, Vector3.new(targetPos.X, root.Position.Y, targetPos.Z))
+		local inAttackWindow = tick() < attackLockUntil
+		local atsOn = Toggles.AttackThroughShield and Toggles.AttackThroughShield.Value
+
+		if not (inAttackWindow and atsOn) then
+			local targetToFace = activeAttacker or nearestEnemy
+			if targetToFace then
+				local targetPos = targetToFace.Position
+				root.CFrame = CFrame.lookAt(root.Position, Vector3.new(targetPos.X, root.Position.Y, targetPos.Z))
+			end
 		end
 
-		if tick() - lastShieldFire > 0.05 then
+		if not (inAttackWindow and atsOn) and tick() - lastShieldFire > 0.05 then
 			lastShieldFire = tick()
-			sendSetShield(true)
+			pcall(function()
+				game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(true)
+			end)
 		end
 		isShielding = true
 	else
 		if isShielding then
 			isShielding = false
-			sendSetShield(false)
+			pcall(function()
+				game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(false)
+			end)
 		end
 	end
 end
 
 Toggles.ImmortalMode:OnChanged(function()
 	disconnect("ImmortalMode")
-	disconnect("ShieldBlink_ToolActivated")
-	disconnect("ShieldBlink_CharAdded")
 	if Toggles.ImmortalMode.Value then
 		track("ImmortalMode", RunService.Heartbeat:Connect(updateImmortalMode))
-
-		local function hookToolActivated(tool)
-			if not tool or not tool:IsA("Tool") then return end
-			track("ShieldBlink_ToolActivated_" .. tool:GetFullName(), tool.Activated:Connect(function()
-				sendSetShield(false)
-				isShielding = false
-				task.defer(function()
-					task.wait()
-					if Toggles.ImmortalMode and Toggles.ImmortalMode.Value then
-						lastShieldFire = tick()
-						sendSetShield(true)
-						isShielding = true
-					end
-				end)
-			end))
-		end
-
-		local function hookAllTools(char)
-			if not char then return end
-			char.ChildAdded:Connect(function(child)
-				if child:IsA("Tool") then
-					hookToolActivated(child)
-				end
-			end)
-			for _, t in ipairs(char:GetChildren()) do
-				if t:IsA("Tool") then hookToolActivated(t) end
-			end
-		end
-
-		if LocalPlayer.Character then hookAllTools(LocalPlayer.Character) end
-		track("ShieldBlink_CharAdded", LocalPlayer.CharacterAdded:Connect(hookAllTools))
 	else
 		if isShielding then
 			isShielding = false
-			sendSetShield(false)
+			pcall(function()
+				game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(false)
+			end)
 		end
 	end
 end)
@@ -2122,24 +2137,26 @@ local function attackNPC(slot, target)
 	end
 
 	if isServerModel then
-		-- It's already the server model! Fire meleeAI directly with target
-		if TSG.MeleeAI then
-			pcall(TSG.MeleeAI.FireServer, TSG.MeleeAI, slot, target)
-		else
-			pcall(TSG.MeleeAnimalRemote.FireServer, TSG.MeleeAnimalRemote, slot, target)
-		end
-	else
-		-- It's a client model (from AI_Client or animals folder)
-		if AiController and TSG.MeleeAI then
-			local serverModel = AiController:GetServerModelFromClientModel(target)
-			if serverModel then
-				pcall(TSG.MeleeAI.FireServer, TSG.MeleeAI, slot, serverModel)
+		withShieldBlink(function()
+			if TSG.MeleeAI then
+				pcall(TSG.MeleeAI.FireServer, TSG.MeleeAI, slot, target)
 			else
 				pcall(TSG.MeleeAnimalRemote.FireServer, TSG.MeleeAnimalRemote, slot, target)
 			end
-		else
-			pcall(TSG.MeleeAnimalRemote.FireServer, TSG.MeleeAnimalRemote, slot, target)
-		end
+		end)
+	else
+		withShieldBlink(function()
+			if AiController and TSG.MeleeAI then
+				local serverModel = AiController:GetServerModelFromClientModel(target)
+				if serverModel then
+					pcall(TSG.MeleeAI.FireServer, TSG.MeleeAI, slot, serverModel)
+				else
+					pcall(TSG.MeleeAnimalRemote.FireServer, TSG.MeleeAnimalRemote, slot, target)
+				end
+			else
+				pcall(TSG.MeleeAnimalRemote.FireServer, TSG.MeleeAnimalRemote, slot, target)
+			end
+		end)
 	end
 end
 
@@ -2209,8 +2226,8 @@ local function killAuraLoop()
 
 	lastKillAuraHit = tick()
 	local targetPlayer = Players:GetPlayerFromCharacter(nearestTarget)
-	swingShieldBlink(function()
-		if targetPlayer then
+	if targetPlayer then
+		withShieldBlink(function()
 			if Crypt then
 				pcall(function()
 					local k1, k2, k3 = Crypt.checkpublickeys()
@@ -2222,10 +2239,10 @@ local function killAuraLoop()
 			else
 				pcall(TSG.MeleePlayerRemote.FireServer, TSG.MeleePlayerRemote, slot, targetPlayer)
 			end
-		else
-			attackNPC(slot, nearestTarget)
-		end
-	end)
+		end)
+	else
+		attackNPC(slot, nearestTarget)
+	end
 end
 
 -- Aimbot Script
@@ -2329,7 +2346,7 @@ Toggles.AutoSwing:OnChanged(function()
 			if _G.T and tick() - lastAutoSwing >= delay then
 				local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
 				if tool then
-					swingShieldBlink(function()
+					withShieldBlink(function()
 						tool:Activate()
 					end)
 					lastAutoSwing = tick()
@@ -2696,7 +2713,7 @@ Toggles.SwordBot:OnChanged(function()
 				if tick() - lastSwing >= delay then
 					local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
 					if tool then
-						swingShieldBlink(function()
+						withShieldBlink(function()
 							tool:Activate()
 						end)
 						lastSwing = tick()
@@ -2948,8 +2965,8 @@ local function connectReachTool(tool)
 				if nearestTarget then
 					local slot = tonumber(tool.Name) or 1
 					local targetPlayer = Players:GetPlayerFromCharacter(nearestTarget)
-					swingShieldBlink(function()
-						if targetPlayer then
+					if targetPlayer then
+						withShieldBlink(function()
 							if Crypt then
 								pcall(function()
 									local k1, k2, k3 = Crypt.checkpublickeys()
@@ -2961,10 +2978,10 @@ local function connectReachTool(tool)
 							else
 								pcall(TSG.MeleePlayerRemote.FireServer, TSG.MeleePlayerRemote, slot, targetPlayer)
 							end
-						else
-							attackNPC(slot, nearestTarget)
-						end
-					end)
+						end)
+					else
+						attackNPC(slot, nearestTarget)
+					end
 				end
 			end
 		end
@@ -2995,6 +3012,103 @@ track("ReachCharacterAdded", LocalPlayer.CharacterAdded:Connect(function()
 	setupReachTracking()
 end))
 setupReachTracking()
+
+local function hookManualToolAts(tool)
+	if not tool or not tool:IsA("Tool") then return end
+	local key = "ATSTool_" .. tool:GetFullName()
+	if Connections[key] then return end
+	track(key, tool.Activated:Connect(function()
+		withShieldBlink(function()
+		end)
+	end))
+end
+
+local function setupATSToolHooks()
+	local char = LocalPlayer.Character
+	if char then
+		for _, child in ipairs(char:GetChildren()) do
+			if child:IsA("Tool") then
+				hookManualToolAts(child)
+			end
+		end
+		track("ATS_CharChildAdded", char.ChildAdded:Connect(function(child)
+			if child:IsA("Tool") then
+				hookManualToolAts(child)
+			end
+		end))
+	end
+end
+
+track("ATS_CharacterAdded", LocalPlayer.CharacterAdded:Connect(function()
+	task.wait(1)
+	setupATSToolHooks()
+end))
+setupATSToolHooks()
+
+local inATSRemoteHook = false
+local function hookMeleeRemote(remote, remoteName)
+	if not remote then return end
+	local hookKey = "ATS_RemoteHook_" .. remoteName
+
+	local oldFireServer = remote.FireServer
+	if typeof(hookfunction) == "function" and not Connections[hookKey .. "_Func"] then
+		local ok, hooked = pcall(function()
+			return hookfunction(oldFireServer, function(self, ...)
+				if inATSRemoteHook then
+					return oldFireServer(self, ...)
+				end
+				inATSRemoteHook = true
+				local result = nil
+				local rOk, rErr = pcall(function()
+					withShieldBlink(function()
+						result = oldFireServer(self, ...)
+					end)
+				end)
+				inATSRemoteHook = false
+				if not rOk then
+					error(rErr)
+				end
+				return result
+			end)
+		end)
+		if ok then
+			Connections[hookKey .. "_Func"] = { Disconnect = function() end }
+		end
+	end
+
+	local mtKey = hookKey .. "_MT"
+	if not Connections[mtKey] then
+		local originalNamecallMT; originalNamecallMT = hookmetamethod(game, "__namecall", function(...)
+			local self = ...
+			local method = getnamecallmethod()
+			if rawequal(self, remote) and method == "FireServer" then
+				if inATSRemoteHook then
+					return originalNamecallMT(...)
+				end
+				inATSRemoteHook = true
+				local result = nil
+				local rOk, rErr = pcall(function()
+					withShieldBlink(function()
+						result = originalNamecallMT(...)
+					end)
+				end)
+				inATSRemoteHook = false
+				if not rOk then
+					error(rErr)
+				end
+				return result
+			end
+			return originalNamecallMT(...)
+		end)
+		Connections[mtKey] = { Disconnect = function() end }
+	end
+end
+
+task.defer(function()
+	hookMeleeRemote(TSG.MeleePlayerRemote, "MeleePlayer")
+	hookMeleeRemote(TSG.MeleeAnimalRemote, "MeleeAnimal")
+	hookMeleeRemote(TSG.MeleeAI, "MeleeAI")
+end)
 
 -- ==========================================
 -- MOVEMENT
@@ -3323,80 +3437,28 @@ InvisibleFlyGroup:AddLabel("Highlight Outline Color"):AddColorPicker("InvisibleF
 })
 
 local noclipParts = {}
-local noclipConnections = {}
-
-local function updateNoclipCache(character)
-	table.clear(noclipParts)
-	if not character then return end
-	for _, part in ipairs(character:GetDescendants()) do
-		if part:IsA("BasePart") then
-			noclipParts[part] = true
-		end
-	end
-end
-
-local function setupNoclipCharacter(character)
-	for _, conn in ipairs(noclipConnections) do
-		pcall(function() conn:Disconnect() end)
-	end
-	table.clear(noclipConnections)
-
-	if not character then return end
-	updateNoclipCache(character)
-
-	table.insert(noclipConnections, character.DescendantAdded:Connect(function(part)
-		if part:IsA("BasePart") then
-			noclipParts[part] = true
-			if Toggles.Noclip and Toggles.Noclip.Value then
-				part.CanCollide = false
-			end
-		end
-	end))
-
-	table.insert(noclipConnections, character.DescendantRemoving:Connect(function(part)
-		if noclipParts[part] then
-			noclipParts[part] = nil
-		end
-	end))
-end
-
 Toggles.Noclip:OnChanged(function()
 	disconnect("Noclip")
-	disconnect("Noclip_Respawn")
-	for _, conn in ipairs(noclipConnections) do
-		pcall(function() conn:Disconnect() end)
-	end
-	table.clear(noclipConnections)
-
+	table.clear(noclipParts)
 	if Toggles.Noclip.Value then
-		local char = getCharacter()
-		if char then
-			setupNoclipCharacter(char)
-		end
-
-		track("Noclip_Respawn", LocalPlayer.CharacterAdded:Connect(function(newChar)
-			if Toggles.Noclip and Toggles.Noclip.Value then
-				setupNoclipCharacter(newChar)
-			end
-		end))
-
 		track("Noclip", RunService.Stepped:Connect(function()
-			if not Toggles.Noclip.Value then return end
-			for part in pairs(noclipParts) do
-				if part.Parent and part.CanCollide then
+			local character = getCharacter()
+			if not character then
+				return
+			end
+			for _, part in ipairs(character:GetDescendants()) do
+				if part:IsA("BasePart") and part.CanCollide then
 					part.CanCollide = false
+					noclipParts[part] = true
 				end
 			end
 		end))
-
-		Library:Notify({ Title = "Noclip", Description = "Enabled (Optimized)", Time = 2 })
 	else
 		for part in pairs(noclipParts) do
 			if part.Parent then
 				part.CanCollide = true
 			end
 		end
-		table.clear(noclipParts)
 	end
 end)
 
@@ -3436,61 +3498,38 @@ local xrayParts = {}
 local xrayActive = false
 
 local function applyXray(v)
-	if v:IsA("BasePart") and not v:IsA("Terrain") and v.Transparency < 0.9 then
-		if not v:IsDescendantOf(LocalPlayer.Character) and not (workspace:FindFirstChild("droppedItems") and v:IsDescendantOf(workspace.droppedItems)) then
-			if not xrayParts[v] then
-				xrayParts[v] = v.Transparency
-			end
-			v.Transparency = 0.65
+	if v:IsA("BasePart") and not v:IsDescendantOf(LocalPlayer.Character) and not v:IsA("Terrain") then
+		if not xrayParts[v] then
+			xrayParts[v] = v.Transparency
 		end
+		v.Transparency = 0.5
 	end
 end
 
 local function removeXray(v)
 	local orig = xrayParts[v]
-	if orig ~= nil then
-		if v and v.Parent then
-			v.Transparency = orig
-		end
+	if orig then
+		v.Transparency = orig
 		xrayParts[v] = nil
 	end
 end
 
-local function scanAndApplyXray()
-	local placed = workspace:FindFirstChild("placedStructures")
-	if placed then
-		for _, v in ipairs(placed:GetDescendants()) do
-			applyXray(v)
-		end
-	end
-
-	local mapFolder = workspace:FindFirstChild("Map") or workspace:FindFirstChild("Structures")
-	if mapFolder then
-		for _, v in ipairs(mapFolder:GetDescendants()) do
-			applyXray(v)
-		end
-	end
-end
-
 Toggles.Xray:OnChanged(function()
-	disconnect("XrayAdded")
 	xrayActive = Toggles.Xray.Value
 	if xrayActive then
-		scanAndApplyXray()
-		local placed = workspace:FindFirstChild("placedStructures")
-		if placed then
-			track("XrayAdded", placed.DescendantAdded:Connect(function(v)
-				if xrayActive then
-					applyXray(v)
-				end
-			end))
+		for _, v in ipairs(workspace:GetDescendants()) do
+			applyXray(v)
 		end
-		Library:Notify({ Title = "X-Ray", Description = "Enabled (Optimized)", Time = 2 })
+		track("XrayAdded", workspace.DescendantAdded:Connect(function(v)
+			if xrayActive then
+				applyXray(v)
+			end
+		end))
 	else
+		disconnect("XrayAdded")
 		for v in pairs(xrayParts) do
 			removeXray(v)
 		end
-		table.clear(xrayParts)
 	end
 end)
 
@@ -6102,9 +6141,6 @@ Library:OnUnload(function()
 	if Toggles.FakeLag and Toggles.FakeLag.Value then
 		Toggles.FakeLag:SetValue(false)
 	end
-	if Toggles.Noclip and Toggles.Noclip.Value then
-		Toggles.Noclip:SetValue(false)
-	end
 	if Toggles.Xray and Toggles.Xray.Value then
 		Toggles.Xray:SetValue(false)
 	end
@@ -6196,10 +6232,6 @@ Library:OnUnload(function()
 	if Toggles.NoGliderCooldown and Toggles.NoGliderCooldown.Value then
 		Toggles.NoGliderCooldown:SetValue(false)
 	end
-	if Toggles.ImmortalMode and Toggles.ImmortalMode.Value then
-		Toggles.ImmortalMode:SetValue(false)
-	end
-	isShielding = false
 
 	pcall(function()
 		if fovCircle then fovCircle:Remove() end
