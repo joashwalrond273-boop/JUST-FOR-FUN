@@ -1833,6 +1833,8 @@ end)
 
 local lastDodgeTime = 0
 local dodgeCooldown = 0.2
+local enemySwingCache = {}
+local swingWindow = 0.45
 
 local function performInstantDodgeBehind(enemyRoot)
 	if not enemyRoot or not enemyRoot.Parent or not isAlive() then return end
@@ -1851,12 +1853,46 @@ local function performInstantDodgeBehind(enemyRoot)
 		flatLook = flatLook.Unit
 	end
 
-	-- Instant snap 5 studs directly behind enemy, facing their back
 	local behindPos = enemyRoot.Position - (flatLook * 5)
 	local targetCF = CFrame.lookAt(behindPos, Vector3.new(enemyRoot.Position.X, behindPos.Y, enemyRoot.Position.Z))
 
 	char:PivotTo(targetCF)
 	root.CFrame = targetCF
+end
+
+local function markEnemySwing(enemyChar)
+	if not enemyChar then return end
+	enemySwingCache[enemyChar] = tick() + swingWindow
+end
+
+local function isEnemySwingingCached(enemyChar)
+	local expires = enemySwingCache[enemyChar]
+	if not expires then return false end
+	if tick() > expires then
+		enemySwingCache[enemyChar] = nil
+		return false
+	end
+	return true
+end
+
+local function hookEnemyDodgeAnimator(animator, enemyChar)
+	if not animator or not enemyChar then return end
+	track("DodgeAnim_" .. enemyChar.Name, animator.AnimationPlayed:Connect(function(trackObj)
+		if not Toggles.DodgeAura or not Toggles.DodgeAura.Value then return end
+		if not isSwingAnimation(trackObj) then return end
+		if trackObj.Speed <= 0 then return end
+		markEnemySwing(enemyChar)
+		if not isAlive() then return end
+		if tick() - lastDodgeTime < dodgeCooldown then return end
+		local root = getRootPart()
+		local enemyRoot = enemyChar:FindFirstChild("HumanoidRootPart")
+		if not root or not enemyRoot then return end
+		local dx = enemyRoot.Position.X - root.Position.X
+		local dz = enemyRoot.Position.Z - root.Position.Z
+		if dx * dx + dz * dz <= 100 then
+			performInstantDodgeBehind(enemyRoot)
+		end
+	end))
 end
 
 local function checkAndPerformDodge()
@@ -1865,64 +1901,40 @@ local function checkAndPerformDodge()
 
 	local root = getRootPart()
 	if not root then return end
+	local myPos = root.Position
+	local rangeSq = 10 * 10
 
 	for _, player in ipairs(Players:GetPlayers()) do
-		if player ~= LocalPlayer and player.Character then
-			local enemyRoot = player.Character:FindFirstChild("HumanoidRootPart")
-			local hum = player.Character:FindFirstChildOfClass("Humanoid")
-			if enemyRoot and hum and hum.Health > 0 then
-				local dist = (enemyRoot.Position - root.Position).Magnitude
-				if dist <= 10 then
-					local isSwinging = false
-					local animator = hum:FindFirstChild("Animator")
-					if animator then
-						for _, trackObj in ipairs(animator:GetPlayingAnimationTracks()) do
-							if trackObj.Speed > 0 and isSwingAnimation(trackObj) then
-								isSwinging = true
-								break
-							end
-						end
-					end
+		if player == LocalPlayer then continue end
+		local enemyChar = player.Character
+		if not enemyChar then continue end
+		local enemyRoot = enemyChar:FindFirstChild("HumanoidRootPart")
+		if not enemyRoot then continue end
+		local dx = enemyRoot.Position.X - myPos.X
+		local dz = enemyRoot.Position.Z - myPos.Z
+		if dx * dx + dz * dz > rangeSq then continue end
+		local hum = enemyChar:FindFirstChildOfClass("Humanoid")
+		if not hum or hum.Health <= 0 then continue end
 
-					if isSwinging then
-						performInstantDodgeBehind(enemyRoot)
-						break
-					end
-				end
-			end
+		if isEnemySwingingCached(enemyChar) then
+			performInstantDodgeBehind(enemyRoot)
+			break
 		end
 	end
-end
-
-local function hookEnemyDodgeAnimator(animator, enemyChar)
-	if not animator then return end
-	track("DodgeAnim_" .. enemyChar.Name, animator.AnimationPlayed:Connect(function(trackObj)
-		if not Toggles.DodgeAura or not Toggles.DodgeAura.Value or not isAlive() then return end
-		if tick() - lastDodgeTime < dodgeCooldown then return end
-		if not isSwingAnimation(trackObj) then return end
-
-		local root = getRootPart()
-		local enemyRoot = enemyChar:FindFirstChild("HumanoidRootPart")
-		if not root or not enemyRoot then return end
-
-		local dist = (enemyRoot.Position - root.Position).Magnitude
-		if dist <= 10 then
-			performInstantDodgeBehind(enemyRoot)
-		end
-	end))
 end
 
 Toggles.DodgeAura:OnChanged(function()
 	disconnect("DodgeAura_Render")
 	disconnect("DodgeAura_Heartbeat")
+	disconnect("DodgeAura_PlayerAdded")
 	for name in pairs(Connections) do
-		if name:sub(1, 10) == "DodgeAnim_" then
+		if name:sub(1, 10) == "DodgeAnim_" or name:sub(1, 18) == "DodgeAura_CharAdded_" then
 			disconnect(name)
 		end
 	end
+	table.clear(enemySwingCache)
 
 	if Toggles.DodgeAura.Value then
-		track("DodgeAura_Render", RunService.RenderStepped:Connect(checkAndPerformDodge))
 		track("DodgeAura_Heartbeat", RunService.Heartbeat:Connect(checkAndPerformDodge))
 
 		for _, player in ipairs(Players:GetPlayers()) do
@@ -1936,28 +1948,15 @@ Toggles.DodgeAura:OnChanged(function()
 		end
 
 		track("DodgeAura_PlayerAdded", Players.PlayerAdded:Connect(function(player)
-			if player ~= LocalPlayer then
-				player.CharacterAdded:Connect(function(char)
-					local hum = char:WaitForChild("Humanoid", 5)
-					local animator = hum and hum:WaitForChild("Animator", 5)
-					if animator and Toggles.DodgeAura and Toggles.DodgeAura.Value then
-						hookEnemyDodgeAnimator(animator, char)
-					end
-				end)
-			end
+			if player == LocalPlayer then return end
+			player.CharacterAdded:Connect(function(char)
+				local hum = char:WaitForChild("Humanoid", 5)
+				local animator = hum and hum:WaitForChild("Animator", 5)
+				if animator and Toggles.DodgeAura and Toggles.DodgeAura.Value then
+					hookEnemyDodgeAnimator(animator, char)
+				end
+			end)
 		end))
-
-		for _, player in ipairs(Players:GetPlayers()) do
-			if player ~= LocalPlayer then
-				track("DodgeAura_CharAdded_" .. player.Name, player.CharacterAdded:Connect(function(char)
-					local hum = char:WaitForChild("Humanoid", 5)
-					local animator = hum and hum:WaitForChild("Animator", 5)
-					if animator and Toggles.DodgeAura and Toggles.DodgeAura.Value then
-						hookEnemyDodgeAnimator(animator, char)
-					end
-				end))
-			end
-		end
 
 		Library:Notify({ Title = "Dodge Aura", Description = "Enabled (Fast Instant Dodge)", Time = 2 })
 	end
