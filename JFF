@@ -1699,6 +1699,11 @@ local AutoShieldToggle = CombatAutoBlock:AddToggle("ImmortalMode", {
 	Default = false,
 })
 
+CombatAutoBlock:AddToggle("ShieldBypassAttacks", {
+	Text = "Attack Through Shield",
+	Default = false,
+})
+
 CombatAutoBlock:AddToggle("DodgeAura", {
 	Text = "Dodge Aura",
 	Default = false,
@@ -1745,14 +1750,65 @@ end
 
 local isShielding = false
 local lastShieldFire = 0
+local attackLockUntil = 0
+local shieldBlinkBusy = false
+
+local setShieldRemote
+pcall(function()
+	setShieldRemote = game:GetService("ReplicatedStorage").remoteInterface.character.setShield
+end)
+
+local function sendSetShield(state)
+	if setShieldRemote then
+		pcall(setShieldRemote.FireServer, setShieldRemote, state)
+	end
+end
+
+local function shouldBypassShield()
+	return Toggles.ImmortalMode and Toggles.ImmortalMode.Value
+		and Toggles.ShieldBypassAttacks and Toggles.ShieldBypassAttacks.Value
+end
+
+local function raiseAttackWindow(seconds)
+	seconds = seconds or 0.04
+	attackLockUntil = math.max(attackLockUntil, tick() + seconds)
+end
+
+local function withShieldBlink(fn)
+	if not shouldBypassShield() then
+		fn()
+		return
+	end
+	if shieldBlinkBusy then
+		fn()
+		return
+	end
+	shieldBlinkBusy = true
+	raiseAttackWindow(0.06)
+	sendSetShield(false)
+	isShielding = false
+	task.wait()
+	local ok, err = pcall(fn)
+	task.defer(function()
+		if Toggles.ImmortalMode and Toggles.ImmortalMode.Value then
+			lastShieldFire = tick()
+			sendSetShield(true)
+			isShielding = true
+		end
+		shieldBlinkBusy = false
+	end)
+	if not ok then error(err) end
+end
+
 local function updateImmortalMode()
 	if not isAlive() or not Toggles.ImmortalMode.Value then
 		if isShielding then
 			isShielding = false
-			pcall(function()
-				game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(false)
-			end)
+			sendSetShield(false)
 		end
+		return
+	end
+	if tick() < attackLockUntil then
 		return
 	end
 
@@ -1793,40 +1849,71 @@ local function updateImmortalMode()
 	end
 
 	if shouldShield then
-		-- 360 protection: automatically orient shield towards swinging attacker or closest enemy
-		local targetToFace = activeAttacker or nearestEnemy
-		if targetToFace then
-			local targetPos = targetToFace.Position
-			root.CFrame = CFrame.lookAt(root.Position, Vector3.new(targetPos.X, root.Position.Y, targetPos.Z))
+		if not shouldBypassShield() then
+			local targetToFace = activeAttacker or nearestEnemy
+			if targetToFace then
+				local targetPos = targetToFace.Position
+				root.CFrame = CFrame.lookAt(root.Position, Vector3.new(targetPos.X, root.Position.Y, targetPos.Z))
+			end
 		end
 
 		if tick() - lastShieldFire > 0.05 then
 			lastShieldFire = tick()
-			pcall(function()
-				game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(true)
-			end)
+			sendSetShield(true)
 		end
 		isShielding = true
 	else
 		if isShielding then
 			isShielding = false
-			pcall(function()
-				game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(false)
-			end)
+			sendSetShield(false)
 		end
 	end
 end
 
 Toggles.ImmortalMode:OnChanged(function()
 	disconnect("ImmortalMode")
+	disconnect("ShieldBlink_ToolActivated")
+	disconnect("ShieldBlink_CharAdded")
 	if Toggles.ImmortalMode.Value then
 		track("ImmortalMode", RunService.Heartbeat:Connect(updateImmortalMode))
+
+		local function hookToolActivated(tool)
+			if not tool or not tool:IsA("Tool") then return end
+			track("ShieldBlink_ToolActivated_" .. tool:GetFullName(), tool.Activated:Connect(function()
+				if shouldBypassShield() then
+					raiseAttackWindow(0.08)
+					sendSetShield(false)
+					isShielding = false
+					task.defer(function()
+						task.wait(0.06)
+						if Toggles.ImmortalMode and Toggles.ImmortalMode.Value then
+							lastShieldFire = tick()
+							sendSetShield(true)
+							isShielding = true
+						end
+					end)
+				end
+			end))
+		end
+
+		local function hookAllTools(char)
+			if not char then return end
+			char.ChildAdded:Connect(function(child)
+				if child:IsA("Tool") then
+					hookToolActivated(child)
+				end
+			end)
+			for _, t in ipairs(char:GetChildren()) do
+				if t:IsA("Tool") then hookToolActivated(t) end
+			end
+		end
+
+		if LocalPlayer.Character then hookAllTools(LocalPlayer.Character) end
+		track("ShieldBlink_CharAdded", LocalPlayer.CharacterAdded:Connect(hookAllTools))
 	else
 		if isShielding then
 			isShielding = false
-			pcall(function()
-				game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(false)
-			end)
+			sendSetShield(false)
 		end
 	end
 end)
@@ -2154,22 +2241,23 @@ local function killAuraLoop()
 
 	lastKillAuraHit = tick()
 	local targetPlayer = Players:GetPlayerFromCharacter(nearestTarget)
-	if targetPlayer then
-		-- Player: use Crypt encryption, fire (slot, encryptedUserId)
-		if Crypt then
-			pcall(function()
-				local k1, k2, k3 = Crypt.checkpublickeys()
-				if k1 and k2 and k3 then
-					local encryptedUserId = Crypt.crypt(k1, math.abs(targetPlayer.UserId) + k3, k2)
-					TSG.MeleePlayerRemote:FireServer(slot, encryptedUserId)
-				end
-			end)
+	withShieldBlink(function()
+		if targetPlayer then
+			if Crypt then
+				pcall(function()
+					local k1, k2, k3 = Crypt.checkpublickeys()
+					if k1 and k2 and k3 then
+						local encryptedUserId = Crypt.crypt(k1, math.abs(targetPlayer.UserId) + k3, k2)
+						TSG.MeleePlayerRemote:FireServer(slot, encryptedUserId)
+					end
+				end)
+			else
+				pcall(TSG.MeleePlayerRemote.FireServer, TSG.MeleePlayerRemote, slot, targetPlayer)
+			end
 		else
-			pcall(TSG.MeleePlayerRemote.FireServer, TSG.MeleePlayerRemote, slot, targetPlayer)
+			attackNPC(slot, nearestTarget)
 		end
-	else
-		attackNPC(slot, nearestTarget)
-	end
+	end)
 end
 
 -- Aimbot Script
@@ -2273,7 +2361,9 @@ Toggles.AutoSwing:OnChanged(function()
 			if _G.T and tick() - lastAutoSwing >= delay then
 				local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
 				if tool then
-					tool:Activate()
+					withShieldBlink(function()
+						tool:Activate()
+					end)
 					lastAutoSwing = tick()
 				end
 			end
@@ -2638,7 +2728,9 @@ Toggles.SwordBot:OnChanged(function()
 				if tick() - lastSwing >= delay then
 					local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
 					if tool then
-						tool:Activate()
+						withShieldBlink(function()
+							tool:Activate()
+						end)
 						lastSwing = tick()
 					end
 				end
@@ -2888,21 +2980,23 @@ local function connectReachTool(tool)
 				if nearestTarget then
 					local slot = tonumber(tool.Name) or 1
 					local targetPlayer = Players:GetPlayerFromCharacter(nearestTarget)
-					if targetPlayer then
-						if Crypt then
-							pcall(function()
-								local k1, k2, k3 = Crypt.checkpublickeys()
-								if k1 and k2 and k3 then
-									local encryptedUserId = Crypt.crypt(k1, math.abs(targetPlayer.UserId) + k3, k2)
-									TSG.MeleePlayerRemote:FireServer(slot, encryptedUserId)
-								end
-							end)
+					withShieldBlink(function()
+						if targetPlayer then
+							if Crypt then
+								pcall(function()
+									local k1, k2, k3 = Crypt.checkpublickeys()
+									if k1 and k2 and k3 then
+										local encryptedUserId = Crypt.crypt(k1, math.abs(targetPlayer.UserId) + k3, k2)
+										TSG.MeleePlayerRemote:FireServer(slot, encryptedUserId)
+									end
+								end)
+							else
+								pcall(TSG.MeleePlayerRemote.FireServer, TSG.MeleePlayerRemote, slot, targetPlayer)
+							end
 						else
-                                                        pcall(TSG.MeleePlayerRemote.FireServer, TSG.MeleePlayerRemote, slot, targetPlayer)
+							attackNPC(slot, nearestTarget)
 						end
-					else
-						attackNPC(slot, nearestTarget)
-					end
+					end)
 				end
 			end
 		end
@@ -6134,6 +6228,12 @@ Library:OnUnload(function()
 	if Toggles.NoGliderCooldown and Toggles.NoGliderCooldown.Value then
 		Toggles.NoGliderCooldown:SetValue(false)
 	end
+	if Toggles.ImmortalMode and Toggles.ImmortalMode.Value then
+		Toggles.ImmortalMode:SetValue(false)
+	end
+	attackLockUntil = 0
+	shieldBlinkBusy = false
+	isShielding = false
 
 	pcall(function()
 		if fovCircle then fovCircle:Remove() end
