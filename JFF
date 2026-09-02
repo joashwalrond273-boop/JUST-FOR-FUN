@@ -2906,7 +2906,8 @@ local function connectReachTool(tool)
 				end
 			end
 		end
-	end))
+
+end))
 end
 
 local function setupReachTracking()
@@ -3192,30 +3193,30 @@ MoveRight:AddSlider("FlySpeed", {
 local MoveLowGravity = Tabs.Movement:AddRightGroupbox("Low Gravity", "arrow-down")
 
 MoveLowGravity:AddToggle("LowGravity", {
-	Text = "Low Gravity",
-	Default = false,
+        Text = "Low Gravity",
+        Default = false,
 })
 
 MoveLowGravity:AddSlider("LowGravityHeight", {
-	Text = "Low Gravity Height",
-	Default = 100,
-	Min = 0,
-	Max = 300,
-	Rounding = 0,
+        Text = "Low Gravity Height",
+        Default = 100,
+        Min = 0,
+        Max = 300,
+        Rounding = 0,
 })
 
 Toggles.LowGravity:OnChanged(function()
-	if Toggles.LowGravity.Value then
-		workspace.Gravity = math.max(0, 196.2 - Options.LowGravityHeight.Value)
-	else
-		workspace.Gravity = 196.2
-	end
+        if Toggles.LowGravity.Value then
+           workspace.Gravity = math.max(0, 196.2 - Options.LowGravityHeight.Value)
+        else
+                workspace.Gravity = 196.2
+        end
 end)
 
 Options.LowGravityHeight:OnChanged(function()
-	if Toggles.LowGravity.Value then
-		workspace.Gravity = math.max(0, 196.2 - Options.LowGravityHeight.Value)
-	end
+        if Toggles.LowGravity.Value then
+           workspace.Gravity = math.max(0, 196.2 - Options.LowGravityHeight.Value)
+        end
 end)
 
 local FakeLagGroup = Tabs.Movement:AddRightGroupbox("Fake Lag", "zap")
@@ -3237,108 +3238,90 @@ FakeLagGroup:AddSlider("FakeLagValue", {
 local InvisibleFlyGroup = Tabs.Movement:AddRightGroupbox("Invisible Fly", "plane")
 
 InvisibleFlyGroup:AddToggle("InvisibleFlyToggle", {
-	Text = "Invis Fly",
-	Default = false,
+        Text = "Invis Fly",
+        Default = false,
 })
 
 InvisibleFlyGroup:AddSlider("InvisibleFlySpeedSlider", {
-	Text = "Fly Speed",
-	Min = 1,
-	Max = 15,
-	Default = 5,
-	Rounding = 1,
+        Text = "Fly Speed",
+        Min = 1,
+        Max = 15,
+        Default = 5,
+        Rounding = 1,
 })
 
 InvisibleFlyGroup:AddLabel("Highlight Fill Color"):AddColorPicker("InvisibleFlyFillColor", {
-	Default = Color3.fromRGB(0, 255, 0),
-	Title = "Invisible Fly Highlight Fill Color",
+        Default = Color3.fromRGB(0, 255, 0),
+        Title = "Invisible Fly Highlight Fill Color",
 })
 
 InvisibleFlyGroup:AddLabel("Highlight Outline Color"):AddColorPicker("InvisibleFlyOutlineColor", {
-	Default = Color3.fromRGB(255, 255, 255),
-	Title = "Invisible Fly Highlight Outline Color",
+        Default = Color3.fromRGB(255, 255, 255),
+        Title = "Invisible Fly Highlight Outline Color",
 })
 
-local noclipConnection = nil
-
-local function setCharacterCollisions(char, canCollide)
-	if not char then return end
-	for _, part in ipairs(char:GetChildren()) do
-		if part:IsA("BasePart") then
-			if canCollide then
-				if part.Name == "HumanoidRootPart" then
-					part.CanCollide = false
-				else
-					part.CanCollide = true
+local noclipParts = {}
+local keyPartNames = {
+	HumanoidRootPart = true,
+	Head = true,
+	Torso = true,
+	UpperTorso = true,
+	LowerTorso = true,
+	LeftUpperArm = true,
+	LeftLowerArm = true,
+	LeftHand = true,
+	RightUpperArm = true,
+	RightLowerArm = true,
+	RightHand = true,
+	LeftUpperLeg = true,
+	LeftLowerLeg = true,
+	LeftFoot = true,
+	RightUpperLeg = true,
+	RightLowerLeg = true,
+	RightFoot = true,
+	HumanoidRootPart = true,
+}
+Toggles.Noclip:OnChanged(function()
+	disconnect("Noclip")
+	table.clear(noclipParts)
+	if Toggles.Noclip.Value then
+		track("Noclip", RunService.Stepped:Connect(function()
+			local character = getCharacter()
+			if not character then
+				return
+			end
+			for _, part in ipairs(character:GetChildren()) do
+				if part:IsA("BasePart") and keyPartNames[part.Name] then
+					if part.CanCollide then
+						part.CanCollide = false
+						noclipParts[part] = true
+					else
+						noclipParts[part] = true
+					end
 				end
-			else
-				part.CanCollide = false
 			end
-		end
-	end
-end
-
-local function stopNoclip()
-	if noclipConnection then
-		noclipConnection:Disconnect()
-		noclipConnection = nil
-	end
-	disconnect("NoclipLoop")
-	local char = LocalPlayer.Character
-	if char then
-		setCharacterCollisions(char, true)
-	end
-end
-
-local function startNoclip()
-	stopNoclip()
-	local char = LocalPlayer.Character
-	if char then
-		setCharacterCollisions(char, false)
-	end
-
-	noclipConnection = RunService.Stepped:Connect(function()
-		if not (Toggles.Noclip and Toggles.Noclip.Value) then
-			stopNoclip()
-			return
-		end
-		local currentChar = LocalPlayer.Character
-		if not currentChar then return end
-
-		for _, part in ipairs(currentChar:GetChildren()) do
-			if part:IsA("BasePart") and part.CanCollide then
-				part.CanCollide = false
+			for _, tool in ipairs(character:GetChildren()) do
+				if tool:IsA("Tool") then
+					local handle = tool:FindFirstChild("Handle")
+					if handle and handle:IsA("BasePart") then
+						if handle.CanCollide then
+							handle.CanCollide = false
+							noclipParts[handle] = true
+						else
+							noclipParts[handle] = true
+						end
+					end
+				end
 			end
-		end
-	end)
-	track("NoclipLoop", noclipConnection)
-end
-
-Toggles.Noclip:OnChanged(function(state)
-	local isEnabled = false
-	if typeof(state) == "boolean" then
-		isEnabled = state
-	elseif Toggles.Noclip then
-		isEnabled = Toggles.Noclip.Value
-	end
-
-	if isEnabled then
-		startNoclip()
-		Library:Notify({ Title = "Noclip", Description = "Enabled", Time = 2 })
+		end))
 	else
-		stopNoclip()
-		Library:Notify({ Title = "Noclip", Description = "Disabled", Time = 2 })
+		for part in pairs(noclipParts) do
+			if part.Parent then
+				part.CanCollide = true
+			end
+		end
 	end
 end)
-
-track("Noclip_Respawn", LocalPlayer.CharacterAdded:Connect(function(newChar)
-	task.wait(0.2)
-	if Toggles.Noclip and Toggles.Noclip.Value then
-		startNoclip()
-	else
-		setCharacterCollisions(newChar, true)
-	end
-end))
 
 Toggles.FakeLag:OnChanged(function()
 	disconnect("FakeLag")
@@ -3374,108 +3357,64 @@ end)
 
 local xrayParts = {}
 local xrayActive = false
-local xrayConnections = {}
+local skipPartNames = {
+	Grass = true, Leaf = true, Leaves = true, Tree = true, Trunk = true,
+	Branch = true, Flower = true, Bush = true, Plant = true, Vine = true,
+	Drop = true, Item = true, Pickup = true, Loot = true, Sack = true,
+	Rupee = true, Coin = true, Gem = true, Arrow = true, Bolt = true,
+	Splatter = true, Blood = true, Decal = true, Effect = true, Spark = true,
+	Particle = true, Smoke = true, Fire = true, Explosion = true, Debris = true,
+}
 
-local function cleanXrayConnections()
-	for _, conn in ipairs(xrayConnections) do
-		if conn and conn.Connected then
-			conn:Disconnect()
-		end
+local function shouldApplyXray(v)
+	if not v:IsA("BasePart") then return false end
+	if v:IsA("Terrain") then return false end
+	if not v.CanCollide then return false end
+	if v.Transparency > 0.1 then return false end
+	if v:IsDescendantOf(LocalPlayer.Character) then return false end
+	local s = v.Size
+	if (s.X * s.Y * s.Z) < 3 then return false end
+	local name = v.Name
+	if skipPartNames[name] then return false end
+	for skip in pairs(skipPartNames) do
+		if string.find(name, skip, 1, true) then return false end
 	end
-	table.clear(xrayConnections)
+	if v.Parent and (v.Parent:IsA("Tool") or v.Parent:IsA("Accessory") or v.Parent:IsA("Hat")) then return false end
+	return true
 end
 
-local function applyXrayToStructurePart(part)
-	if not part:IsA("BasePart") then return end
-	if part:IsA("Terrain") then return end
-	local char = LocalPlayer.Character
-	if char and part:IsDescendantOf(char) then return end
-
-	if xrayParts[part] == nil then
-		xrayParts[part] = part.Transparency
+local function applyXray(v)
+	if not shouldApplyXray(v) then return end
+	if not xrayParts[v] then
+		xrayParts[v] = v.Transparency
 	end
-	part.Transparency = 0.6
+	v.Transparency = 0.5
 end
 
-local function restoreXrayStructurePart(part)
-	local orig = xrayParts[part]
-	if orig ~= nil then
-		if part.Parent then
-			pcall(function()
-				part.Transparency = orig
-			end)
-		end
-		xrayParts[part] = nil
+local function removeXray(v)
+	local orig = xrayParts[v]
+	if orig then
+		v.Transparency = orig
+		xrayParts[v] = nil
 	end
 end
 
-local function attachToStructureFolder(folder)
-	if not folder then return end
-
-	for _, desc in ipairs(folder:GetDescendants()) do
-		applyXrayToStructurePart(desc)
-	end
-
-	local addConn = folder.DescendantAdded:Connect(function(desc)
-		if xrayActive then
-			applyXrayToStructurePart(desc)
-		end
-	end)
-	table.insert(xrayConnections, addConn)
-
-	local remConn = folder.DescendantRemoving:Connect(function(desc)
-		if desc:IsA("BasePart") then
-			xrayParts[desc] = nil
-		end
-	end)
-	table.insert(xrayConnections, remConn)
-end
-
-local function setupStructureXray()
-	cleanXrayConnections()
-
-	local knownContainers = {
-		workspace:FindFirstChild("placedStructures"),
-		workspace:FindFirstChild("structures"),
-		workspace:FindFirstChild("Buildings"),
-		workspace:FindFirstChild("PlayerStructures"),
-	}
-
-	for _, container in ipairs(knownContainers) do
-		if container then
-			attachToStructureFolder(container)
-		end
-	end
-
-	local wsConn = workspace.ChildAdded:Connect(function(child)
-		if not xrayActive then return end
-		local nameLower = child.Name:lower()
-		if nameLower:find("structure") or nameLower:find("building") then
-			attachToStructureFolder(child)
-		end
-	end)
-	table.insert(xrayConnections, wsConn)
-end
-
-Toggles.Xray:OnChanged(function(state)
-	local isEnabled = false
-	if typeof(state) == "boolean" then
-		isEnabled = state
-	elseif Toggles.Xray then
-		isEnabled = Toggles.Xray.Value
-	end
-
-	xrayActive = isEnabled
+Toggles.Xray:OnChanged(function()
+	xrayActive = Toggles.Xray.Value
 	if xrayActive then
-		setupStructureXray()
-		Library:Notify({ Title = "Xray", Description = "Enabled", Time = 2 })
-	else
-		cleanXrayConnections()
-		for part in pairs(xrayParts) do
-			restoreXrayStructurePart(part)
+		for _, v in ipairs(workspace:GetDescendants()) do
+			applyXray(v)
 		end
-		table.clear(xrayParts)
-		Library:Notify({ Title = "Xray", Description = "Disabled", Time = 2 })
+		track("XrayAdded", workspace.DescendantAdded:Connect(function(v)
+			if xrayActive then
+				applyXray(v)
+			end
+		end))
+	else
+		disconnect("XrayAdded")
+		for v in pairs(xrayParts) do
+			removeXray(v)
+		end
 	end
 end)
 
@@ -5053,6 +4992,7 @@ VisualFPS:AddToggle("DisableEffects", {
 
 do
 	local PBR_TYPES = { SurfaceAppearance = true, Texture = true, Decal = true }
+
 	VisualFPS:AddToggle("RemovePBR", {
 		Text = "Remove PBR Textures",
 		Default = false,
@@ -6014,10 +5954,13 @@ MenuGroup:AddDropdown("NotificationSide", {
 MenuGroup:AddDropdown("DPIDropdown", {
 	Values = { "50%", "75%", "100%", "125%", "150%", "175%", "200%" },
 	Default = "100%",
+
 	Text = "DPI Scale",
+
 	Callback = function(Value)
 		Value = Value:gsub("%%", "")
 		local DPI = tonumber(Value)
+
 		Library:SetDPIScale(DPI)
 	end,
 })
@@ -6061,6 +6004,7 @@ ThemeManager:ApplyToTab(Tabs["UI Settings"])
 SaveManager:LoadAutoloadConfig()
 
 Library:OnUnload(function()
+
 	if Toggles.DesyncToggle and Toggles.DesyncToggle.Value then
 		Toggles.DesyncToggle:SetValue(false)
 	end
@@ -6081,9 +6025,6 @@ Library:OnUnload(function()
 	end
 	if Toggles.FakeLag and Toggles.FakeLag.Value then
 		Toggles.FakeLag:SetValue(false)
-	end
-	if Toggles.Noclip and Toggles.Noclip.Value then
-		Toggles.Noclip:SetValue(false)
 	end
 	if Toggles.Xray and Toggles.Xray.Value then
 		Toggles.Xray:SetValue(false)
