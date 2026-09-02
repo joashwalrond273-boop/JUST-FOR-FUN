@@ -1751,65 +1751,177 @@ end
 local isShielding = false
 local lastShieldFire = 0
 local attackLockUntil = 0
-local atsBlinkWindow = 0.05
+local atsBlinkWindow = 0.1
+local blinkHeartbeatsRemaining = 0
 
-local function withShieldBlink(callback)
-	if not (Toggles.ImmortalMode and Toggles.ImmortalMode.Value)
-		or not (Toggles.AttackThroughShield and Toggles.AttackThroughShield.Value) then
-		callback()
+local function getSetShieldRemote()
+	local remote = nil
+	pcall(function()
+		remote = game:GetService("ReplicatedStorage").remoteInterface.character.setShield
+	end)
+	return remote
+end
+
+local function forceSetShieldAttributes(bool)
+	local char = getCharacter()
+	local root = getRootPart()
+	if not char and not root then return end
+	local targets = {}
+	if char then table.insert(targets, char) end
+	if root then table.insert(targets, root) end
+	local hum = char and char:FindFirstChildOfClass("Humanoid")
+	if hum then table.insert(targets, hum) end
+	local head = char and char:FindFirstChild("Head")
+	if head then table.insert(targets, head) end
+	for _, instance in ipairs(targets) do
+		pcall(function() instance:SetAttribute("setShield", bool) end)
+		pcall(function() instance:SetAttribute("ShieldBlocked", not bool) end)
+		pcall(function() instance:SetAttribute("IsBlocking", bool) end)
+		pcall(function() instance:SetAttribute("isBlocking", bool) end)
+		pcall(function()
+			if bool then
+				instance:SetAttribute("ShieldBlockedEnd", tick() + 99999)
+			else
+				instance:SetAttribute("ShieldBlockedEnd", 0)
+			end
+		end)
+	end
+end
+
+local function setShieldState(bool)
+	isShielding = bool
+	forceSetShieldAttributes(bool)
+	local remote = getSetShieldRemote()
+	if remote then
+		if bool then
+			if tick() - lastShieldFire > 0.03 then
+				lastShieldFire = tick()
+				pcall(function() remote:FireServer(true) end)
+			end
+		else
+			pcall(function() remote:FireServer(false) end)
+		end
+	end
+end
+
+local function atsEnabled()
+	return (Toggles.ImmortalMode and Toggles.ImmortalMode.Value)
+		and (Toggles.AttackThroughShield and Toggles.AttackThroughShield.Value)
+end
+
+local function doAttackBlink(innerFn)
+	if not atsEnabled() then
+		if innerFn then innerFn() end
 		return
 	end
 
-	local setShieldRemote = nil
-	pcall(function()
-		setShieldRemote = game:GetService("ReplicatedStorage").remoteInterface.character.setShield
-	end)
-	if setShieldRemote then
-		pcall(function()
-			setShieldRemote:FireServer(false)
-		end)
-		isShielding = false
+	blinkHeartbeatsRemaining = 3
+	attackLockUntil = tick() + atsBlinkWindow
+	setShieldState(false)
+
+	local result = nil
+	if innerFn then
+		local ok, err = pcall(innerFn)
+		if not ok then
+			task.defer(function()
+				if isAlive() and Toggles.ImmortalMode and Toggles.ImmortalMode.Value then
+					forceSetShieldAttributes(true)
+				end
+			end)
+			error(err)
+		end
 	end
 
-	attackLockUntil = tick() + atsBlinkWindow
-
-	local ok, err = pcall(callback)
-
 	task.defer(function()
-		attackLockUntil = tick() + atsBlinkWindow
+		attackLockUntil = tick() + 0.05
 		if isAlive() and Toggles.ImmortalMode and Toggles.ImmortalMode.Value then
-			local root = getRootPart()
-			if root then
-				local checkDistance = 18
-				local nearby = false
-				for _, player in ipairs(Players:GetPlayers()) do
-					if player ~= LocalPlayer and player.Character then
-						local targetRoot = player.Character:FindFirstChild("HumanoidRootPart")
-						local hum = player.Character:FindFirstChildOfClass("Humanoid")
-						if targetRoot and hum and hum.Health > 0 then
-							local dist = (targetRoot.Position - root.Position).Magnitude
-							if dist <= checkDistance then
-								nearby = true
-								break
-							end
-						end
-					end
-				end
-				if nearby and setShieldRemote then
-					pcall(function()
-						setShieldRemote:FireServer(true)
-					end)
-					isShielding = true
-					lastShieldFire = tick()
+			forceSetShieldAttributes(true)
+			isShielding = true
+			if tick() - lastShieldFire > 0.03 then
+				lastShieldFire = tick()
+				local remote = getSetShieldRemote()
+				if remote then
+					pcall(function() remote:FireServer(true) end)
 				end
 			end
 		end
 	end)
+	return result
+end
 
-	if not ok then
-		error(err)
+task.spawn(function()
+	while true do
+		task.wait()
+		if blinkHeartbeatsRemaining > 0 then
+			blinkHeartbeatsRemaining = blinkHeartbeatsRemaining - 1
+			if blinkHeartbeatsRemaining <= 0 then
+				if isAlive() and Toggles.ImmortalMode and Toggles.ImmortalMode.Value then
+					forceSetShieldAttributes(true)
+					isShielding = true
+				end
+			end
+		end
+	end
+end)
+
+local function withShieldBlink(callback)
+	return doAttackBlink(callback)
+end
+
+local hookActive = false
+local function hookToolActivatedForATS(tool)
+	if not tool or not tool:IsA("Tool") then return end
+	local key = "ATS_Tool_" .. tool:GetFullName()
+	if Connections[key] then return end
+	track(key, tool.Activated:Connect(function()
+		if hookActive then return end
+		hookActive = true
+		doAttackBlink()
+		hookActive = false
+	end))
+end
+
+local function setupATSCharacterHooks()
+	local char = LocalPlayer.Character
+	if not char then return end
+
+	for _, child in ipairs(char:GetChildren()) do
+		if child:IsA("Tool") then
+			hookToolActivatedForATS(child)
+		end
+	end
+	track("ATS_CharChild", char.ChildAdded:Connect(function(child)
+		if child:IsA("Tool") then
+			hookToolActivatedForATS(child)
+		end
+	end))
+
+	local hum = char:FindFirstChildOfClass("Humanoid")
+	if hum then
+		local animator = hum:FindFirstChildOfClass("Animator") or hum:WaitForChild("Animator", 2)
+		if animator then
+			track("ATS_AnimPlayed", animator.AnimationPlayed:Connect(function(track)
+				if not track or not track.Animation then return end
+				local name = (track.Animation.Name or ""):lower()
+				local id = tostring(track.Animation.AnimationId or ""):lower()
+				if name:find("swing") or name:find("slash") or name:find("attack")
+					or name:find("hit") or name:find("melee") then
+					if not hookActive then
+						hookActive = true
+						doAttackBlink()
+						hookActive = false
+					end
+				end
+			end))
+		end
 	end
 end
+
+track("ATS_CharacterAdded", LocalPlayer.CharacterAdded:Connect(function()
+	task.wait(1)
+	setupATSCharacterHooks()
+end))
+task.defer(setupATSCharacterHooks)
 
 local function updateImmortalMode()
 	if not isAlive() or not Toggles.ImmortalMode.Value then
@@ -1859,7 +1971,7 @@ local function updateImmortalMode()
 	end
 
 	if shouldShield then
-		local inAttackWindow = tick() < attackLockUntil
+		local inAttackWindow = tick() < attackLockUntil or blinkHeartbeatsRemaining > 0
 		local atsOn = Toggles.AttackThroughShield and Toggles.AttackThroughShield.Value
 
 		if not (inAttackWindow and atsOn) then
@@ -1872,6 +1984,7 @@ local function updateImmortalMode()
 
 		if not (inAttackWindow and atsOn) and tick() - lastShieldFire > 0.05 then
 			lastShieldFire = tick()
+			forceSetShieldAttributes(true)
 			pcall(function()
 				game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(true)
 			end)
@@ -1880,6 +1993,7 @@ local function updateImmortalMode()
 	else
 		if isShielding then
 			isShielding = false
+			forceSetShieldAttributes(false)
 			pcall(function()
 				game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(false)
 			end)
@@ -3012,103 +3126,6 @@ track("ReachCharacterAdded", LocalPlayer.CharacterAdded:Connect(function()
 	setupReachTracking()
 end))
 setupReachTracking()
-
-local function hookManualToolAts(tool)
-	if not tool or not tool:IsA("Tool") then return end
-	local key = "ATSTool_" .. tool:GetFullName()
-	if Connections[key] then return end
-	track(key, tool.Activated:Connect(function()
-		withShieldBlink(function()
-		end)
-	end))
-end
-
-local function setupATSToolHooks()
-	local char = LocalPlayer.Character
-	if char then
-		for _, child in ipairs(char:GetChildren()) do
-			if child:IsA("Tool") then
-				hookManualToolAts(child)
-			end
-		end
-		track("ATS_CharChildAdded", char.ChildAdded:Connect(function(child)
-			if child:IsA("Tool") then
-				hookManualToolAts(child)
-			end
-		end))
-	end
-end
-
-track("ATS_CharacterAdded", LocalPlayer.CharacterAdded:Connect(function()
-	task.wait(1)
-	setupATSToolHooks()
-end))
-setupATSToolHooks()
-
-local inATSRemoteHook = false
-local function hookMeleeRemote(remote, remoteName)
-	if not remote then return end
-	local hookKey = "ATS_RemoteHook_" .. remoteName
-
-	local oldFireServer = remote.FireServer
-	if typeof(hookfunction) == "function" and not Connections[hookKey .. "_Func"] then
-		local ok, hooked = pcall(function()
-			return hookfunction(oldFireServer, function(self, ...)
-				if inATSRemoteHook then
-					return oldFireServer(self, ...)
-				end
-				inATSRemoteHook = true
-				local result = nil
-				local rOk, rErr = pcall(function()
-					withShieldBlink(function()
-						result = oldFireServer(self, ...)
-					end)
-				end)
-				inATSRemoteHook = false
-				if not rOk then
-					error(rErr)
-				end
-				return result
-			end)
-		end)
-		if ok then
-			Connections[hookKey .. "_Func"] = { Disconnect = function() end }
-		end
-	end
-
-	local mtKey = hookKey .. "_MT"
-	if not Connections[mtKey] then
-		local originalNamecallMT; originalNamecallMT = hookmetamethod(game, "__namecall", function(...)
-			local self = ...
-			local method = getnamecallmethod()
-			if rawequal(self, remote) and method == "FireServer" then
-				if inATSRemoteHook then
-					return originalNamecallMT(...)
-				end
-				inATSRemoteHook = true
-				local result = nil
-				local rOk, rErr = pcall(function()
-					withShieldBlink(function()
-						result = originalNamecallMT(...)
-					end)
-				end)
-				inATSRemoteHook = false
-				if not rOk then
-					error(rErr)
-				end
-				return result
-			end
-			return originalNamecallMT(...)
-		end)
-		Connections[mtKey] = { Disconnect = function() end }
-	end
-end
-
-task.defer(function()
-	hookMeleeRemote(TSG.MeleePlayerRemote, "MeleePlayer")
-	hookMeleeRemote(TSG.MeleeAnimalRemote, "MeleeAnimal")
-	hookMeleeRemote(TSG.MeleeAI, "MeleeAI")
-end)
 
 -- ==========================================
 -- MOVEMENT
