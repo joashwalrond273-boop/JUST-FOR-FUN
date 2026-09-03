@@ -3757,35 +3757,37 @@ BossFarm:AddToggle("JuggernautAura", {
 	Default = false,
 })
 
-BossFarm:AddButton({
+local BossVisibilityGroup = Tabs.Farming:AddLeftGroupbox("Boss Visibility", "scan-eye")
+
+BossVisibilityGroup:AddButton({
 	Text = "Samurai",
 	Func = function()
 		BossFarm_CheckBoss("The Samurai", "Samurai")
 	end,
 })
 
-BossFarm:AddButton({
+BossVisibilityGroup:AddButton({
 	Text = "Titan",
 	Func = function()
 		BossFarm_CheckBoss("The Titan", "Titan")
 	end,
 })
 
-BossFarm:AddButton({
+BossVisibilityGroup:AddButton({
 	Text = "Juggernaut",
 	Func = function()
 		BossFarm_CheckBoss("The Juggernaut", "Juggernaut")
 	end,
 })
 
-BossFarm:AddButton({
+BossVisibilityGroup:AddButton({
 	Text = "Spider",
 	Func = function()
 		BossFarm_CheckBoss("The Great Spider", "Spider")
 	end,
 })
 
-BossFarm:AddButton({
+BossVisibilityGroup:AddButton({
 	Text = "Marvin",
 	Func = function()
 		BossFarm_CheckBoss("Marvin", "Marvin")
