@@ -5124,6 +5124,45 @@ VisualFPS:AddToggle("UncapFPS", {
 	end,
 })
 
+do
+	local originalStates = setmetatable({}, { __mode = "k" })
+	local ALL_EFFECT_CLASS = {
+		Beam = true, Trail = true, ParticleEmitter = true, Fire = true, Smoke = true,
+		Sparkles = true, Explosion = true, ForceField = true, PointLight = true,
+		SpotLight = true, SurfaceLight = true, BillboardGui = true, SurfaceGui = true,
+		Adornment = true, SelectionBox = true, SelectionSphere = true, WireframeHandleAdornment = true,
+		SphereHandleAdornment = true, CylinderHandleAdornment = true, ConeHandleAdornment = true,
+		BoxHandleAdornment = true, LineHandleAdornment = true, ArcHandles = true, Handles = true,
+	}
+
+	local function isExcluded(instance)
+		if not instance then return true end
+		local char = LocalPlayer.Character
+		if char and instance:IsDescendantOf(char) then return true end
+		local pg = game:GetService("CoreGui")
+		if pg and instance:IsDescendantOf(pg) then return true end
+		local pg2 = game:GetService("Players")
+		if pg2 and instance:IsDescendantOf(pg2) then return true end
+		return false
+	end
+
+	local function disableEffect(v)
+		if isExcluded(v) then return end
+		if not ALL_EFFECT_CLASS[v.ClassName] and not v:IsA("PostEffect") and not v:IsA("Adornment") then return end
+		if v:IsA("Lighting") or v:IsA("Terrain") or v:IsA("Camera") then return end
+		if originalStates[v] == nil then
+			local ok, en = pcall(function() return v.Enabled end)
+			if ok and typeof(en) == "boolean" then
+				originalStates[v] = en
+			else
+				return
+			end
+		end
+		if originalStates[v] then
+			pcall(function() v.Enabled = false end)
+		end
+	end
+
 	VisualFPS:AddToggle("KillAllEffects", {
 		Text = "Kill All Effects",
 		Default = false,
@@ -5313,6 +5352,21 @@ do
 		end,
 	})
 end
+
+VisualFPS:AddSlider("FPSCapSlider", {
+	Text = "FPS Cap Limit",
+	Default = 300,
+	Min = 60,
+	Max = 999,
+	Rounding = 0,
+	Callback = function(value)
+		if Toggles.UncapFPS and Toggles.UncapFPS.Value then
+			pcall(function()
+				setfpscap(value)
+			end)
+		end
+	end,
+})
 
 VisualLeft:AddToggle("PlayerESP", {
 	Text = "Player ESP",
