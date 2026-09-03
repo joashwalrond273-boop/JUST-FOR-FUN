@@ -5314,22 +5314,6 @@ do
 	})
 end
 
-VisualFPS:AddSlider("FPSCapSlider", {
-	Text = "FPS Cap Limit",
-	Default = 300,
-	Min = 60,
-	Max = 999,
-	Rounding = 0,
-	Callback = function(value)
-		if Toggles.UncapFPS and Toggles.UncapFPS.Value then
-			pcall(function()
-				setfpscap(value)
-			end)
-		end
-	end,
-})
-
-
 VisualLeft:AddToggle("PlayerESP", {
 	Text = "Player ESP",
 	Default = false,
