@@ -2949,6 +2949,22 @@ MoveFaze:AddToggle("Xray", {
 	Default = false,
 })
 
+MoveFaze:AddSlider("XrayRadius", {
+	Text = "Xray Radius",
+	Default = 25,
+	Min = 10,
+	Max = 60,
+	Rounding = 0,
+})
+
+MoveFaze:AddSlider("XrayTransparency", {
+	Text = "Xray Transparency",
+	Default = 0.75,
+	Min = 0.1,
+	Max = 1,
+	Rounding = 2,
+})
+
 local MoveLeft = Tabs.Movement:AddLeftGroupbox("Speed", "gauge")
 local MoveRight = Tabs.Movement:AddRightGroupbox("Flight", "plane")
 
@@ -3260,27 +3276,47 @@ InvisibleFlyGroup:AddLabel("Highlight Outline Color"):AddColorPicker("InvisibleF
         Title = "Invisible Fly Highlight Outline Color",
 })
 
-local noclipParts = {}
+local noclipCorePartNames = {
+	["HumanoidRootPart"] = true,
+	["Head"] = true,
+	["Torso"] = true,
+	["UpperTorso"] = true,
+	["LowerTorso"] = true,
+}
+local noclipCoreParts = {}
+
+local function updateNoclipParts(character)
+	table.clear(noclipCoreParts)
+	if not character then return end
+	for _, child in ipairs(character:GetChildren()) do
+		if child:IsA("BasePart") and noclipCorePartNames[child.Name] then
+			table.insert(noclipCoreParts, child)
+		end
+	end
+end
+
+LocalPlayer.CharacterAdded:Connect(function(char)
+	updateNoclipParts(char)
+end)
+
 Toggles.Noclip:OnChanged(function()
 	disconnect("Noclip")
-	table.clear(noclipParts)
 	if Toggles.Noclip.Value then
+		updateNoclipParts(getCharacter())
 		track("Noclip", RunService.Stepped:Connect(function()
-			local character = getCharacter()
-			if not character then
-				return
-			end
-			for _, part in ipairs(character:GetDescendants()) do
-				if part:IsA("BasePart") and part.CanCollide then
+			for _, part in ipairs(noclipCoreParts) do
+				if part and part.CanCollide then
 					part.CanCollide = false
-					noclipParts[part] = true
 				end
 			end
 		end))
 	else
-		for part in pairs(noclipParts) do
-			if part.Parent then
-				part.CanCollide = true
+		local character = getCharacter()
+		if character then
+			for _, part in ipairs(noclipCoreParts) do
+				if part and part.Parent and part.Name ~= "HumanoidRootPart" then
+					part.CanCollide = true
+				end
 			end
 		end
 	end
@@ -3318,42 +3354,66 @@ Toggles.FakeLag:OnChanged(function()
 	end
 end)
 
-local xrayParts = {}
-local xrayActive = false
+local xrayOriginal = {}
+local xrayLoopTask = nil
 
-local function applyXray(v)
-	if v:IsA("BasePart") and not v:IsDescendantOf(LocalPlayer.Character) and not v:IsA("Terrain") then
-		if not xrayParts[v] then
-			xrayParts[v] = v.Transparency
-		end
-		v.Transparency = 0.5
+local function restoreXrayPart(part, orig)
+	if part and part.Parent then
+		part.LocalTransparencyModifier = orig or 0
 	end
 end
 
-local function removeXray(v)
-	local orig = xrayParts[v]
-	if orig then
-		v.Transparency = orig
-		xrayParts[v] = nil
+local function scanXrayProximity()
+	local character = getCharacter()
+	local hrp = character and character:FindFirstChild("HumanoidRootPart")
+	if not hrp then return end
+
+	local radius = (Options.XrayRadius and Options.XrayRadius.Value) or 25
+	local transparency = (Options.XrayTransparency and Options.XrayTransparency.Value) or 0.75
+
+	local overlap = OverlapParams.new()
+	overlap.FilterType = Enum.RaycastFilterType.Exclude
+	overlap.FilterDescendantsInstances = { character }
+
+	local nearbyParts = workspace:GetPartBoundsInRadius(hrp.Position, radius, overlap)
+	local currentParts = {}
+
+	for _, part in ipairs(nearbyParts) do
+		if part:IsA("BasePart") and not part:IsA("Terrain") and not part.Parent:FindFirstChildOfClass("Humanoid") then
+			currentParts[part] = true
+			if not xrayOriginal[part] then
+				xrayOriginal[part] = part.LocalTransparencyModifier
+				part.LocalTransparencyModifier = transparency
+			end
+		end
+	end
+
+	for part, orig in pairs(xrayOriginal) do
+		if not currentParts[part] then
+			restoreXrayPart(part, orig)
+			xrayOriginal[part] = nil
+		end
 	end
 end
 
 Toggles.Xray:OnChanged(function()
-	xrayActive = Toggles.Xray.Value
-	if xrayActive then
-		for _, v in ipairs(workspace:GetDescendants()) do
-			applyXray(v)
-		end
-		track("XrayAdded", workspace.DescendantAdded:Connect(function(v)
-			if xrayActive then
-				applyXray(v)
+	if xrayLoopTask then
+		task.cancel(xrayLoopTask)
+		xrayLoopTask = nil
+	end
+
+	if Toggles.Xray.Value then
+		xrayLoopTask = task.spawn(function()
+			while Toggles.Xray and Toggles.Xray.Value do
+				scanXrayProximity()
+				task.wait(0.1)
 			end
-		end))
+		end)
 	else
-		disconnect("XrayAdded")
-		for v in pairs(xrayParts) do
-			removeXray(v)
+		for part, orig in pairs(xrayOriginal) do
+			restoreXrayPart(part, orig)
 		end
+		table.clear(xrayOriginal)
 	end
 end)
 
