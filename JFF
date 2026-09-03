@@ -3691,15 +3691,6 @@ local bossDefinitions = {
 	{ Name = "Marvin",    ModelName = "Marvin",          ModelPath = "ReplicatedStorage.game.AIModels.Marvin" },
 }
 
-local bossStatusColorBoxes = {}
-
-local function setBossStatusBoxColor(def, color3)
-	local box = bossStatusColorBoxes[def.Name]
-	if box then
-		pcall(function() box.BackgroundColor3 = color3 end)
-	end
-end
-
 local function getTemplateAIModel(def)
 	local ok, model = pcall(function()
 		local rs = game:GetService("ReplicatedStorage")
@@ -3755,76 +3746,26 @@ local function isBossAlive(def)
 	return false
 end
 
-local function refreshBossStatus(def, showNotification)
+local function refreshBossStatus(def)
 	local alive = isBossAlive(def)
 	if alive then
-		setBossStatusBoxColor(def, Color3.fromRGB(0, 255, 0))
-		if showNotification then
-			Library:Notify({ Title = def.Name, Description = "AVAILABLE - Boss is in the game", Time = 4 })
-		end
+		Library:Notify({ Title = def.Name, Description = "AVAILABLE - Boss is in the game", Time = 4 })
 	else
-		setBossStatusBoxColor(def, Color3.fromRGB(255, 0, 0))
-		if showNotification then
-			Library:Notify({ Title = def.Name, Description = "NOT SPAWNED - Hasn't respawned yet", Time = 4 })
-		end
+		Library:Notify({ Title = def.Name, Description = "NOT SPAWNED - Hasn't respawned yet", Time = 4 })
 	end
 end
 
-local function addBossButtonAndStatus(def)
-	local rowLabel = BossVisibilityGroup:AddLabel("    ")
-	local labelInstance
-	pcall(function()
-		labelInstance = rowLabel.Instance or rowLabel.Label or rowLabel
-	end)
-
+local function addBossButton(def)
 	BossVisibilityGroup:AddButton({
 		Text = def.Name,
 		Func = function()
-			refreshBossStatus(def, true)
+			refreshBossStatus(def)
 		end,
 	})
-
-	local colorBox = nil
-	pcall(function()
-		local holdingFrame
-		if labelInstance and labelInstance.Parent then
-			holdingFrame = labelInstance.Parent
-		end
-		if not holdingFrame and rowLabel and rowLabel.Parent then
-			holdingFrame = rowLabel.Parent
-		end
-		if holdingFrame then
-			colorBox = Instance.new("Frame")
-			colorBox.Name = "BossStatusBox_" .. def.Name
-			colorBox.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-			colorBox.BorderSizePixel = 0
-			colorBox.Size = UDim2.new(0, 20, 0, 20)
-			colorBox.AnchorPoint = Vector2.new(1, 0.5)
-			colorBox.Position = UDim2.new(1, -10, 0.5, 0)
-			local uicorner = Instance.new("UICorner")
-			uicorner.CornerRadius = UDim.new(0, 4)
-			uicorner.Parent = colorBox
-			local stroke = Instance.new("UIStroke")
-			stroke.Color = Color3.fromRGB(0, 0, 0)
-			stroke.Thickness = 1
-			stroke.Parent = colorBox
-			colorBox.Parent = holdingFrame
-		end
-	end)
-	bossStatusColorBoxes[def.Name] = colorBox
-
-	task.spawn(function()
-		while true do
-			task.wait(1.5)
-			if bossStatusColorBoxes[def.Name] then
-				refreshBossStatus(def, false)
-			end
-		end
-	end)
 end
 
 for _, def in ipairs(bossDefinitions) do
-	addBossButtonAndStatus(def)
+	addBossButton(def)
 end
 
 -- ==========================================
