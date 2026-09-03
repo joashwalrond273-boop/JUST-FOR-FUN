@@ -2972,11 +2972,6 @@ MoveSwimBoost:AddToggle("SwimBoost", {
 	Default = false,
 })
 
-MoveSwimBoost:AddToggle("SinkFastPVP", {
-	Text = "+ Sink Fast PVP",
-	Default = false,
-})
-
 MoveSwimBoost:AddSlider("SwimBoostValue", {
 	Text = "Swim Speed Value",
 	Default = 30,
@@ -2985,12 +2980,9 @@ MoveSwimBoost:AddSlider("SwimBoostValue", {
 	Rounding = 1,
 })
 
-MoveSwimBoost:AddSlider("SinkFastPVPSpeed", {
-	Text = "Sink Speed",
-	Default = 60,
-	Min = 10,
-	Max = 200,
-	Rounding = 1,
+MoveSwimBoost:AddToggle("SinkFastPVP", {
+	Text = "+ Sink Fast PVP",
+	Default = false,
 })
 
 local MoveBoatSpeed = Tabs.Movement:AddLeftGroupbox("Boat Speed", "anchor")
@@ -3271,11 +3263,13 @@ InvisibleFlyGroup:AddLabel("Highlight Outline Color"):AddColorPicker("InvisibleF
 local noclipParts = {}
 Toggles.Noclip:OnChanged(function()
 	disconnect("Noclip")
+	table.clear(noclipParts)
 	if Toggles.Noclip.Value then
-		table.clear(noclipParts)
 		track("Noclip", RunService.Stepped:Connect(function()
 			local character = getCharacter()
-			if not character then return end
+			if not character then
+				return
+			end
 			for _, part in ipairs(character:GetDescendants()) do
 				if part:IsA("BasePart") and part.CanCollide then
 					part.CanCollide = false
@@ -3284,19 +3278,11 @@ Toggles.Noclip:OnChanged(function()
 			end
 		end))
 	else
-		local character = getCharacter()
-		if character then
-			for _, part in ipairs(character:GetDescendants()) do
-				if part:IsA("BasePart") then
-					if part.Name ~= "HumanoidRootPart" and not part:FindFirstAncestorWhichIsA("Accessory") and not part:FindFirstAncestorWhichIsA("Tool") then
-						part.CanCollide = true
-					else
-						part.CanCollide = false
-					end
-				end
+		for part in pairs(noclipParts) do
+			if part.Parent then
+				part.CanCollide = true
 			end
 		end
-		table.clear(noclipParts)
 	end
 end)
 
@@ -3334,11 +3320,9 @@ end)
 
 local xrayParts = {}
 local xrayActive = false
-local xrayScanCo = nil
 
 local function applyXray(v)
 	if v:IsA("BasePart") and not v:IsDescendantOf(LocalPlayer.Character) and not v:IsA("Terrain") then
-		if v.Transparency > 0.1 then return end
 		if not xrayParts[v] then
 			xrayParts[v] = v.Transparency
 		end
@@ -3354,33 +3338,11 @@ local function removeXray(v)
 	end
 end
 
-local function batchXrayScan(descendants)
-	local batchSize = 200
-	local i = 1
-	local n = #descendants
-	while i <= n do
-		local j = math.min(i + batchSize - 1, n)
-		for k = i, j do
-			local v = descendants[k]
-			if xrayActive then
-				applyXray(v)
-			end
-		end
-		i = j + 1
-		task.wait()
-	end
-end
-
 Toggles.Xray:OnChanged(function()
 	xrayActive = Toggles.Xray.Value
 	if xrayActive then
-		local all = workspace:GetDescendants()
-		xrayScanCo = coroutine.create(function()
-			batchXrayScan(all)
-		end)
-		local ok, err = coroutine.resume(xrayScanCo)
-		if not ok then
-			warn("Xray scan error:", err)
+		for _, v in ipairs(workspace:GetDescendants()) do
+			applyXray(v)
 		end
 		track("XrayAdded", workspace.DescendantAdded:Connect(function(v)
 			if xrayActive then
@@ -3389,10 +3351,6 @@ Toggles.Xray:OnChanged(function()
 		end))
 	else
 		disconnect("XrayAdded")
-		xrayActive = false
-		if xrayScanCo then
-			xrayScanCo = nil
-		end
 		for v in pairs(xrayParts) do
 			removeXray(v)
 		end
@@ -3424,10 +3382,9 @@ Toggles.SinkFastPVP:OnChanged(function()
 					local cam = workspace.CurrentCamera
 					local lookY = cam and cam.CFrame.LookVector.Y or 0
 					if lookY <= -0.9 then
-						local speedVal = tonumber(Options.SinkFastPVPSpeed and Options.SinkFastPVPSpeed.Value) or 60
 						root.AssemblyLinearVelocity = Vector3.new(
 							root.AssemblyLinearVelocity.X,
-							-speedVal,
+							-60,
 							root.AssemblyLinearVelocity.Z
 						)
 					end
@@ -4960,7 +4917,17 @@ VisualFPS:AddToggle("LowTextures", {
 	end,
 })
 
-
+VisualFPS:AddToggle("DisableEffects", {
+	Text = "Disable Effects",
+	Default = false,
+	Callback = function(state)
+		for _, v in ipairs(game:GetService("Lighting"):GetChildren()) do
+			if v:IsA("PostEffect") then
+				v.Enabled = not state
+			end
+		end
+	end,
+})
 
 do
 	local PBR_TYPES = { SurfaceAppearance = true, Texture = true, Decal = true }
@@ -5119,7 +5086,6 @@ VisualFPS:AddSlider("FPSCapSlider", {
 		end
 	end,
 })
-
 
 VisualLeft:AddToggle("PlayerESP", {
 	Text = "Player ESP",
@@ -6001,9 +5967,6 @@ Library:OnUnload(function()
 	end
 	if Toggles.Xray and Toggles.Xray.Value then
 		Toggles.Xray:SetValue(false)
-	end
-	if Toggles.Noclip and Toggles.Noclip.Value then
-		Toggles.Noclip:SetValue(false)
 	end
 
 	if Toggles.NoWaterColor and Toggles.NoWaterColor.Value then
