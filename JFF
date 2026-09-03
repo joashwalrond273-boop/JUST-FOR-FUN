@@ -3269,21 +3269,13 @@ InvisibleFlyGroup:AddLabel("Highlight Outline Color"):AddColorPicker("InvisibleF
 })
 
 local noclipParts = {}
-local noclipFrame = 0
 Toggles.Noclip:OnChanged(function()
 	disconnect("Noclip")
-	noclipFrame = 0
 	if Toggles.Noclip.Value then
 		table.clear(noclipParts)
 		track("Noclip", RunService.Stepped:Connect(function()
-			noclipFrame = noclipFrame + 1
-			if noclipFrame % 2 ~= 0 then
-				return
-			end
 			local character = getCharacter()
-			if not character then
-				return
-			end
+			if not character then return end
 			for _, part in ipairs(character:GetDescendants()) do
 				if part:IsA("BasePart") and part.CanCollide then
 					part.CanCollide = false
@@ -3292,20 +3284,19 @@ Toggles.Noclip:OnChanged(function()
 			end
 		end))
 	else
-		for part in pairs(noclipParts) do
-			if part.Parent then
-				part.CanCollide = true
-			end
-		end
-		table.clear(noclipParts)
 		local character = getCharacter()
 		if character then
 			for _, part in ipairs(character:GetDescendants()) do
-				if part:IsA("BasePart") and not part.CanCollide then
-					part.CanCollide = true
+				if part:IsA("BasePart") then
+					if part.Name ~= "HumanoidRootPart" and not part:FindFirstAncestorWhichIsA("Accessory") and not part:FindFirstAncestorWhichIsA("Tool") then
+						part.CanCollide = true
+					else
+						part.CanCollide = false
+					end
 				end
 			end
 		end
+		table.clear(noclipParts)
 	end
 end)
 
@@ -6118,6 +6109,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.Xray and Toggles.Xray.Value then
 		Toggles.Xray:SetValue(false)
+	end
+	if Toggles.Noclip and Toggles.Noclip.Value then
+		Toggles.Noclip:SetValue(false)
 	end
 
 	if Toggles.NoWaterColor and Toggles.NoWaterColor.Value then
