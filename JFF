@@ -3684,17 +3684,17 @@ local FarmRight = Tabs.Farming:AddRightGroupbox("Highlight Settings", "palette")
 local BossVisibilityGroup = Tabs.Farming:AddLeftGroupbox("BOSS VISIBILITY", "skull")
 
 local bossDefinitions = {
-	{ Name = "Samurai",   ModelName = "The Samurai",     ModelPath = "ReplicatedStorage.game.AIModels[\"The Samurai\"]" },
-	{ Name = "Titan",     ModelName = "The Titan",       ModelPath = "ReplicatedStorage.game.AIModels[\"The Titan\"]" },
-	{ Name = "Juggernaut",ModelName = "The Juggernaut",  ModelPath = "ReplicatedStorage.game.AIModels[\"The Juggernaut\"]" },
-	{ Name = "Spider",    ModelName = "The Great Spider",ModelPath = "ReplicatedStorage.game.AIModels[\"The Great Spider\"]" },
-	{ Name = "Marvin",    ModelName = "Marvin",          ModelPath = "ReplicatedStorage.game.AIModels.Marvin" },
+	{ Name = "Samurai",   ModelName = "The Samurai" },
+	{ Name = "Titan",     ModelName = "The Titan" },
+	{ Name = "Juggernaut",ModelName = "The Juggernaut" },
+	{ Name = "Spider",    ModelName = "The Great Spider" },
+	{ Name = "Marvin",    ModelName = "Marvin" },
 }
 
 local function getTemplateAIModel(def)
 	local ok, model = pcall(function()
 		local rs = game:GetService("ReplicatedStorage")
-		local gameFolder = rs:FindFirstChild("game")
+		local gameFolder = rs and rs:FindFirstChild("game")
 		if not gameFolder then return nil end
 		local aiModels = gameFolder:FindFirstChild("AIModels")
 		if not aiModels then return nil end
@@ -3704,68 +3704,65 @@ local function getTemplateAIModel(def)
 end
 
 local function isBossAlive(def)
-	local template = getTemplateAIModel(def)
-	if not template then return false end
-	local ws = workspace
-	for _, inst in ipairs(ws:GetDescendants()) do
-		if inst:IsA("Model") and inst ~= template then
-			local hum = inst:FindFirstChildOfClass("Humanoid")
-			if hum then
-				local matched = false
-				if inst.Name == def.ModelName then
-					matched = true
-				else
-					local hrp = inst:FindFirstChild("HumanoidRootPart")
-					if hrp and template:FindFirstChild("HumanoidRootPart") then
-						local tSize = template:FindFirstChild("HumanoidRootPart").Size
-						if (hrp.Size - tSize).Magnitude < 0.01 then
+	local ok, alive = pcall(function()
+		local template = getTemplateAIModel(def)
+		local templateSize = nil
+		pcall(function()
+			local tRoot = template and template:FindFirstChild("HumanoidRootPart")
+			if tRoot then templateSize = tRoot.Size end
+		end)
+		local ws = workspace
+		local desc = ws:GetDescendants()
+		for i = 1, #desc do
+			local inst = desc[i]
+			if inst and inst:IsA("Model") and inst ~= template then
+				local humOk, hum = pcall(function() return inst:FindFirstChildOfClass("Humanoid") end)
+				if humOk and hum then
+					local matched = false
+					if inst.Name == def.ModelName then
+						matched = true
+					elseif templateSize then
+						local hrpOk, hrp = pcall(function() return inst:FindFirstChild("HumanoidRootPart") end)
+						if hrpOk and hrp and pcall(function() return (hrp.Size - templateSize).Magnitude end) and (hrp.Size - templateSize).Magnitude < 0.01 then
 							matched = true
 						end
 					end
-					if not matched then
-						local templateChildren = template:GetChildren()
-						local matchedParts = 0
-						local required = math.min(5, #templateChildren)
-						for _, child in ipairs(templateChildren) do
-							if child:IsA("BasePart") and inst:FindFirstChild(child.Name) then
-								matchedParts = matchedParts + 1
-								if matchedParts >= required then
-									matched = true
-									break
-								end
-							end
-						end
+					local hpOk, hp = pcall(function() return hum.Health end)
+					if matched and hpOk and hp and hp > 0 then
+						return true
 					end
-				end
-				if matched and hum.Health > 0 then
-					return true
 				end
 			end
 		end
-	end
-	return false
+		return false
+	end)
+	return ok and alive or false
 end
 
 local function refreshBossStatus(def)
-	local alive = isBossAlive(def)
-	if alive then
-		Library:Notify({ Title = def.Name, Description = "AVAILABLE - Boss is in the game", Time = 4 })
-	else
-		Library:Notify({ Title = def.Name, Description = "NOT SPAWNED - Hasn't respawned yet", Time = 4 })
-	end
-end
-
-local function addBossButton(def)
-	BossVisibilityGroup:AddButton({
-		Text = def.Name,
-		Func = function()
-			refreshBossStatus(def)
-		end,
-	})
+	task.spawn(function()
+		local alive = isBossAlive(def)
+		if alive then
+			pcall(function()
+				Library:Notify({ Title = def.Name, Description = "AVAILABLE - Boss is in the game", Time = 4 })
+			end)
+		else
+			pcall(function()
+				Library:Notify({ Title = def.Name, Description = "NOT SPAWNED - Hasn't respawned yet", Time = 4 })
+			end)
+		end
+	end)
 end
 
 for _, def in ipairs(bossDefinitions) do
-	addBossButton(def)
+	pcall(function()
+		BossVisibilityGroup:AddButton({
+			Text = def.Name,
+			Func = function()
+				refreshBossStatus(def)
+			end,
+		})
+	end)
 end
 
 -- ==========================================
