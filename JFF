@@ -567,11 +567,6 @@ SpectateGroup:AddDropdown("SpectatePlayerList", {
 	Default = "",
 })
 
-SpectateGroup:AddToggle("ShowHealth", {
-	Text = "+ Show Health",
-	Default = false,
-})
-
 local FunLeft = Tabs.Main:AddRightGroupbox("FLING A BULLY", "swords")
 
 FunLeft:AddToggle("TouchFling", {
@@ -5552,21 +5547,6 @@ Toggles.FloatOverToggle:OnChanged(function()
 end)
 
 -- Spectate Script Logic
-local spectateHealthGui = nil
-local spectateHealthLabel = nil
-local spectateHealthTarget = nil
-
-local function clearSpectateHealthGui()
-	pcall(function()
-		if spectateHealthGui then
-			spectateHealthGui:Destroy()
-		end
-	end)
-	spectateHealthGui = nil
-	spectateHealthLabel = nil
-	spectateHealthTarget = nil
-end
-
 local function updateSpectatePlayerList()
 	local list = {}
 	for _, player in ipairs(Players:GetPlayers()) do
@@ -5597,9 +5577,7 @@ local function startSpectate()
 			if not Toggles.SpectateToggle.Value then return end
 			local targetName = Options.SpectatePlayerList.Value
 			local targetPlayer = targetName and Players:FindFirstChild(targetName)
-			local targetCharacter = targetPlayer and targetPlayer.Character
-			local targetHum = targetCharacter and targetCharacter:FindFirstChildOfClass("Humanoid")
-			local targetHead = targetCharacter and targetCharacter:FindFirstChild("Head")
+			local targetHum = targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChildOfClass("Humanoid")
 			local camera = workspace.CurrentCamera
 
 			if targetHum then
@@ -5612,66 +5590,6 @@ local function startSpectate()
 					camera.CameraSubject = localHum
 				end
 			end
-
-			if Toggles.ShowHealth and Toggles.ShowHealth.Value and targetHead and targetHum then
-				if spectateHealthTarget ~= targetHead or not spectateHealthGui or not spectateHealthLabel then
-					clearSpectateHealthGui()
-					spectateHealthTarget = targetHead
-
-					local gui = Instance.new("BillboardGui")
-					gui.Name = "SpectateHealthDisplay"
-					gui.AlwaysOnTop = true
-					gui.Size = UDim2.new(0, 200, 0, 40)
-					gui.StudsOffset = Vector3.new(0, 3, 0)
-					gui.MaxDistance = math.huge
-					gui.ResetOnSpawn = false
-					gui.Adornee = targetHead
-
-					local label = Instance.new("TextLabel")
-					label.Name = "HealthText"
-					label.BackgroundTransparency = 1
-					label.Size = UDim2.new(1, 0, 1, 0)
-					label.Font = Enum.Font.GothamBlack
-					label.TextScaled = true
-					label.TextColor3 = Color3.new(1, 1, 1)
-					label.TextStrokeTransparency = 0
-					label.TextStrokeColor3 = Color3.new(0, 0, 0)
-					label.Parent = gui
-
-					pcall(function()
-						gui.Parent = targetHead
-					end)
-
-					spectateHealthGui = gui
-					spectateHealthLabel = label
-				end
-
-				if spectateHealthLabel then
-					local hp, maxHp = 0, 0
-					pcall(function()
-						hp = targetHum.Health
-						maxHp = targetHum.MaxHealth
-					end)
-					local ratio = 0
-					if maxHp > 0 then
-						ratio = math.clamp(hp / maxHp, 0, 1)
-					end
-					local color
-					if ratio > 0.5 then
-						color = Color3.new(0.2, 1, 0.3)
-					elseif ratio > 0.25 then
-						color = Color3.new(1, 0.8, 0.1)
-					else
-						color = Color3.new(1, 0.2, 0.2)
-					end
-					spectateHealthLabel.TextColor3 = color
-					spectateHealthLabel.Text = string.format("HP: %.0f / %.0f  (%.0f%%)", hp, maxHp, ratio * 100)
-				end
-			else
-				if spectateHealthGui then
-					clearSpectateHealthGui()
-				end
-			end
 		end))
 	else
 		local camera = workspace.CurrentCamera
@@ -5679,7 +5597,6 @@ local function startSpectate()
 		if localHum then
 			camera.CameraSubject = localHum
 		end
-		clearSpectateHealthGui()
 	end
 end
 
@@ -5688,25 +5605,13 @@ Toggles.SpectateToggle:OnChanged(function()
 	if Toggles.SpectateToggle.Value then
 		Library:Notify({ Title = "SPECTATE", Description = "Spectating: " .. tostring(Options.SpectatePlayerList.Value), Time = 2 })
 	else
-		clearSpectateHealthGui()
 		Library:Notify({ Title = "SPECTATE", Description = "Spectate Disabled", Time = 2 })
 	end
 end)
 
 Options.SpectatePlayerList:OnChanged(function()
-	clearSpectateHealthGui()
 	if Toggles.SpectateToggle.Value then
 		startSpectate()
-	end
-end)
-
-Toggles.ShowHealth:OnChanged(function()
-	if not (Toggles.SpectateToggle and Toggles.SpectateToggle.Value) then
-		clearSpectateHealthGui()
-		return
-	end
-	if not Toggles.ShowHealth.Value then
-		clearSpectateHealthGui()
 	end
 end)
 
@@ -6174,9 +6079,6 @@ Library:OnUnload(function()
 	end
 	if Toggles.SpectateToggle and Toggles.SpectateToggle.Value then
 		Toggles.SpectateToggle:SetValue(false)
-	end
-	if Toggles.ShowHealth and Toggles.ShowHealth.Value then
-		Toggles.ShowHealth:SetValue(false)
 	end
 	if Toggles.NoBearTrapDMG and Toggles.NoBearTrapDMG.Value then
 		Toggles.NoBearTrapDMG:SetValue(false)
