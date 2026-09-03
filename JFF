@@ -2985,6 +2985,14 @@ MoveSwimBoost:AddToggle("SinkFastPVP", {
 	Default = false,
 })
 
+MoveSwimBoost:AddSlider("SinkFastPVPSpeed", {
+	Text = "Sink Speed",
+	Default = 60,
+	Min = 10,
+	Max = 200,
+	Rounding = 1,
+})
+
 local MoveBoatSpeed = Tabs.Movement:AddLeftGroupbox("Boat Speed", "anchor")
 
 MoveBoatSpeed:AddToggle("BoatSpeedToggle", {
@@ -3425,9 +3433,10 @@ Toggles.SinkFastPVP:OnChanged(function()
 					local cam = workspace.CurrentCamera
 					local lookY = cam and cam.CFrame.LookVector.Y or 0
 					if lookY <= -0.9 then
+						local speedVal = tonumber(Options.SinkFastPVPSpeed and Options.SinkFastPVPSpeed.Value) or 60
 						root.AssemblyLinearVelocity = Vector3.new(
 							root.AssemblyLinearVelocity.X,
-							-60,
+							-speedVal,
 							root.AssemblyLinearVelocity.Z
 						)
 					end
