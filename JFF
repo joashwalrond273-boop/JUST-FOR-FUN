@@ -2972,17 +2972,17 @@ MoveSwimBoost:AddToggle("SwimBoost", {
 	Default = false,
 })
 
+MoveSwimBoost:AddToggle("SinkFastPVP", {
+	Text = "+ Sink Fast PVP",
+	Default = false,
+})
+
 MoveSwimBoost:AddSlider("SwimBoostValue", {
 	Text = "Swim Speed Value",
 	Default = 30,
 	Min = 16,
 	Max = 100,
 	Rounding = 1,
-})
-
-MoveSwimBoost:AddToggle("SinkFastPVP", {
-	Text = "+ Sink Fast PVP",
-	Default = false,
 })
 
 MoveSwimBoost:AddSlider("SinkFastPVPSpeed", {
