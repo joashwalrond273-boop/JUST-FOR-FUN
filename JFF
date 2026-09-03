@@ -5329,6 +5329,7 @@ VisualFPS:AddSlider("FPSCapSlider", {
 	end,
 })
 
+
 VisualLeft:AddToggle("PlayerESP", {
 	Text = "Player ESP",
 	Default = false,
