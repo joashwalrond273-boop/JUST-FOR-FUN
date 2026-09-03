@@ -896,6 +896,7 @@ local function startDesync()
 		return
 	end
 
+	local fakeParts = {}
 	for _, v in pairs(fakeChar:GetDescendants()) do
 		if v:IsA("LocalScript") or v:IsA("Script") then
 			pcall(function() v:Destroy() end)
@@ -903,6 +904,7 @@ local function startDesync()
 		if v:IsA("BasePart") then
 			v.CanCollide = (v.Name == "HumanoidRootPart")
 			if v.Name == "HumanoidRootPart" then v.Transparency = 1 end
+			table.insert(fakeParts, v)
 		end
 	end
 
@@ -994,8 +996,8 @@ local function startDesync()
 	table.insert(desyncConnections, RunService.RenderStepped:Connect(function()
 		if not Toggles.DesyncToggle.Value or not fakeHum or not fakeRoot then return end
 
-		for _, v in pairs(fakeChar:GetDescendants()) do
-			if v:IsA("BasePart") then
+		for _, v in ipairs(fakeParts) do
+			if v and v.CanCollide ~= (v.Name == "HumanoidRootPart") then
 				v.CanCollide = (v.Name == "HumanoidRootPart")
 			end
 		end
@@ -1913,7 +1915,6 @@ local function hookEnemyDodgeAnimator(animator, enemyChar)
 end
 
 Toggles.DodgeAura:OnChanged(function()
-	disconnect("DodgeAura_Render")
 	disconnect("DodgeAura_Heartbeat")
 	for name in pairs(Connections) do
 		if name:sub(1, 10) == "DodgeAnim_" then
@@ -1922,7 +1923,6 @@ Toggles.DodgeAura:OnChanged(function()
 	end
 
 	if Toggles.DodgeAura.Value then
-		track("DodgeAura_Render", RunService.RenderStepped:Connect(checkAndPerformDodge))
 		track("DodgeAura_Heartbeat", RunService.Heartbeat:Connect(checkAndPerformDodge))
 
 		for _, player in ipairs(Players:GetPlayers()) do
@@ -2736,31 +2736,22 @@ local function phantomModeLoop(dt)
 		-- Find and set best melee weapon
 		local bestWeaponId = getBestMeleeWeapon()
 		if bestWeaponId then
-			-- Try to find the slot for the best weapon
+			local wantedSlot = nil
+			local backpack = LocalPlayer:FindFirstChild("Backpack")
+			local char = LocalPlayer.Character
 			for i = 1, 10 do
-				local backpack = LocalPlayer:FindFirstChild("Backpack")
-				if backpack then
-					local slotTool = backpack:FindFirstChild(tostring(i))
-					if slotTool and slotTool:FindFirstChild("toolModel") then
-						local toolId = slotTool.toolModel:GetAttribute("itemId")
-						if toolId == bestWeaponId then
-							Options.KillAuraSlot:SetValue(tostring(i))
-							break
-						end
+				local slotStr = tostring(i)
+				local slotTool = (backpack and backpack:FindFirstChild(slotStr)) or (char and char:FindFirstChild(slotStr))
+				if slotTool and slotTool:FindFirstChild("toolModel") then
+					local toolId = slotTool.toolModel:GetAttribute("itemId")
+					if toolId == bestWeaponId then
+						wantedSlot = slotStr
+						break
 					end
 				end
-				-- Also check character for equipped tools
-				local char = LocalPlayer.Character
-				if char then
-					local slotTool = char:FindFirstChild(tostring(i))
-					if slotTool and slotTool:FindFirstChild("toolModel") then
-						local toolId = slotTool.toolModel:GetAttribute("itemId")
-						if toolId == bestWeaponId then
-							Options.KillAuraSlot:SetValue(tostring(i))
-							break
-						end
-					end
-				end
+			end
+			if wantedSlot and Options.KillAuraSlot and Options.KillAuraSlot.Value ~= wantedSlot then
+				Options.KillAuraSlot:SetValue(wantedSlot)
 			end
 		end
 	else
@@ -3418,14 +3409,42 @@ Toggles.Xray:OnChanged(function()
 end)
 
 Toggles.SpeedHack:OnChanged(function()
+	disconnect("SpeedHack")
 	if Toggles.SpeedHack.Value then
 		Library:Notify({ Title = "Speed", Description = "Enabled", Time = 2 })
+		track("SpeedHack", RunService.Heartbeat:Connect(function(dt)
+			if not isAlive() then return end
+			local humanoid = getHumanoid()
+			local root = getRootPart()
+			if not humanoid or not root then return end
+			local isSwimming = humanoid:GetState() == Enum.HumanoidStateType.Swimming or (LocalPlayer.Character and LocalPlayer.Character:GetAttribute("inWater"))
+			if not isSwimming then
+				local factor = Options.SpeedValue.Value - humanoid.WalkSpeed
+				if factor > 0 and humanoid.MoveDirection.Magnitude > 0 then
+					LocalPlayer.Character:TranslateBy(humanoid.MoveDirection * dt * factor)
+				end
+			end
+		end))
 	end
 end)
 
 Toggles.SwimBoost:OnChanged(function()
+	disconnect("SwimBoost")
 	if Toggles.SwimBoost.Value then
 		Library:Notify({ Title = "Swim Boost", Description = "Enabled", Time = 2 })
+		track("SwimBoost", RunService.Heartbeat:Connect(function(dt)
+			if not isAlive() then return end
+			local humanoid = getHumanoid()
+			local root = getRootPart()
+			if not humanoid or not root then return end
+			local isSwimming = humanoid:GetState() == Enum.HumanoidStateType.Swimming or (LocalPlayer.Character and LocalPlayer.Character:GetAttribute("inWater"))
+			if isSwimming then
+				local factor = Options.SwimBoostValue.Value - humanoid.WalkSpeed
+				if factor > 0 and humanoid.MoveDirection.Magnitude > 0 then
+					LocalPlayer.Character:TranslateBy(humanoid.MoveDirection * dt * factor)
+				end
+			end
+		end))
 	end
 end)
 
@@ -3456,42 +3475,6 @@ Toggles.SinkFastPVP:OnChanged(function()
 		Library:Notify({ Title = "+ Sink Fast PVP", Description = "Disabled", Time = 2 })
 	end
 end)
-
-track("SpeedHack", RunService.Heartbeat:Connect(function(dt)
-	if not Toggles.SpeedHack.Value or not isAlive() then
-		return
-	end
-	local humanoid = getHumanoid()
-	local root = getRootPart()
-	if not humanoid or not root then
-		return
-	end
-	local isSwimming = humanoid:GetState() == Enum.HumanoidStateType.Swimming or (LocalPlayer.Character and LocalPlayer.Character:GetAttribute("inWater"))
-	if not isSwimming then
-		local factor = Options.SpeedValue.Value - humanoid.WalkSpeed
-		if factor > 0 and humanoid.MoveDirection.Magnitude > 0 then
-			LocalPlayer.Character:TranslateBy(humanoid.MoveDirection * dt * factor)
-		end
-	end
-end))
-
-track("SwimBoost", RunService.Heartbeat:Connect(function(dt)
-	if not Toggles.SwimBoost.Value or not isAlive() then
-		return
-	end
-	local humanoid = getHumanoid()
-	local root = getRootPart()
-	if not humanoid or not root then
-		return
-	end
-	local isSwimming = humanoid:GetState() == Enum.HumanoidStateType.Swimming or (LocalPlayer.Character and LocalPlayer.Character:GetAttribute("inWater"))
-	if isSwimming then
-		local factor = Options.SwimBoostValue.Value - humanoid.WalkSpeed
-		if factor > 0 and humanoid.MoveDirection.Magnitude > 0 then
-			LocalPlayer.Character:TranslateBy(humanoid.MoveDirection * dt * factor)
-		end
-	end
-end))
 
 local flyKeys = { W = false, A = false, S = false, D = false, Space = false, LeftControl = false }
 local flyInputBegan = UserInputService.InputBegan:Connect(function(input, processed)
@@ -4804,38 +4787,29 @@ VisualFPS:AddToggle("NoWaterColor", {
 	Text = "No Water Color",
 	Default = false,
 	Callback = function(state)
+		disconnect("NoWaterColor_ChildAdded")
+		disconnect("NoWaterColor_Changed")
+		local water = game:GetService("Lighting"):FindFirstChild("water")
 		if state then
 			local function disableWaterColor(child)
-				if child.Name == "water" then
-					pcall(function()
-						child.Enabled = false
-					end)
+				if child and child.Name == "water" then
+					pcall(function() child.Enabled = false end)
+					disconnect("NoWaterColor_Changed")
+					track("NoWaterColor_Changed", child:GetPropertyChangedSignal("Enabled"):Connect(function()
+						if Toggles.NoWaterColor and Toggles.NoWaterColor.Value and child.Enabled then
+							pcall(function() child.Enabled = false end)
+						end
+					end))
 				end
 			end
 
-			local water = game:GetService("Lighting"):FindFirstChild("water")
 			if water then
 				disableWaterColor(water)
 			end
-
 			track("NoWaterColor_ChildAdded", game:GetService("Lighting").ChildAdded:Connect(disableWaterColor))
-
-			track("NoWaterColor_EnabledChange", RunService.Heartbeat:Connect(function()
-				local wc = game:GetService("Lighting"):FindFirstChild("water")
-				if wc and wc.Enabled then
-					pcall(function()
-						wc.Enabled = false
-					end)
-				end
-			end))
 		else
-			disconnect("NoWaterColor_ChildAdded")
-			disconnect("NoWaterColor_EnabledChange")
-			local water = game:GetService("Lighting"):FindFirstChild("water")
 			if water then
-				pcall(function()
-					water.Enabled = true
-				end)
+				pcall(function() water.Enabled = true end)
 			end
 		end
 	end,
@@ -4845,38 +4819,29 @@ VisualFPS:AddToggle("NoWaterBlur", {
 	Text = "No Water Blur",
 	Default = false,
 	Callback = function(state)
+		disconnect("NoWaterBlur_ChildAdded")
+		disconnect("NoWaterBlur_Changed")
+		local waterBlur = game:GetService("Lighting"):FindFirstChild("waterBlur")
 		if state then
 			local function disableBlur(child)
-				if child.Name == "waterBlur" then
-					pcall(function()
-						child.Enabled = false
-					end)
+				if child and child.Name == "waterBlur" then
+					pcall(function() child.Enabled = false end)
+					disconnect("NoWaterBlur_Changed")
+					track("NoWaterBlur_Changed", child:GetPropertyChangedSignal("Enabled"):Connect(function()
+						if Toggles.NoWaterBlur and Toggles.NoWaterBlur.Value and child.Enabled then
+							pcall(function() child.Enabled = false end)
+						end
+					end))
 				end
 			end
 
-			local waterBlur = game:GetService("Lighting"):FindFirstChild("waterBlur")
 			if waterBlur then
 				disableBlur(waterBlur)
 			end
-
 			track("NoWaterBlur_ChildAdded", game:GetService("Lighting").ChildAdded:Connect(disableBlur))
-
-			track("NoWaterBlur_EnabledChange", RunService.Heartbeat:Connect(function()
-				local wb = game:GetService("Lighting"):FindFirstChild("waterBlur")
-				if wb and wb.Enabled then
-					pcall(function()
-						wb.Enabled = false
-					end)
-				end
-			end))
 		else
-			disconnect("NoWaterBlur_ChildAdded")
-			disconnect("NoWaterBlur_EnabledChange")
-			local waterBlur = game:GetService("Lighting"):FindFirstChild("waterBlur")
 			if waterBlur then
-				pcall(function()
-					waterBlur.Enabled = true
-				end)
+				pcall(function() waterBlur.Enabled = true end)
 			end
 		end
 	end,
@@ -5063,65 +5028,72 @@ end
 do
 	local particleConnections = {}
 	local originalEnabledStates = setmetatable({}, { __mode = "k" })
+	local knownParticleNames = {}
+
+	local function rebuildKnownParticles()
+		table.clear(knownParticleNames)
+		local particlesFolder = ReplicatedStorage:FindFirstChild("Particles")
+		if particlesFolder then
+			for _, v in ipairs(particlesFolder:GetDescendants()) do
+				if v:IsA("ParticleEmitter") or v:IsA("Fire") or v:IsA("Smoke") or v:IsA("Sparkles") then
+					knownParticleNames[v.Name] = true
+				end
+			end
+		end
+	end
 
 	local function disableParticle(v)
 		if not (v:IsA("ParticleEmitter") or v:IsA("Fire") or v:IsA("Smoke") or v:IsA("Sparkles")) then return end
+		if not knownParticleNames[v.Name] then return end
 
-		local particlesFolder = ReplicatedStorage:FindFirstChild("Particles")
-		if not particlesFolder then return end
-
-		if particlesFolder:FindFirstChild(v.Name, true) then
-			if originalEnabledStates[v] == nil then
-				originalEnabledStates[v] = v.Enabled
-			end
-			pcall(function()
-				v.Enabled = false
-			end)
-
-			local conn = v:GetPropertyChangedSignal("Enabled"):Connect(function()
-				if Toggles.RemoveParticles and Toggles.RemoveParticles.Value and v.Enabled then
-					pcall(function()
-						v.Enabled = false
-					end)
-				end
-			end)
-			table.insert(particleConnections, conn)
+		if originalEnabledStates[v] == nil then
+			originalEnabledStates[v] = v.Enabled
 		end
+		pcall(function()
+			v.Enabled = false
+		end)
+
+		local conn = v:GetPropertyChangedSignal("Enabled"):Connect(function()
+			if Toggles.RemoveParticles and Toggles.RemoveParticles.Value and v.Enabled then
+				pcall(function()
+					v.Enabled = false
+				end)
+			end
+		end)
+		table.insert(particleConnections, conn)
 	end
 
 	VisualFPS:AddToggle("RemoveParticles", {
 		Text = "Remove Particles",
 		Default = false,
 		Callback = function(state)
-			disconnect("RemoveParticles")
+			disconnect("RemoveParticles_Templates")
+			disconnect("RemoveParticles_Workspace")
 			for _, conn in ipairs(particleConnections) do
 				pcall(function() conn:Disconnect() end)
 			end
 			table.clear(particleConnections)
 
 			if state then
-				-- Disable current particles in ReplicatedStorage.Particles
+				rebuildKnownParticles()
 				local particlesFolder = ReplicatedStorage:FindFirstChild("Particles")
 				if particlesFolder then
 					for _, v in ipairs(particlesFolder:GetDescendants()) do
 						disableParticle(v)
 					end
-					-- Listen for new templates added to ReplicatedStorage
-					track("RemoveParticles_Templates", particlesFolder.DescendantAdded:Connect(disableParticle))
+					track("RemoveParticles_Templates", particlesFolder.DescendantAdded:Connect(function(v)
+						if v:IsA("ParticleEmitter") or v:IsA("Fire") or v:IsA("Smoke") or v:IsA("Sparkles") then
+							knownParticleNames[v.Name] = true
+							disableParticle(v)
+						end
+					end))
 				end
 
-				-- Disable existing particles in workspace
 				for _, v in ipairs(workspace:GetDescendants()) do
 					disableParticle(v)
 				end
-
-				-- Listen for new particles added to workspace
 				track("RemoveParticles_Workspace", workspace.DescendantAdded:Connect(disableParticle))
 			else
-				disconnect("RemoveParticles_Templates")
-				disconnect("RemoveParticles_Workspace")
-
-				-- Restore original states
 				for v, originalState in pairs(originalEnabledStates) do
 					if v and v.Parent then
 						pcall(function()
@@ -5130,6 +5102,7 @@ do
 					end
 				end
 				table.clear(originalEnabledStates)
+				table.clear(knownParticleNames)
 			end
 		end,
 	})
@@ -5287,16 +5260,20 @@ local function createESP(player)
 
 	espObjects[player] = { billboard, label, highlight }
 
+	local lastUpdate = 0
 	local function update()
 		local myRoot = getRootPart()
 		if not myRoot or not character.Parent then
 			if highlight then highlight.Enabled = false end
 			return
 		end
+
+		local now = tick()
+		if now - lastUpdate < 0.1 then return end
+		lastUpdate = now
+
 		local dist = (root.Position - myRoot.Position).Magnitude
 		local shouldShow = dist <= Options.ESPDistance.Value and Toggles.PlayerESP.Value
-
-		local screenPos, onScreen = workspace.CurrentCamera:WorldToViewportPoint(root.Position)
 
 		billboard.Enabled = shouldShow
 		local nameColor = Options and Options.PlayerESPColor and Options.PlayerESPColor.Value or Color3.new(1, 1, 1)
@@ -5308,16 +5285,12 @@ local function createESP(player)
 		label.Text = text
 
 		if highlight then
-			if shouldShow and Toggles.OutlineESP and Toggles.OutlineESP.Value then
-				highlight.Enabled = true
-			else
-				highlight.Enabled = false
-			end
+			highlight.Enabled = (shouldShow and Toggles.OutlineESP and Toggles.OutlineESP.Value == true)
 		end
 	end
 
 	update()
-	track("ESP_" .. player.Name, RunService.RenderStepped:Connect(update))
+	track("ESP_" .. player.Name, RunService.Heartbeat:Connect(update))
 end
 
 Toggles.PlayerESP:OnChanged(function()
