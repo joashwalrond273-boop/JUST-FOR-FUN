@@ -523,6 +523,152 @@ Toggles.KillswitchToggle:OnChanged(function()
 	end
 end)
 
+local BossVisibilityGroup = Tabs.Main:AddLeftGroupbox("BOSS VISIBILITY", "skull")
+
+local bossDefinitions = {
+	{ Name = "Samurai",   ModelName = "The Samurai",     ModelPath = "ReplicatedStorage.game.AIModels[\"The Samurai\"]" },
+	{ Name = "Titan",     ModelName = "The Titan",       ModelPath = "ReplicatedStorage.game.AIModels[\"The Titan\"]" },
+	{ Name = "Juggernaut",ModelName = "The Juggernaut",  ModelPath = "ReplicatedStorage.game.AIModels[\"The Juggernaut\"]" },
+	{ Name = "Spider",    ModelName = "The Great Spider",ModelPath = "ReplicatedStorage.game.AIModels[\"The Great Spider\"]" },
+	{ Name = "Marvin",    ModelName = "Marvin",          ModelPath = "ReplicatedStorage.game.AIModels.Marvin" },
+}
+
+local bossStatusColorBoxes = {}
+
+local function setBossStatusBoxColor(def, color3)
+	local box = bossStatusColorBoxes[def.Name]
+	if box then
+		pcall(function() box.BackgroundColor3 = color3 end)
+	end
+end
+
+local function getTemplateAIModel(def)
+	local ok, model = pcall(function()
+		local rs = game:GetService("ReplicatedStorage")
+		local gameFolder = rs:FindFirstChild("game")
+		if not gameFolder then return nil end
+		local aiModels = gameFolder:FindFirstChild("AIModels")
+		if not aiModels then return nil end
+		return aiModels:FindFirstChild(def.ModelName)
+	end)
+	return ok and model or nil
+end
+
+local function isBossAlive(def)
+	local template = getTemplateAIModel(def)
+	if not template then return false end
+	local ws = workspace
+	for _, inst in ipairs(ws:GetDescendants()) do
+		if inst:IsA("Model") and inst ~= template then
+			local hum = inst:FindFirstChildOfClass("Humanoid")
+			if hum then
+				local matched = false
+				if inst.Name == def.ModelName then
+					matched = true
+				else
+					local hrp = inst:FindFirstChild("HumanoidRootPart")
+					if hrp and template:FindFirstChild("HumanoidRootPart") then
+						local tSize = template:FindFirstChild("HumanoidRootPart").Size
+						if (hrp.Size - tSize).Magnitude < 0.01 then
+							matched = true
+						end
+					end
+					if not matched then
+						local templateChildren = template:GetChildren()
+						local matchedParts = 0
+						local required = math.min(5, #templateChildren)
+						for _, child in ipairs(templateChildren) do
+							if child:IsA("BasePart") and inst:FindFirstChild(child.Name) then
+								matchedParts = matchedParts + 1
+								if matchedParts >= required then
+									matched = true
+									break
+								end
+							end
+						end
+					end
+				end
+				if matched and hum.Health > 0 then
+					return true
+				end
+			end
+		end
+	end
+	return false
+end
+
+local function refreshBossStatus(def, showNotification)
+	local alive = isBossAlive(def)
+	if alive then
+		setBossStatusBoxColor(def, Color3.fromRGB(0, 255, 0))
+		if showNotification then
+			Library:Notify({ Title = def.Name, Description = "AVAILABLE - Boss is in the game", Time = 4 })
+		end
+	else
+		setBossStatusBoxColor(def, Color3.fromRGB(255, 0, 0))
+		if showNotification then
+			Library:Notify({ Title = def.Name, Description = "NOT SPAWNED - Hasn't respawned yet", Time = 4 })
+		end
+	end
+end
+
+local function addBossButtonAndStatus(def)
+	local rowLabel = BossVisibilityGroup:AddLabel("    ")
+	local labelInstance
+	pcall(function()
+		labelInstance = rowLabel.Instance or rowLabel.Label or rowLabel
+	end)
+
+	BossVisibilityGroup:AddButton({
+		Text = def.Name,
+		Func = function()
+			refreshBossStatus(def, true)
+		end,
+	})
+
+	local colorBox = nil
+	pcall(function()
+		local holdingFrame
+		if labelInstance and labelInstance.Parent then
+			holdingFrame = labelInstance.Parent
+		end
+		if not holdingFrame and rowLabel and rowLabel.Parent then
+			holdingFrame = rowLabel.Parent
+		end
+		if holdingFrame then
+			colorBox = Instance.new("Frame")
+			colorBox.Name = "BossStatusBox_" .. def.Name
+			colorBox.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+			colorBox.BorderSizePixel = 0
+			colorBox.Size = UDim2.new(0, 20, 0, 20)
+			colorBox.AnchorPoint = Vector2.new(1, 0.5)
+			colorBox.Position = UDim2.new(1, -10, 0.5, 0)
+			local uicorner = Instance.new("UICorner")
+			uicorner.CornerRadius = UDim.new(0, 4)
+			uicorner.Parent = colorBox
+			local stroke = Instance.new("UIStroke")
+			stroke.Color = Color3.fromRGB(0, 0, 0)
+			stroke.Thickness = 1
+			stroke.Parent = colorBox
+			colorBox.Parent = holdingFrame
+		end
+	end)
+	bossStatusColorBoxes[def.Name] = colorBox
+
+	task.spawn(function()
+		while true do
+			task.wait(1.5)
+			if bossStatusColorBoxes[def.Name] then
+				refreshBossStatus(def, false)
+			end
+		end
+	end)
+end
+
+for _, def in ipairs(bossDefinitions) do
+	addBossButtonAndStatus(def)
+end
+
 local FunAttach = Tabs.Main:AddLeftGroupbox("ATTACH", "link")
 
 FunAttach:AddToggle("AttachToggle", {
