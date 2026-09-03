@@ -176,6 +176,129 @@ local function getKeyedRemotes()
 	return keyed
 end
 
+local function findBossByName(bossName)
+	local function validateBoss(model)
+		if not model or not model:IsA("Model") then
+			return nil
+		end
+		local hrp = model:FindFirstChild("HumanoidRootPart") or model.PrimaryPart
+		local hum = model:FindFirstChildOfClass("Humanoid")
+		if not hrp then
+			return nil
+		end
+		if hum then
+			local healthOk = false
+			pcall(function()
+				healthOk = hum.Health > 0
+			end)
+			if not healthOk then
+				return nil
+			end
+		end
+		return hrp
+	end
+
+	local searchFolders = {
+		workspace:FindFirstChild("AI_Server"),
+		workspace:FindFirstChild("AI_Client"),
+		workspace:FindFirstChild("Mobs"),
+		workspace:FindFirstChild("Entities"),
+	}
+
+	for _, folder in ipairs(searchFolders) do
+		if folder then
+			local target = folder:FindFirstChild(bossName)
+			local hrp = validateBoss(target)
+			if hrp then
+				return target, hrp
+			end
+			pcall(function()
+				for _, child in ipairs(folder:GetDescendants()) do
+					if child.Name == bossName then
+						local hrp2 = validateBoss(child.Parent)
+						if hrp2 then
+							target = child.Parent
+							hrp = hrp2
+							return
+						end
+					end
+				end
+			end)
+			if hrp then
+				return target, hrp
+			end
+		end
+	end
+
+	local direct = workspace:FindFirstChild(bossName)
+	local hrpDirect = validateBoss(direct)
+	if hrpDirect then
+		return direct, hrpDirect
+	end
+
+	pcall(function()
+		for _, child in ipairs(workspace:GetChildren()) do
+			if child:IsA("Model") and child.Name == bossName then
+				local hrp2 = validateBoss(child)
+				if hrp2 then
+					direct = child
+					hrpDirect = hrp2
+					return
+				end
+			end
+		end
+	end)
+	if hrpDirect then
+		return direct, hrpDirect
+	end
+
+	pcall(function()
+		for _, desc in ipairs(workspace:GetDescendants()) do
+			if desc.Name == bossName and desc:IsA("Model") then
+				local hrp2 = validateBoss(desc)
+				if hrp2 then
+					direct = desc
+					hrpDirect = hrp2
+					return
+				end
+			end
+		end
+	end)
+
+	return direct, hrpDirect
+end
+
+local function teleportToBoss(bossName)
+	local playerRoot = getRootPart()
+	if not playerRoot then
+		Library:Notify({ Title = "Teleport", Description = "You are not alive!", Time = 3 })
+		return false
+	end
+
+	local bossModel, bossHRP = findBossByName(bossName)
+	if not bossHRP then
+		local AIModelsFolder = ReplicatedStorage:FindFirstChild("game") and ReplicatedStorage.game:FindFirstChild("AIModels")
+		if AIModelsFolder and AIModelsFolder:FindFirstChild(bossName) then
+			Library:Notify({ Title = "Teleport", Description = bossName .. " is not spawned in the world yet.", Time = 4 })
+		else
+			Library:Notify({ Title = "Teleport", Description = bossName .. " not found in the world.", Time = 4 })
+		end
+		return false
+	end
+
+	local success = pcall(function()
+		playerRoot.CFrame = bossHRP.CFrame + Vector3.new(0, 5, 0)
+	end)
+
+	if success then
+		Library:Notify({ Title = "Teleport", Description = "Teleported to " .. bossName, Time = 2 })
+		return true
+	else
+		Library:Notify({ Title = "Teleport", Description = "Failed to teleport to " .. bossName, Time = 3 })
+		return false
+	end
+end
+
 -- Game modules & remotes
 local TSG = {}
 local Crypt = nil
@@ -3683,65 +3806,6 @@ local FarmRight = Tabs.Farming:AddRightGroupbox("Highlight Settings", "palette")
 -- ==========================================
 local BossFarm = Tabs.Farming:AddLeftGroupbox("Boss Farm", "swords")
 
-local function BossFarm_CheckBoss(modelName, buttonLabel)
-	task.spawn(function()
-		local found = false
-		pcall(function()
-			local ws = workspace
-			local function alive(m)
-				local ok, hrp = pcall(function() return m and m:FindFirstChild("HumanoidRootPart") end)
-				local ok2, hum = pcall(function() return m and m:FindFirstChildOfClass("Humanoid") end)
-				if not (ok and ok2) or not hrp or not hum then return false end
-				local ok3, hp = pcall(function() return hum.Health end)
-				return (ok3 and hp and hp > 0) or (hrp and not ok3) or (ok3 and hp == nil)
-			end
-			local function isMatch(obj)
-				if not obj then return false end
-				local ok, m = pcall(function() return obj:IsA("Model") end)
-				if not ok or not m then return false end
-				local okN, n = pcall(function() return obj.Name end)
-				if not okN or n ~= modelName then return false end
-				if alive(obj) then found = true return true end
-				return false
-			end
-			if isMatch(ws:FindFirstChild(modelName)) then return end
-			for _, folder in ipairs({"AI_Server", "AI_Client", "Mobs", "Entities"}) do
-				local f = ws:FindFirstChild(folder)
-				if f then
-					pcall(function()
-						for _, c in ipairs(f:GetChildren()) do
-							if isMatch(c) then return end
-							pcall(function()
-								for _, c2 in ipairs(c:GetChildren()) do
-									if isMatch(c2) then return end
-								end
-							end)
-						end
-					end)
-					if found then return end
-				end
-			end
-			pcall(function()
-				for _, c in ipairs(ws:GetChildren()) do
-					if isMatch(c) then return end
-					pcall(function()
-						for _, c2 in ipairs(c:GetChildren()) do
-							if isMatch(c2) then return end
-						end
-					end)
-				end
-			end)
-		end)
-		pcall(function()
-			if found then
-				Library:Notify({ Title = buttonLabel, Description = "AVAILABLE - Boss is in the game", Time = 4 })
-			else
-				Library:Notify({ Title = buttonLabel, Description = "NOT SPAWNED - Hasn't respawned yet", Time = 4 })
-			end
-		end)
-	end)
-end
-
 BossFarm:AddToggle("TitanAura", {
 	Text = "Titan Aura",
 	Default = false,
@@ -3757,40 +3821,38 @@ BossFarm:AddToggle("JuggernautAura", {
 	Default = false,
 })
 
-local BossVisibilityGroup = Tabs.Farming:AddLeftGroupbox("Boss Visibility", "scan-eye")
-
-BossVisibilityGroup:AddButton({
-	Text = "Samurai",
+BossFarm:AddButton({
+	Text = "TP to The Samurai",
 	Func = function()
-		BossFarm_CheckBoss("The Samurai", "Samurai")
+		teleportToBoss("The Samurai")
 	end,
 })
 
-BossVisibilityGroup:AddButton({
-	Text = "Titan",
+BossFarm:AddButton({
+	Text = "TP to The Titan",
 	Func = function()
-		BossFarm_CheckBoss("The Titan", "Titan")
+		teleportToBoss("The Titan")
 	end,
 })
 
-BossVisibilityGroup:AddButton({
-	Text = "Juggernaut",
+BossFarm:AddButton({
+	Text = "TP to The Juggernaut",
 	Func = function()
-		BossFarm_CheckBoss("The Juggernaut", "Juggernaut")
+		teleportToBoss("The Juggernaut")
 	end,
 })
 
-BossVisibilityGroup:AddButton({
-	Text = "Spider",
+BossFarm:AddButton({
+	Text = "TP to The Great Spider",
 	Func = function()
-		BossFarm_CheckBoss("The Great Spider", "Spider")
+		teleportToBoss("The Great Spider")
 	end,
 })
 
-BossVisibilityGroup:AddButton({
-	Text = "Marvin",
+BossFarm:AddButton({
+	Text = "TP to Marvin",
 	Func = function()
-		BossFarm_CheckBoss("Marvin", "Marvin")
+		teleportToBoss("Marvin")
 	end,
 })
 
