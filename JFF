@@ -3698,6 +3698,68 @@ BossFarm:AddToggle("JuggernautAura", {
 	Default = false,
 })
 
+BossFarm:AddButton({
+	Text = "Samurai",
+	Func = function()
+		task.spawn(function()
+			local found = false
+			pcall(function()
+				local ws = workspace
+				local function alive(m)
+					local ok, hrp = pcall(function() return m and m:FindFirstChild("HumanoidRootPart") end)
+					local ok2, hum = pcall(function() return m and m:FindFirstChildOfClass("Humanoid") end)
+					if not (ok and ok2) or not hrp or not hum then return false end
+					local ok3, hp = pcall(function() return hum.Health end)
+					return (ok3 and hp and hp > 0) or (hrp and not ok3) or (ok3 and hp == nil)
+				end
+				local function isMatch(obj)
+					if not obj then return false end
+					local ok, m = pcall(function() return obj:IsA("Model") end)
+					if not ok or not m then return false end
+					local okN, n = pcall(function() return obj.Name end)
+					if not okN or n ~= "The Samurai" then return false end
+					if alive(obj) then found = true return true end
+					return false
+				end
+				if isMatch(ws:FindFirstChild("The Samurai")) then return end
+				for _, folder in ipairs({"AI_Server", "AI_Client", "Mobs", "Entities"}) do
+					local f = ws:FindFirstChild(folder)
+					if f then
+						pcall(function()
+							for _, c in ipairs(f:GetChildren()) do
+								if isMatch(c) then return end
+								pcall(function()
+									for _, c2 in ipairs(c:GetChildren()) do
+										if isMatch(c2) then return end
+									end
+								end)
+							end
+						end)
+						if found then return end
+					end
+				end
+				pcall(function()
+					for _, c in ipairs(ws:GetChildren()) do
+						if isMatch(c) then return end
+						pcall(function()
+							for _, c2 in ipairs(c:GetChildren()) do
+								if isMatch(c2) then return end
+							end
+						end)
+					end
+				end)
+			end)
+			pcall(function()
+				if found then
+					Library:Notify({ Title = "Samurai", Description = "AVAILABLE - Boss is in the game", Time = 4 })
+				else
+					Library:Notify({ Title = "Samurai", Description = "NOT SPAWNED - Hasn't respawned yet", Time = 4 })
+				end
+			end)
+		end)
+	end,
+})
+
 -- ==========================================
 local FarmMine = Tabs.Farming:AddLeftGroupbox("Auto Mine", "gem")
 
