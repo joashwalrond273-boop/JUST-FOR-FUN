@@ -690,11 +690,6 @@ MainLeft:AddToggle("InfiniteJump", {
 	Default = false,
 })
 
-MainLeft:AddToggle("InstaShoot", {
-	Text = "Insta Shoot",
-	Default = false,
-})
-
 MainLeft:AddToggle("NoGliderCooldown", {
 	Text = "No Glider Cooldown",
 	Default = false,
@@ -1260,28 +1255,6 @@ Toggles.InfiniteJump:OnChanged(function()
 	end
 end)
 
-Toggles.InstaShoot:OnChanged(function()
-	disconnect("InstaShoot")
-	if Toggles.InstaShoot.Value then
-		if not ShootEvent then
-			Library:Notify({ Title = "Insta Shoot", Description = "Shoot remote not found", Time = 3 })
-			Toggles.InstaShoot:SetValue(false)
-			return
-		end
-		track("InstaShoot", RunService.Heartbeat:Connect(function()
-			if not capturedShootArgs then return end
-			if not isAlive() then return end
-			pcall(function()
-				ShootEvent:InvokeServer(table.unpack(capturedShootArgs, 1, capturedShootArgs.n))
-			end)
-			task.wait(0.05)
-		end))
-		Library:Notify({ Title = "Insta Shoot", Description = "Enabled (shoot once to prime)", Time = 2 })
-	else
-		Library:Notify({ Title = "Insta Shoot", Description = "Disabled", Time = 2 })
-	end
-end)
-
 Toggles.NoFallDamage:OnChanged(function()
 	disconnect("NoFallDamage")
 	if Toggles.NoFallDamage.Value then
@@ -1663,6 +1636,11 @@ task.spawn(function()
 		updateAutoSwingSliderVisibility()
 	end
 end)
+
+CombatAutoSwing:AddToggle("InstaShoot", {
+	Text = "Insta Shoot",
+	Default = false,
+})
 
 CombatAutoSwing:AddToggle("AutoHop", {
 	Text = "+ Auto Hop",
@@ -2334,6 +2312,28 @@ Toggles.AutoSwing:OnChanged(function()
 		end))
 	else
 		_G.T = false
+	end
+end)
+
+Toggles.InstaShoot:OnChanged(function()
+	disconnect("InstaShoot")
+	if Toggles.InstaShoot.Value then
+		if not ShootEvent then
+			Library:Notify({ Title = "Insta Shoot", Description = "Shoot remote not found", Time = 3 })
+			Toggles.InstaShoot:SetValue(false)
+			return
+		end
+		track("InstaShoot", RunService.Heartbeat:Connect(function()
+			if not capturedShootArgs then return end
+			if not isAlive() then return end
+			pcall(function()
+				ShootEvent:InvokeServer(table.unpack(capturedShootArgs, 1, capturedShootArgs.n))
+			end)
+			task.wait(0.05)
+		end))
+		Library:Notify({ Title = "Insta Shoot", Description = "Enabled (shoot once to prime)", Time = 2 })
+	else
+		Library:Notify({ Title = "Insta Shoot", Description = "Disabled", Time = 2 })
 	end
 end)
 
