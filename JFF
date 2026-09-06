@@ -1701,11 +1701,6 @@ CombatAutoBlock:AddSlider("AutoParryRange", {
 	Rounding = 0,
 })
 
-CombatAutoBlock:AddToggle("AutoParryCounter", {
-	Text = "Auto Counter-Attack",
-	Default = false,
-})
-
 local AutoShieldToggle = CombatAutoBlock:AddToggle("ImmortalMode", {
 	Text = "Immortal Mode",
 	Default = false,
@@ -1949,25 +1944,6 @@ local function updateAutoParry()
 			pcall(function()
 				shieldRemote:FireServer(false)
 			end)
-
-			if Toggles.AutoParryCounter and Toggles.AutoParryCounter.Value and lastParryTarget and lastParryTarget.Parent then
-				local targetPlayer = Players:GetPlayerFromCharacter(lastParryTarget)
-				local slot = (getToolSlot and getToolSlot({256, 194, 51, 50, 49, 1, 110, 197, 266})) or 1
-				if targetPlayer and TSG and TSG.MeleePlayerRemote then
-					if Crypt then
-						pcall(function()
-							local k1, k2, k3 = Crypt.checkpublickeys()
-							if k1 and k2 and k3 then
-								local encryptedUserId = Crypt.crypt(k1, math.abs(targetPlayer.UserId) + k3, k2)
-								TSG.MeleePlayerRemote:FireServer(slot, encryptedUserId)
-							end
-						end)
-					else
-						pcall(TSG.MeleePlayerRemote.FireServer, TSG.MeleePlayerRemote, slot, targetPlayer)
-					end
-				end
-				lastParryTarget = nil
-			end
 		end
 	end
 end
