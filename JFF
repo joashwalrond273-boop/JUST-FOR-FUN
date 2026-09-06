@@ -328,6 +328,41 @@ pcall(function()
 	end
 end)
 
+-- Insta Shoot: capture bow/shoot remote args for rapid replay
+local ShootEvent = nil
+local capturedShootArgs = nil
+pcall(function()
+	ShootEvent = resolvePath(ReplicatedStorage, "remoteInterface", "interactions", "shoot")
+end)
+
+pcall(function()
+	if not ShootEvent then return end
+
+	local mtHook; mtHook = hookmetamethod(game, "__namecall", function(...)
+		local self = ...
+
+		if rawequal(self, ShootEvent) and getnamecallmethod() == "InvokeServer" then
+			local Args = table.pack(...)
+			capturedShootArgs = Args
+		end
+
+		return mtHook(...)
+	end)
+
+	if typeof(hookfunction) == "function" and ShootEvent.InvokeServer then
+		local OldInvokeServer; OldInvokeServer = hookfunction(ShootEvent.InvokeServer, function(...)
+			local self = ...
+
+			if rawequal(self, ShootEvent) then
+				local Args = table.pack(...)
+				capturedShootArgs = Args
+			end
+
+			return OldInvokeServer(self, ...)
+		end)
+	end
+end)
+
 Library.Font = Enum.Font.Jura
 
 -- Window
@@ -652,6 +687,11 @@ MainLeft:AddToggle("InfiniteStamina", {
 
 MainLeft:AddToggle("InfiniteJump", {
 	Text = "Infinite Jump",
+	Default = false,
+})
+
+MainLeft:AddToggle("InstaShoot", {
+	Text = "Insta Shoot",
 	Default = false,
 })
 
@@ -1217,6 +1257,28 @@ Toggles.InfiniteJump:OnChanged(function()
 			end)
 		end))
 		Library:Notify({ Title = "Infinite Jump", Description = "Enabled", Time = 2 })
+	end
+end)
+
+Toggles.InstaShoot:OnChanged(function()
+	disconnect("InstaShoot")
+	if Toggles.InstaShoot.Value then
+		if not ShootEvent then
+			Library:Notify({ Title = "Insta Shoot", Description = "Shoot remote not found", Time = 3 })
+			Toggles.InstaShoot:SetValue(false)
+			return
+		end
+		track("InstaShoot", RunService.Heartbeat:Connect(function()
+			if not capturedShootArgs then return end
+			if not isAlive() then return end
+			pcall(function()
+				ShootEvent:InvokeServer(table.unpack(capturedShootArgs, 1, capturedShootArgs.n))
+			end)
+			task.wait(0.05)
+		end))
+		Library:Notify({ Title = "Insta Shoot", Description = "Enabled (shoot once to prime)", Time = 2 })
+	else
+		Library:Notify({ Title = "Insta Shoot", Description = "Disabled", Time = 2 })
 	end
 end)
 
@@ -6082,6 +6144,10 @@ Library:OnUnload(function()
 
 	if Toggles.NoGliderCooldown and Toggles.NoGliderCooldown.Value then
 		Toggles.NoGliderCooldown:SetValue(false)
+	end
+
+	if Toggles.InstaShoot and Toggles.InstaShoot.Value then
+		Toggles.InstaShoot:SetValue(false)
 	end
 
 	pcall(function()
