@@ -1565,10 +1565,6 @@ CombatRight:AddToggle("TargetPlayers", {
 	Default = true,
 })
 
-CombatRight:AddToggle("TargetAnimals", {
-	Text = "Target Animals",
-	Default = true,
-})
 
 CombatRight:AddToggle("HighlightTarget", {
 	Text = "Highlight Target",
@@ -1984,21 +1980,6 @@ local function killAuraLoop()
 
 	local targetSetting = Options.KillAuraTarget and Options.KillAuraTarget.Value or "All"
 
-	-- Scan AI_Client for NPCs
-	local aiClient = workspace:FindFirstChild("AI_Client")
-	if targetSetting == "All" and Toggles.TargetAnimals.Value and aiClient then
-		for _, npc in ipairs(aiClient:GetChildren()) do
-			local npcHum = npc:FindFirstChildOfClass("Humanoid")
-			local npcRoot = npc:FindFirstChild("HumanoidRootPart") or npc.PrimaryPart
-			if npcHum and npcHum.Health > 0 and npcRoot then
-				local d = (npcRoot.Position - pos).Magnitude
-				if d < nearestDist and passesAngleCheck(npcRoot.Position) then
-					nearestDist = d
-					nearestTarget = npc
-				end
-			end
-		end
-	end
 
 	-- Scan Players
 	if Toggles.TargetPlayers.Value then
