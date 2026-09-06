@@ -3689,6 +3689,11 @@ FarmMine:AddToggle("AutoMine", {
 	Default = false,
 })
 
+FarmMine:AddToggle("QuickOreFarm", {
+	Text = "+ Quick Ore Farm",
+	Default = false,
+})
+
 FarmMine:AddDropdown("AutoMineSlot", {
 	Text = "Tool Slot",
 	Values = {"1","2","3","4","5","6","7","8","9","10"},
@@ -3786,11 +3791,6 @@ OreFarm:AddButton({
 			end
 		end
 	end,
-})
-
-OreFarm:AddToggle("QuickOreFarm", {
-	Text = "+ Quick Ore Farm",
-	Default = false,
 })
 
 local goldLocations = {
@@ -3941,20 +3941,30 @@ end)
 
 -- ==========================================
 local isAutoMineRunning = false
+local isQuickOreFarmRunning = false
 local isAutoChopRunning = false
 local isAiAuraRunning   = false
-local isQuickOreFarmRunning = false
 local lastAutoMineHit   = 0
 local lastAutoChopHit   = 0
-local lastQuickOreFarmTeleport = 0
-local quickOreFarmIndex = 0
+local quickOreFarmThread = nil
+
+local function getOreTargetPart(obj)
+	if not obj or not obj.Parent then return nil end
+	if obj:IsA("Model") then
+		return obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
+	elseif obj:IsA("BasePart") then
+		return obj
+	end
+	return nil
+end
 
 local function mineObject(obj)
 	local slot = tonumber(Options.AutoMineSlot.Value) or 1
-	if obj and obj.PrimaryPart then
+	local targetPart = obj and getOreTargetPart(obj)
+	if obj and targetPart then
 		updateHighlight(hlMine, obj, Toggles.HighlightMine.Value)
 		pcall(function()
-			TSG.MineRemote:FireServer(slot, obj, CFrame.new(obj.PrimaryPart.Position))
+			TSG.MineRemote:FireServer(slot, obj, CFrame.new(targetPart.Position))
 		end)
 	end
 end
@@ -3971,11 +3981,20 @@ local function autoMine()
 	for _, subfolder in ipairs(folder:GetChildren()) do
 		if subfolder:IsA("Folder") then
 			for _, obj in ipairs(subfolder:GetChildren()) do
-				if obj.PrimaryPart then
-					local d = (root.Position - obj.PrimaryPart.Position).Magnitude
+				local part = getOreTargetPart(obj)
+				if part then
+					local d = (root.Position - part.Position).Magnitude
 					if d < dist then
 						closest, dist = obj, d
 					end
+				end
+			end
+		elseif subfolder:IsA("Model") or subfolder:IsA("BasePart") then
+			local part = getOreTargetPart(subfolder)
+			if part then
+				local d = (root.Position - part.Position).Magnitude
+				if d < dist then
+					closest, dist = subfolder, d
 				end
 			end
 		end
@@ -3985,6 +4004,61 @@ local function autoMine()
 		mineObject(closest)
 	else
 		updateHighlight(hlMine, nil, false)
+	end
+end
+
+local function runQuickOreFarm()
+	while isQuickOreFarmRunning and Toggles.QuickOreFarm and Toggles.QuickOreFarm.Value do
+		if not isAlive() then
+			task.wait(0.5)
+			continue
+		end
+
+		local folder = workspace:FindFirstChild("worldResources") and workspace.worldResources:FindFirstChild("mineable")
+		if not folder then
+			task.wait(0.5)
+			continue
+		end
+
+		local oreList = {}
+		for _, chunkFolder in ipairs(folder:GetChildren()) do
+			if chunkFolder:IsA("Folder") then
+				for _, obj in ipairs(chunkFolder:GetChildren()) do
+					if obj and obj.Parent then
+						table.insert(oreList, obj)
+					end
+				end
+			elseif chunkFolder:IsA("Model") or chunkFolder:IsA("BasePart") then
+				table.insert(oreList, chunkFolder)
+			end
+		end
+
+		if #oreList == 0 then
+			task.wait(0.5)
+			continue
+		end
+
+		for _, obj in ipairs(oreList) do
+			if not isQuickOreFarmRunning or not Toggles.QuickOreFarm or not Toggles.QuickOreFarm.Value then
+				break
+			end
+			if not isAlive() then
+				break
+			end
+
+			if obj and obj.Parent then
+				local part = getOreTargetPart(obj)
+				local root = getRootPart()
+				if part and root then
+					root.CFrame = CFrame.new(part.Position + Vector3.new(0, 3, 0))
+					if Toggles.AutoMine and not Toggles.AutoMine.Value then
+						Toggles.AutoMine:SetValue(true)
+					end
+					mineObject(obj)
+					task.wait(0.2)
+				end
+			end
+		end
 	end
 end
 
@@ -4009,54 +4083,15 @@ Toggles.AutoMine:OnChanged(function()
 	end
 end)
 
--- ==========================================
-local function quickOreFarm()
-	if not isAlive() or not isQuickOreFarmRunning then return end
-	if tick() - lastQuickOreFarmTeleport < 0.2 then return end
-
-	local root = getRootPart()
-	if not root then return end
-	local folder = workspace:FindFirstChild("worldResources") and workspace.worldResources:FindFirstChild("mineable")
-	if not folder then return end
-
-	local allOres = {}
-	pcall(function()
-		for _, subfolder in ipairs(folder:GetChildren()) do
-			if subfolder:IsA("Folder") then
-				for _, obj in ipairs(subfolder:GetChildren()) do
-					if obj and obj.PrimaryPart then
-						table.insert(allOres, obj)
-					end
-				end
-			end
-		end
-	end)
-
-	if #allOres == 0 then return end
-
-	quickOreFarmIndex = (quickOreFarmIndex % #allOres) + 1
-	local targetOre = allOres[quickOreFarmIndex]
-
-	if targetOre and targetOre.PrimaryPart then
-		lastQuickOreFarmTeleport = tick()
-		pcall(function()
-			root.CFrame = CFrame.new(targetOre.PrimaryPart.Position + Vector3.new(0, 3, 0))
-		end)
-	end
-end
-
 Toggles.QuickOreFarm:OnChanged(function()
-	disconnect("QuickOreFarm")
 	if Toggles.QuickOreFarm.Value then
 		isQuickOreFarmRunning = true
-		quickOreFarmIndex = 0
 		if Toggles.AutoMine and not Toggles.AutoMine.Value then
 			Toggles.AutoMine:SetValue(true)
 		end
-		track("QuickOreFarm", RunService.Heartbeat:Connect(function()
-			if not isAlive() or not isQuickOreFarmRunning then return end
-			quickOreFarm()
-		end))
+		if not quickOreFarmThread or coroutine.status(quickOreFarmThread) == "dead" then
+			quickOreFarmThread = task.spawn(runQuickOreFarm)
+		end
 		Library:Notify({ Title = "Quick Ore Farm", Description = "Enabled", Time = 2 })
 	else
 		isQuickOreFarmRunning = false
@@ -6140,6 +6175,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.OreESPToggle and Toggles.OreESPToggle.Value then
 		Toggles.OreESPToggle:SetValue(false)
+	end
+	if Toggles.QuickOreFarm and Toggles.QuickOreFarm.Value then
+		Toggles.QuickOreFarm:SetValue(false)
 	end
 
 	if Toggles.NoGliderCooldown and Toggles.NoGliderCooldown.Value then
