@@ -2061,29 +2061,40 @@ local lastKillAuraHit = 0
 local function attackNPC(slot, target)
 	if not target then return end
 	local isServerModel = false
-	local aiServer = workspace:FindFirstChild("AI_Server")
-	if aiServer and target:IsDescendantOf(aiServer) then
-		isServerModel = true
-	end
+	pcall(function()
+		local aiServer = workspace:FindFirstChild("AI_Server")
+		local mobsFolder = workspace:FindFirstChild("Mobs")
+		local entitiesFolder = workspace:FindFirstChild("Entities")
+		if aiServer and target:IsDescendantOf(aiServer) then
+			isServerModel = true
+		elseif mobsFolder and target:IsDescendantOf(mobsFolder) then
+			isServerModel = true
+		elseif entitiesFolder and target:IsDescendantOf(entitiesFolder) then
+			isServerModel = true
+		end
+	end)
 
 	if isServerModel then
-		-- It's already the server model! Fire meleeAI directly with target
 		if TSG.MeleeAI then
 			pcall(TSG.MeleeAI.FireServer, TSG.MeleeAI, slot, target)
-		else
-			pcall(TSG.MeleeAnimalRemote.FireServer, TSG.MeleeAnimalRemote, slot, target)
 		end
+		pcall(TSG.MeleeAnimalRemote.FireServer, TSG.MeleeAnimalRemote, slot, target)
 	else
-		-- It's a client model (from AI_Client or animals folder)
+		local fired = false
 		if AiController and TSG.MeleeAI then
-			local serverModel = AiController:GetServerModelFromClientModel(target)
-			if serverModel then
-				pcall(TSG.MeleeAI.FireServer, TSG.MeleeAI, slot, serverModel)
-			else
-				pcall(TSG.MeleeAnimalRemote.FireServer, TSG.MeleeAnimalRemote, slot, target)
-			end
-		else
+			pcall(function()
+				local serverModel = AiController:GetServerModelFromClientModel(target)
+				if serverModel then
+					pcall(TSG.MeleeAI.FireServer, TSG.MeleeAI, slot, serverModel)
+					fired = true
+				end
+			end)
+		end
+		if not fired then
 			pcall(TSG.MeleeAnimalRemote.FireServer, TSG.MeleeAnimalRemote, slot, target)
+			if TSG.MeleeAI then
+				pcall(TSG.MeleeAI.FireServer, TSG.MeleeAI, slot, target)
+			end
 		end
 	end
 end
@@ -2112,39 +2123,66 @@ local function killAuraLoop()
 
 	local targetSetting = Options.KillAuraTarget and Options.KillAuraTarget.Value or "All"
 
-	-- Scan AI_Client for NPCs
-	local aiClient = workspace:FindFirstChild("AI_Client")
-	if targetSetting == "All" and Toggles.TargetAnimals.Value and aiClient then
-		for _, npc in ipairs(aiClient:GetChildren()) do
-			local npcHum = npc:FindFirstChildOfClass("Humanoid")
-			local npcRoot = npc:FindFirstChild("HumanoidRootPart") or npc.PrimaryPart
-			if npcHum and npcHum.Health > 0 and npcRoot then
-				local d = (npcRoot.Position - pos).Magnitude
-				if d < nearestDist and passesAngleCheck(npcRoot.Position) then
-					nearestDist = d
-					nearestTarget = npc
-				end
-			end
-		end
+	-- Scan all NPC folders (AI_Server, AI_Client, animals, Mobs, Entities)
+	local scanFolders = {}
+	if targetSetting == "All" and Toggles.TargetAnimals.Value then
+		local aiServer = workspace:FindFirstChild("AI_Server")
+		if aiServer then table.insert(scanFolders, aiServer) end
+		local aiClient = workspace:FindFirstChild("AI_Client")
+		if aiClient then table.insert(scanFolders, aiClient) end
+		local animalsFolder = resolvePath(workspace, "animals")
+		if animalsFolder then table.insert(scanFolders, animalsFolder) end
+		local mobsFolder = workspace:FindFirstChild("Mobs")
+		if mobsFolder then table.insert(scanFolders, mobsFolder) end
+		local entitiesFolder = workspace:FindFirstChild("Entities")
+		if entitiesFolder then table.insert(scanFolders, entitiesFolder) end
 	end
 
-	-- Scan Players
-	if Toggles.TargetPlayers.Value then
-		for _, otherPlayer in ipairs(Players:GetPlayers()) do
-			if otherPlayer ~= LocalPlayer and otherPlayer.Character then
-				local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
-				local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart") or otherPlayer.Character.PrimaryPart
-				if otherHum and otherHum.Health > 0 and otherRoot then
-					if targetSetting == "All" or otherPlayer.Name == targetSetting then
-						local d = (otherRoot.Position - pos).Magnitude
-						if d < nearestDist and passesAngleCheck(otherRoot.Position) then
+	for _, folder in ipairs(scanFolders) do
+		pcall(function()
+			for _, npc in ipairs(folder:GetChildren()) do
+				if npc:IsA("Model") then
+					local npcHum = npc:FindFirstChildOfClass("Humanoid")
+					local npcRoot = npc:FindFirstChild("HumanoidRootPart") or npc.PrimaryPart
+					local alive = false
+					pcall(function()
+						alive = (not npcHum) or (npcHum.Health > 0)
+					end)
+					if alive and npcRoot then
+						local d = (npcRoot.Position - pos).Magnitude
+						if d < nearestDist and passesAngleCheck(npcRoot.Position) then
 							nearestDist = d
-							nearestTarget = otherPlayer.Character
+							nearestTarget = npc
 						end
 					end
 				end
 			end
-		end
+		end)
+	end
+
+	-- Scan Players
+	if Toggles.TargetPlayers.Value then
+		pcall(function()
+			for _, otherPlayer in ipairs(Players:GetPlayers()) do
+				if otherPlayer ~= LocalPlayer and otherPlayer.Character then
+					local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
+					local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart") or otherPlayer.Character.PrimaryPart
+					local alive = false
+					pcall(function()
+						alive = otherHum and otherHum.Health > 0
+					end)
+					if alive and otherRoot then
+						if targetSetting == "All" or otherPlayer.Name == targetSetting then
+							local d = (otherRoot.Position - pos).Magnitude
+							if d < nearestDist and passesAngleCheck(otherRoot.Position) then
+								nearestDist = d
+								nearestTarget = otherPlayer.Character
+							end
+						end
+					end
+				end
+			end
+		end)
 	end
 
 	updateHighlight(highlightTarget, nearestTarget, Toggles.HighlightTarget.Value)
