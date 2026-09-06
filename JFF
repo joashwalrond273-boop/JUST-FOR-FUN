@@ -3788,13 +3788,10 @@ OreFarm:AddButton({
 	end,
 })
 
-local PlusQuickOreFarmToggle = OreFarm:AddToggle("QuickOreFarm", {
-	Text = "+ QUick Ore Farm",
+OreFarm:AddToggle("QuickOreFarm", {
+	Text = "+ Quick Ore Farm",
 	Default = false,
 })
-if PlusQuickOreFarmToggle.TextLabel then
-	PlusQuickOreFarmToggle.TextLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
-end
 
 local goldLocations = {
 	{ name = "Gold 1",  pos = Vector3.new(1732.94, 113.13, 2295.19) },
