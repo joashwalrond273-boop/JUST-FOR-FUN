@@ -333,7 +333,7 @@ Library.Font = Enum.Font.Jura
 -- Window
 local Window = Library:CreateWindow({
 	Title = "URIEL",
-	Footer = "FPS: 120 | Ping: 60ms",
+	Footer = "URIEL",
 	Icon = nil,
 	Center = true,
 	AutoShow = true,
@@ -341,42 +341,6 @@ local Window = Library:CreateWindow({
 	NotifySide = "Right",
 	ShowCustomCursor = true,
 })
-
-task.spawn(function()
-	task.wait(1)
-	local footerLabel = nil
-	if Window.Outer then
-		for _, child in ipairs(Window.Outer:GetDescendants()) do
-			if child:IsA("TextLabel") and (child.Text:find("FPS:") or child.Text:find("Ping:") or child.Text == "Obsidian UI") then
-				footerLabel = child
-				break
-			end
-		end
-	end
-
-	if footerLabel then
-		local lastTick = tick()
-		local frameCount = 0
-		track("StatsUpdate", RunService.Heartbeat:Connect(function()
-			frameCount += 1
-			local curTick = tick()
-			if curTick - lastTick >= 0.5 then
-				local fps = math.floor(frameCount / (curTick - lastTick))
-				frameCount = 0
-				lastTick = curTick
-
-				local ping = 0
-				local success, pingVal = pcall(function()
-					return LocalPlayer:GetNetworkPing() * 1000
-				end)
-				if success and pingVal then
-					ping = math.floor(pingVal)
-				end
-				footerLabel.Text = string.format("FPS: %d | Ping: %dms", fps, ping)
-			end
-		end))
-	end
-end)
 
 local Tabs = {
 	Main = Window:AddTab("Main", "badge-info"),
@@ -1617,27 +1581,6 @@ CombatAutoSwing:AddToggle("AutoShiftlock", {
 	Default = false,
 })
 
-CombatAutoSwing:AddToggle("SwordLunge", {
-	Text = "+ Sword Lunge",
-	Default = false,
-})
-
-CombatAutoSwing:AddSlider("SwordLungeForce", {
-	Text = "Lunge Force",
-	Min = 10,
-	Max = 100,
-	Default = 45,
-	Rounding = 0,
-})
-
-CombatAutoSwing:AddSlider("SwordLungeCooldown", {
-	Text = "Lunge Cooldown",
-	Min = 0.1,
-	Max = 1.5,
-	Default = 0.35,
-	Rounding = 2,
-})
-
 local CombatSwordBot = Tabs.Combat:AddLeftGroupbox("Sword Bot", "swords")
 
 CombatSwordBot:AddToggle("SwordBot", {
@@ -2273,41 +2216,6 @@ Toggles.KillAura:OnChanged(function()
 end)
 
 local lastAutoSwing = 0
-local lastSwordLunge = 0
-
-local function performSwordLunge()
-	if not isAlive() or not Toggles.SwordLunge or not Toggles.SwordLunge.Value then return end
-	local cooldown = (Options.SwordLungeCooldown and Options.SwordLungeCooldown.Value) or 0.35
-	if tick() - lastSwordLunge < cooldown then return end
-
-	local root = getRootPart()
-	local hum = getHumanoid()
-	if not root or not hum or hum.Health <= 0 then return end
-
-	local char = getCharacter()
-	local tool = char and char:FindFirstChildOfClass("Tool")
-	if not tool then return end
-
-	lastSwordLunge = tick()
-	local force = (Options.SwordLungeForce and Options.SwordLungeForce.Value) or 45
-	local moveDir = hum.MoveDirection
-	local dir = (moveDir.Magnitude > 0.1 and moveDir.Unit) or root.CFrame.LookVector
-
-	local currentY = root.AssemblyLinearVelocity.Y
-	local newVel = (dir * force) + Vector3.new(0, math.clamp(currentY, -5, 12), 0)
-	root.AssemblyLinearVelocity = newVel
-	root.Velocity = newVel
-end
-
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-	if gameProcessed then return end
-	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-		if Toggles.SwordLunge and Toggles.SwordLunge.Value then
-			performSwordLunge()
-		end
-	end
-end)
-
 Toggles.AutoSwing:OnChanged(function()
 	disconnect("AutoSwing")
 	if updateAutoSwingSliderVisibility then
@@ -2323,9 +2231,6 @@ Toggles.AutoSwing:OnChanged(function()
 				if tool then
 					tool:Activate()
 					lastAutoSwing = tick()
-					if Toggles.SwordLunge and Toggles.SwordLunge.Value then
-						performSwordLunge()
-					end
 				end
 			end
 		end))
@@ -4750,118 +4655,7 @@ end
 -- ==========================================
 local VisualLeft = Tabs.Visuals:AddLeftGroupbox("ESP", "scan-eye")
 local VisualRight = Tabs.Visuals:AddRightGroupbox("Settings", "sliders-horizontal")
-local VisualTrails = Tabs.Visuals:AddRightGroupbox("Ghost Trail", "ghost")
 local VisualFPS = Tabs.Visuals:AddRightGroupbox("FPS Booster", "zap")
-
-VisualTrails:AddToggle("GhostTrail", {
-	Text = "Ghost Trail",
-	Default = false,
-}):AddColorPicker("GhostTrailColor", {
-	Default = Color3.fromRGB(155, 89, 255),
-	Title = "Ghost Trail Color",
-})
-
-VisualTrails:AddSlider("GhostTrailLifetime", {
-	Text = "Trail Lifetime",
-	Min = 0.2,
-	Max = 2.0,
-	Default = 0.6,
-	Rounding = 1,
-})
-
-VisualTrails:AddDropdown("GhostTrailMaterial", {
-	Text = "Material",
-	Values = {"Neon", "ForceField", "Glass", "SmoothPlastic"},
-	Default = "Neon",
-})
-
-VisualTrails:AddToggle("GhostTrailRainbow", {
-	Text = "Rainbow Chroma",
-	Default = false,
-})
-
-local ghostTrailFolder = nil
-local lastGhostTrailSpawn = 0
-
-local function getGhostTrailFolder()
-	if not ghostTrailFolder or not ghostTrailFolder.Parent then
-		ghostTrailFolder = Instance.new("Folder")
-		ghostTrailFolder.Name = "GhostTrailFolder"
-		ghostTrailFolder.Parent = workspace
-	end
-	return ghostTrailFolder
-end
-
-local function clearGhostTrails()
-	if ghostTrailFolder then
-		pcall(function() ghostTrailFolder:Destroy() end)
-		ghostTrailFolder = nil
-	end
-end
-
-local function spawnGhostTrail()
-	if not isAlive() or not Toggles.GhostTrail or not Toggles.GhostTrail.Value then return end
-	if tick() - lastGhostTrailSpawn < 0.05 then return end
-
-	local char = getCharacter()
-	local root = getRootPart()
-	if not char or not root then return end
-
-	if root.AssemblyLinearVelocity.Magnitude < 1 and root.Velocity.Magnitude < 1 then
-		return
-	end
-
-	lastGhostTrailSpawn = tick()
-	local folder = getGhostTrailFolder()
-	local lifetime = (Options.GhostTrailLifetime and Options.GhostTrailLifetime.Value) or 0.6
-	local matName = (Options.GhostTrailMaterial and Options.GhostTrailMaterial.Value) or "Neon"
-	local material = Enum.Material[matName] or Enum.Material.Neon
-
-	local trailColor = Options.GhostTrailColor and Options.GhostTrailColor.Value or Color3.fromRGB(155, 89, 255)
-	if Toggles.GhostTrailRainbow and Toggles.GhostTrailRainbow.Value then
-		local hue = (tick() * 0.5) % 1
-		trailColor = Color3.fromHSV(hue, 0.8, 1)
-	end
-
-	local TweenService = game:GetService("TweenService")
-
-	for _, part in ipairs(char:GetChildren()) do
-		if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" and part.Transparency < 1 then
-			local ghost = Instance.new("Part")
-			ghost.Name = "GhostPart"
-			ghost.Size = part.Size
-			ghost.CFrame = part.CFrame
-			ghost.Anchored = true
-			ghost.CanCollide = false
-			ghost.CanQuery = false
-			ghost.CanTouch = false
-			ghost.CastShadow = false
-			ghost.Material = material
-			ghost.Color = trailColor
-			ghost.Transparency = 0.4
-			ghost.Parent = folder
-
-			local tween = TweenService:Create(ghost, TweenInfo.new(lifetime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-				Transparency = 1,
-				Size = part.Size * 0.85
-			})
-			tween:Play()
-			task.delay(lifetime, function()
-				pcall(function() ghost:Destroy() end)
-			end)
-		end
-	end
-end
-
-Toggles.GhostTrail:OnChanged(function()
-	disconnect("GhostTrail")
-	if Toggles.GhostTrail.Value then
-		track("GhostTrail", RunService.Heartbeat:Connect(spawnGhostTrail))
-		Library:Notify({ Title = "Ghost Trail", Description = "Enabled", Time = 2 })
-	else
-		clearGhostTrails()
-	end
-end)
 
 -- ==========================================
 local function setPlayerShadows(castShadow)
@@ -6249,13 +6043,6 @@ Library:OnUnload(function()
 	if Toggles.OreESPToggle and Toggles.OreESPToggle.Value then
 		Toggles.OreESPToggle:SetValue(false)
 	end
-	if Toggles.SwordLunge and Toggles.SwordLunge.Value then
-		Toggles.SwordLunge:SetValue(false)
-	end
-	if Toggles.GhostTrail and Toggles.GhostTrail.Value then
-		Toggles.GhostTrail:SetValue(false)
-	end
-	pcall(function() clearGhostTrails() end)
 
 	if Toggles.NoGliderCooldown and Toggles.NoGliderCooldown.Value then
 		Toggles.NoGliderCooldown:SetValue(false)
