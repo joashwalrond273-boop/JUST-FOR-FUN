@@ -190,40 +190,6 @@ pcall(function()
 	end
 end)
 
-local CHOP_TOOL_IDS = {256, 194, 51, 50, 49, 1, 110}
-local MINE_TOOL_IDS = {266, 195, 48, 47, 46, 5, 110}
-
-local function getToolSlot(priorityList)
-	local backpack = LocalPlayer:FindFirstChild("Backpack")
-	local character = LocalPlayer.Character
-	if not backpack or not character then return nil end
-
-	for _, wantedId in ipairs(priorityList) do
-		for i = 1, 10 do
-			local slotName = tostring(i)
-
-			-- Check Backpack
-			local tool = backpack:FindFirstChild(slotName)
-			if tool and tool:FindFirstChild("toolModel") then
-				local id = tool.toolModel:GetAttribute("itemId")
-				if id == wantedId then
-					return i
-				end
-			end
-
-			-- Check Character (equipped tools)
-			local equipped = character:FindFirstChild(slotName)
-			if equipped and equipped:FindFirstChild("toolModel") then
-				local id = equipped.toolModel:GetAttribute("itemId")
-				if id == wantedId then
-					return i
-				end
-			end
-		end
-	end
-
-	return nil
-end
 
 local function getChopTargetPart(obj)
 	if not obj then return nil end
@@ -1652,7 +1618,7 @@ CombatReach:AddSlider("ReachRange", {
 
 local CombatAutoBlock = Tabs.Combat:AddRightGroupbox("Auto Block", "shield")
 
-local AutoShieldToggle = CombatAutoBlock:AddToggle("ImmortalMode", {
+CombatAutoBlock:AddToggle("ImmortalMode", {
 	Text = "Immortal Mode",
 	Default = false,
 })
@@ -1943,56 +1909,6 @@ Toggles.HighlightTarget:OnChanged(function()
 	end
 end)
 
-local function getAngleFromPart(fromPart, toPart)
-	local flat = ((toPart.Position - fromPart.Position) * Vector3.new(1, 0, 1)).Unit
-	local look = fromPart.CFrame.LookVector * Vector3.new(1, 0, 1)
-	return math.abs(look:Dot(flat) - 1) * 90
-end
-
-local function getClosestPlayer(maxRange)
-	local root = getRootPart()
-	if not root then
-		return nil
-	end
-	local closest, dist = nil, maxRange
-	for _, player in ipairs(Players:GetPlayers()) do
-		if player ~= LocalPlayer and player.Character then
-			local targetRoot = player.Character:FindFirstChild("HumanoidRootPart")
-			local hum = player.Character:FindFirstChildOfClass("Humanoid")
-			if targetRoot and hum and hum.Health > 0 then
-				local d = (targetRoot.Position - root.Position).Magnitude
-				if d < dist then
-					closest = player.Character
-					dist = d
-				end
-			end
-		end
-	end
-	return closest
-end
-
-local function getClosestAnimal(maxRange)
-	local root = getRootPart()
-	if not root then
-		return nil
-	end
-	local animals = resolvePath(workspace, "animals")
-	if not animals then
-		return nil
-	end
-	local closest, dist = nil, maxRange
-	for _, animal in ipairs(animals:GetChildren()) do
-		local targetRoot = animal:FindFirstChild("HumanoidRootPart") or animal.PrimaryPart
-		if targetRoot then
-			local d = (targetRoot.Position - root.Position).Magnitude
-			if d < dist then
-				closest = animal
-				dist = d
-			end
-		end
-	end
-	return closest
-end
 
 local function getBestMeleeWeapon()
 	if not TSG.ClientData or not TSG.Items then
@@ -2764,7 +2680,6 @@ Options.AdvancePreset:OnChanged(function()
 	end
 end)
 
-local reachToolConn = nil
 local function connectReachTool(tool)
 	disconnect("ReachToolConn")
 	track("ReachToolConn", tool.Activated:Connect(function()
@@ -5142,7 +5057,6 @@ VisualRight:AddSlider("ESPDistance", {
 })
 
 local espObjects = {}
-local hasDrawing = (typeof(Drawing) ~= "nil")
 
 local function clearESP()
 	for _, obj in pairs(espObjects) do
@@ -5765,68 +5679,6 @@ Toggles.QuickVanish:OnChanged(function()
 	end
 end)
 
--- Teleport Script Logic
-local function resetAndTeleport(targetName)
-	if not targetName or targetName == "" then
-		Library:Notify({ Title = "Teleport", Description = "Please select a player first.", Time = 3 })
-		return
-	end
-
-	local targetPlayer = Players:FindFirstChild(targetName)
-	if not targetPlayer then
-		Library:Notify({ Title = "Teleport", Description = "Target player not found in server.", Time = 3 })
-		return
-	end
-
-	Library:Notify({ Title = "Teleport", Description = "Resetting and preparing teleport to " .. targetName .. "...", Time = 3 })
-
-	-- Reset character
-	pcall(function()
-		game:GetService("ReplicatedStorage"):WaitForChild("remoteInterface"):WaitForChild("character"):WaitForChild("reset"):InvokeServer()
-	end)
-
-	-- Wait for new character to spawn
-	local connection
-	local spawned = false
-	connection = LocalPlayer.CharacterAdded:Connect(function()
-		spawned = true
-		connection:Disconnect()
-	end)
-
-	-- Fallback check if it already spawned
-	task.delay(5, function()
-		if connection then
-			connection:Disconnect()
-		end
-	end)
-
-	local timeout = 0
-	while not spawned and timeout < 50 do
-		task.wait(0.1)
-		timeout = timeout + 1
-	end
-
-	local char = LocalPlayer.Character
-	local root = char and char:WaitForChild("HumanoidRootPart", 10)
-
-	if root then
-		task.wait(0.7) -- extra cushion wait to let player parts replicate fully
-
-		-- Fetch target player again to make sure they didn't leave during reset
-		local activeTarget = Players:FindFirstChild(targetName)
-		local targetChar = activeTarget and activeTarget.Character
-		local targetRoot = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
-
-		if targetRoot then
-			root.CFrame = targetRoot.CFrame + Vector3.new(0, 3, 0)
-			Library:Notify({ Title = "Teleport", Description = "Teleported successfully!", Time = 2 })
-		else
-			Library:Notify({ Title = "Teleport", Description = "Could not find target player's root part.", Time = 3 })
-		end
-	else
-		Library:Notify({ Title = "Teleport", Description = "Failed to load character root part.", Time = 3 })
-	end
-end
 
 local function updateTeleportPlayerList()
 	local list = {}
