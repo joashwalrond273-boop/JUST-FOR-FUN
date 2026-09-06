@@ -3788,6 +3788,14 @@ OreFarm:AddButton({
 	end,
 })
 
+local PlusQuickOreFarmToggle = OreFarm:AddToggle("QuickOreFarm", {
+	Text = "+ QUick Ore Farm",
+	Default = false,
+})
+if PlusQuickOreFarmToggle.TextLabel then
+	PlusQuickOreFarmToggle.TextLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
+end
+
 local goldLocations = {
 	{ name = "Gold 1",  pos = Vector3.new(1732.94, 113.13, 2295.19) },
 	{ name = "Gold 2",  pos = Vector3.new(1447.98, 39.83,  2400.27) },
@@ -3938,8 +3946,11 @@ end)
 local isAutoMineRunning = false
 local isAutoChopRunning = false
 local isAiAuraRunning   = false
+local isQuickOreFarmRunning = false
 local lastAutoMineHit   = 0
 local lastAutoChopHit   = 0
+local lastQuickOreFarmTeleport = 0
+local quickOreFarmIndex = 0
 
 local function mineObject(obj)
 	local slot = tonumber(Options.AutoMineSlot.Value) or 1
@@ -3998,6 +4009,60 @@ Toggles.AutoMine:OnChanged(function()
 	else
 		isAutoMineRunning = false
 		updateHighlight(hlMine, nil, false)
+	end
+end)
+
+-- ==========================================
+local function quickOreFarm()
+	if not isAlive() or not isQuickOreFarmRunning then return end
+	if tick() - lastQuickOreFarmTeleport < 0.2 then return end
+
+	local root = getRootPart()
+	if not root then return end
+	local folder = workspace:FindFirstChild("worldResources") and workspace.worldResources:FindFirstChild("mineable")
+	if not folder then return end
+
+	local allOres = {}
+	pcall(function()
+		for _, subfolder in ipairs(folder:GetChildren()) do
+			if subfolder:IsA("Folder") then
+				for _, obj in ipairs(subfolder:GetChildren()) do
+					if obj and obj.PrimaryPart then
+						table.insert(allOres, obj)
+					end
+				end
+			end
+		end
+	end)
+
+	if #allOres == 0 then return end
+
+	quickOreFarmIndex = (quickOreFarmIndex % #allOres) + 1
+	local targetOre = allOres[quickOreFarmIndex]
+
+	if targetOre and targetOre.PrimaryPart then
+		lastQuickOreFarmTeleport = tick()
+		pcall(function()
+			root.CFrame = CFrame.new(targetOre.PrimaryPart.Position + Vector3.new(0, 3, 0))
+		end)
+	end
+end
+
+Toggles.QuickOreFarm:OnChanged(function()
+	disconnect("QuickOreFarm")
+	if Toggles.QuickOreFarm.Value then
+		isQuickOreFarmRunning = true
+		quickOreFarmIndex = 0
+		if Toggles.AutoMine and not Toggles.AutoMine.Value then
+			Toggles.AutoMine:SetValue(true)
+		end
+		track("QuickOreFarm", RunService.Heartbeat:Connect(function()
+			if not isAlive() or not isQuickOreFarmRunning then return end
+			quickOreFarm()
+		end))
+		Library:Notify({ Title = "Quick Ore Farm", Description = "Enabled", Time = 2 })
+	else
+		isQuickOreFarmRunning = false
 	end
 end)
 
