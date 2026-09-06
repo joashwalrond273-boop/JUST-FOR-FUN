@@ -1688,6 +1688,24 @@ CombatReach:AddSlider("ReachRange", {
 
 local CombatAutoBlock = Tabs.Combat:AddRightGroupbox("Auto Block", "shield")
 
+CombatAutoBlock:AddToggle("AutoParry", {
+	Text = "Auto Parry",
+	Default = false,
+})
+
+CombatAutoBlock:AddSlider("AutoParryRange", {
+	Text = "Parry Range",
+	Min = 5,
+	Max = 25,
+	Default = 15,
+	Rounding = 0,
+})
+
+CombatAutoBlock:AddToggle("AutoParryCounter", {
+	Text = "Auto Counter-Attack",
+	Default = false,
+})
+
 local AutoShieldToggle = CombatAutoBlock:AddToggle("ImmortalMode", {
 	Text = "Immortal Mode",
 	Default = false,
@@ -1821,6 +1839,151 @@ Toggles.ImmortalMode:OnChanged(function()
 			pcall(function()
 				game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(false)
 			end)
+		end
+	end
+end)
+
+local isParrying = false
+local parryEndTime = 0
+local lastParryTarget = nil
+
+local function getShieldRemote()
+	local charFolder = ReplicatedStorage:FindFirstChild("remoteInterface") and ReplicatedStorage.remoteInterface:FindFirstChild("character")
+	return charFolder and charFolder:FindFirstChild("setShield")
+end
+
+local function updateAutoParry()
+	if not isAlive() or not Toggles.AutoParry or not Toggles.AutoParry.Value then
+		if isParrying then
+			isParrying = false
+			local shieldRemote = getShieldRemote()
+			if shieldRemote then
+				pcall(function() shieldRemote:FireServer(false) end)
+			end
+		end
+		return
+	end
+
+	if Toggles.ImmortalMode and Toggles.ImmortalMode.Value and isShielding then
+		return
+	end
+
+	local root = getRootPart()
+	if not root then return end
+
+	local shieldRemote = getShieldRemote()
+	if not shieldRemote then return end
+
+	local checkDistance = (Options.AutoParryRange and Options.AutoParryRange.Value) or 15
+	local activeAttacker = nil
+	local activeAttackerModel = nil
+
+	for _, player in ipairs(Players:GetPlayers()) do
+		if player ~= LocalPlayer and player.Character then
+			local targetRoot = player.Character:FindFirstChild("HumanoidRootPart")
+			local hum = player.Character:FindFirstChildOfClass("Humanoid")
+			if targetRoot and hum and hum.Health > 0 then
+				local dist = (targetRoot.Position - root.Position).Magnitude
+				if dist <= checkDistance then
+					local animator = hum:FindFirstChild("Animator")
+					if animator then
+						for _, trackObj in ipairs(animator:GetPlayingAnimationTracks()) do
+							if trackObj.Speed > 0 and isSwingAnimation(trackObj) then
+								activeAttacker = targetRoot
+								activeAttackerModel = player.Character
+								break
+							end
+						end
+					end
+					if activeAttacker then break end
+				end
+			end
+		end
+	end
+
+	if not activeAttacker then
+		local npcs = workspace:FindFirstChild("animals") or workspace:FindFirstChild("mobs")
+		if npcs then
+			for _, npc in ipairs(npcs:GetChildren()) do
+				local targetRoot = npc:FindFirstChild("HumanoidRootPart") or npc:FindFirstChild("Torso")
+				local hum = npc:FindFirstChildOfClass("Humanoid")
+				if targetRoot and hum and hum.Health > 0 then
+					local dist = (targetRoot.Position - root.Position).Magnitude
+					if dist <= checkDistance then
+						local animator = hum:FindFirstChild("Animator")
+						if animator then
+							for _, trackObj in ipairs(animator:GetPlayingAnimationTracks()) do
+								if trackObj.Speed > 0 and isSwingAnimation(trackObj) then
+									activeAttacker = targetRoot
+									activeAttackerModel = npc
+									break
+								end
+							end
+						end
+						if activeAttacker then break end
+					end
+				end
+			end
+		end
+	end
+
+	local now = tick()
+
+	if activeAttacker then
+		local targetPos = activeAttacker.Position
+		root.CFrame = CFrame.lookAt(root.Position, Vector3.new(targetPos.X, root.Position.Y, targetPos.Z))
+
+		if not isParrying then
+			isParrying = true
+			parryEndTime = now + 0.38
+			lastParryTarget = activeAttackerModel
+			pcall(function()
+				shieldRemote:FireServer(true)
+			end)
+		else
+			parryEndTime = math.max(parryEndTime, now + 0.15)
+		end
+	else
+		if isParrying and now >= parryEndTime then
+			isParrying = false
+			pcall(function()
+				shieldRemote:FireServer(false)
+			end)
+
+			if Toggles.AutoParryCounter and Toggles.AutoParryCounter.Value and lastParryTarget and lastParryTarget.Parent then
+				local targetPlayer = Players:GetPlayerFromCharacter(lastParryTarget)
+				local slot = (getToolSlot and getToolSlot({256, 194, 51, 50, 49, 1, 110, 197, 266})) or 1
+				if targetPlayer and TSG and TSG.MeleePlayerRemote then
+					if Crypt then
+						pcall(function()
+							local k1, k2, k3 = Crypt.checkpublickeys()
+							if k1 and k2 and k3 then
+								local encryptedUserId = Crypt.crypt(k1, math.abs(targetPlayer.UserId) + k3, k2)
+								TSG.MeleePlayerRemote:FireServer(slot, encryptedUserId)
+							end
+						end)
+					else
+						pcall(TSG.MeleePlayerRemote.FireServer, TSG.MeleePlayerRemote, slot, targetPlayer)
+					end
+				end
+				lastParryTarget = nil
+			end
+		end
+	end
+end
+
+Toggles.AutoParry:OnChanged(function()
+	disconnect("AutoParry")
+	if Toggles.AutoParry.Value then
+		track("AutoParry", RunService.Heartbeat:Connect(updateAutoParry))
+		Library:Notify({ Title = "Auto Parry", Description = "Enabled", Time = 2 })
+	else
+		if isParrying then
+			isParrying = false
+			local shieldRemote = getShieldRemote()
+			if shieldRemote then
+				pcall(function() shieldRemote:FireServer(false) end)
+			end
 		end
 	end
 end)
@@ -3788,11 +3951,6 @@ OreFarm:AddButton({
 	end,
 })
 
-OreFarm:AddToggle("OreFarmAuto", {
-	Text = "Ore Farm Auto",
-	Default = false,
-})
-
 local goldLocations = {
 	{ name = "Gold 1",  pos = Vector3.new(1732.94, 113.13, 2295.19) },
 	{ name = "Gold 2",  pos = Vector3.new(1447.98, 39.83,  2400.27) },
@@ -3941,58 +4099,17 @@ end)
 
 -- ==========================================
 local isAutoMineRunning = false
-local isOreFarmAutoRunning = false
 local isAutoChopRunning = false
 local isAiAuraRunning   = false
 local lastAutoMineHit   = 0
 local lastAutoChopHit   = 0
-local oreFarmAutoThread = nil
-
-local function getActiveMineSlot()
-	local found = getToolSlot(MINE_TOOL_IDS)
-	if found then return found end
-	if Options.AutoMineSlot and Options.AutoMineSlot.Value then
-		return tonumber(Options.AutoMineSlot.Value) or 1
-	end
-	return 1
-end
-
-local function getOreTargetInfo(obj)
-	if not obj or not obj.Parent or not obj:IsDescendantOf(workspace) then return nil, nil end
-	local part = nil
-	if obj:IsA("Model") then
-		part = obj.PrimaryPart or obj:FindFirstChild("Hitbox") or obj:FindFirstChildWhichIsA("BasePart")
-	elseif obj:IsA("BasePart") then
-		part = obj
-	end
-	local pos = nil
-	if part then
-		pos = part.Position
-	elseif obj:IsA("Model") then
-		pcall(function()
-			pos = obj:GetPivot().Position
-		end)
-	end
-	return pos, part or obj
-end
-
-local function getMineRemote()
-	if TSG.MineRemote then return TSG.MineRemote end
-	local keyed = getKeyedRemotes and getKeyedRemotes()
-	local interactions = ReplicatedStorage:FindFirstChild("remoteInterface") and ReplicatedStorage.remoteInterface:FindFirstChild("interactions")
-	TSG.MineRemote = (keyed and rawget(keyed, "mine")) or (interactions and interactions:FindFirstChild("mine"))
-	return TSG.MineRemote
-end
 
 local function mineObject(obj)
-	local remote = getMineRemote()
-	if not remote or not obj then return end
-	local slot = getActiveMineSlot()
-	local pos, part = getOreTargetInfo(obj)
-	if pos then
+	local slot = tonumber(Options.AutoMineSlot.Value) or 1
+	if obj and obj.PrimaryPart then
 		updateHighlight(hlMine, obj, Toggles.HighlightMine.Value)
 		pcall(function()
-			remote:FireServer(slot, obj, CFrame.new(pos))
+			TSG.MineRemote:FireServer(slot, obj, CFrame.new(obj.PrimaryPart.Position))
 		end)
 	end
 end
@@ -4009,20 +4126,11 @@ local function autoMine()
 	for _, subfolder in ipairs(folder:GetChildren()) do
 		if subfolder:IsA("Folder") then
 			for _, obj in ipairs(subfolder:GetChildren()) do
-				local pos = getOreTargetInfo(obj)
-				if pos then
-					local d = (root.Position - pos).Magnitude
+				if obj.PrimaryPart then
+					local d = (root.Position - obj.PrimaryPart.Position).Magnitude
 					if d < dist then
 						closest, dist = obj, d
 					end
-				end
-			end
-		elseif subfolder:IsA("Model") or subfolder:IsA("BasePart") then
-			local pos = getOreTargetInfo(subfolder)
-			if pos then
-				local d = (root.Position - pos).Magnitude
-				if d < dist then
-					closest, dist = subfolder, d
 				end
 			end
 		end
@@ -4035,119 +4143,11 @@ local function autoMine()
 	end
 end
 
-local function getAvailableOres()
-	local folder = workspace:FindFirstChild("worldResources") and workspace.worldResources:FindFirstChild("mineable")
-	if not folder then return {} end
-	local list = {}
-	for _, chunkFolder in ipairs(folder:GetChildren()) do
-		if chunkFolder:IsA("Folder") then
-			for _, obj in ipairs(chunkFolder:GetChildren()) do
-				if obj and obj.Parent and obj:IsDescendantOf(workspace) then
-					table.insert(list, obj)
-				end
-			end
-		elseif (chunkFolder:IsA("Model") or chunkFolder:IsA("BasePart")) and chunkFolder:IsDescendantOf(workspace) then
-			table.insert(list, chunkFolder)
-		end
-	end
-	return list
-end
-
-local function runOreFarmAuto()
-	while isOreFarmAutoRunning and Toggles.OreFarmAuto and Toggles.OreFarmAuto.Value do
-		if not isAlive() then
-			task.wait(0.5)
-			continue
-		end
-
-		local root = getRootPart()
-		if not root then
-			task.wait(0.5)
-			continue
-		end
-
-		local ores = getAvailableOres()
-		if #ores == 0 then
-			task.wait(1)
-			continue
-		end
-
-		-- Find the closest valid ore to the player
-		local targetOre = nil
-		local targetPos = nil
-		local minDistance = math.huge
-
-		for _, ore in ipairs(ores) do
-			if ore and ore.Parent and ore:IsDescendantOf(workspace) then
-				local pos = getOreTargetInfo(ore)
-				if pos then
-					local dist = (root.Position - pos).Magnitude
-					if dist < minDistance then
-						minDistance = dist
-						targetOre = ore
-						targetPos = pos
-					end
-				end
-			end
-		end
-
-		if not targetOre or not targetPos then
-			task.wait(0.5)
-			continue
-		end
-
-		-- Teleport player directly over the ore and halt falling velocity
-		root = getRootPart()
-		if root then
-			root.Velocity = Vector3.zero
-			pcall(function() root.AssemblyLinearVelocity = Vector3.zero end)
-			root.CFrame = CFrame.new(targetPos + Vector3.new(0, 3.5, 0))
-		end
-
-		-- Ensure AutoMine is enabled
-		if Toggles.AutoMine and not Toggles.AutoMine.Value then
-			Toggles.AutoMine:SetValue(true)
-		end
-
-		-- Mine this specific ore until it is destroyed or timeout reached (max 4 seconds)
-		local startTime = tick()
-		while isOreFarmAutoRunning and Toggles.OreFarmAuto and Toggles.OreFarmAuto.Value do
-			if not isAlive() then break end
-			if not targetOre or not targetOre.Parent or not targetOre:IsDescendantOf(workspace) then
-				-- Ore broken / destroyed!
-				break
-			end
-			if tick() - startTime > 4.0 then
-				-- Timeout: proceed to next ore to avoid getting stuck
-				break
-			end
-
-			root = getRootPart()
-			if root then
-				root.Velocity = Vector3.zero
-				pcall(function() root.AssemblyLinearVelocity = Vector3.zero end)
-				root.CFrame = CFrame.new(targetPos + Vector3.new(0, 3.5, 0))
-			end
-
-			mineObject(targetOre)
-			task.wait(0.2)
-		end
-
-		updateHighlight(hlMine, nil, false)
-
-		-- 0.2s cooldown between ore teleports
-		task.wait(0.2)
-	end
-
-	updateHighlight(hlMine, nil, false)
-end
-
 Toggles.AutoMine:OnChanged(function()
 	disconnect("AutoMine")
 	updateHighlight(hlMine, nil, false)
 	if Toggles.AutoMine.Value then
-		local remote = getMineRemote()
-		if not remote then
+		if not TSG.MineRemote then
 			Library:Notify({ Title = "Auto Mine", Description = "Mine remote not found.", Time = 4 })
 			Toggles.AutoMine:SetValue(false)
 			return
@@ -4161,21 +4161,6 @@ Toggles.AutoMine:OnChanged(function()
 	else
 		isAutoMineRunning = false
 		updateHighlight(hlMine, nil, false)
-	end
-end)
-
-Toggles.OreFarmAuto:OnChanged(function()
-	if Toggles.OreFarmAuto.Value then
-		isOreFarmAutoRunning = true
-		if Toggles.AutoMine and not Toggles.AutoMine.Value then
-			Toggles.AutoMine:SetValue(true)
-		end
-		if not oreFarmAutoThread or coroutine.status(oreFarmAutoThread) == "dead" then
-			oreFarmAutoThread = task.spawn(runOreFarmAuto)
-		end
-		Library:Notify({ Title = "Ore Farm Auto", Description = "Enabled", Time = 2 })
-	else
-		isOreFarmAutoRunning = false
 	end
 end)
 
@@ -6257,8 +6242,8 @@ Library:OnUnload(function()
 	if Toggles.OreESPToggle and Toggles.OreESPToggle.Value then
 		Toggles.OreESPToggle:SetValue(false)
 	end
-	if Toggles.OreFarmAuto and Toggles.OreFarmAuto.Value then
-		Toggles.OreFarmAuto:SetValue(false)
+	if Toggles.AutoParry and Toggles.AutoParry.Value then
+		Toggles.AutoParry:SetValue(false)
 	end
 
 	if Toggles.NoGliderCooldown and Toggles.NoGliderCooldown.Value then
