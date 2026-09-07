@@ -123,6 +123,41 @@ local function isAlive()
 	return humanoid and humanoid.Health > 0
 end
 
+local function isHoldingSelectedSlot(selectedSlot)
+	if not selectedSlot then return false end
+	local character = getCharacter()
+	if not character then return false end
+	local tool = character:FindFirstChildOfClass("Tool")
+	if not tool then return false end
+
+	local slotStr = tostring(selectedSlot)
+	local slotNum = tonumber(selectedSlot)
+
+	if tool.Name == slotStr then
+		return true
+	end
+	if slotNum and tonumber(tool.Name) == slotNum then
+		return true
+	end
+	if slotNum then
+		local attrSlot = tool:GetAttribute("slot") or tool:GetAttribute("Slot") or tool:GetAttribute("HotbarSlot")
+		if attrSlot and (attrSlot == slotNum or tostring(attrSlot) == slotStr) then
+			return true
+		end
+		if tool:FindFirstChild("toolModel") then
+			local tmSlot = tool.toolModel:GetAttribute("slot") or tool.toolModel:GetAttribute("Slot") or tool.toolModel:GetAttribute("HotbarSlot")
+			if tmSlot and (tmSlot == slotNum or tostring(tmSlot) == slotStr) then
+				return true
+			end
+		end
+	end
+	if tool.Name:match("^Slot%s*" .. slotStr .. "$") or tool.Name:match("^slot%s*" .. slotStr .. "$") then
+		return true
+	end
+
+	return false
+end
+
 local function getCharacterFolder()
 	local characters = workspace:FindFirstChild("Characters")
 	return characters and characters:FindFirstChild(LocalPlayer.Name)
@@ -960,6 +995,8 @@ local function startDesync()
 		local currentSpeed = 16
 		if Toggles.SpeedHack and Toggles.SpeedHack.Value and Options.SpeedValue then
 			currentSpeed = Options.SpeedValue.Value
+		elseif Toggles.PlusSpeedBoost and Toggles.PlusSpeedBoost.Value and Options.SpeedBoostValue and isHoldingSelectedSlot(Options.SpeedBoostSlot and Options.SpeedBoostSlot.Value) then
+			currentSpeed = Options.SpeedBoostValue.Value
 		elseif RealChar:FindFirstChildOfClass("Humanoid") then
 			currentSpeed = RealChar:FindFirstChildOfClass("Humanoid").WalkSpeed
 		end
@@ -3024,6 +3061,25 @@ MoveLeft:AddSlider("SpeedValue", {
 	Rounding = 1,
 })
 
+MoveLeft:AddToggle("PlusSpeedBoost", {
+	Text = "+ Speed Boost",
+	Default = false,
+})
+
+MoveLeft:AddDropdown("SpeedBoostSlot", {
+	Text = "Tool Slot",
+	Values = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"},
+	Default = "1",
+})
+
+MoveLeft:AddSlider("SpeedBoostValue", {
+	Text = "Speed Boost Value",
+	Default = 16,
+	Min = 16,
+	Max = 30,
+	Rounding = 1,
+})
+
 local MoveSwimBoost = Tabs.Movement:AddLeftGroupbox("Swim Boost", "droplet")
 
 MoveSwimBoost:AddToggle("SwimBoost", {
@@ -3477,6 +3533,35 @@ Toggles.SpeedHack:OnChanged(function()
 				end
 			end
 		end))
+	else
+		Library:Notify({ Title = "Speed", Description = "Disabled", Time = 2 })
+	end
+end)
+
+Toggles.PlusSpeedBoost:OnChanged(function()
+	disconnect("PlusSpeedBoost")
+	if Toggles.PlusSpeedBoost.Value then
+		Library:Notify({ Title = "+ Speed Boost", Description = "Enabled", Time = 2 })
+		track("PlusSpeedBoost", RunService.Heartbeat:Connect(function(dt)
+			if not isAlive() then return end
+			if Toggles.SpeedHack and Toggles.SpeedHack.Value then return end
+			local humanoid = getHumanoid()
+			local root = getRootPart()
+			if not humanoid or not root then return end
+			local isSwimming = humanoid:GetState() == Enum.HumanoidStateType.Swimming or (LocalPlayer.Character and LocalPlayer.Character:GetAttribute("inWater"))
+			if not isSwimming then
+				local selectedSlot = Options.SpeedBoostSlot and Options.SpeedBoostSlot.Value or "1"
+				if isHoldingSelectedSlot(selectedSlot) then
+					local targetSpeed = Options.SpeedBoostValue and Options.SpeedBoostValue.Value or 16
+					local factor = targetSpeed - humanoid.WalkSpeed
+					if factor > 0 and humanoid.MoveDirection.Magnitude > 0 then
+						LocalPlayer.Character:TranslateBy(humanoid.MoveDirection * dt * factor)
+					end
+				end
+			end
+		end))
+	else
+		Library:Notify({ Title = "+ Speed Boost", Description = "Disabled", Time = 2 })
 	end
 end)
 
@@ -6100,6 +6185,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.SwordBot and Toggles.SwordBot.Value then
 		Toggles.SwordBot:SetValue(false)
+	end
+	if Toggles.PlusSpeedBoost and Toggles.PlusSpeedBoost.Value then
+		Toggles.PlusSpeedBoost:SetValue(false)
 	end
 	if Toggles.AutoShiftlock and Toggles.AutoShiftlock.Value then
 		Toggles.AutoShiftlock:SetValue(false)
