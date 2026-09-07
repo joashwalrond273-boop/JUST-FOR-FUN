@@ -5388,8 +5388,6 @@ VisualLeft:AddSlider("ESPDistance", {
 	Rounding = 0,
 })
 
-VisualLeft:AddDivider()
-
 VisualLeft:AddToggle("ShowDistance", {
 	Text = "Show Distance",
 	Default = false,
