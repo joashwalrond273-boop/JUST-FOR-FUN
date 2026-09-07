@@ -1606,7 +1606,8 @@ CombatAutoSwingGroup:AddToggle("AutoSwing", {
 CombatAutoSwingGroup:AddDropdown("AutoSwingSlot", {
 	Text = "Tool Slot",
 	Values = { "Normal", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" },
-	Default = "Normal",
+	Default = { "Normal" },
+	Multi = true,
 })
 
 CombatAutoSwingGroup:AddToggle("SmartSwing", {
@@ -2340,6 +2341,37 @@ Toggles.KillAura:OnChanged(function()
 	end
 end)
 
+local function isAutoSwingSlotAllowed(slotOption)
+	if not slotOption then return true end
+	local val = slotOption.Value
+	if val == nil then return true end
+
+	if typeof(val) == "table" then
+		if val["Normal"] == true or val["Free swing"] == true or table.find(val, "Normal") or table.find(val, "Free swing") then
+			return true
+		end
+
+		for slotKey, isSelected in pairs(val) do
+			if isSelected == true or (typeof(slotKey) == "number" and typeof(isSelected) == "string") then
+				local targetSlot = (isSelected == true) and slotKey or isSelected
+				if targetSlot ~= "Normal" and targetSlot ~= "Free swing" then
+					if isHoldingSelectedSlot(targetSlot) then
+						return true
+					end
+				end
+			end
+		end
+		return false
+	elseif typeof(val) == "string" then
+		if val == "Normal" or val == "Free swing" or val == "" then
+			return true
+		end
+		return isHoldingSelectedSlot(val)
+	end
+
+	return true
+end
+
 local lastAutoSwing = 0
 Toggles.AutoSwing:OnChanged(function()
 	disconnect("AutoSwing")
@@ -2353,19 +2385,9 @@ Toggles.AutoSwing:OnChanged(function()
 			local delay = 1 / math.max(0.1, speedVal)
 			if _G.T and tick() - lastAutoSwing >= delay then
 				local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
-				if tool then
-					local selectedSlot = Options.AutoSwingSlot and Options.AutoSwingSlot.Value or "Normal"
-					local canSwing = false
-					if selectedSlot == "Normal" or selectedSlot == "Free swing" or selectedSlot == "" then
-						canSwing = true
-					else
-						canSwing = isHoldingSelectedSlot(selectedSlot)
-					end
-
-					if canSwing then
-						tool:Activate()
-						lastAutoSwing = tick()
-					end
+				if tool and isAutoSwingSlotAllowed(Options.AutoSwingSlot) then
+					tool:Activate()
+					lastAutoSwing = tick()
 				end
 			end
 		end))
