@@ -46,6 +46,7 @@ local shouldTeleportBack = false
 local updateAutoSwingSliderVisibility
 local updatePVPModulesVisibility
 local updateTouchFlingVisibility
+local updateAutoPickupVisibility
 
 Library.ShowToggleFrameInKeybinds = true
 
@@ -650,15 +651,42 @@ MainLeft:AddToggle("NoGliderCooldown", {
 	Default = false,
 })
 
+MainLeft:AddToggle("WalkOnWater", {
+	Text = "Walk On Water",
+	Default = false,
+})
+
 MainLeft:AddToggle("FastPickup", {
 	Text = "Auto Pickup",
 	Default = false,
 })
 
-MainLeft:AddToggle("WalkOnWater", {
-	Text = "Walk On Water",
-	Default = false,
+MainLeft:AddSlider("AutoPickupRange", {
+	Text = "Pickup Range",
+	Default = 20,
+	Min = 5,
+	Max = 50,
+	Rounding = 1,
 })
+
+updateAutoPickupVisibility = function()
+	local isPickup = (Toggles.FastPickup and Toggles.FastPickup.Value) or false
+	if Options.AutoPickupRange then
+		Options.AutoPickupRange.Visible = isPickup
+		if Options.AutoPickupRange.Holder then
+			Options.AutoPickupRange.Holder.Visible = isPickup
+		end
+	end
+	MainLeft:Resize()
+end
+
+updateAutoPickupVisibility()
+task.spawn(function()
+	task.wait(0.05)
+	if updateAutoPickupVisibility then
+		updateAutoPickupVisibility()
+	end
+end)
 
 local ImmunityGroup = Tabs.Player:AddLeftGroupbox("Immunity", "shield")
 
@@ -1419,7 +1447,8 @@ local function tryAutoPickup()
 		return
 	end
 
-	local closest, closestDist = nil, AUTO_PICKUP_RANGE
+	local maxRange = (Options.AutoPickupRange and Options.AutoPickupRange.Value) or AUTO_PICKUP_RANGE
+	local closest, closestDist = nil, maxRange
 	for _, item in CollectionService:GetTagged("DROPPED_ITEM") do
 		if canAutoPickup(item) then
 			local dist = (item.Position - root.Position).Magnitude
@@ -1438,6 +1467,9 @@ end
 
 Toggles.FastPickup:OnChanged(function()
 	disconnect("FastPickup")
+	if updateAutoPickupVisibility then
+		updateAutoPickupVisibility()
+	end
 	if Toggles.FastPickup.Value then
 		if not TSG.PickupRemote then
 			Library:Notify({ Title = "Auto Pickup", Description = "Pickup remote not found.", Time = 4 })
@@ -1446,6 +1478,8 @@ Toggles.FastPickup:OnChanged(function()
 		end
 		track("FastPickup", RunService.Heartbeat:Connect(tryAutoPickup))
 		Library:Notify({ Title = "Auto Pickup", Description = "Enabled", Time = 2 })
+	else
+		Library:Notify({ Title = "Auto Pickup", Description = "Disabled", Time = 2 })
 	end
 end)
 
