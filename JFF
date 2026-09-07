@@ -1,4 +1,4 @@
--- URIEL | Obsidian UI
+ -- URIEL | Obsidian UI
 -- Docs: https://docs.mspaint.cc/obsidian
 
 if getgenv().TSG_OBSIDIAN_LOADED then
@@ -1499,19 +1499,19 @@ CombatPhantomAura:AddSlider("OrbitSpeed", {
 	Rounding = 0,
 })
 
-local CombatAutoSwing = Tabs.Combat:AddLeftGroupbox("Auto PVP", "swords")
+local CombatAutoSwingGroup = Tabs.Combat:AddLeftGroupbox("Auto Swing", "swords")
 
-CombatAutoSwing:AddToggle("AutoSwing", {
+CombatAutoSwingGroup:AddToggle("AutoSwing", {
 	Text = "Auto Swing",
 	Default = false,
 })
 
-CombatAutoSwing:AddToggle("SmartSwing", {
+CombatAutoSwingGroup:AddToggle("SmartSwing", {
 	Text = "+ Smart Swing",
 	Default = false,
 })
 
-CombatAutoSwing:AddSlider("AutoSwingSpeed", {
+CombatAutoSwingGroup:AddSlider("AutoSwingSpeed", {
 	Text = "Auto Swing Speed",
 	Default = 10,
 	Min = 0.5,
@@ -1519,7 +1519,7 @@ CombatAutoSwing:AddSlider("AutoSwingSpeed", {
 	Rounding = 1,
 })
 
-CombatAutoSwing:AddSlider("PlayerStuds", {
+CombatAutoSwingGroup:AddSlider("PlayerStuds", {
 	Text = "Player Studs",
 	Default = 20,
 	Min = 1,
@@ -1527,7 +1527,7 @@ CombatAutoSwing:AddSlider("PlayerStuds", {
 	Rounding = 0,
 })
 
-CombatAutoSwing:AddToggle("SmartSwingIgnoreTeam", {
+CombatAutoSwingGroup:AddToggle("SmartSwingIgnoreTeam", {
 	Text = "Ignore Team",
 	Default = true,
 })
@@ -1557,7 +1557,7 @@ updateAutoSwingSliderVisibility = function()
 			Toggles.SmartSwingIgnoreTeam.Holder.Visible = isSmartSwingToggled
 		end
 	end
-	CombatAutoSwing:Resize()
+	CombatAutoSwingGroup:Resize()
 end
 
 task.spawn(function()
@@ -1567,17 +1567,19 @@ task.spawn(function()
 	end
 end)
 
-CombatAutoSwing:AddToggle("AutoHop", {
+local CombatAutoPVP = Tabs.Combat:AddLeftGroupbox("Auto PVP", "swords")
+
+CombatAutoPVP:AddToggle("AutoHop", {
 	Text = "+ Auto Hop",
 	Default = false,
 })
 
-CombatAutoSwing:AddToggle("Camlock", {
+CombatAutoPVP:AddToggle("Camlock", {
 	Text = "+ Camlock",
 	Default = false,
 })
 
-CombatAutoSwing:AddToggle("AutoShiftlock", {
+CombatAutoPVP:AddToggle("AutoShiftlock", {
 	Text = "Shiftlock(Mobile)",
 	Default = false,
 })
