@@ -1714,8 +1714,7 @@ CombatAutoPVP:AddToggle("PlusSpeedBoost", {
 CombatAutoPVP:AddDropdown("SpeedBoostSlot", {
 	Text = "Tool Slot",
 	Values = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"},
-	Default = {"1"},
-	Multi = true,
+	Default = "1",
 })
 
 CombatAutoPVP:AddSlider("SpeedBoostValue", {
@@ -3642,28 +3641,6 @@ Toggles.SpeedHack:OnChanged(function()
 	end
 end)
 
-local function isSpeedBoostSlotAllowed(slotOption)
-	if not slotOption then return false end
-	local val = slotOption.Value
-	if val == nil then return false end
-
-	if typeof(val) == "table" then
-		for slotKey, isSelected in pairs(val) do
-			if isSelected == true or (typeof(slotKey) == "number" and typeof(isSelected) == "string") then
-				local targetSlot = (isSelected == true) and slotKey or isSelected
-				if isHoldingSelectedSlot(targetSlot) then
-					return true
-				end
-			end
-		end
-		return false
-	elseif typeof(val) == "string" then
-		return isHoldingSelectedSlot(val)
-	end
-
-	return false
-end
-
 Toggles.PlusSpeedBoost:OnChanged(function()
 	disconnect("PlusSpeedBoost")
 	if updatePVPModulesVisibility then
@@ -3679,7 +3656,8 @@ Toggles.PlusSpeedBoost:OnChanged(function()
 			if not humanoid or not root then return end
 			local isSwimming = humanoid:GetState() == Enum.HumanoidStateType.Swimming or (LocalPlayer.Character and LocalPlayer.Character:GetAttribute("inWater"))
 			if not isSwimming then
-				if isSpeedBoostSlotAllowed(Options.SpeedBoostSlot) then
+				local selectedSlot = Options.SpeedBoostSlot and Options.SpeedBoostSlot.Value or "1"
+				if isHoldingSelectedSlot(selectedSlot) then
 					local targetSpeed = Options.SpeedBoostValue and Options.SpeedBoostValue.Value or 16
 					local factor = targetSpeed - humanoid.WalkSpeed
 					if factor > 0 and humanoid.MoveDirection.Magnitude > 0 then
