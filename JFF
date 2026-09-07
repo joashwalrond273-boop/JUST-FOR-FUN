@@ -1605,8 +1605,8 @@ CombatAutoSwingGroup:AddToggle("AutoSwing", {
 
 CombatAutoSwingGroup:AddDropdown("AutoSwingSlot", {
 	Text = "Tool Slot",
-	Values = { "Free swing", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" },
-	Default = "Free swing",
+	Values = { "Normal", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" },
+	Default = "Normal",
 })
 
 CombatAutoSwingGroup:AddToggle("SmartSwing", {
@@ -2354,9 +2354,9 @@ Toggles.AutoSwing:OnChanged(function()
 			if _G.T and tick() - lastAutoSwing >= delay then
 				local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
 				if tool then
-					local selectedSlot = Options.AutoSwingSlot and Options.AutoSwingSlot.Value or "Free swing"
+					local selectedSlot = Options.AutoSwingSlot and Options.AutoSwingSlot.Value or "Normal"
 					local canSwing = false
-					if selectedSlot == "Free swing" or selectedSlot == "" then
+					if selectedSlot == "Normal" or selectedSlot == "Free swing" or selectedSlot == "" then
 						canSwing = true
 					else
 						canSwing = isHoldingSelectedSlot(selectedSlot)
