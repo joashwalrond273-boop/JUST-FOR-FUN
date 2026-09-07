@@ -1,4 +1,4 @@
- -- URIEL | Obsidian UI
+-- URIEL | Obsidian UI
 -- Docs: https://docs.mspaint.cc/obsidian
 
 if getgenv().TSG_OBSIDIAN_LOADED then
@@ -1567,7 +1567,7 @@ task.spawn(function()
 	end
 end)
 
-local CombatAutoPVP = Tabs.Combat:AddLeftGroupbox("Auto PVP", "swords")
+local CombatAutoPVP = Tabs.Combat:AddLeftGroupbox("PVP Modules", "swords")
 
 CombatAutoPVP:AddToggle("AutoHop", {
 	Text = "+ Auto Hop",
