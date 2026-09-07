@@ -1658,9 +1658,29 @@ CombatAutoPVP:AddSlider("CamlockStuds", {
 	Rounding = 0,
 })
 
+CombatAutoPVP:AddToggle("PlusSpeedBoost", {
+	Text = "+ Speed Boost",
+	Default = false,
+})
+
+CombatAutoPVP:AddDropdown("SpeedBoostSlot", {
+	Text = "Tool Slot",
+	Values = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"},
+	Default = "1",
+})
+
+CombatAutoPVP:AddSlider("SpeedBoostValue", {
+	Text = "Speed Boost Value",
+	Default = 16,
+	Min = 16,
+	Max = 30,
+	Rounding = 1,
+})
+
 updatePVPModulesVisibility = function()
 	local isHop = (Toggles.AutoHop and Toggles.AutoHop.Value) or false
 	local isCam = (Toggles.Camlock and Toggles.Camlock.Value) or false
+	local isSpeedBoost = (Toggles.PlusSpeedBoost and Toggles.PlusSpeedBoost.Value) or false
 
 	if Options.AutoHopStuds then
 		Options.AutoHopStuds.Visible = isHop
@@ -1672,6 +1692,18 @@ updatePVPModulesVisibility = function()
 		Options.CamlockStuds.Visible = isCam
 		if Options.CamlockStuds.Holder then
 			Options.CamlockStuds.Holder.Visible = isCam
+		end
+	end
+	if Options.SpeedBoostSlot then
+		Options.SpeedBoostSlot.Visible = isSpeedBoost
+		if Options.SpeedBoostSlot.Holder then
+			Options.SpeedBoostSlot.Holder.Visible = isSpeedBoost
+		end
+	end
+	if Options.SpeedBoostValue then
+		Options.SpeedBoostValue.Visible = isSpeedBoost
+		if Options.SpeedBoostValue.Holder then
+			Options.SpeedBoostValue.Holder.Visible = isSpeedBoost
 		end
 	end
 	CombatAutoPVP:Resize()
@@ -3061,25 +3093,6 @@ MoveLeft:AddSlider("SpeedValue", {
 	Rounding = 1,
 })
 
-MoveLeft:AddToggle("PlusSpeedBoost", {
-	Text = "+ Speed Boost",
-	Default = false,
-})
-
-MoveLeft:AddDropdown("SpeedBoostSlot", {
-	Text = "Tool Slot",
-	Values = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"},
-	Default = "1",
-})
-
-MoveLeft:AddSlider("SpeedBoostValue", {
-	Text = "Speed Boost Value",
-	Default = 16,
-	Min = 16,
-	Max = 30,
-	Rounding = 1,
-})
-
 local MoveSwimBoost = Tabs.Movement:AddLeftGroupbox("Swim Boost", "droplet")
 
 MoveSwimBoost:AddToggle("SwimBoost", {
@@ -3540,6 +3553,9 @@ end)
 
 Toggles.PlusSpeedBoost:OnChanged(function()
 	disconnect("PlusSpeedBoost")
+	if updatePVPModulesVisibility then
+		updatePVPModulesVisibility()
+	end
 	if Toggles.PlusSpeedBoost.Value then
 		Library:Notify({ Title = "+ Speed Boost", Description = "Enabled", Time = 2 })
 		track("PlusSpeedBoost", RunService.Heartbeat:Connect(function(dt)
