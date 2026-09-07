@@ -44,6 +44,7 @@ local Toggles = Library.Toggles
 local lastDeathPosition = nil
 local shouldTeleportBack = false
 local updateAutoSwingSliderVisibility
+local updatePVPModulesVisibility
 
 Library.ShowToggleFrameInKeybinds = true
 
@@ -1533,8 +1534,8 @@ CombatAutoSwingGroup:AddToggle("SmartSwingIgnoreTeam", {
 })
 
 updateAutoSwingSliderVisibility = function()
-	local isAutoSwingToggled = Toggles.AutoSwing and Toggles.AutoSwing.Value
-	local isSmartSwingToggled = Toggles.SmartSwing and Toggles.SmartSwing.Value
+	local isAutoSwingToggled = (Toggles.AutoSwing and Toggles.AutoSwing.Value) or false
+	local isSmartSwingToggled = (Toggles.SmartSwing and Toggles.SmartSwing.Value) or false
 	local isAnyToggled = isAutoSwingToggled or isSmartSwingToggled
 
 	if Options.AutoSwingSpeed then
@@ -1560,8 +1561,9 @@ updateAutoSwingSliderVisibility = function()
 	CombatAutoSwingGroup:Resize()
 end
 
+updateAutoSwingSliderVisibility()
 task.spawn(function()
-	task.wait()
+	task.wait(0.05)
 	if updateAutoSwingSliderVisibility then
 		updateAutoSwingSliderVisibility()
 	end
@@ -1574,15 +1576,58 @@ CombatAutoPVP:AddToggle("AutoHop", {
 	Default = false,
 })
 
+CombatAutoPVP:AddSlider("AutoHopStuds", {
+	Text = "Auto Hop Studs",
+	Default = 20,
+	Min = 1,
+	Max = 100,
+	Rounding = 0,
+})
+
 CombatAutoPVP:AddToggle("Camlock", {
 	Text = "+ Camlock",
 	Default = false,
+})
+
+CombatAutoPVP:AddSlider("CamlockStuds", {
+	Text = "Camlock Studs",
+	Default = 20,
+	Min = 1,
+	Max = 100,
+	Rounding = 0,
 })
 
 CombatAutoPVP:AddToggle("AutoShiftlock", {
 	Text = "Shiftlock(Mobile)",
 	Default = false,
 })
+
+updatePVPModulesVisibility = function()
+	local isHop = (Toggles.AutoHop and Toggles.AutoHop.Value) or false
+	local isCam = (Toggles.Camlock and Toggles.Camlock.Value) or false
+
+	if Options.AutoHopStuds then
+		Options.AutoHopStuds.Visible = isHop
+		if Options.AutoHopStuds.Holder then
+			Options.AutoHopStuds.Holder.Visible = isHop
+		end
+	end
+	if Options.CamlockStuds then
+		Options.CamlockStuds.Visible = isCam
+		if Options.CamlockStuds.Holder then
+			Options.CamlockStuds.Holder.Visible = isCam
+		end
+	end
+	CombatAutoPVP:Resize()
+end
+
+updatePVPModulesVisibility()
+task.spawn(function()
+	task.wait(0.05)
+	if updatePVPModulesVisibility then
+		updatePVPModulesVisibility()
+	end
+end)
 
 local CombatSwordBot = Tabs.Combat:AddLeftGroupbox("Sword Bot", "swords")
 
@@ -2266,6 +2311,9 @@ end)
 
 Toggles.AutoHop:OnChanged(function()
 	disconnect("AutoHop")
+	if updatePVPModulesVisibility then
+		updatePVPModulesVisibility()
+	end
 	if Toggles.AutoHop.Value then
 		track("AutoHop", RunService.Heartbeat:Connect(function()
 			if not isAlive() then return end
@@ -2284,6 +2332,7 @@ Toggles.AutoHop:OnChanged(function()
 				end
 			end
 
+			local maxDist = Options.AutoHopStuds and Options.AutoHopStuds.Value or 20
 			local pos = root.Position
 			local playerNearby = false
 			for _, otherPlayer in ipairs(Players:GetPlayers()) do
@@ -2292,7 +2341,7 @@ Toggles.AutoHop:OnChanged(function()
 					local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
 					if otherRoot and otherHum and otherHum.Health > 0 then
 						local dist = (otherRoot.Position - pos).Magnitude
-						if dist <= 20 then
+						if dist <= maxDist then
 							playerNearby = true
 							break
 						end
@@ -2501,6 +2550,9 @@ end)
 
 Toggles.Camlock:OnChanged(function()
 	disconnect("Camlock")
+	if updatePVPModulesVisibility then
+		updatePVPModulesVisibility()
+	end
 	if Toggles.Camlock.Value then
 		track("Camlock", RunService.Heartbeat:Connect(function()
 			if not isAlive() then return end
@@ -2508,6 +2560,7 @@ Toggles.Camlock:OnChanged(function()
 			local hum = getHumanoid()
 			if not root or not hum then return end
 
+			local maxDist = Options.CamlockStuds and Options.CamlockStuds.Value or 20
 			local myPos = root.Position
 			local closestPlayer = nil
 			local closestDist = math.huge
@@ -2518,7 +2571,7 @@ Toggles.Camlock:OnChanged(function()
 					local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
 					if otherRoot and otherHum and otherHum.Health > 0 then
 						local dist = (otherRoot.Position - myPos).Magnitude
-						if dist <= 20 and dist < closestDist then
+						if dist <= maxDist and dist < closestDist then
 							closestDist = dist
 							closestPlayer = otherPlayer
 						end
