@@ -5405,11 +5405,6 @@ VisualEnv:AddToggle("AlwaysNight", {
 	Default = false,
 })
 
-VisualEnv:AddToggle("NoWeather", {
-	Text = "No Weather",
-	Default = false,
-})
-
 VisualEnv:AddToggle("InfiniteZoom", {
 	Text = "Infinite Zoom",
 	Default = false,
@@ -5611,180 +5606,6 @@ Toggles.AlwaysNight:OnChanged(function()
 	end
 end)
 
--- No Weather Logic
-local weatherDisabledObjects = setmetatable({}, { __mode = "k" })
-local origAtmosphereProps = {}
-local origCloudsProps = {}
-
-local weatherKeywords = {
-	"rain", "rainfall", "raindrop", "snow", "snowfall", "storm", "thunder",
-	"lightning", "weather", "hail", "mist", "fog", "cloud", "splash", "drizzle"
-}
-
-local function isWeatherName(name)
-	if not name or typeof(name) ~= "string" then return false end
-	local lower = name:lower()
-	for _, kw in ipairs(weatherKeywords) do
-		if lower:find(kw) then
-			return true
-		end
-	end
-	return false
-end
-
-local function disableWeatherInstance(inst)
-	if not inst then return end
-	if inst:IsA("ParticleEmitter") or inst:IsA("Beam") or inst:IsA("Trail") or inst:IsA("Smoke") or inst:IsA("Fire") then
-		if isWeatherName(inst.Name) or isWeatherName(inst.Parent and inst.Parent.Name or "") then
-			if weatherDisabledObjects[inst] == nil then
-				weatherDisabledObjects[inst] = inst.Enabled
-			end
-			pcall(function() inst.Enabled = false end)
-		end
-	elseif inst:IsA("Clouds") then
-		if origCloudsProps.Enabled == nil then
-			origCloudsProps.Enabled = inst.Enabled
-			origCloudsProps.Cover = inst.Cover
-			origCloudsProps.Density = inst.Density
-		end
-		pcall(function()
-			inst.Enabled = false
-			inst.Cover = 0
-			inst.Density = 0
-		end)
-	elseif inst:IsA("Atmosphere") then
-		if origAtmosphereProps.Density == nil then
-			origAtmosphereProps.Density = inst.Density
-			origAtmosphereProps.Haze = inst.Haze
-			origAtmosphereProps.Glare = inst.Glare
-		end
-		pcall(function()
-			inst.Density = 0
-			inst.Haze = 0
-			inst.Glare = 0
-		end)
-	elseif inst:IsA("Sound") and isWeatherName(inst.Name) then
-		pcall(function()
-			inst.Volume = 0
-			inst:Stop()
-		end)
-	elseif inst:IsA("Folder") or inst:IsA("Model") then
-		if isWeatherName(inst.Name) then
-			for _, desc in ipairs(inst:GetDescendants()) do
-				disableWeatherInstance(desc)
-			end
-		end
-	end
-end
-
-local function applyNoWeather()
-	for _, inst in ipairs(workspace:GetDescendants()) do
-		disableWeatherInstance(inst)
-	end
-	local cam = workspace.CurrentCamera
-	if cam then
-		for _, inst in ipairs(cam:GetDescendants()) do
-			disableWeatherInstance(inst)
-		end
-	end
-	local lighting = game:GetService("Lighting")
-	for _, inst in ipairs(lighting:GetDescendants()) do
-		disableWeatherInstance(inst)
-	end
-	local terrain = workspace:FindFirstChildOfClass("Terrain")
-	if terrain then
-		for _, inst in ipairs(terrain:GetDescendants()) do
-			disableWeatherInstance(inst)
-		end
-	end
-end
-
-local function clearNoWeather()
-	for inst, orig in pairs(weatherDisabledObjects) do
-		if inst and inst.Parent then
-			pcall(function() inst.Enabled = orig end)
-		end
-	end
-	table.clear(weatherDisabledObjects)
-
-	local terrain = workspace:FindFirstChildOfClass("Terrain")
-	local clouds = terrain and terrain:FindFirstChildOfClass("Clouds") or game:GetService("Lighting"):FindFirstChildOfClass("Clouds")
-	if clouds and origCloudsProps.Enabled ~= nil then
-		pcall(function()
-			clouds.Enabled = origCloudsProps.Enabled
-			clouds.Cover = origCloudsProps.Cover
-			clouds.Density = origCloudsProps.Density
-		end)
-	end
-	table.clear(origCloudsProps)
-
-	local atmosphere = game:GetService("Lighting"):FindFirstChildOfClass("Atmosphere")
-	if atmosphere and origAtmosphereProps.Density ~= nil then
-		pcall(function()
-			atmosphere.Density = origAtmosphereProps.Density
-			atmosphere.Haze = origAtmosphereProps.Haze
-			atmosphere.Glare = origAtmosphereProps.Glare
-		end)
-	end
-	table.clear(origAtmosphereProps)
-end
-
-Toggles.NoWeather:OnChanged(function()
-	disconnect("NoWeather_Workspace")
-	disconnect("NoWeather_Camera")
-	disconnect("NoWeather_Lighting")
-	disconnect("NoWeather_Terrain")
-	disconnect("NoWeather_Loop")
-
-	if Toggles.NoWeather.Value then
-		applyNoWeather()
-
-		track("NoWeather_Workspace", workspace.DescendantAdded:Connect(function(child)
-			if Toggles.NoWeather and Toggles.NoWeather.Value then
-				disableWeatherInstance(child)
-			end
-		end))
-
-		local cam = workspace.CurrentCamera
-		if cam then
-			track("NoWeather_Camera", cam.DescendantAdded:Connect(function(child)
-				if Toggles.NoWeather and Toggles.NoWeather.Value then
-					disableWeatherInstance(child)
-				end
-			end))
-		end
-
-		track("NoWeather_Lighting", game:GetService("Lighting").DescendantAdded:Connect(function(child)
-			if Toggles.NoWeather and Toggles.NoWeather.Value then
-				disableWeatherInstance(child)
-			end
-		end))
-
-		track("NoWeather_Loop", RunService.Heartbeat:Connect(function()
-			if not Toggles.NoWeather or not Toggles.NoWeather.Value then return end
-			local camNow = workspace.CurrentCamera
-			if camNow then
-				for _, child in ipairs(camNow:GetChildren()) do
-					if child:IsA("ParticleEmitter") or isWeatherName(child.Name) then
-						disableWeatherInstance(child)
-					end
-				end
-			end
-			local weatherFolder = workspace:FindFirstChild("Weather") or workspace:FindFirstChild("Rain") or workspace:FindFirstChild("Rainfall")
-			if weatherFolder then
-				for _, child in ipairs(weatherFolder:GetDescendants()) do
-					disableWeatherInstance(child)
-				end
-			end
-		end))
-
-		Library:Notify({ Title = "No Weather", Description = "Enabled", Time = 2 })
-	else
-		clearNoWeather()
-		Library:Notify({ Title = "No Weather", Description = "Disabled", Time = 2 })
-	end
-end)
-
 Toggles.InfiniteZoom:OnChanged(function()
 	if Toggles.InfiniteZoom.Value then
 		LocalPlayer.CameraMaxZoomDistance = 100000
@@ -5797,12 +5618,6 @@ Toggles.InfiniteZoom:OnChanged(function()
 end)
 
 Options.ControlTheHours:OnChanged(function()
-	if Toggles.AlwaysDay.Value or Toggles.AlwaysNight and Toggles.AlwaysNight.Value then
-		Toggles.AlwaysNight:SetValue(false)
-	end
-	if Toggles.NoWeather and Toggles.NoWeather.Value then
-		Toggles.NoWeather:SetValue(false)
-	end
 	if Toggles.AlwaysDay.Value or Toggles.Midday.Value or Toggles.AlwaysNight.Value then
 		Toggles.AlwaysDay:SetValue(false)
 		Toggles.Midday:SetValue(false)
@@ -6326,10 +6141,9 @@ end)
 Library.ToggleKeybind = Options.MenuKeybind
 
 ThemeManager:SetLibrary(Library)
--- Set default accent color to dark red and font to white
+-- Set default accent color to red
 ThemeManager:SetDefaultTheme({
-	AccentColor = "800000", -- Dark Red
-	FontColor = "ffffff" -- White
+	AccentColor = "ff0000" -- Red
 })
 SaveManager:SetLibrary(Library)
 SaveManager:IgnoreThemeSettings()
@@ -6340,55 +6154,6 @@ SaveManager:SetFolder("TSG/TheSurvivalGame")
 SaveManager:BuildConfigSection(Tabs["UI Settings"])
 ThemeManager:ApplyToTab(Tabs["UI Settings"])
 SaveManager:LoadAutoloadConfig()
-
--- Draggable Open / Close Toggle Button for URIEL (Dark Red with White text)
-pcall(function()
-	local coreGui = game:GetService("CoreGui")
-	local playerGui = LocalPlayer:FindFirstChildOfClass("PlayerGui")
-	local targetParent = (gethui and gethui()) or coreGui or playerGui
-	if not targetParent then return end
-
-	local existing = targetParent:FindFirstChild("URIEL_OpenToggleGUI")
-	if existing then existing:Destroy() end
-
-	local toggleGui = Instance.new("ScreenGui")
-	toggleGui.Name = "URIEL_OpenToggleGUI"
-	toggleGui.ResetOnSpawn = false
-	pcall(function() if syn and syn.protect_gui then syn.protect_gui(toggleGui) end end)
-	toggleGui.Parent = targetParent
-
-	local openBtn = Instance.new("TextButton")
-	openBtn.Name = "OpenToggleButton"
-	openBtn.Size = UDim2.new(0, 75, 0, 30)
-	openBtn.Position = UDim2.new(0, 15, 0.5, -15)
-	openBtn.BackgroundColor3 = Color3.fromRGB(120, 10, 10) -- Dark Red
-	openBtn.BorderSizePixel = 0
-	openBtn.Text = "URIEL"
-	openBtn.TextColor3 = Color3.fromRGB(255, 255, 255) -- White
-	openBtn.Font = Enum.Font.Jura
-	openBtn.TextSize = 13
-	openBtn.TextStrokeTransparency = 0.5
-	openBtn.Active = true
-	openBtn.Draggable = true
-	openBtn.Parent = toggleGui
-
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, 6)
-	corner.Parent = openBtn
-
-	local stroke = Instance.new("UIStroke")
-	stroke.Color = Color3.fromRGB(160, 25, 25)
-	stroke.Thickness = 1
-	stroke.Parent = openBtn
-
-	openBtn.MouseButton1Click:Connect(function()
-		if Window and Window.Toggle then
-			Window:Toggle()
-		elseif Library and Library.Toggle then
-			Library:Toggle()
-		end
-	end)
-end)
 
 Library:OnUnload(function()
 
@@ -6527,14 +6292,6 @@ Library:OnUnload(function()
 	clearESP()
 	pcall(function() clearOreESPHighlights() end)
 	highlightTarget:Destroy()
-	pcall(function()
-		local coreGui = game:GetService("CoreGui")
-		local playerGui = LocalPlayer:FindFirstChildOfClass("PlayerGui")
-		local targetParent = (gethui and gethui()) or coreGui or playerGui
-		if targetParent and targetParent:FindFirstChild("URIEL_OpenToggleGUI") then
-			targetParent.URIEL_OpenToggleGUI:Destroy()
-		end
-	end)
 	workspace.Gravity = 196.2
 	LocalPlayer.CameraMaxZoomDistance = 400
 	LocalPlayer.CameraMinZoomDistance = 0.5
