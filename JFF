@@ -45,6 +45,7 @@ local lastDeathPosition = nil
 local shouldTeleportBack = false
 local updateAutoSwingSliderVisibility
 local updatePVPModulesVisibility
+local updateTouchFlingVisibility
 
 Library.ShowToggleFrameInKeybinds = true
 
@@ -414,13 +415,9 @@ local MainLeft = Tabs.Player:AddLeftGroupbox("Player", "user")
 
 local MiscGroup = Tabs.Player:AddRightGroupbox("Misc", "sparkles")
 
-MiscGroup:AddButton({
-	Text = "Emote",
-	Func = function()
-		pcall(function()
-			loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-AFEM-Max-Open-Alpha-50210"))()
-		end)
-	end,
+MiscGroup:AddToggle("AutoShiftlock", {
+	Text = "Shiftlock(Mobile)",
+	Default = false,
 })
 
 local MainRight = Tabs.Player:AddRightGroupbox("Settings", "settings")
@@ -504,6 +501,33 @@ FunLeft:AddToggle("TouchFling", {
 	Text = "Touch Fling",
 	Default = false,
 })
+
+FunLeft:AddSlider("TouchFlingPower", {
+	Text = "Fling Power",
+	Default = 10000,
+	Min = 500,
+	Max = 50000,
+	Rounding = 0,
+})
+
+updateTouchFlingVisibility = function()
+	local isFling = (Toggles.TouchFling and Toggles.TouchFling.Value) or false
+	if Options.TouchFlingPower then
+		Options.TouchFlingPower.Visible = isFling
+		if Options.TouchFlingPower.Holder then
+			Options.TouchFlingPower.Holder.Visible = isFling
+		end
+	end
+	FunLeft:Resize()
+end
+
+updateTouchFlingVisibility()
+task.spawn(function()
+	task.wait(0.05)
+	if updateTouchFlingVisibility then
+		updateTouchFlingVisibility()
+	end
+end)
 
 FunLeft:AddToggle("Dropkick", {
 	Text = "Dropkick",
@@ -1597,11 +1621,6 @@ CombatAutoPVP:AddSlider("CamlockStuds", {
 	Rounding = 0,
 })
 
-CombatAutoPVP:AddToggle("AutoShiftlock", {
-	Text = "Shiftlock(Mobile)",
-	Default = false,
-})
-
 updatePVPModulesVisibility = function()
 	local isHop = (Toggles.AutoHop and Toggles.AutoHop.Value) or false
 	local isCam = (Toggles.Camlock and Toggles.Camlock.Value) or false
@@ -1694,7 +1713,7 @@ CombatReach:AddSlider("ReachRange", {
 	Rounding = 1,
 })
 
-local CombatAutoBlock = Tabs.Combat:AddRightGroupbox("Auto Block", "shield")
+local CombatAutoBlock = Tabs.Combat:AddRightGroupbox("Immortal Mode", "shield")
 
 CombatAutoBlock:AddToggle("ImmortalMode", {
 	Text = "Immortal Mode",
@@ -5433,8 +5452,9 @@ local function touchFlingLoop()
 		local c = LocalPlayer.Character
 		local hrp = c and c:FindFirstChild("HumanoidRootPart")
 		if hrp then
+			local power = (Options.TouchFlingPower and Options.TouchFlingPower.Value) or 10000
 			local vel = hrp.Velocity
-			hrp.Velocity = vel * 10000 + Vector3.new(0, 10000, 0)
+			hrp.Velocity = vel * power + Vector3.new(0, power, 0)
 			RunService.RenderStepped:Wait()
 			if not touchFlingActive then break end
 			hrp.Velocity = vel
@@ -5447,6 +5467,9 @@ local function touchFlingLoop()
 end
 
 Toggles.TouchFling:OnChanged(function()
+	if updateTouchFlingVisibility then
+		updateTouchFlingVisibility()
+	end
 	touchFlingActive = Toggles.TouchFling.Value
 	if touchFlingActive then
 		task.spawn(touchFlingLoop)
