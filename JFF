@@ -1506,6 +1506,11 @@ CombatAutoSwing:AddToggle("AutoSwing", {
 	Default = false,
 })
 
+CombatAutoSwing:AddToggle("SmartSwing", {
+	Text = "Smart Swing",
+	Default = false,
+})
+
 CombatAutoSwing:AddSlider("AutoSwingSpeed", {
 	Text = "Auto Swing Speed",
 	Default = 10,
@@ -1515,7 +1520,7 @@ CombatAutoSwing:AddSlider("AutoSwingSpeed", {
 })
 
 updateAutoSwingSliderVisibility = function()
-	local isToggled = Toggles.AutoSwing and Toggles.AutoSwing.Value
+	local isToggled = (Toggles.AutoSwing and Toggles.AutoSwing.Value) or (Toggles.SmartSwing and Toggles.SmartSwing.Value)
 	if Options.AutoSwingSpeed then
 		Options.AutoSwingSpeed.Visible = isToggled
 		if Options.AutoSwingSpeed.Holder then
@@ -2133,6 +2138,52 @@ Toggles.AutoSwing:OnChanged(function()
 		end))
 	else
 		_G.T = false
+	end
+end)
+
+local lastSmartSwing = 0
+Toggles.SmartSwing:OnChanged(function()
+	disconnect("SmartSwing")
+	if updateAutoSwingSliderVisibility then
+		updateAutoSwingSliderVisibility()
+	end
+	if Toggles.SmartSwing.Value then
+		track("SmartSwing", RunService.Heartbeat:Connect(function()
+			if not isAlive() then return end
+			local root = getRootPart()
+			if not root then return end
+
+			local speedVal = Options.AutoSwingSpeed and Options.AutoSwingSpeed.Value or 10
+			local delay = 1 / math.max(0.1, speedVal)
+			if tick() - lastSmartSwing < delay then return end
+
+			local pos = root.Position
+			local playerNearby = false
+			for _, otherPlayer in ipairs(Players:GetPlayers()) do
+				if otherPlayer ~= LocalPlayer and otherPlayer.Character then
+					local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart") or otherPlayer.Character.PrimaryPart
+					local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
+					if otherRoot and otherHum and otherHum.Health > 0 then
+						local dist = (otherRoot.Position - pos).Magnitude
+						if dist <= 20 then
+							playerNearby = true
+							break
+						end
+					end
+				end
+			end
+
+			if playerNearby then
+				local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
+				if tool then
+					tool:Activate()
+					lastSmartSwing = tick()
+				end
+			end
+		end))
+		Library:Notify({ Title = "Smart Swing", Description = "Enabled (Within 20 Studs)", Time = 2 })
+	else
+		Library:Notify({ Title = "Smart Swing", Description = "Disabled", Time = 2 })
 	end
 end)
 
