@@ -1739,6 +1739,9 @@ CombatRight:AddToggle("TargetPlayers", {
 CombatRight:AddToggle("HighlightTarget", {
 	Text = "Highlight Target",
 	Default = true,
+}):AddColorPicker("HighlightTargetColor", {
+	Default = Color3.fromRGB(255, 60, 60),
+	Title = "Highlight Target Color",
 })
 
 local CombatAimbot = Tabs.Combat:AddRightGroupbox("AIMBOT", "crosshair")
@@ -2062,12 +2065,20 @@ local function updateHighlight(hl, target, toggleValue)
 end
 
 local highlightTarget = Instance.new("Highlight")
-highlightTarget.FillColor = Color3.fromRGB(255, 60, 60)
+highlightTarget.FillColor = (Options.HighlightTargetColor and Options.HighlightTargetColor.Value) or Color3.fromRGB(255, 60, 60)
 highlightTarget.OutlineColor = Color3.fromRGB(255, 255, 255)
 highlightTarget.FillTransparency = 0.3
 highlightTarget.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
 highlightTarget.Enabled = false
 highlightTarget.Parent = workspace
+
+if Options.HighlightTargetColor then
+	Options.HighlightTargetColor:OnChanged(function()
+		if highlightTarget then
+			highlightTarget.FillColor = Options.HighlightTargetColor.Value
+		end
+	end)
+end
 
 Toggles.HighlightTarget:OnChanged(function()
 	if not Toggles.HighlightTarget.Value then
@@ -4069,14 +4080,12 @@ Options.AuraFillColor:OnChanged(function()
 	hlMine.FillColor  = auraHighlightColor
 	hlChop.FillColor  = auraHighlightColor
 	hlAI.FillColor    = auraHighlightColor
-	highlightTarget.FillColor = auraHighlightColor
 end)
 Options.AuraOutlineColor:OnChanged(function()
 	auraOutlineColor = Options.AuraOutlineColor.Value
 	hlMine.OutlineColor  = auraOutlineColor
 	hlChop.OutlineColor  = auraOutlineColor
 	hlAI.OutlineColor    = auraOutlineColor
-	highlightTarget.OutlineColor = auraOutlineColor
 end)
 
 Toggles.HighlightMine:OnChanged(function()
