@@ -506,7 +506,7 @@ FunLeft:AddSlider("TouchFlingPower", {
 	Text = "Fling Power",
 	Default = 10000,
 	Min = 500,
-	Max = 50000,
+	Max = 10000,
 	Rounding = 0,
 })
 
@@ -4261,12 +4261,22 @@ local function isOreFilterEnabled(oreName)
 	return t
 end
 
+local lastOreESPUpdate = 0
+
 local function oreESPLoop()
+	local now = tick()
+	if now - lastOreESPUpdate < 0.3 then return end
+	lastOreESPUpdate = now
+
 	local folder = workspace:FindFirstChild("worldResources") and workspace.worldResources:FindFirstChild("mineable")
 	if not folder then return end
 
+	local root = getRootPart()
+	local rootPos = root and root.Position
+
 	local showNames = not (Toggles and Toggles.OreESPRemoveNames and Toggles.OreESPRemoveNames.Value)
 	local seen = {}
+	local candidateHighlights = {}
 
 	for _, chunkFolder in ipairs(folder:GetChildren()) do
 		if not chunkFolder:IsA("Folder") then continue end
@@ -4279,17 +4289,10 @@ local function oreESPLoop()
 			local enabled = isOreFilterEnabled(oreName)
 			local oreColor = getOreColor(oreName)
 
-			if not entry then
-				local hl = Instance.new("Highlight")
-				hl.FillColor = oreColor
-				hl.OutlineColor = Color3.fromRGB(255, 255, 255)
-				hl.FillTransparency = 0.25
-				hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-				hl.Adornee = obj
-				hl.Enabled = enabled
-				hl.Parent = workspace
+			local anchor = obj:IsA("Model") and (obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")) or (obj:IsA("BasePart") and obj)
+			local dist = (rootPos and anchor) and (anchor.Position - rootPos).Magnitude or 9999
 
-				local anchor = obj:IsA("Model") and (obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")) or (obj:IsA("BasePart") and obj)
+			if not entry then
 				local bill = nil
 				local lbl = nil
 				if anchor then
@@ -4298,7 +4301,7 @@ local function oreESPLoop()
 					bill.AlwaysOnTop = true
 					bill.Adornee = anchor
 					bill.StudsOffset = Vector3.new(0, 3.2, 0)
-					bill.MaxDistance = math.huge
+					bill.MaxDistance = 1500
 
 					lbl = Instance.new("TextLabel")
 					lbl.Size = UDim2.fromScale(1, 1)
@@ -4315,35 +4318,67 @@ local function oreESPLoop()
 					bill.Parent = workspace
 				end
 
-				entry = { hl = hl, bill = bill, lbl = lbl, oreName = oreName }
+				local hl = Instance.new("Highlight")
+				hl.FillColor = oreColor
+				hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+				hl.FillTransparency = 0.25
+				hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+				hl.Adornee = obj
+				hl.Enabled = false
+				hl.Parent = workspace
+
+				entry = { hl = hl, bill = bill, lbl = lbl, oreName = oreName, lastColor = oreColor, lastEnabled = enabled, lastShowNames = showNames, dist = dist }
 				oreESP.highlights[obj] = entry
 			else
-				pcall(function() entry.hl.Enabled = enabled end)
-				pcall(function() entry.hl.FillColor = oreColor end)
-				if entry.bill then
-					pcall(function() entry.bill.Enabled = enabled and showNames end)
-				end
-				if entry.lbl then
-					pcall(function()
-						entry.lbl.TextColor3 = oreColor
-						entry.lbl.Text = '<font color="#' .. oreColor:ToHex() .. '">' .. oreName .. '</font>'
-					end)
-				end
-				if obj.Parent ~= nil then
-					entry.hl.Adornee = obj
-					if entry.bill and entry.bill.Adornee == nil then
-						local anchor = obj:IsA("Model") and (obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")) or (obj:IsA("BasePart") and obj)
-						if anchor then entry.bill.Adornee = anchor end
+				entry.dist = dist
+				if entry.lastEnabled ~= enabled or entry.lastShowNames ~= showNames then
+					entry.lastEnabled = enabled
+					entry.lastShowNames = showNames
+					if entry.bill then
+						entry.bill.Enabled = enabled and showNames
 					end
 				end
+				if entry.lastColor ~= oreColor then
+					entry.lastColor = oreColor
+					if entry.hl then entry.hl.FillColor = oreColor end
+					if entry.lbl then
+						entry.lbl.TextColor3 = oreColor
+						entry.lbl.Text = '<font color="#' .. oreColor:ToHex() .. '">' .. oreName .. '</font>'
+					end
+				end
+				if entry.bill and entry.bill.Adornee == nil and anchor then
+					entry.bill.Adornee = anchor
+				end
+				if entry.hl and entry.hl.Adornee == nil then
+					entry.hl.Adornee = obj
+				end
+			end
+
+			if enabled and dist <= 350 then
+				table.insert(candidateHighlights, { entry = entry, dist = dist })
+			elseif entry and entry.hl and entry.hl.Enabled then
+				entry.hl.Enabled = false
+			end
+		end
+	end
+
+	table.sort(candidateHighlights, function(a, b) return a.dist < b.dist end)
+	for i, item in ipairs(candidateHighlights) do
+		if i <= 25 then
+			if not item.entry.hl.Enabled then
+				item.entry.hl.Enabled = true
+			end
+		else
+			if item.entry.hl.Enabled then
+				item.entry.hl.Enabled = false
 			end
 		end
 	end
 
 	for obj, entry in pairs(oreESP.highlights) do
 		if not seen[obj] or not obj or not obj.Parent then
-			pcall(function() entry.hl:Destroy() end)
-			pcall(function() entry.bill:Destroy() end)
+			if entry.hl then pcall(function() entry.hl:Destroy() end) end
+			if entry.bill then pcall(function() entry.bill:Destroy() end) end
 			oreESP.highlights[obj] = nil
 		end
 	end
@@ -4415,11 +4450,12 @@ Toggles.OreESPToggle:OnChanged(function()
 	end
 
 	scanOreTypesAndBuildUI()
-	local scanTries = 0
+	local lastScan = 0
 	track("OreESPScan", RunService.Heartbeat:Connect(function()
-		scanTries += 1
-		if scanTries % 180 == 0 then
-			pcall(function() scanOreTypesAndBuildUI() end)
+		local now = tick()
+		if now - lastScan >= 3 then
+			lastScan = now
+			pcall(scanOreTypesAndBuildUI)
 		end
 	end))
 
@@ -4428,7 +4464,7 @@ Toggles.OreESPToggle:OnChanged(function()
 		oreESPLoop()
 	end))
 
-	Library:Notify({ Title = "Ore ESP", Description = "Enabled", Time = 2 })
+	Library:Notify({ Title = "Ore ESP", Description = "Enabled (Lag-Optimized)", Time = 2 })
 end)
 
 Toggles.TitanAura:OnChanged(function()
