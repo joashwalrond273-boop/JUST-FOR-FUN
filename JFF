@@ -1502,12 +1502,12 @@ CombatPhantomAura:AddSlider("OrbitSpeed", {
 local CombatAutoSwing = Tabs.Combat:AddLeftGroupbox("Auto PVP", "swords")
 
 CombatAutoSwing:AddToggle("AutoSwing", {
-	Text = "+ Auto Swing",
+	Text = "Auto Swing",
 	Default = false,
 })
 
 CombatAutoSwing:AddToggle("SmartSwing", {
-	Text = "Smart Swing",
+	Text = "+ Smart Swing",
 	Default = false,
 })
 
@@ -1519,12 +1519,42 @@ CombatAutoSwing:AddSlider("AutoSwingSpeed", {
 	Rounding = 1,
 })
 
+CombatAutoSwing:AddSlider("PlayerStuds", {
+	Text = "Player Studs",
+	Default = 20,
+	Min = 1,
+	Max = 100,
+	Rounding = 0,
+})
+
+CombatAutoSwing:AddToggle("SmartSwingIgnoreTeam", {
+	Text = "Ignore Team",
+	Default = true,
+})
+
 updateAutoSwingSliderVisibility = function()
-	local isToggled = (Toggles.AutoSwing and Toggles.AutoSwing.Value) or (Toggles.SmartSwing and Toggles.SmartSwing.Value)
+	local isAutoSwingToggled = Toggles.AutoSwing and Toggles.AutoSwing.Value
+	local isSmartSwingToggled = Toggles.SmartSwing and Toggles.SmartSwing.Value
+	local isAnyToggled = isAutoSwingToggled or isSmartSwingToggled
+
 	if Options.AutoSwingSpeed then
-		Options.AutoSwingSpeed.Visible = isToggled
+		Options.AutoSwingSpeed.Visible = isAnyToggled
 		if Options.AutoSwingSpeed.Holder then
-			Options.AutoSwingSpeed.Holder.Visible = isToggled
+			Options.AutoSwingSpeed.Holder.Visible = isAnyToggled
+		end
+	end
+	if Options.PlayerStuds then
+		Options.PlayerStuds.Visible = isSmartSwingToggled
+		if Options.PlayerStuds.Holder then
+			Options.PlayerStuds.Holder.Visible = isSmartSwingToggled
+		end
+	end
+	if Toggles.SmartSwingIgnoreTeam then
+		if Toggles.SmartSwingIgnoreTeam.Visible ~= nil then
+			Toggles.SmartSwingIgnoreTeam.Visible = isSmartSwingToggled
+		end
+		if Toggles.SmartSwingIgnoreTeam.Holder then
+			Toggles.SmartSwingIgnoreTeam.Holder.Visible = isSmartSwingToggled
 		end
 	end
 	CombatAutoSwing:Resize()
@@ -2141,6 +2171,45 @@ Toggles.AutoSwing:OnChanged(function()
 	end
 end)
 
+local function isTeammate(otherPlayer)
+	if not otherPlayer or otherPlayer == LocalPlayer then
+		return true
+	end
+
+	if LocalPlayer.Team and otherPlayer.Team and LocalPlayer.Team == otherPlayer.Team then
+		return true
+	end
+	if LocalPlayer.TeamColor and otherPlayer.TeamColor and LocalPlayer.TeamColor == otherPlayer.TeamColor and LocalPlayer.TeamColor ~= BrickColor.new("White") then
+		return true
+	end
+
+	pcall(function()
+		if TSG.ClientData and TSG.ClientData.getKingdom then
+			local myKingdom = TSG.ClientData.getKingdom()
+			local otherKingdom = otherPlayer:GetAttribute("Kingdom") or otherPlayer:GetAttribute("Clan") or otherPlayer:GetAttribute("Team")
+			if myKingdom and otherKingdom and myKingdom == otherKingdom then
+				return true
+			end
+		end
+	end)
+
+	local myClan = LocalPlayer:GetAttribute("Clan") or LocalPlayer:GetAttribute("Kingdom") or LocalPlayer:GetAttribute("Tribe") or LocalPlayer:GetAttribute("Team")
+	local theirClan = otherPlayer:GetAttribute("Clan") or otherPlayer:GetAttribute("Kingdom") or otherPlayer:GetAttribute("Tribe") or otherPlayer:GetAttribute("Team")
+	if myClan and theirClan and myClan ~= "" and myClan == theirClan then
+		return true
+	end
+
+	if LocalPlayer.Character and otherPlayer.Character then
+		local myCharClan = LocalPlayer.Character:GetAttribute("Clan") or LocalPlayer.Character:GetAttribute("Kingdom") or LocalPlayer.Character:GetAttribute("Tribe")
+		local theirCharClan = otherPlayer.Character:GetAttribute("Clan") or otherPlayer.Character:GetAttribute("Kingdom") or otherPlayer.Character:GetAttribute("Tribe")
+		if myCharClan and theirCharClan and myCharClan ~= "" and myCharClan == theirCharClan then
+			return true
+		end
+	end
+
+	return false
+end
+
 local lastSmartSwing = 0
 Toggles.SmartSwing:OnChanged(function()
 	disconnect("SmartSwing")
@@ -2157,17 +2226,22 @@ Toggles.SmartSwing:OnChanged(function()
 			local delay = 1 / math.max(0.1, speedVal)
 			if tick() - lastSmartSwing < delay then return end
 
+			local maxDist = Options.PlayerStuds and Options.PlayerStuds.Value or 20
+			local ignoreTeam = Toggles.SmartSwingIgnoreTeam and Toggles.SmartSwingIgnoreTeam.Value
 			local pos = root.Position
 			local playerNearby = false
+
 			for _, otherPlayer in ipairs(Players:GetPlayers()) do
 				if otherPlayer ~= LocalPlayer and otherPlayer.Character then
-					local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart") or otherPlayer.Character.PrimaryPart
-					local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
-					if otherRoot and otherHum and otherHum.Health > 0 then
-						local dist = (otherRoot.Position - pos).Magnitude
-						if dist <= 20 then
-							playerNearby = true
-							break
+					if not ignoreTeam or not isTeammate(otherPlayer) then
+						local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart") or otherPlayer.Character.PrimaryPart
+						local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
+						if otherRoot and otherHum and otherHum.Health > 0 then
+							local dist = (otherRoot.Position - pos).Magnitude
+							if dist <= maxDist then
+								playerNearby = true
+								break
+							end
 						end
 					end
 				end
@@ -2181,7 +2255,8 @@ Toggles.SmartSwing:OnChanged(function()
 				end
 			end
 		end))
-		Library:Notify({ Title = "Smart Swing", Description = "Enabled (Within 20 Studs)", Time = 2 })
+		local studs = Options.PlayerStuds and Options.PlayerStuds.Value or 20
+		Library:Notify({ Title = "Smart Swing", Description = "Enabled (Within " .. tostring(studs) .. " Studs)", Time = 2 })
 	else
 		Library:Notify({ Title = "Smart Swing", Description = "Disabled", Time = 2 })
 	end
