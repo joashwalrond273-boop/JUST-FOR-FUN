@@ -268,7 +268,6 @@ pcall(function()
 	end
 end)
 
-
 local function getChopTargetPart(obj)
 	if not obj then return nil end
 	local primary = obj.PrimaryPart
@@ -1825,7 +1824,6 @@ CombatRight:AddToggle("TargetPlayers", {
 	Default = true,
 })
 
-
 CombatRight:AddToggle("HighlightTarget", {
 	Text = "Highlight Target",
 	Default = true,
@@ -2190,7 +2188,6 @@ Toggles.HighlightTarget:OnChanged(function()
 	end
 end)
 
-
 local function getBestMeleeWeapon()
 	if not TSG.ClientData or not TSG.Items then
 		return nil
@@ -2264,7 +2261,6 @@ local function killAuraLoop()
 	end
 
 	local targetSetting = Options.KillAuraTarget and Options.KillAuraTarget.Value or "All"
-
 
 	-- Scan Players
 	if Toggles.TargetPlayers.Value then
@@ -6180,7 +6176,6 @@ Toggles.QuickVanish:OnChanged(function()
 		Library:Notify({ Title = "Quick Vanish", Description = "Disabled", Time = 2 })
 	end
 end)
-
 
 local function updateTeleportPlayerList()
 	local list = {}
