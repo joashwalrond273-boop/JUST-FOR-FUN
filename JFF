@@ -1840,11 +1840,6 @@ CombatAutoBlock:AddToggle("ImmortalMode", {
 	Default = false,
 })
 
-CombatAutoBlock:AddToggle("BypassShield", {
-	Text = "+ Bypass Shield",
-	Default = false,
-})
-
 CombatAutoBlock:AddToggle("DodgeAura", {
 	Text = "Dodge Aura",
 	Default = false,
@@ -1891,7 +1886,62 @@ end
 
 local isShielding = false
 local lastShieldFire = 0
-local lastLocalSwingTime = 0
+local lastPlayerSwing = 0
+local SWING_PAUSE_DURATION = 0.5
+
+local function registerPlayerSwing()
+	lastPlayerSwing = tick()
+	if isShielding then
+		isShielding = false
+		pcall(function()
+			game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(false)
+		end)
+	end
+end
+
+-- Hook screen taps (Touch on mobile) and mouse clicks (MouseButton1) to stop blocking when swinging
+track("ImmortalSwingInput", UserInputService.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+		if Toggles.ImmortalMode and Toggles.ImmortalMode.Value then
+			registerPlayerSwing()
+		end
+	end
+end))
+
+-- Hook tool activation & swing animations for the local player
+local function hookImmortalTool(tool)
+	if tool and tool:IsA("Tool") then
+		tool.Activated:Connect(function()
+			if Toggles.ImmortalMode and Toggles.ImmortalMode.Value then
+				registerPlayerSwing()
+			end
+		end)
+	end
+end
+
+local function setupImmortalSwingListeners(char)
+	if not char then return end
+	for _, child in ipairs(char:GetChildren()) do
+		hookImmortalTool(child)
+	end
+	char.ChildAdded:Connect(hookImmortalTool)
+
+	local hum = char:WaitForChild("Humanoid", 10)
+	local animator = hum and hum:WaitForChild("Animator", 10)
+	if animator then
+		disconnect("ImmortalLocalAnim")
+		track("ImmortalLocalAnim", animator.AnimationPlayed:Connect(function(trackObj)
+			if Toggles.ImmortalMode and Toggles.ImmortalMode.Value and isSwingAnimation(trackObj) then
+				registerPlayerSwing()
+			end
+		end))
+	end
+end
+
+track("ImmortalCharAdded", LocalPlayer.CharacterAdded:Connect(setupImmortalSwingListeners))
+if LocalPlayer.Character then
+	setupImmortalSwingListeners(LocalPlayer.Character)
+end
 
 local function updateImmortalMode()
 	if not isAlive() or not Toggles.ImmortalMode.Value then
@@ -1904,8 +1954,8 @@ local function updateImmortalMode()
 		return
 	end
 
-	-- Bypass Shield: if swung recently, drop shield and pause immortal mode for 0.5s to hit enemies
-	if Toggles.BypassShield and Toggles.BypassShield.Value and (tick() - lastLocalSwingTime < 0.5) then
+	-- Pause shielding for 0.5 seconds when player taps/swings
+	if tick() - lastPlayerSwing < SWING_PAUSE_DURATION then
 		if isShielding then
 			isShielding = false
 			pcall(function()
@@ -1919,7 +1969,7 @@ local function updateImmortalMode()
 	if not root then return end
 
 	local shouldShield = false
-	local checkDistance = 100
+	local checkDistance = 18
 	local nearestEnemy = nil
 	local nearestDist = math.huge
 	local activeAttacker = nil
@@ -1959,7 +2009,7 @@ local function updateImmortalMode()
 			root.CFrame = CFrame.lookAt(root.Position, Vector3.new(targetPos.X, root.Position.Y, targetPos.Z))
 		end
 
-		if tick() - lastShieldFire > 0.50 then
+		if tick() - lastShieldFire > 0.05 then
 			lastShieldFire = tick()
 			pcall(function()
 				game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(true)
@@ -1979,7 +2029,7 @@ end
 Toggles.ImmortalMode:OnChanged(function()
 	disconnect("ImmortalMode")
 	if Toggles.ImmortalMode.Value then
-		track("ImmortalMode", RunService.RenderStepped:Connect(updateImmortalMode))
+		track("ImmortalMode", RunService.Heartbeat:Connect(updateImmortalMode))
 	else
 		if isShielding then
 			isShielding = false
@@ -1987,61 +2037,6 @@ Toggles.ImmortalMode:OnChanged(function()
 				game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(false)
 			end)
 		end
-	end
-end)
-
-local function hookLocalToolForBypass(tool)
-	if not tool or not tool:IsA("Tool") then return end
-	tool.Activated:Connect(function()
-		lastLocalSwingTime = tick()
-	end)
-end
-
-local function setupLocalBypassChar(char)
-	if not char then return end
-	for _, child in ipairs(char:GetChildren()) do
-		hookLocalToolForBypass(child)
-	end
-	track("BypassShield_ChildAdded", char.ChildAdded:Connect(function(child)
-		hookLocalToolForBypass(child)
-	end))
-
-	local hum = char:WaitForChild("Humanoid", 5) or char:FindFirstChildOfClass("Humanoid")
-	local animator = hum and (hum:WaitForChild("Animator", 5) or hum:FindFirstChildOfClass("Animator"))
-	if animator then
-		track("BypassShield_AnimPlayed", animator.AnimationPlayed:Connect(function(trackObj)
-			if isSwingAnimation(trackObj) then
-				lastLocalSwingTime = tick()
-			end
-		end))
-	end
-end
-
-Toggles.BypassShield:OnChanged(function()
-	disconnect("BypassShield_Input")
-	disconnect("BypassShield_ChildAdded")
-	disconnect("BypassShield_AnimPlayed")
-	disconnect("BypassShield_CharAdded")
-
-	if Toggles.BypassShield.Value then
-		track("BypassShield_Input", UserInputService.InputBegan:Connect(function(input, gameProcessed)
-			if gameProcessed then return end
-			if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-				lastLocalSwingTime = tick()
-			end
-		end))
-
-		if LocalPlayer.Character then
-			setupLocalBypassChar(LocalPlayer.Character)
-		end
-
-		track("BypassShield_CharAdded", LocalPlayer.CharacterAdded:Connect(function(newChar)
-			setupLocalBypassChar(newChar)
-		end))
-
-		Library:Notify({ Title = "Bypass Shield", Description = "Enabled", Time = 2 })
-	else
-		Library:Notify({ Title = "Bypass Shield", Description = "Disabled", Time = 2 })
 	end
 end)
 
@@ -6314,9 +6309,6 @@ Library:OnUnload(function()
 	end
 	if Toggles.ImmortalMode and Toggles.ImmortalMode.Value then
 		Toggles.ImmortalMode:SetValue(false)
-	end
-	if Toggles.BypassShield and Toggles.BypassShield.Value then
-		Toggles.BypassShield:SetValue(false)
 	end
 	if Toggles.DodgeAura and Toggles.DodgeAura.Value then
 		Toggles.DodgeAura:SetValue(false)
