@@ -1886,8 +1886,6 @@ end
 
 local isShielding = false
 local lastShieldFire = 0
-local noShieldUntil = 0
-local lastObservedHP = nil
 local function updateImmortalMode()
 	if not isAlive() or not Toggles.ImmortalMode.Value then
 		if isShielding then
@@ -1896,21 +1894,9 @@ local function updateImmortalMode()
 				game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(false)
 			end)
 		end
-		lastObservedHP = nil
 		return
 	end
 
-	local humanoid = getHumanoid()
-	if humanoid then
-		local currentHP = nil
-		pcall(function() currentHP = humanoid.Health end)
-		if currentHP ~= nil and lastObservedHP ~= nil and currentHP < lastObservedHP then
-			noShieldUntil = tick() + 0.5
-		end
-		lastObservedHP = currentHP
-	end
-
-	local inNoShieldWindow = tick() < noShieldUntil
 	local root = getRootPart()
 	if not root then return end
 
@@ -1947,15 +1933,7 @@ local function updateImmortalMode()
 		end
 	end
 
-	if inNoShieldWindow then
-		if isShielding then
-			isShielding = false
-			pcall(function()
-				game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(false)
-			end)
-			lastShieldFire = tick()
-		end
-	elseif shouldShield then
+	if shouldShield then
 		-- 360 protection: automatically orient shield towards swinging attacker or closest enemy
 		local targetToFace = activeAttacker or nearestEnemy
 		if targetToFace then
@@ -1963,7 +1941,7 @@ local function updateImmortalMode()
 			root.CFrame = CFrame.lookAt(root.Position, Vector3.new(targetPos.X, root.Position.Y, targetPos.Z))
 		end
 
-		if tick() - lastShieldFire > 0.03 then
+		if tick() - lastShieldFire > 0.50 then
 			lastShieldFire = tick()
 			pcall(function()
 				game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(true)
@@ -1982,8 +1960,6 @@ end
 
 Toggles.ImmortalMode:OnChanged(function()
 	disconnect("ImmortalMode")
-	noShieldUntil = 0
-	lastObservedHP = nil
 	if Toggles.ImmortalMode.Value then
 		track("ImmortalMode", RunService.RenderStepped:Connect(updateImmortalMode))
 	else
