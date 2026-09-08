@@ -1886,47 +1886,12 @@ end
 
 local isShielding = false
 local lastShieldFire = 0
-local shieldAttackLock = false
-local setShieldRemote = nil
-pcall(function()
-	setShieldRemote = game:GetService("ReplicatedStorage").remoteInterface.character.setShield
-end)
-
-local function performShieldedAttack(attackFn)
-	if not Toggles.ImmortalMode or not Toggles.ImmortalMode.Value or not setShieldRemote then
-		pcall(attackFn)
-		return
-	end
-	pcall(function()
-		shieldAttackLock = true
-		setShieldRemote:FireServer(false)
-		isShielding = false
-		lastShieldFire = tick()
-	end)
-	task.wait()
-	local ok, err = pcall(attackFn)
-	task.wait()
-	pcall(function()
-		if setShieldRemote then
-			setShieldRemote:FireServer(true)
-			isShielding = true
-			lastShieldFire = tick()
-		end
-		shieldAttackLock = false
-	end)
-	if not ok then
-		error(err)
-	end
-end
-
 local function updateImmortalMode()
 	if not isAlive() or not Toggles.ImmortalMode.Value then
 		if isShielding then
 			isShielding = false
 			pcall(function()
-				if setShieldRemote then
-					setShieldRemote:FireServer(false)
-				end
+				game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(false)
 			end)
 		end
 		return
@@ -1975,22 +1940,25 @@ local function updateImmortalMode()
 			root.CFrame = CFrame.lookAt(root.Position, Vector3.new(targetPos.X, root.Position.Y, targetPos.Z))
 		end
 
-		if not shieldAttackLock and tick() - lastShieldFire > 0.03 then
+		if activeAttacker and tick() - lastShieldFire > 0.03 then
 			lastShieldFire = tick()
 			pcall(function()
-				if setShieldRemote then
-					setShieldRemote:FireServer(true)
-				end
+				game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(true)
 			end)
+			isShielding = true
+		else
+			if isShielding then
+				isShielding = false
+				pcall(function()
+					game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(false)
+				end)
+			end
 		end
-		isShielding = true
 	else
 		if isShielding then
 			isShielding = false
 			pcall(function()
-				if setShieldRemote then
-					setShieldRemote:FireServer(false)
-				end
+				game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(false)
 			end)
 		end
 	end
@@ -2004,9 +1972,7 @@ Toggles.ImmortalMode:OnChanged(function()
 		if isShielding then
 			isShielding = false
 			pcall(function()
-				if setShieldRemote then
-					setShieldRemote:FireServer(false)
-				end
+				game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(false)
 			end)
 		end
 	end
@@ -2276,23 +2242,22 @@ local function killAuraLoop()
 
 	lastKillAuraHit = tick()
 	local targetPlayer = Players:GetPlayerFromCharacter(nearestTarget)
-	performShieldedAttack(function()
-		if targetPlayer then
-			if Crypt then
-				pcall(function()
-					local k1, k2, k3 = Crypt.checkpublickeys()
-					if k1 and k2 and k3 then
-						local encryptedUserId = Crypt.crypt(k1, math.abs(targetPlayer.UserId) + k3, k2)
-						TSG.MeleePlayerRemote:FireServer(slot, encryptedUserId)
-					end
-				end)
-			else
-				pcall(TSG.MeleePlayerRemote.FireServer, TSG.MeleePlayerRemote, slot, targetPlayer)
-			end
+	if targetPlayer then
+		-- Player: use Crypt encryption, fire (slot, encryptedUserId)
+		if Crypt then
+			pcall(function()
+				local k1, k2, k3 = Crypt.checkpublickeys()
+				if k1 and k2 and k3 then
+					local encryptedUserId = Crypt.crypt(k1, math.abs(targetPlayer.UserId) + k3, k2)
+					TSG.MeleePlayerRemote:FireServer(slot, encryptedUserId)
+				end
+			end)
 		else
-			attackNPC(slot, nearestTarget)
+			pcall(TSG.MeleePlayerRemote.FireServer, TSG.MeleePlayerRemote, slot, targetPlayer)
 		end
-	end)
+	else
+		attackNPC(slot, nearestTarget)
+	end
 end
 
 -- Aimbot Script
@@ -2427,9 +2392,7 @@ Toggles.AutoSwing:OnChanged(function()
 			if _G.T and tick() - lastAutoSwing >= delay then
 				local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
 				if tool and isAutoSwingSlotAllowed(Options.AutoSwingSlot) then
-					performShieldedAttack(function()
-						tool:Activate()
-					end)
+					tool:Activate()
 					lastAutoSwing = tick()
 				end
 			end
@@ -2518,9 +2481,7 @@ Toggles.SmartSwing:OnChanged(function()
 			if playerNearby then
 				local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
 				if tool then
-					performShieldedAttack(function()
-						tool:Activate()
-					end)
+					tool:Activate()
 					lastSmartSwing = tick()
 				end
 			end
@@ -2895,9 +2856,7 @@ Toggles.SwordBot:OnChanged(function()
 				if tick() - lastSwing >= delay then
 					local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
 					if tool then
-						performShieldedAttack(function()
-							tool:Activate()
-						end)
+						tool:Activate()
 						lastSwing = tick()
 					end
 				end
