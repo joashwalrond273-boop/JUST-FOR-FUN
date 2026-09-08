@@ -1840,11 +1840,6 @@ CombatAutoBlock:AddToggle("ImmortalMode", {
 	Default = false,
 })
 
-CombatAutoBlock:AddToggle("Annoyed", {
-	Text = "Annoyed",
-	Default = false,
-})
-
 CombatAutoBlock:AddToggle("DodgeAura", {
 	Text = "Dodge Aura",
 	Default = false,
@@ -1974,26 +1969,6 @@ Toggles.ImmortalMode:OnChanged(function()
 				game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(false)
 			end)
 		end
-	end
-end)
-
-local annoyedToken = 0
-Toggles.Annoyed:OnChanged(function()
-	if Toggles.Annoyed.Value then
-		annoyedToken = tick()
-		local currentToken = annoyedToken
-
-		if Toggles.ImmortalMode and Toggles.ImmortalMode.Value then
-			Toggles.ImmortalMode:SetValue(false)
-		end
-
-		task.delay(1, function()
-			if annoyedToken == currentToken then
-				if Toggles.ImmortalMode and not Toggles.ImmortalMode.Value then
-					Toggles.ImmortalMode:SetValue(true)
-				end
-			end
-		end)
 	end
 end)
 
