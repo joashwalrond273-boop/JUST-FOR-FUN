@@ -1843,6 +1843,11 @@ CombatAutoBlock:AddToggle("BypassShield", {
 	Default = false,
 })
 
+CombatAutoBlock:AddToggle("JustSwing", {
+	Text = "Just swing",
+	Default = false,
+})
+
 CombatAutoBlock:AddToggle("DodgeAura", {
 	Text = "Dodge Aura",
 	Default = false,
@@ -1978,6 +1983,48 @@ end)
 Toggles.BypassShield:OnChanged(function()
 	if Toggles.KillAura then
 		Toggles.KillAura:SetValue(Toggles.BypassShield.Value)
+	end
+end)
+
+local lastJustSwing = 0
+Toggles.JustSwing:OnChanged(function()
+	disconnect("JustSwing")
+	if Toggles.JustSwing.Value then
+		track("JustSwing", RunService.Heartbeat:Connect(function()
+			if not isAlive() then return end
+			local root = getRootPart()
+			if not root then return end
+
+			if tick() - lastJustSwing < 0.1 then return end
+
+			local pos = root.Position
+			local playerNearby = false
+
+			for _, otherPlayer in ipairs(Players:GetPlayers()) do
+				if otherPlayer ~= LocalPlayer and otherPlayer.Character then
+					local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart") or otherPlayer.Character.PrimaryPart
+					local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
+					if otherRoot and otherHum and otherHum.Health > 0 then
+						local dist = (otherRoot.Position - pos).Magnitude
+						if dist <= 10 then
+							playerNearby = true
+							break
+						end
+					end
+				end
+			end
+
+			if playerNearby then
+				local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
+				if tool then
+					tool:Activate()
+					lastJustSwing = tick()
+				end
+			end
+		end))
+		Library:Notify({ Title = "Just swing", Description = "Enabled (Within 10 Studs)", Time = 2 })
+	else
+		Library:Notify({ Title = "Just swing", Description = "Disabled", Time = 2 })
 	end
 end)
 
@@ -6249,6 +6296,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.BypassShield and Toggles.BypassShield.Value then
 		Toggles.BypassShield:SetValue(false)
+	end
+	if Toggles.JustSwing and Toggles.JustSwing.Value then
+		Toggles.JustSwing:SetValue(false)
 	end
 	if Toggles.DodgeAura and Toggles.DodgeAura.Value then
 		Toggles.DodgeAura:SetValue(false)
