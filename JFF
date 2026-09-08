@@ -1840,11 +1840,6 @@ CombatAutoBlock:AddToggle("ImmortalMode", {
 	Default = false,
 })
 
-CombatAutoBlock:AddToggle("HitWindow", {
-	Text = "+ Hit Window",
-	Default = false,
-})
-
 CombatAutoBlock:AddToggle("DodgeAura", {
 	Text = "Dodge Aura",
 	Default = false,
@@ -1862,200 +1857,6 @@ CombatAutoBlock:AddSlider("QuickVanishThreshold", {
 	Default = 35,
 	Rounding = 0,
 })
-
-local hitWindowUntil = 0
-local hitWindowAttackerChar = nil
-local lastHitWindowTrigger = 0
-local HIT_WINDOW_DURATION = 0.5
-local cachedSetShieldRemote = nil
-pcall(function()
-	cachedSetShieldRemote = game:GetService("ReplicatedStorage").remoteInterface.character.setShield
-end)
-
-local function findNearestEnemyPlayer(maxStuds)
-	local root = getRootPart()
-	local hum = getHumanoid()
-	if not root then return nil, nil end
-	maxStuds = maxStuds or 30
-	local bestChar, bestPlayer, bestDist = nil, nil, maxStuds
-	for _, plr in ipairs(Players:GetPlayers()) do
-		if plr == LocalPlayer or not plr.Character then continue end
-		local oHum = plr.Character:FindFirstChildOfClass("Humanoid")
-		local oRoot = plr.Character:FindFirstChild("HumanoidRootPart")
-		if oHum and oRoot and oHum.Health > 0 then
-			local d = (oRoot.Position - root.Position).Magnitude
-			if d <= bestDist then
-				bestDist = d
-				bestChar = plr.Character
-				bestPlayer = plr
-			end
-		end
-	end
-	return bestChar, bestPlayer
-end
-
-local function triggerHitWindowSwing(targetChar, targetPlayer)
-	if not isAlive() then return end
-	local char = getCharacter()
-	if not char then return end
-
-	pcall(function()
-		if cachedSetShieldRemote then
-			cachedSetShieldRemote:FireServer(false)
-		end
-		isShielding = false
-		lastShieldFire = tick()
-	end)
-
-	task.wait()
-
-	local tool = char:FindFirstChildOfClass("Tool")
-	pcall(function()
-		if tool then
-			tool:Activate()
-		end
-	end)
-
-	if targetPlayer and TSG and TSG.MeleePlayerRemote then
-		local slot = 1
-		if Options and Options.KillAuraSlot and Options.KillAuraSlot.Value then
-			slot = tonumber(Options.KillAuraSlot.Value) or 1
-		end
-		pcall(function()
-			if Crypt then
-				local k1, k2, k3 = Crypt.checkpublickeys()
-				if k1 and k2 and k3 then
-					local encryptedUserId = Crypt.crypt(k1, math.abs(targetPlayer.UserId) + k3, k2)
-					TSG.MeleePlayerRemote:FireServer(slot, encryptedUserId)
-				else
-					TSG.MeleePlayerRemote:FireServer(slot, targetPlayer)
-				end
-			else
-				TSG.MeleePlayerRemote:FireServer(slot, targetPlayer)
-			end
-		end)
-	elseif targetChar then
-		local slot = 1
-		if Options and Options.KillAuraSlot and Options.KillAuraSlot.Value then
-			slot = tonumber(Options.KillAuraSlot.Value) or 1
-		end
-		attackNPC(slot, targetChar)
-	end
-end
-
-local function openHitWindow(targetChar, targetPlayer)
-	if not Toggles.HitWindow or not Toggles.HitWindow.Value then return end
-	if not Toggles.ImmortalMode or not Toggles.ImmortalMode.Value then return end
-	if tick() - lastHitWindowTrigger < 0.2 then return end
-
-	lastHitWindowTrigger = tick()
-	hitWindowUntil = tick() + HIT_WINDOW_DURATION
-	hitWindowAttackerChar = targetChar
-
-	local root = getRootPart()
-	if root and targetChar then
-		local tRoot = targetChar:FindFirstChild("HumanoidRootPart") or targetChar.PrimaryPart
-		if tRoot then
-			local tp = tRoot.Position
-			root.CFrame = CFrame.lookAt(root.Position, Vector3.new(tp.X, root.Position.Y, tp.Z))
-		end
-	end
-
-	task.spawn(function()
-		triggerHitWindowSwing(targetChar, targetPlayer)
-		for i = 1, 2 do
-			task.wait(0.1)
-			if tick() < hitWindowUntil then
-				triggerHitWindowSwing(targetChar, targetPlayer)
-			else
-				break
-			end
-		end
-	end)
-end
-
-pcall(function()
-	local hurtByPlayerEvent = resolvePath(ReplicatedStorage, "remoteInterface", "character", "hurtByPlayer")
-	if hurtByPlayerEvent then
-		local origNamecall2
-		origNamecall2 = hookmetamethod(game, "__namecall", function(...)
-			local self = ...
-			local method = getnamecallmethod()
-			if rawequal(self, hurtByPlayerEvent) and (method == "FireServer" or method == "fireServer") then
-				local args = {...}
-				local attackerChar, attackerPlayer = nil, nil
-				for _, a in ipairs(args) do
-					if typeof(a) == "Instance" then
-						if a:IsA("Player") then
-							attackerPlayer = a
-						elseif a:IsA("Model") and a:FindFirstChildOfClass("Humanoid") then
-							attackerChar = a
-							attackerPlayer = attackerPlayer or Players:GetPlayerFromCharacter(a)
-						elseif a:IsA("BasePart") and a.Parent and a.Parent:FindFirstChildOfClass("Humanoid") then
-							attackerChar = a.Parent
-							attackerPlayer = attackerPlayer or Players:GetPlayerFromCharacter(a.Parent)
-						end
-					elseif typeof(a) == "number" then
-						local cand = Players:GetPlayerByUserId(a)
-						if cand then attackerPlayer = cand; attackerChar = cand.Character end
-					elseif typeof(a) == "string" then
-						for _, plr in ipairs(Players:GetPlayers()) do
-							if plr.Name == a or plr.DisplayName == a then
-								attackerPlayer = plr
-								attackerChar = plr.Character
-								break
-							end
-						end
-					end
-				end
-				if not attackerChar and not attackerPlayer then
-					attackerChar, attackerPlayer = findNearestEnemyPlayer(25)
-				end
-				openHitWindow(attackerChar, attackerPlayer)
-			end
-			return origNamecall2(...)
-		end)
-	end
-end)
-
-track("HitWindowHumanoidWatch", LocalPlayer.CharacterAdded:Connect(function(char)
-	task.wait(1.5)
-	local hum = char and char:FindFirstChildOfClass("Humanoid")
-	if not hum then return end
-	local lastHP = nil
-	pcall(function() lastHP = hum.Health end)
-	hum.HealthChanged:Connect(function(newHP)
-		if lastHP ~= nil and newHP < lastHP then
-			local delta = lastHP - newHP
-			if delta >= 1 then
-				local nearChar, nearPlayer = findNearestEnemyPlayer(25)
-				openHitWindow(nearChar, nearPlayer)
-			end
-		end
-		pcall(function() lastHP = hum.Health end)
-	end)
-end))
-
-task.spawn(function()
-	local char = LocalPlayer.Character
-	if char then
-		local hum = char:FindFirstChildOfClass("Humanoid")
-		if hum then
-			local lastHP = nil
-			pcall(function() lastHP = hum.Health end)
-			hum.HealthChanged:Connect(function(newHP)
-				if lastHP ~= nil and newHP < lastHP then
-					local delta = lastHP - newHP
-					if delta >= 1 then
-						local nearChar, nearPlayer = findNearestEnemyPlayer(25)
-						openHitWindow(nearChar, nearPlayer)
-					end
-				end
-				pcall(function() lastHP = hum.Health end)
-			end)
-		end
-	end
-end)
 
 local function isSwingAnimation(trackObj)
 	local anim = trackObj.Animation
@@ -2085,20 +1886,31 @@ end
 
 local isShielding = false
 local lastShieldFire = 0
+local noShieldUntil = 0
+local lastObservedHP = nil
 local function updateImmortalMode()
 	if not isAlive() or not Toggles.ImmortalMode.Value then
 		if isShielding then
 			isShielding = false
 			pcall(function()
-				if cachedSetShieldRemote then
-					cachedSetShieldRemote:FireServer(false)
-				end
+				game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(false)
 			end)
 		end
+		lastObservedHP = nil
 		return
 	end
 
-	local inHitWindow = tick() < hitWindowUntil
+	local humanoid = getHumanoid()
+	if humanoid then
+		local currentHP = nil
+		pcall(function() currentHP = humanoid.Health end)
+		if currentHP ~= nil and lastObservedHP ~= nil and currentHP < lastObservedHP then
+			noShieldUntil = tick() + 0.5
+		end
+		lastObservedHP = currentHP
+	end
+
+	local inNoShieldWindow = tick() < noShieldUntil
 	local root = getRootPart()
 	if not root then return end
 
@@ -2135,27 +1947,16 @@ local function updateImmortalMode()
 		end
 	end
 
-	if inHitWindow then
-		if hitWindowAttackerChar then
-			local tRoot = hitWindowAttackerChar:FindFirstChild("HumanoidRootPart") or hitWindowAttackerChar.PrimaryPart
-			if tRoot then
-				local tp = tRoot.Position
-				root.CFrame = CFrame.lookAt(root.Position, Vector3.new(tp.X, root.Position.Y, tp.Z))
-			end
-		end
+	if inNoShieldWindow then
 		if isShielding then
 			isShielding = false
 			pcall(function()
-				if cachedSetShieldRemote then
-					cachedSetShieldRemote:FireServer(false)
-				end
+				game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(false)
 			end)
 			lastShieldFire = tick()
 		end
-		return
-	end
-
-	if shouldShield then
+	elseif shouldShield then
+		-- 360 protection: automatically orient shield towards swinging attacker or closest enemy
 		local targetToFace = activeAttacker or nearestEnemy
 		if targetToFace then
 			local targetPos = targetToFace.Position
@@ -2165,9 +1966,7 @@ local function updateImmortalMode()
 		if tick() - lastShieldFire > 0.03 then
 			lastShieldFire = tick()
 			pcall(function()
-				if cachedSetShieldRemote then
-					cachedSetShieldRemote:FireServer(true)
-				end
+				game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(true)
 			end)
 		end
 		isShielding = true
@@ -2175,9 +1974,7 @@ local function updateImmortalMode()
 		if isShielding then
 			isShielding = false
 			pcall(function()
-				if cachedSetShieldRemote then
-					cachedSetShieldRemote:FireServer(false)
-				end
+				game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(false)
 			end)
 		end
 	end
@@ -2185,15 +1982,15 @@ end
 
 Toggles.ImmortalMode:OnChanged(function()
 	disconnect("ImmortalMode")
+	noShieldUntil = 0
+	lastObservedHP = nil
 	if Toggles.ImmortalMode.Value then
 		track("ImmortalMode", RunService.RenderStepped:Connect(updateImmortalMode))
 	else
 		if isShielding then
 			isShielding = false
 			pcall(function()
-				if cachedSetShieldRemote then
-					cachedSetShieldRemote:FireServer(false)
-				end
+				game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(false)
 			end)
 		end
 	end
@@ -6468,9 +6265,6 @@ Library:OnUnload(function()
 	end
 	if Toggles.ImmortalMode and Toggles.ImmortalMode.Value then
 		Toggles.ImmortalMode:SetValue(false)
-	end
-	if Toggles.HitWindow and Toggles.HitWindow.Value then
-		Toggles.HitWindow:SetValue(false)
 	end
 	if Toggles.DodgeAura and Toggles.DodgeAura.Value then
 		Toggles.DodgeAura:SetValue(false)
