@@ -1838,6 +1838,11 @@ CombatAutoBlock:AddToggle("ImmortalMode", {
 	Default = false,
 })
 
+CombatAutoBlock:AddToggle("BypassShield", {
+	Text = "Bypass Shield",
+	Default = false,
+})
+
 CombatAutoBlock:AddToggle("DodgeAura", {
 	Text = "Dodge Aura",
 	Default = false,
@@ -1845,11 +1850,6 @@ CombatAutoBlock:AddToggle("DodgeAura", {
 
 CombatAutoBlock:AddToggle("QuickVanish", {
 	Text = "Quick Vanish",
-	Default = false,
-})
-
-CombatAutoBlock:AddToggle("BypassShield", {
-	Text = "Bypass Shield",
 	Default = false,
 })
 
@@ -1944,7 +1944,7 @@ local function updateImmortalMode()
 			root.CFrame = CFrame.lookAt(root.Position, Vector3.new(targetPos.X, root.Position.Y, targetPos.Z))
 		end
 
-		if tick() - lastShieldFire > 0.05 then
+		if tick() - lastShieldFire > 0.5 then
 			lastShieldFire = tick()
 			pcall(function()
 				game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(true)
@@ -1975,90 +1975,9 @@ Toggles.ImmortalMode:OnChanged(function()
 	end
 end)
 
-local BypassHurtByPlayerEvent = resolvePath(ReplicatedStorage, "remoteInterface", "character", "hurtByPlayer")
-
-local bypassLastHealth = 100
-local bypassActive = false
-local bypassCooldown = 0
-local bypassImmortalWasOn = false
-
-local function doBypass()
-	if bypassActive then return end
-	if tick() - bypassCooldown < 0.75 then return end
-	bypassCooldown = tick()
-	bypassActive = true
-	bypassImmortalWasOn = Toggles.ImmortalMode.Value
-
-	if bypassImmortalWasOn then
-		Toggles.ImmortalMode:SetValue(false)
-	end
-
-	task.delay(0.5, function()
-		if bypassImmortalWasOn then
-			Toggles.ImmortalMode:SetValue(true)
-		end
-		bypassActive = false
-	end)
-end
-
-local function setupBypassHealthListener()
-	disconnect("BypassHealth")
-
-	local humanoid = getHumanoid()
-	if not humanoid then return end
-
-	bypassLastHealth = humanoid.Health
-
-	track("BypassHealth", humanoid.HealthChanged:Connect(function(newHealth)
-		if newHealth < bypassLastHealth then
-			doBypass()
-		end
-		bypassLastHealth = newHealth
-	end))
-end
-
-pcall(function()
-	if BypassHurtByPlayerEvent then
-		local oldBypassNamecall
-		oldBypassNamecall = hookmetamethod(game, "__namecall", function(...)
-			local self = ...
-			local method = getnamecallmethod()
-
-			if rawequal(self, BypassHurtByPlayerEvent) and (method == "FireServer" or method == "fireServer") then
-				task.spawn(function()
-					doBypass()
-				end)
-			end
-
-			return oldBypassNamecall(...)
-		end)
-
-		if typeof(hookfunction) == "function" and BypassHurtByPlayerEvent.FireServer then
-			local OldBypassFire
-			OldBypassFire = hookfunction(BypassHurtByPlayerEvent.FireServer, function(...)
-				task.spawn(function()
-					doBypass()
-				end)
-				return OldBypassFire(...)
-			end)
-		end
-	end
-end)
-
 Toggles.BypassShield:OnChanged(function()
-	disconnect("BypassHealth")
-	disconnect("BypassRespawn")
-	bypassActive = false
-
-	if Toggles.BypassShield.Value then
-		setupBypassHealthListener()
-		track("BypassRespawn", LocalPlayer.CharacterAdded:Connect(function()
-			task.wait(1.5)
-			setupBypassHealthListener()
-		end))
-		Library:Notify({ Title = "Bypass Shield", Description = "Enabled. Immortal drops for 0.5s on hit.", Time = 2 })
-	else
-		Library:Notify({ Title = "Bypass Shield", Description = "Disabled", Time = 2 })
+	if Toggles.KillAura then
+		Toggles.KillAura:SetValue(Toggles.BypassShield.Value)
 	end
 end)
 
@@ -6327,6 +6246,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.ImmortalMode and Toggles.ImmortalMode.Value then
 		Toggles.ImmortalMode:SetValue(false)
+	end
+	if Toggles.BypassShield and Toggles.BypassShield.Value then
+		Toggles.BypassShield:SetValue(false)
 	end
 	if Toggles.DodgeAura and Toggles.DodgeAura.Value then
 		Toggles.DodgeAura:SetValue(false)
