@@ -1615,6 +1615,11 @@ CombatAutoSwingGroup:AddToggle("SmartSwing", {
 	Default = false,
 })
 
+CombatAutoSwingGroup:AddToggle("HitWindow", {
+	Text = "Hit Window",
+	Default = false,
+})
+
 CombatAutoSwingGroup:AddSlider("AutoSwingSpeed", {
 	Text = "Auto Swing Speed",
 	Default = 10,
@@ -1837,11 +1842,6 @@ local CombatAutoBlock = Tabs.Combat:AddRightGroupbox("Immortal Mode", "shield")
 
 CombatAutoBlock:AddToggle("ImmortalMode", {
 	Text = "Immortal Mode",
-	Default = false,
-})
-
-CombatAutoBlock:AddToggle("HitWindow", {
-	Text = "Hit Window",
 	Default = false,
 })
 
