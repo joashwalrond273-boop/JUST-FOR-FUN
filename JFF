@@ -1840,13 +1840,10 @@ CombatAutoBlock:AddToggle("ImmortalMode", {
 	Default = false,
 })
 
-local HitWindowToggle = CombatAutoBlock:AddToggle("HitWindow", {
+CombatAutoBlock:AddToggle("HitWindow", {
 	Text = "+ Hit Window",
 	Default = false,
 })
-if HitWindowToggle.TextLabel then
-	HitWindowToggle.TextLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
-end
 
 CombatAutoBlock:AddToggle("DodgeAura", {
 	Text = "Dodge Aura",
