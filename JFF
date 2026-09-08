@@ -1934,14 +1934,13 @@ local function updateImmortalMode()
 	end
 
 	if shouldShield then
-		-- 360 protection: automatically orient shield towards swinging attacker or closest enemy
 		local targetToFace = activeAttacker or nearestEnemy
 		if targetToFace then
 			local targetPos = targetToFace.Position
 			root.CFrame = CFrame.lookAt(root.Position, Vector3.new(targetPos.X, root.Position.Y, targetPos.Z))
 		end
 
-		if tick() - lastShieldFire > 0.05 then
+		if tick() - lastShieldFire > 0 then
 			lastShieldFire = tick()
 			pcall(function()
 				game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(true)
@@ -1961,7 +1960,7 @@ end
 Toggles.ImmortalMode:OnChanged(function()
 	disconnect("ImmortalMode")
 	if Toggles.ImmortalMode.Value then
-		track("ImmortalMode", RunService.Heartbeat:Connect(updateImmortalMode))
+		track("ImmortalMode", RunService.RenderStepped:Connect(updateImmortalMode))
 	else
 		if isShielding then
 			isShielding = false
