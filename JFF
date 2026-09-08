@@ -1888,9 +1888,6 @@ local function updateImmortalMode()
 	if not isAlive() or not Toggles.ImmortalMode.Value then
 		if isShielding then
 			isShielding = false
-			local char = getCharacter()
-			local hum = char and char:FindFirstChildOfClass("Humanoid")
-			if hum then hum.AutoRotate = true end
 			pcall(function()
 				game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(false)
 			end)
@@ -1899,11 +1896,10 @@ local function updateImmortalMode()
 	end
 
 	local root = getRootPart()
-	local char = getCharacter()
-	if not root or not char then return end
+	if not root then return end
 
 	local shouldShield = false
-	local checkDistance = 100
+	local checkDistance = 18
 	local nearestEnemy = nil
 	local nearestDist = math.huge
 	local activeAttacker = nil
@@ -1935,18 +1931,12 @@ local function updateImmortalMode()
 		end
 	end
 
-	local myHum = char:FindFirstChildOfClass("Humanoid")
-
 	if shouldShield then
-		-- Fast instant 360 turn towards swinging attacker or closest enemy
+		-- 360 protection: automatically orient shield towards swinging attacker or closest enemy
 		local targetToFace = activeAttacker or nearestEnemy
 		if targetToFace then
 			local targetPos = targetToFace.Position
-			local targetCF = CFrame.lookAt(root.Position, Vector3.new(targetPos.X, root.Position.Y, targetPos.Z))
-			if myHum then myHum.AutoRotate = false end
-			char:PivotTo(targetCF)
-			root.CFrame = targetCF
-			root.AssemblyAngularVelocity = Vector3.zero
+			root.CFrame = CFrame.lookAt(root.Position, Vector3.new(targetPos.X, root.Position.Y, targetPos.Z))
 		end
 
 		if tick() - lastShieldFire > 0.05 then
@@ -1959,7 +1949,6 @@ local function updateImmortalMode()
 	else
 		if isShielding then
 			isShielding = false
-			if myHum then myHum.AutoRotate = true end
 			pcall(function()
 				game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(false)
 			end)
@@ -1970,13 +1959,10 @@ end
 Toggles.ImmortalMode:OnChanged(function()
 	disconnect("ImmortalMode")
 	if Toggles.ImmortalMode.Value then
-		track("ImmortalMode", RunService.RenderStepped:Connect(updateImmortalMode))
+		track("ImmortalMode", RunService.Heartbeat:Connect(updateImmortalMode))
 	else
 		if isShielding then
 			isShielding = false
-			local char = getCharacter()
-			local hum = char and char:FindFirstChildOfClass("Humanoid")
-			if hum then hum.AutoRotate = true end
 			pcall(function()
 				game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(false)
 			end)
@@ -3118,7 +3104,6 @@ local function connectReachTool(tool)
 				end
 			end
 		end
-
 end))
 end
 
