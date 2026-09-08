@@ -125,45 +125,6 @@ local function isAlive()
 	return humanoid and humanoid.Health > 0
 end
 
-local function setupDeathTracking(character)
-	if not character then return end
-	local hum = character:WaitForChild("Humanoid", 5)
-	local root = character:WaitForChild("HumanoidRootPart", 5)
-	if hum and root then
-		hum.Died:Connect(function()
-			pcall(function()
-				if root and root.Parent then
-					lastDeathPosition = root.Position
-				end
-			end)
-		end)
-	end
-end
-
-pcall(function()
-	if LocalPlayer.Character then
-		setupDeathTracking(LocalPlayer.Character)
-		local root = getRootPart()
-		if root then
-			lastDeathPosition = root.Position
-		end
-	end
-end)
-
-task.spawn(function()
-	while true do
-		task.wait(0.25)
-		pcall(function()
-			if isAlive() then
-				local root = getRootPart()
-				if root then
-					lastDeathPosition = root.Position
-				end
-			end
-		end)
-	end
-end)
-
 local function isHoldingSelectedSlot(selectedSlot)
 	if not selectedSlot then return false end
 	local character = getCharacter()
@@ -1396,18 +1357,15 @@ joinLowPingServer = function()
 	end)
 end
 
-track("CharacterModuleRespawn", LocalPlayer.CharacterAdded:Connect(function(char)
-	pcall(function()
-		setupDeathTracking(char)
-	end)
+track("CharacterModuleRespawn", LocalPlayer.CharacterAdded:Connect(function()
 	task.wait(1.5)
 	applyCharacterModuleToggles()
-	if (Toggles.ResetCharacter and Toggles.ResetCharacter.Value or shouldTeleportBack) and lastDeathPosition then
+	if shouldTeleportBack and lastDeathPosition then
 		shouldTeleportBack = false
 		local root = getRootPart()
 		if root then
 			root.CFrame = CFrame.new(lastDeathPosition + Vector3.new(0, 3, 0))
-			Library:Notify({ Title = "Trick Spawn", Description = "Teleported back to death location!", Time = 3 })
+			Library:Notify({ Title = "Reset & Teleport", Description = "Teleported back to last location!", Time = 2 })
 		end
 	end
 end))
@@ -4883,18 +4841,16 @@ do
 	end)
 end
 
--- Trick Spawn Groupbox
+-- Extra Locations Groupbox
 local ResetTeleportGroup = Tabs.Teleport:AddRightGroupbox("Trick Spawn", "refresh-cw")
 
 ResetTeleportGroup:AddToggle("ResetCharacter", {
 	Text = "Death Spawn",
 	Default = false,
-	Tooltip = "Automatically teleports you back to your death location anytime you die",
 })
 
-ResetTeleportGroup:AddButton({
-	Text = "Reset & Spawn Back Now",
-	Func = function()
+Toggles.ResetCharacter:OnChanged(function()
+	if Toggles.ResetCharacter.Value then
 		local root = getRootPart()
 		if root then
 			lastDeathPosition = root.Position
@@ -4913,8 +4869,13 @@ ResetTeleportGroup:AddButton({
 				end
 			end
 		end
-	end,
-})
+
+		task.spawn(function()
+			task.wait(0.5)
+			Toggles.ResetCharacter:SetValue(false)
+		end)
+	end
+end)
 
 -- Merchants Groupbox
 local MerchantsGroup = Tabs.Teleport:AddRightGroupbox("Merchants", "map-pin")
