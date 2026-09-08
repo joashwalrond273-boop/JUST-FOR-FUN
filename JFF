@@ -1840,8 +1840,8 @@ CombatAutoBlock:AddToggle("ImmortalMode", {
 	Default = false,
 })
 
-CombatAutoBlock:AddToggle("PassBlock", {
-	Text = "PASS block",
+CombatAutoBlock:AddToggle("Annoyed", {
+	Text = "Annoyed",
 	Default = false,
 })
 
@@ -1977,82 +1977,13 @@ Toggles.ImmortalMode:OnChanged(function()
 	end
 end)
 
--- PASS block logic: toggles Immortal Mode off for 0.5s on screen tap/swing, then back on
-local isPassBlockTemporarilyDisabled = false
-local lastPassBlockTap = 0
-
-local function triggerPassBlock()
-	if not (Toggles.PassBlock and Toggles.PassBlock.Value) then return end
-	if not isAlive() then return end
-
-	if (Toggles.ImmortalMode and Toggles.ImmortalMode.Value) or isPassBlockTemporarilyDisabled then
-		isPassBlockTemporarilyDisabled = true
+Toggles.Annoyed:OnChanged(function()
+	if Toggles.Annoyed.Value then
 		if Toggles.ImmortalMode and Toggles.ImmortalMode.Value then
 			Toggles.ImmortalMode:SetValue(false)
 		end
-
-		local currentTap = tick()
-		lastPassBlockTap = currentTap
-
-		task.delay(0.5, function()
-			if lastPassBlockTap == currentTap and isPassBlockTemporarilyDisabled then
-				isPassBlockTemporarilyDisabled = false
-				if Toggles.PassBlock and Toggles.PassBlock.Value and Toggles.ImmortalMode and not Toggles.ImmortalMode.Value then
-					Toggles.ImmortalMode:SetValue(true)
-				end
-			end
-		end)
-	end
-end
-
-Toggles.PassBlock:OnChanged(function()
-	if not Toggles.PassBlock.Value then
-		if isPassBlockTemporarilyDisabled then
-			isPassBlockTemporarilyDisabled = false
-			if Toggles.ImmortalMode and not Toggles.ImmortalMode.Value then
-				Toggles.ImmortalMode:SetValue(true)
-			end
-		end
 	end
 end)
-
-track("PassBlockInput", UserInputService.InputBegan:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
-		triggerPassBlock()
-	end
-end))
-
-local function hookPassBlockTool(tool)
-	if tool and tool:IsA("Tool") then
-		tool.Activated:Connect(function()
-			triggerPassBlock()
-		end)
-	end
-end
-
-local function setupPassBlockListeners(char)
-	if not char then return end
-	for _, child in ipairs(char:GetChildren()) do
-		hookPassBlockTool(child)
-	end
-	char.ChildAdded:Connect(hookPassBlockTool)
-
-	local hum = char:WaitForChild("Humanoid", 10)
-	local animator = hum and hum:WaitForChild("Animator", 10)
-	if animator then
-		disconnect("PassBlockLocalAnim")
-		track("PassBlockLocalAnim", animator.AnimationPlayed:Connect(function(trackObj)
-			if isSwingAnimation(trackObj) then
-				triggerPassBlock()
-			end
-		end))
-	end
-end
-
-track("PassBlockCharAdded", LocalPlayer.CharacterAdded:Connect(setupPassBlockListeners))
-if LocalPlayer.Character then
-	setupPassBlockListeners(LocalPlayer.Character)
-end
 
 local lastDodgeTime = 0
 local dodgeCooldown = 0.2
