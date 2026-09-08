@@ -1840,6 +1840,11 @@ CombatAutoBlock:AddToggle("ImmortalMode", {
 	Default = false,
 })
 
+CombatAutoBlock:AddToggle("HitWindow", {
+	Text = "Hit Window",
+	Default = false,
+})
+
 CombatAutoBlock:AddToggle("DodgeAura", {
 	Text = "Dodge Aura",
 	Default = false,
@@ -1969,6 +1974,238 @@ Toggles.ImmortalMode:OnChanged(function()
 				game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(false)
 			end)
 		end
+	end
+end)
+
+local HurtByPlayerEvent = resolvePath(ReplicatedStorage, "remoteInterface", "character", "hurtByPlayer")
+
+local lastKnownHealth = 100
+local hitWindowCooldown = 0
+local hitWindowBurstActive = false
+local pendingAttacker = nil
+
+local function getNearestEnemyPlayer(maxRange)
+	maxRange = maxRange or 30
+	local root = getRootPart()
+	if not root then return nil, nil end
+
+	local nearestPlayer = nil
+	local nearestDist = maxRange
+	local nearestRoot = nil
+
+	for _, player in ipairs(Players:GetPlayers()) do
+		if player ~= LocalPlayer and player.Character then
+			local targetRoot = player.Character:FindFirstChild("HumanoidRootPart")
+			local hum = player.Character:FindFirstChildOfClass("Humanoid")
+			if targetRoot and hum and hum.Health > 0 then
+				local dist = (targetRoot.Position - root.Position).Magnitude
+				if dist <= nearestDist then
+					nearestDist = dist
+					nearestPlayer = player
+					nearestRoot = targetRoot
+				end
+			end
+		end
+	end
+	return nearestPlayer, nearestRoot
+end
+
+local function performHitWindowSwing(attackerPlayer)
+	if not isAlive() then return end
+
+	local character = getCharacter()
+	if not character then return end
+
+	local tool = character:FindFirstChildOfClass("Tool")
+	local attacker = attackerPlayer or pendingAttacker
+
+	if not attacker then
+		attacker = getNearestEnemyPlayer(30)
+	end
+
+	if attacker and attacker.Character then
+		local attackerRoot = attacker.Character:FindFirstChild("HumanoidRootPart")
+		local root = getRootPart()
+		if attackerRoot and root then
+			local targetPos = attackerRoot.Position
+			pcall(function()
+				root.CFrame = CFrame.lookAt(root.Position, Vector3.new(targetPos.X, root.Position.Y, targetPos.Z))
+			end)
+		end
+
+		local slot = "1"
+		pcall(function()
+			local heldTool = character:FindFirstChildOfClass("Tool")
+			if heldTool then
+				local attr = heldTool:GetAttribute("slot") or heldTool:GetAttribute("Slot") or heldTool:GetAttribute("HotbarSlot")
+				if attr then
+					slot = tostring(attr)
+				else
+					local ok, slotNum = pcall(function() return tonumber(heldTool.Name) end)
+					if ok and slotNum then
+						slot = tostring(slotNum)
+					end
+				end
+			end
+		end)
+
+		pcall(function()
+			if Crypt then
+				local k1, k2, k3 = Crypt.checkpublickeys()
+				if k1 and k2 and k3 then
+					local encryptedUserId = Crypt.crypt(k1, math.abs(attacker.UserId) + k3, k2)
+					if TSG.MeleePlayerRemote then
+						TSG.MeleePlayerRemote:FireServer(slot, encryptedUserId)
+					end
+				end
+			else
+				if TSG.MeleePlayerRemote then
+					pcall(TSG.MeleePlayerRemote.FireServer, TSG.MeleePlayerRemote, slot, attacker)
+				end
+			end
+		end)
+	end
+
+	if tool then
+		pcall(function() tool:Activate() end)
+	end
+end
+
+local function hitWindowBurst()
+	if hitWindowBurstActive then return end
+	hitWindowBurstActive = true
+
+	task.spawn(function()
+		for i = 1, 3 do
+			if not Toggles.HitWindow.Value then break end
+			performHitWindowSwing()
+			if i < 3 then
+				task.wait(0.05)
+			end
+		end
+		hitWindowBurstActive = false
+	end)
+end
+
+local function onHitDetected(attackerFromHook)
+	if not Toggles.HitWindow or not Toggles.HitWindow.Value then return end
+	if tick() - hitWindowCooldown < 0.25 then return end
+	hitWindowCooldown = tick()
+
+	if attackerFromHook then
+		pendingAttacker = attackerFromHook
+	else
+		pendingAttacker = getNearestEnemyPlayer(30)
+	end
+
+	hitWindowBurst()
+end
+
+local function setupHitWindowHealthListener()
+	disconnect("HitWindowHealth")
+
+	local humanoid = getHumanoid()
+	if not humanoid then return end
+
+	lastKnownHealth = humanoid.Health
+
+	track("HitWindowHealth", humanoid.HealthChanged:Connect(function(newHealth)
+		if newHealth < lastKnownHealth then
+			onHitDetected()
+		end
+		lastKnownHealth = newHealth
+	end))
+end
+
+pcall(function()
+	if HurtByPlayerEvent then
+		local oldHurtNamecall
+		oldHurtNamecall = hookmetamethod(game, "__namecall", function(...)
+			local self = ...
+			local method = getnamecallmethod()
+
+			if rawequal(self, HurtByPlayerEvent) and (method == "FireServer" or method == "fireServer") then
+				local args = {...}
+				local attackerArg = nil
+				for i = 2, #args do
+					local v = args[i]
+					if typeof(v) == "Instance" and v:IsA("Player") then
+						attackerArg = v
+						break
+					elseif typeof(v) == "Instance" and v:IsA("Model") then
+						local pFromChar = Players:GetPlayerFromCharacter(v)
+						if pFromChar then
+							attackerArg = pFromChar
+							break
+						end
+					elseif typeof(v) == "number" then
+						for _, p in ipairs(Players:GetPlayers()) do
+							if p.UserId == v or p.UserId == math.abs(v) then
+								attackerArg = p
+								break
+							end
+						end
+						if attackerArg then break end
+					end
+				end
+				task.spawn(function()
+					onHitDetected(attackerArg)
+				end)
+			end
+
+			return oldHurtNamecall(...)
+		end)
+
+		if typeof(hookfunction) == "function" and HurtByPlayerEvent.FireServer then
+			local OldHurtFire
+			OldHurtFire = hookfunction(HurtByPlayerEvent.FireServer, function(...)
+				local args = {...}
+				local attackerArg = nil
+				for i = 2, #args do
+					local v = args[i]
+					if typeof(v) == "Instance" and v:IsA("Player") then
+						attackerArg = v
+						break
+					elseif typeof(v) == "Instance" and v:IsA("Model") then
+						local pFromChar = Players:GetPlayerFromCharacter(v)
+						if pFromChar then
+							attackerArg = pFromChar
+							break
+						end
+					elseif typeof(v) == "number" then
+						for _, p in ipairs(Players:GetPlayers()) do
+							if p.UserId == v or p.UserId == math.abs(v) then
+								attackerArg = p
+								break
+							end
+						end
+						if attackerArg then break end
+					end
+				end
+				task.spawn(function()
+					onHitDetected(attackerArg)
+				end)
+				return OldHurtFire(...)
+			end)
+		end
+	end
+end)
+
+Toggles.HitWindow:OnChanged(function()
+	disconnect("HitWindowHealth")
+	disconnect("HitWindowRespawn")
+
+	if Toggles.HitWindow.Value then
+		setupHitWindowHealthListener()
+		track("HitWindowRespawn", LocalPlayer.CharacterAdded:Connect(function()
+			task.wait(1.5)
+			setupHitWindowHealthListener()
+		end))
+		Library:Notify({ Title = "Hit Window", Description = "Enabled. Will swing back when hit.", Time = 2 })
+	else
+		hitWindowBurstActive = false
+		pendingAttacker = nil
+		Library:Notify({ Title = "Hit Window", Description = "Disabled", Time = 2 })
 	end
 end)
 
