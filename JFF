@@ -2015,28 +2015,26 @@ local function checkAndPerformDodge()
 
 	local root = getRootPart()
 	if not root then return end
+	local pos = root.Position
 
 	for _, player in ipairs(Players:GetPlayers()) do
 		if player ~= LocalPlayer and player.Character then
-			local enemyRoot = player.Character:FindFirstChild("HumanoidRootPart")
-			local hum = player.Character:FindFirstChildOfClass("Humanoid")
-			if enemyRoot and hum and hum.Health > 0 then
-				local dist = (enemyRoot.Position - root.Position).Magnitude
+			local char = player.Character
+			local enemyRoot = char:FindFirstChild("HumanoidRootPart")
+			if enemyRoot then
+				local dist = (enemyRoot.Position - pos).Magnitude
 				if dist <= 10 then
-					local isSwinging = false
-					local animator = hum:FindFirstChild("Animator")
-					if animator then
-						for _, trackObj in ipairs(animator:GetPlayingAnimationTracks()) do
-							if trackObj.Speed > 0 and isSwingAnimation(trackObj) then
-								isSwinging = true
-								break
+					local hum = char:FindFirstChildOfClass("Humanoid")
+					if hum and hum.Health > 0 then
+						local animator = hum:FindFirstChild("Animator")
+						if animator then
+							for _, trackObj in ipairs(animator:GetPlayingAnimationTracks()) do
+								if trackObj.Speed > 0 and isSwingAnimation(trackObj) then
+									performInstantDodgeBehind(enemyRoot)
+									return
+								end
 							end
 						end
-					end
-
-					if isSwinging then
-						performInstantDodgeBehind(enemyRoot)
-						break
 					end
 				end
 			end
@@ -2045,7 +2043,8 @@ local function checkAndPerformDodge()
 end
 
 local function hookEnemyDodgeAnimator(animator, enemyChar)
-	if not animator then return end
+	if not animator or not enemyChar then return end
+	disconnect("DodgeAnim_" .. enemyChar.Name)
 	track("DodgeAnim_" .. enemyChar.Name, animator.AnimationPlayed:Connect(function(trackObj)
 		if not Toggles.DodgeAura or not Toggles.DodgeAura.Value or not isAlive() then return end
 		if tick() - lastDodgeTime < dodgeCooldown then return end
@@ -2064,8 +2063,9 @@ end
 
 Toggles.DodgeAura:OnChanged(function()
 	disconnect("DodgeAura_Heartbeat")
+	disconnect("DodgeAura_PlayerAdded")
 	for name in pairs(Connections) do
-		if name:sub(1, 10) == "DodgeAnim_" then
+		if name:sub(1, 10) == "DodgeAnim_" or name:sub(1, 18) == "DodgeAura_CharAdd_" then
 			disconnect(name)
 		end
 	end
@@ -2073,39 +2073,30 @@ Toggles.DodgeAura:OnChanged(function()
 	if Toggles.DodgeAura.Value then
 		track("DodgeAura_Heartbeat", RunService.Heartbeat:Connect(checkAndPerformDodge))
 
-		for _, player in ipairs(Players:GetPlayers()) do
-			if player ~= LocalPlayer and player.Character then
+		local function hookPlayer(player)
+			if player == LocalPlayer then return end
+			if player.Character then
 				local hum = player.Character:FindFirstChildOfClass("Humanoid")
 				local animator = hum and hum:FindFirstChild("Animator")
 				if animator then
 					hookEnemyDodgeAnimator(animator, player.Character)
 				end
 			end
+			disconnect("DodgeAura_CharAdd_" .. player.Name)
+			track("DodgeAura_CharAdd_" .. player.Name, player.CharacterAdded:Connect(function(char)
+				local hum = char:WaitForChild("Humanoid", 3)
+				local animator = hum and hum:WaitForChild("Animator", 3)
+				if animator and Toggles.DodgeAura and Toggles.DodgeAura.Value then
+					hookEnemyDodgeAnimator(animator, char)
+				end
+			end))
 		end
-
-		track("DodgeAura_PlayerAdded", Players.PlayerAdded:Connect(function(player)
-			if player ~= LocalPlayer then
-				player.CharacterAdded:Connect(function(char)
-					local hum = char:WaitForChild("Humanoid", 5)
-					local animator = hum and hum:WaitForChild("Animator", 5)
-					if animator and Toggles.DodgeAura and Toggles.DodgeAura.Value then
-						hookEnemyDodgeAnimator(animator, char)
-					end
-				end)
-			end
-		end))
 
 		for _, player in ipairs(Players:GetPlayers()) do
-			if player ~= LocalPlayer then
-				track("DodgeAura_CharAdded_" .. player.Name, player.CharacterAdded:Connect(function(char)
-					local hum = char:WaitForChild("Humanoid", 5)
-					local animator = hum and hum:WaitForChild("Animator", 5)
-					if animator and Toggles.DodgeAura and Toggles.DodgeAura.Value then
-						hookEnemyDodgeAnimator(animator, char)
-					end
-				end))
-			end
+			hookPlayer(player)
 		end
+
+		track("DodgeAura_PlayerAdded", Players.PlayerAdded:Connect(hookPlayer))
 
 		Library:Notify({ Title = "Dodge Aura", Description = "Enabled (Fast Instant Dodge)", Time = 2 })
 	end
@@ -2280,19 +2271,28 @@ local function getClosestPlayerToCenter()
 	local camera = workspace.CurrentCamera
 	local viewportSize = camera.ViewportSize
 	local center = Vector2.new(viewportSize.X / 2, viewportSize.Y / 2)
+	local camPos = camera.CFrame.Position
+	local camLook = camera.CFrame.LookVector
+	local fovRadius = (Options.AimbotFOV and Options.AimbotFOV.Value) or 100
 
 	for _, player in ipairs(Players:GetPlayers()) do
 		if player ~= LocalPlayer and player.Character then
-			local torso = player.Character:FindFirstChild("LowerTorso") or player.Character:FindFirstChild("UpperTorso") or player.Character:FindFirstChild("Torso") or player.Character:FindFirstChild("HumanoidRootPart")
-			local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
-			if torso and humanoid and humanoid.Health > 0 then
-				local screenPos, onScreen = camera:WorldToViewportPoint(torso.Position)
-				if onScreen then
-					local distance = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
-					local fovRadius = (Options.AimbotFOV and Options.AimbotFOV.Value) or 100
-					if distance < shortestDistance and distance <= fovRadius then
-						shortestDistance = distance
-						closestPlayer = torso
+			local char = player.Character
+			local torso = char:FindFirstChild("LowerTorso") or char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso") or char:FindFirstChild("HumanoidRootPart")
+			if torso then
+				local toTarget = torso.Position - camPos
+				-- Fast check: target must be in front of the camera
+				if toTarget:Dot(camLook) > 0 then
+					local humanoid = char:FindFirstChildOfClass("Humanoid")
+					if humanoid and humanoid.Health > 0 then
+						local screenPos, onScreen = camera:WorldToViewportPoint(torso.Position)
+						if onScreen then
+							local distance = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
+							if distance < shortestDistance and distance <= fovRadius then
+								shortestDistance = distance
+								closestPlayer = torso
+							end
+						end
 					end
 				end
 			end
@@ -2872,14 +2872,27 @@ Toggles.SwordBot:OnChanged(function()
 	end
 end)
 
-local function updateVictimDropdown()
-	local names = {}
-	for _, player in ipairs(Players:GetPlayers()) do
-		if player ~= LocalPlayer then
-			table.insert(names, player.Name)
-		end
+local updateVictimDropdown
+do
+	local victimPending = false
+	function updateVictimDropdown()
+		if victimPending then return end
+		victimPending = true
+		task.delay(0.1, function()
+			victimPending = false
+			local names = {}
+			for _, player in ipairs(Players:GetPlayers()) do
+				if player ~= LocalPlayer then
+					table.insert(names, player.Name)
+				end
+			end
+			pcall(function()
+				if Options.ChooseVictim then
+					Options.ChooseVictim:SetValues(names)
+				end
+			end)
+		end)
 	end
-	Options.ChooseVictim:SetValues(names)
 end
 
 track("VictimPlayerAdded", Players.PlayerAdded:Connect(updateVictimDropdown))
@@ -5043,27 +5056,22 @@ VisualFPS:AddToggle("DisableShadows", {
 	Callback = function(state)
 		game:GetService("Lighting").GlobalShadows = not state
 
+		disconnect("DisableShadows_PlayerAdded")
+		for name in pairs(Connections) do
+			if name:sub(1, 23) == "DisableShadows_CharAdd_" then
+				disconnect(name)
+			end
+		end
+
 		if state then
 			-- Disable player shadows
 			setPlayerShadows(false)
 
-			-- Connect for new players
-			track("DisableShadows_PlayerAdded", Players.PlayerAdded:Connect(function(player)
-				player.CharacterAdded:Connect(function(char)
-					if Toggles.DisableShadows.Value then
-						for _, part in ipairs(char:GetDescendants()) do
-							if part:IsA("BasePart") then
-								pcall(function() part.CastShadow = false end)
-							end
-						end
-					end
-				end)
-			end))
-
-			-- Connect for existing players' new characters
-			for _, player in ipairs(Players:GetPlayers()) do
-				track("DisableShadows_CharAdded_" .. player.Name, player.CharacterAdded:Connect(function(char)
-					if Toggles.DisableShadows.Value then
+			local function hookShadowPlayer(player)
+				disconnect("DisableShadows_CharAdd_" .. player.Name)
+				track("DisableShadows_CharAdd_" .. player.Name, player.CharacterAdded:Connect(function(char)
+					if Toggles.DisableShadows and Toggles.DisableShadows.Value then
+						task.wait(0.2)
 						for _, part in ipairs(char:GetDescendants()) do
 							if part:IsA("BasePart") then
 								pcall(function() part.CastShadow = false end)
@@ -5072,13 +5080,15 @@ VisualFPS:AddToggle("DisableShadows", {
 					end
 				end))
 			end
+
+			for _, player in ipairs(Players:GetPlayers()) do
+				hookShadowPlayer(player)
+			end
+
+			track("DisableShadows_PlayerAdded", Players.PlayerAdded:Connect(hookShadowPlayer))
 		else
 			-- Re-enable player shadows
 			setPlayerShadows(true)
-			disconnect("DisableShadows_PlayerAdded")
-			for _, player in ipairs(Players:GetPlayers()) do
-				disconnect("DisableShadows_CharAdded_" .. player.Name)
-			end
 		end
 	end,
 })
@@ -5585,40 +5595,52 @@ VisualEnv:AddSlider("ControlTheHours", {
 })
 
 local espObjects = {}
+local espNameHex = "ffffff"
+local espDistHex = "ffffff"
+
+local function updateESPHexColors()
+	pcall(function()
+		local pColor = Options and Options.PlayerESPColor and Options.PlayerESPColor.Value or Color3.new(1, 1, 1)
+		espNameHex = pColor:ToHex()
+	end)
+	pcall(function()
+		local dColor = Options and Options.ShowDistanceColor and Options.ShowDistanceColor.Value or Color3.new(1, 1, 1)
+		espDistHex = dColor:ToHex()
+	end)
+end
+
+local function removeESP(player)
+	local data = espObjects[player]
+	if data then
+		if data.billboard then pcall(function() data.billboard:Destroy() end) end
+		if data.highlight then pcall(function() data.highlight:Destroy() end) end
+		espObjects[player] = nil
+	end
+end
 
 local function clearESP()
-	for _, obj in pairs(espObjects) do
-		if typeof(obj) == "Instance" then
-			obj:Destroy()
-		elseif typeof(obj) == "table" then
-			for _, child in pairs(obj) do
-				if typeof(child) == "Instance" then
-					child:Destroy()
-				else
-					pcall(function() child:Remove() end)
-				end
-			end
-		end
+	for player in pairs(espObjects) do
+		removeESP(player)
 	end
 	table.clear(espObjects)
 end
 
 local function createESP(player)
+	if player == LocalPlayer then return end
+	removeESP(player)
+
 	local character = player.Character
-	if not character then
-		return
-	end
+	if not character then return end
 	local root = character:FindFirstChild("HumanoidRootPart")
 	local hum = character:FindFirstChildOfClass("Humanoid")
-	if not root or not hum then
-		return
-	end
+	if not root or not hum then return end
 
 	local billboard = Instance.new("BillboardGui")
 	billboard.Size = UDim2.fromOffset(120, 40)
 	billboard.AlwaysOnTop = true
 	billboard.Adornee = root
 	billboard.Parent = root
+	billboard.Enabled = false
 
 	local label = Instance.new("TextLabel")
 	label.Size = UDim2.fromScale(1, 1)
@@ -5632,7 +5654,7 @@ local function createESP(player)
 
 	local highlight = Instance.new("Highlight")
 	highlight.FillColor = Color3.fromRGB(255, 255, 255)
-	highlight.OutlineColor = Options.OutlineESPColor.Value
+	highlight.OutlineColor = (Options and Options.OutlineESPColor and Options.OutlineESPColor.Value) or Color3.fromRGB(255, 255, 255)
 	highlight.FillTransparency = 1
 	highlight.OutlineTransparency = 0
 	highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
@@ -5640,93 +5662,156 @@ local function createESP(player)
 	highlight.Parent = character
 	highlight.Enabled = false
 
-	espObjects[player] = { billboard, label, highlight }
+	espObjects[player] = {
+		billboard = billboard,
+		label = label,
+		highlight = highlight,
+		root = root,
+		character = character,
+		player = player,
+		lastDist = -1,
+	}
+end
 
-	local lastUpdate = 0
-	local function update()
-		local myRoot = getRootPart()
-		if not myRoot or not character.Parent then
-			if highlight then highlight.Enabled = false end
-			return
+local lastESPUpdate = 0
+local function masterESPUpdate()
+	if not Toggles.PlayerESP or not Toggles.PlayerESP.Value then return end
+	local now = tick()
+	if now - lastESPUpdate < 0.033 then return end
+	lastESPUpdate = now
+
+	local myRoot = getRootPart()
+	if not myRoot then
+		for _, data in pairs(espObjects) do
+			if data.billboard and data.billboard.Enabled then data.billboard.Enabled = false end
+			if data.highlight and data.highlight.Enabled then data.highlight.Enabled = false end
 		end
+		return
+	end
 
-		local now = tick()
-		if now - lastUpdate < 0.1 then return end
-		lastUpdate = now
+	local myPos = myRoot.Position
+	local maxDist = (Options and Options.ESPDistance and Options.ESPDistance.Value) or 1000
+	local showDistance = Toggles.ShowDistance and Toggles.ShowDistance.Value
+	local showOutline = Toggles.OutlineESP and Toggles.OutlineESP.Value == true
+	local highlightCandidates = {}
 
-		local dist = (root.Position - myRoot.Position).Magnitude
-		local shouldShow = dist <= Options.ESPDistance.Value and Toggles.PlayerESP.Value
+	for player, data in pairs(espObjects) do
+		if not player.Parent or not data.character.Parent or not data.root.Parent then
+			removeESP(player)
+		else
+			local dist = (data.root.Position - myPos).Magnitude
+			if dist <= maxDist then
+				if not data.billboard.Enabled then
+					data.billboard.Enabled = true
+				end
 
-		billboard.Enabled = shouldShow
-		local nameColor = Options and Options.PlayerESPColor and Options.PlayerESPColor.Value or Color3.new(1, 1, 1)
-		local distColor = Options and Options.ShowDistanceColor and Options.ShowDistanceColor.Value or Color3.new(1, 1, 1)
-		local text = '<font color="#' .. nameColor:ToHex() .. '">' .. player.Name .. '</font>'
-		if Toggles.ShowDistance.Value then
-			text ..= '\n<font color="#' .. distColor:ToHex() .. '">' .. string.format("%.0fm", dist) .. '</font>'
-		end
-		label.Text = text
+				if math.abs(dist - data.lastDist) >= 1 or data.lastDist < 0 then
+					data.lastDist = dist
+					local text = '<font color="#' .. espNameHex .. '">' .. player.Name .. '</font>'
+					if showDistance then
+						text ..= '\n<font color="#' .. espDistHex .. '">' .. string.format("%.0fm", dist) .. '</font>'
+					end
+					data.label.Text = text
+				end
 
-		if highlight then
-			highlight.Enabled = (shouldShow and Toggles.OutlineESP and Toggles.OutlineESP.Value == true)
+				if showOutline then
+					table.insert(highlightCandidates, { dist = dist, highlight = data.highlight })
+				else
+					if data.highlight.Enabled then
+						data.highlight.Enabled = false
+					end
+				end
+			else
+				if data.billboard.Enabled then
+					data.billboard.Enabled = false
+				end
+				if data.highlight.Enabled then
+					data.highlight.Enabled = false
+				end
+			end
 		end
 	end
 
-	update()
-	track("ESP_" .. player.Name, RunService.Heartbeat:Connect(update))
+	if showOutline and #highlightCandidates > 0 then
+		if #highlightCandidates > 10 then
+			table.sort(highlightCandidates, function(a, b) return a.dist < b.dist end)
+		end
+		for i, cand in ipairs(highlightCandidates) do
+			local shouldEnable = (i <= 10)
+			if cand.highlight.Enabled ~= shouldEnable then
+				cand.highlight.Enabled = shouldEnable
+			end
+		end
+	end
 end
 
 Toggles.PlayerESP:OnChanged(function()
 	if updatePlayerESPVisibility then
 		updatePlayerESPVisibility()
 	end
-	if not Toggles.PlayerESP.Value then
-		clearESP()
-		for name in pairs(Connections) do
-			if name:sub(1, 4) == "ESP_" then
-				disconnect(name)
-			end
+	disconnect("ESP_MasterLoop")
+	disconnect("ESP_PlayerAdded")
+	disconnect("ESP_PlayerRemoving")
+	for name in pairs(Connections) do
+		if name:sub(1, 14) == "ESP_CharAdded_" then
+			disconnect(name)
 		end
+	end
+	clearESP()
+
+	if not Toggles.PlayerESP.Value then
 		return
 	end
-	disconnect("ESP_PlayerAdded")
-	clearESP()
-	for _, player in ipairs(Players:GetPlayers()) do
-		if player ~= LocalPlayer then
+
+	updateESPHexColors()
+
+	local function setupPlayer(player)
+		if player == LocalPlayer then return end
+		if player.Character then
 			createESP(player)
 		end
+		disconnect("ESP_CharAdded_" .. player.Name)
+		track("ESP_CharAdded_" .. player.Name, player.CharacterAdded:Connect(function()
+			task.wait(0.5)
+			if Toggles.PlayerESP and Toggles.PlayerESP.Value then
+				createESP(player)
+			end
+		end))
 	end
-	track("ESP_PlayerAdded", Players.PlayerAdded:Connect(function(player)
-		if Toggles.PlayerESP.Value then
-			player.CharacterAdded:Connect(function()
-				task.wait(1)
-				if Toggles.PlayerESP.Value then
-					createESP(player)
-				end
-			end)
-		end
-	end))
+
+	for _, player in ipairs(Players:GetPlayers()) do
+		setupPlayer(player)
+	end
+
+	track("ESP_PlayerAdded", Players.PlayerAdded:Connect(setupPlayer))
+	track("ESP_PlayerRemoving", Players.PlayerRemoving:Connect(removeESP))
+	track("ESP_MasterLoop", RunService.Heartbeat:Connect(masterESPUpdate))
 end)
 
 Options.OutlineESPColor:OnChanged(function()
 	local color = Options.OutlineESPColor.Value
-	for _, objects in pairs(espObjects) do
-		local highlight = objects[3]
-		if highlight and typeof(highlight) == "Instance" and highlight:IsA("Highlight") then
-			highlight.OutlineColor = color
+	for _, data in pairs(espObjects) do
+		if data.highlight and typeof(data.highlight) == "Instance" and data.highlight:IsA("Highlight") then
+			data.highlight.OutlineColor = color
 		end
 	end
 end)
 
 Options.PlayerESPColor:OnChanged(function()
-	for _, objects in pairs(espObjects) do
-		local label = objects[2]
-		if label and typeof(label) == "Instance" and label:IsA("TextLabel") then
-			label.TextColor3 = Options.PlayerESPColor.Value
+	updateESPHexColors()
+	for _, data in pairs(espObjects) do
+		data.lastDist = -1
+		if data.label and typeof(data.label) == "Instance" and data.label:IsA("TextLabel") then
+			data.label.TextColor3 = Options.PlayerESPColor.Value
 		end
 	end
 end)
 
 Options.ShowDistanceColor:OnChanged(function()
+	updateESPHexColors()
+	for _, data in pairs(espObjects) do
+		data.lastDist = -1
+	end
 end)
 
 Toggles.AlwaysDay:OnChanged(function()
@@ -5827,47 +5912,58 @@ Toggles.TouchFling:OnChanged(function()
 end)
 
 -- Attach Script Logic
-local function updateAttachPlayerList()
-	local list = {}
-	local kaList = {"All"}
-	for _, player in ipairs(Players:GetPlayers()) do
-		if player ~= LocalPlayer then
-			table.insert(list, player.Name)
-			table.insert(kaList, player.Name)
-		end
+local updateAttachPlayerList
+do
+	local attachPending = false
+	function updateAttachPlayerList()
+		if attachPending then return end
+		attachPending = true
+		task.delay(0.1, function()
+			attachPending = false
+			local list = {}
+			local kaList = {"All"}
+			for _, player in ipairs(Players:GetPlayers()) do
+				if player ~= LocalPlayer then
+					table.insert(list, player.Name)
+					table.insert(kaList, player.Name)
+				end
+			end
+			pcall(function()
+				if Options.AttachPlayerList then
+					Options.AttachPlayerList:SetValues(list)
+					if #list > 0 then
+						if not table.find(list, Options.AttachPlayerList.Value) then
+							Options.AttachPlayerList:SetValue(list[1])
+						end
+					else
+						Options.AttachPlayerList:SetValue("")
+					end
+				end
+			end)
+			pcall(function()
+				if Options.KillAuraTarget then
+					local current = Options.KillAuraTarget.Value
+					Options.KillAuraTarget:SetValues(kaList)
+					if table.find(kaList, current) then
+						Options.KillAuraTarget:SetValue(current)
+					else
+						Options.KillAuraTarget:SetValue("All")
+					end
+				end
+			end)
+			pcall(function()
+				if Options.PhantomAuraTarget then
+					local current = Options.PhantomAuraTarget.Value
+					Options.PhantomAuraTarget:SetValues(kaList)
+					if table.find(kaList, current) then
+						Options.PhantomAuraTarget:SetValue(current)
+					else
+						Options.PhantomAuraTarget:SetValue("All")
+					end
+				end
+			end)
+		end)
 	end
-	pcall(function()
-		Options.AttachPlayerList:SetValues(list)
-		if #list > 0 then
-			if not table.find(list, Options.AttachPlayerList.Value) then
-				Options.AttachPlayerList:SetValue(list[1])
-			end
-		else
-			Options.AttachPlayerList:SetValue("")
-		end
-	end)
-	pcall(function()
-		if Options.KillAuraTarget then
-			local current = Options.KillAuraTarget.Value
-			Options.KillAuraTarget:SetValues(kaList)
-			if table.find(kaList, current) then
-				Options.KillAuraTarget:SetValue(current)
-			else
-				Options.KillAuraTarget:SetValue("All")
-			end
-		end
-	end)
-	pcall(function()
-		if Options.PhantomAuraTarget then
-			local current = Options.PhantomAuraTarget.Value
-			Options.PhantomAuraTarget:SetValues(kaList)
-			if table.find(kaList, current) then
-				Options.PhantomAuraTarget:SetValue(current)
-			else
-				Options.PhantomAuraTarget:SetValue("All")
-			end
-		end
-	end)
 end
 
 track("AttachPlayerAdded", Players.PlayerAdded:Connect(updateAttachPlayerList))
@@ -5935,23 +6031,34 @@ Toggles.FloatOverToggle:OnChanged(function()
 end)
 
 -- Spectate Script Logic
-local function updateSpectatePlayerList()
-	local list = {}
-	for _, player in ipairs(Players:GetPlayers()) do
-		if player ~= LocalPlayer then
-			table.insert(list, player.Name)
-		end
-	end
-	pcall(function()
-		Options.SpectatePlayerList:SetValues(list)
-		if #list > 0 then
-			if not table.find(list, Options.SpectatePlayerList.Value) then
-				Options.SpectatePlayerList:SetValue(list[1])
+local updateSpectatePlayerList
+do
+	local spectatePending = false
+	function updateSpectatePlayerList()
+		if spectatePending then return end
+		spectatePending = true
+		task.delay(0.1, function()
+			spectatePending = false
+			local list = {}
+			for _, player in ipairs(Players:GetPlayers()) do
+				if player ~= LocalPlayer then
+					table.insert(list, player.Name)
+				end
 			end
-		else
-			Options.SpectatePlayerList:SetValue("")
-		end
-	end)
+			pcall(function()
+				if Options.SpectatePlayerList then
+					Options.SpectatePlayerList:SetValues(list)
+					if #list > 0 then
+						if not table.find(list, Options.SpectatePlayerList.Value) then
+							Options.SpectatePlayerList:SetValue(list[1])
+						end
+					else
+						Options.SpectatePlayerList:SetValue("")
+					end
+				end
+			end)
+		end)
+	end
 end
 
 track("SpectatePlayerAdded", Players.PlayerAdded:Connect(updateSpectatePlayerList))
@@ -6214,23 +6321,34 @@ Toggles.QuickVanish:OnChanged(function()
 	end
 end)
 
-local function updateTeleportPlayerList()
-	local list = {}
-	for _, player in ipairs(Players:GetPlayers()) do
-		if player ~= LocalPlayer then
-			table.insert(list, player.Name)
-		end
-	end
-	pcall(function()
-		Options.TeleportPlayerList:SetValues(list)
-		if #list > 0 then
-			if not table.find(list, Options.TeleportPlayerList.Value) then
-				Options.TeleportPlayerList:SetValue(list[1])
+local updateTeleportPlayerList
+do
+	local tpPending = false
+	function updateTeleportPlayerList()
+		if tpPending then return end
+		tpPending = true
+		task.delay(0.1, function()
+			tpPending = false
+			local list = {}
+			for _, player in ipairs(Players:GetPlayers()) do
+				if player ~= LocalPlayer then
+					table.insert(list, player.Name)
+				end
 			end
-		else
-			Options.TeleportPlayerList:SetValue("")
-		end
-	end)
+			pcall(function()
+				if Options.TeleportPlayerList then
+					Options.TeleportPlayerList:SetValues(list)
+					if #list > 0 then
+						if not table.find(list, Options.TeleportPlayerList.Value) then
+							Options.TeleportPlayerList:SetValue(list[1])
+						end
+					else
+						Options.TeleportPlayerList:SetValue("")
+					end
+				end
+			end)
+		end)
+	end
 end
 
 track("TeleportPlayerAdded", Players.PlayerAdded:Connect(updateTeleportPlayerList))
