@@ -48,6 +48,7 @@ local updatePVPModulesVisibility
 local updateTouchFlingVisibility
 local updateAutoPickupVisibility
 local updatePlayerESPVisibility
+local updateLowRenderVisibility
 
 Library.ShowToggleFrameInKeybinds = true
 
@@ -1843,19 +1844,6 @@ CombatAutoBlock:AddToggle("BypassShield", {
 	Default = false,
 })
 
-CombatAutoBlock:AddToggle("JustSwing", {
-	Text = "Just Swing",
-	Default = false,
-})
-
-CombatAutoBlock:AddSlider("JustSwingStuds", {
-	Text = "Just Swing Studs",
-	Default = 20,
-	Min = 1,
-	Max = 100,
-	Rounding = 0,
-})
-
 CombatAutoBlock:AddToggle("DodgeAura", {
 	Text = "Dodge Aura",
 	Default = false,
@@ -2504,75 +2492,6 @@ Toggles.SmartSwing:OnChanged(function()
 		Library:Notify({ Title = "Smart Swing", Description = "Enabled (Within " .. tostring(studs) .. " Studs)", Time = 2 })
 	else
 		Library:Notify({ Title = "Smart Swing", Description = "Disabled", Time = 2 })
-	end
-end)
-
-local lastJustSwing = 0
-local function updateJustSwingVisibility()
-	local isJustSwing = (Toggles.JustSwing and Toggles.JustSwing.Value) or false
-	if Options.JustSwingStuds then
-		Options.JustSwingStuds.Visible = isJustSwing
-		if Options.JustSwingStuds.Holder then
-			Options.JustSwingStuds.Holder.Visible = isJustSwing
-		end
-	end
-	CombatAutoBlock:Resize()
-end
-
-updateJustSwingVisibility()
-task.spawn(function()
-	task.wait(0.05)
-	if updateJustSwingVisibility then
-		updateJustSwingVisibility()
-	end
-end)
-
-Toggles.JustSwing:OnChanged(function()
-	disconnect("JustSwing")
-	updateJustSwingVisibility()
-	if Toggles.JustSwing.Value then
-		track("JustSwing", RunService.Heartbeat:Connect(function()
-			if not isAlive() then return end
-			local root = getRootPart()
-			if not root then return end
-
-			local speedVal = Options.AutoSwingSpeed and Options.AutoSwingSpeed.Value or 10
-			local delay = 1 / math.max(0.1, speedVal)
-			if tick() - lastJustSwing < delay then return end
-
-			local maxDist = Options.JustSwingStuds and Options.JustSwingStuds.Value or 20
-			local ignoreTeam = Toggles.SmartSwingIgnoreTeam and Toggles.SmartSwingIgnoreTeam.Value
-			local pos = root.Position
-			local playerNearby = false
-
-			for _, otherPlayer in ipairs(Players:GetPlayers()) do
-				if otherPlayer ~= LocalPlayer and otherPlayer.Character then
-					if not ignoreTeam or not isTeammate(otherPlayer) then
-						local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart") or otherPlayer.Character.PrimaryPart
-						local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
-						if otherRoot and otherHum and otherHum.Health > 0 then
-							local dist = (otherRoot.Position - pos).Magnitude
-							if dist <= maxDist then
-								playerNearby = true
-								break
-							end
-						end
-					end
-				end
-			end
-
-			if playerNearby then
-				local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
-				if tool then
-					tool:Activate()
-					lastJustSwing = tick()
-				end
-			end
-		end))
-		local studs = Options.JustSwingStuds and Options.JustSwingStuds.Value or 20
-		Library:Notify({ Title = "Just Swing", Description = "Enabled (Within " .. tostring(studs) .. " Studs)", Time = 2 })
-	else
-		Library:Notify({ Title = "Just Swing", Description = "Disabled", Time = 2 })
 	end
 end)
 
@@ -5504,6 +5423,91 @@ VisualFPS:AddToggle("UncapFPS", {
 	end,
 })
 
+VisualFPS:AddToggle("LowRenderDistance", {
+	Text = "Low Render Distance",
+	Default = false,
+})
+
+VisualFPS:AddSlider("FarClipStuds", {
+	Text = "Render Distance",
+	Default = 800,
+	Min = 100,
+	Max = 3000,
+	Rounding = 0,
+})
+
+updateLowRenderVisibility = function()
+	local isLow = (Toggles.LowRenderDistance and Toggles.LowRenderDistance.Value) or false
+	if Options.FarClipStuds then
+		Options.FarClipStuds.Visible = isLow
+		if Options.FarClipStuds.Holder then
+			Options.FarClipStuds.Holder.Visible = isLow
+		end
+	end
+	VisualFPS:Resize()
+end
+
+updateLowRenderVisibility()
+task.spawn(function()
+	task.wait(0.05)
+	if updateLowRenderVisibility then
+		updateLowRenderVisibility()
+	end
+end)
+
+local originalFarPlane = nil
+
+Toggles.LowRenderDistance:OnChanged(function()
+	disconnect("LowRenderDistance_Stepped")
+	disconnect("LowRenderDistance_Property")
+	updateLowRenderVisibility()
+	if Toggles.LowRenderDistance.Value then
+		local Camera = workspace.CurrentCamera
+		if Camera then
+			originalFarPlane = Camera.FarPlane
+			local clip = Options.FarClipStuds and Options.FarClipStuds.Value or 800
+			pcall(function() Camera.FarPlane = clip end)
+
+			track("LowRenderDistance_Property", Camera:GetPropertyChangedSignal("FarPlane"):Connect(function()
+				if Toggles.LowRenderDistance and Toggles.LowRenderDistance.Value then
+					local newClip = Options.FarClipStuds and Options.FarClipStuds.Value or 800
+					pcall(function() Camera.FarPlane = newClip end)
+				end
+			end))
+
+			track("LowRenderDistance_Stepped", RunService.RenderStepped:Connect(function()
+				local Cam = workspace.CurrentCamera
+				if not Cam then return end
+				local curClip = Options.FarClipStuds and Options.FarClipStuds.Value or 800
+				pcall(function()
+					if Cam.FarPlane ~= curClip then
+						Cam.FarPlane = curClip
+					end
+				end)
+			end))
+		end
+		Library:Notify({ Title = "Low Render Distance", Description = "Enabled (" .. tostring(Options.FarClipStuds and Options.FarClipStuds.Value or 800) .. " studs)", Time = 2 })
+	else
+		local Camera = workspace.CurrentCamera
+		if Camera and originalFarPlane then
+			pcall(function() Camera.FarPlane = originalFarPlane end)
+		end
+		originalFarPlane = nil
+		Library:Notify({ Title = "Low Render Distance", Description = "Disabled", Time = 2 })
+	end
+end)
+
+if Options.FarClipStuds then
+	Options.FarClipStuds:OnChanged(function()
+		if Toggles.LowRenderDistance and Toggles.LowRenderDistance.Value then
+			local Camera = workspace.CurrentCamera
+			if Camera then
+				pcall(function() Camera.FarPlane = Options.FarClipStuds.Value end)
+			end
+		end
+	end)
+end
+
 VisualLeft:AddToggle("PlayerESP", {
 	Text = "Enabled",
 	Default = false,
@@ -6332,9 +6336,6 @@ Library:OnUnload(function()
 	if Toggles.BypassShield and Toggles.BypassShield.Value then
 		Toggles.BypassShield:SetValue(false)
 	end
-	if Toggles.JustSwing and Toggles.JustSwing.Value then
-		Toggles.JustSwing:SetValue(false)
-	end
 	if Toggles.DodgeAura and Toggles.DodgeAura.Value then
 		Toggles.DodgeAura:SetValue(false)
 	end
@@ -6381,6 +6382,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.StretchedRES and Toggles.StretchedRES.Value then
 		Toggles.StretchedRES:SetValue(false)
+	end
+	if Toggles.LowRenderDistance and Toggles.LowRenderDistance.Value then
+		Toggles.LowRenderDistance:SetValue(false)
 	end
 	if Toggles.WalkOnWater and Toggles.WalkOnWater.Value then
 		Toggles.WalkOnWater:SetValue(false)
