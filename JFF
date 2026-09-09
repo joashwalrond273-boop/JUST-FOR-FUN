@@ -1843,6 +1843,19 @@ CombatAutoBlock:AddToggle("BypassShield", {
 	Default = false,
 })
 
+CombatAutoBlock:AddToggle("JustSwing", {
+	Text = "Just Swing",
+	Default = false,
+})
+
+CombatAutoBlock:AddSlider("JustSwingStuds", {
+	Text = "Just Swing Studs",
+	Default = 20,
+	Min = 1,
+	Max = 100,
+	Rounding = 0,
+})
+
 CombatAutoBlock:AddToggle("DodgeAura", {
 	Text = "Dodge Aura",
 	Default = false,
@@ -2491,6 +2504,75 @@ Toggles.SmartSwing:OnChanged(function()
 		Library:Notify({ Title = "Smart Swing", Description = "Enabled (Within " .. tostring(studs) .. " Studs)", Time = 2 })
 	else
 		Library:Notify({ Title = "Smart Swing", Description = "Disabled", Time = 2 })
+	end
+end)
+
+local lastJustSwing = 0
+local function updateJustSwingVisibility()
+	local isJustSwing = (Toggles.JustSwing and Toggles.JustSwing.Value) or false
+	if Options.JustSwingStuds then
+		Options.JustSwingStuds.Visible = isJustSwing
+		if Options.JustSwingStuds.Holder then
+			Options.JustSwingStuds.Holder.Visible = isJustSwing
+		end
+	end
+	CombatAutoBlock:Resize()
+end
+
+updateJustSwingVisibility()
+task.spawn(function()
+	task.wait(0.05)
+	if updateJustSwingVisibility then
+		updateJustSwingVisibility()
+	end
+end)
+
+Toggles.JustSwing:OnChanged(function()
+	disconnect("JustSwing")
+	updateJustSwingVisibility()
+	if Toggles.JustSwing.Value then
+		track("JustSwing", RunService.Heartbeat:Connect(function()
+			if not isAlive() then return end
+			local root = getRootPart()
+			if not root then return end
+
+			local speedVal = Options.AutoSwingSpeed and Options.AutoSwingSpeed.Value or 10
+			local delay = 1 / math.max(0.1, speedVal)
+			if tick() - lastJustSwing < delay then return end
+
+			local maxDist = Options.JustSwingStuds and Options.JustSwingStuds.Value or 20
+			local ignoreTeam = Toggles.SmartSwingIgnoreTeam and Toggles.SmartSwingIgnoreTeam.Value
+			local pos = root.Position
+			local playerNearby = false
+
+			for _, otherPlayer in ipairs(Players:GetPlayers()) do
+				if otherPlayer ~= LocalPlayer and otherPlayer.Character then
+					if not ignoreTeam or not isTeammate(otherPlayer) then
+						local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart") or otherPlayer.Character.PrimaryPart
+						local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
+						if otherRoot and otherHum and otherHum.Health > 0 then
+							local dist = (otherRoot.Position - pos).Magnitude
+							if dist <= maxDist then
+								playerNearby = true
+								break
+							end
+						end
+					end
+				end
+			end
+
+			if playerNearby then
+				local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
+				if tool then
+					tool:Activate()
+					lastJustSwing = tick()
+				end
+			end
+		end))
+		local studs = Options.JustSwingStuds and Options.JustSwingStuds.Value or 20
+		Library:Notify({ Title = "Just Swing", Description = "Enabled (Within " .. tostring(studs) .. " Studs)", Time = 2 })
+	else
+		Library:Notify({ Title = "Just Swing", Description = "Disabled", Time = 2 })
 	end
 end)
 
@@ -6249,6 +6331,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.BypassShield and Toggles.BypassShield.Value then
 		Toggles.BypassShield:SetValue(false)
+	end
+	if Toggles.JustSwing and Toggles.JustSwing.Value then
+		Toggles.JustSwing:SetValue(false)
 	end
 	if Toggles.DodgeAura and Toggles.DodgeAura.Value then
 		Toggles.DodgeAura:SetValue(false)
