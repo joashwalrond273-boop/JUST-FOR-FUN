@@ -544,7 +544,7 @@ FunLeft:AddSlider("TouchFlingPower", {
 	Min = 500,
 	Max = 10000,
 	Rounding = 0,
-	Compact = false,
+	Compact = true,
 })
 
 updateTouchFlingVisibility = function()
@@ -668,7 +668,7 @@ MainLeft:AddSlider("AutoPickupRange", {
 	Min = 5,
 	Max = 50,
 	Rounding = 1,
-	Compact = false,
+	Compact = true,
 })
 
 updateAutoPickupVisibility = function()
@@ -1146,7 +1146,7 @@ AdvanceHealGroup:AddSlider("AutoEatThreshold", {
 	Min = 10,
 	Max = 130,
 	Rounding = 0,
-	Compact = false,
+	Compact = true,
 })
 
 local AntiIdleGroup = Tabs.Player:AddRightGroupbox("Anti-Idle", "clock")
@@ -1551,7 +1551,7 @@ CombatLeft:AddSlider("KillAuraRange", {
 	Min = 5,
 	Max = 30,
 	Rounding = 1,
-	Compact = false,
+	Compact = true,
 })
 
 CombatLeft:AddSlider("KillAuraAngle", {
@@ -1560,7 +1560,7 @@ CombatLeft:AddSlider("KillAuraAngle", {
 	Min = 15,
 	Max = 180,
 	Rounding = 0,
-	Compact = false,
+	Compact = true,
 })
 
 local CombatPhantomAura = Tabs.Combat:AddLeftGroupbox("Phantom Aura", "ghost")
@@ -1582,7 +1582,7 @@ CombatPhantomAura:AddSlider("RangeAura", {
 	Min = 5,
 	Max = 50,
 	Rounding = 1,
-	Compact = false,
+	Compact = true,
 })
 
 CombatPhantomAura:AddSlider("OrbitAdjust", {
@@ -1591,7 +1591,7 @@ CombatPhantomAura:AddSlider("OrbitAdjust", {
 	Min = -10,
 	Max = 15,
 	Rounding = 1,
-	Compact = false,
+	Compact = true,
 })
 
 CombatPhantomAura:AddSlider("OrbitSpeed", {
@@ -1600,7 +1600,7 @@ CombatPhantomAura:AddSlider("OrbitSpeed", {
 	Min = 1,
 	Max = 60,
 	Rounding = 0,
-	Compact = false,
+	Compact = true,
 })
 
 local CombatAutoSwingGroup = Tabs.Combat:AddLeftGroupbox("Auto Swing", "swords")
@@ -1628,7 +1628,7 @@ CombatAutoSwingGroup:AddSlider("AutoSwingSpeed", {
 	Min = 0.5,
 	Max = 10,
 	Rounding = 1,
-	Compact = false,
+	Compact = true,
 })
 
 CombatAutoSwingGroup:AddSlider("PlayerStuds", {
@@ -1637,7 +1637,7 @@ CombatAutoSwingGroup:AddSlider("PlayerStuds", {
 	Min = 1,
 	Max = 100,
 	Rounding = 0,
-	Compact = false,
+	Compact = true,
 })
 
 CombatAutoSwingGroup:AddToggle("SmartSwingIgnoreTeam", {
@@ -1700,7 +1700,7 @@ CombatAutoPVP:AddSlider("AutoHopStuds", {
 	Min = 1,
 	Max = 100,
 	Rounding = 0,
-	Compact = false,
+	Compact = true,
 })
 
 CombatAutoPVP:AddToggle("Camlock", {
@@ -1714,7 +1714,7 @@ CombatAutoPVP:AddSlider("CamlockStuds", {
 	Min = 1,
 	Max = 100,
 	Rounding = 0,
-	Compact = false,
+	Compact = true,
 })
 
 CombatAutoPVP:AddToggle("PlusSpeedBoost", {
@@ -1734,7 +1734,7 @@ CombatAutoPVP:AddSlider("SpeedBoostValue", {
 	Min = 16,
 	Max = 30,
 	Rounding = 1,
-	Compact = false,
+	Compact = true,
 })
 
 updatePVPModulesVisibility = function()
@@ -1816,7 +1816,7 @@ CombatAimbot:AddSlider("AimbotFOV", {
 	Min = 10,
 	Max = 600,
 	Rounding = 0,
-	Compact = false,
+	Compact = true,
 })
 
 CombatAimbot:AddToggle("InfiniteDistance", {
@@ -1843,7 +1843,7 @@ CombatReach:AddSlider("ReachRange", {
 	Min = 1,
 	Max = 30,
 	Rounding = 1,
-	Compact = false,
+	Compact = true,
 })
 
 local CombatAutoBlock = Tabs.Combat:AddRightGroupbox("Immortal Mode", "shield")
@@ -1874,7 +1874,7 @@ CombatAutoBlock:AddSlider("QuickVanishThreshold", {
 	Max = 130,
 	Default = 35,
 	Rounding = 0,
-	Compact = false,
+	Compact = true,
 })
 
 local function isSwingAnimation(trackObj)
@@ -3179,7 +3179,7 @@ MoveFaze:AddSlider("XrayRadius", {
 	Min = 10,
 	Max = 60,
 	Rounding = 0,
-	Compact = false,
+	Compact = true,
 })
 
 MoveFaze:AddSlider("XrayTransparency", {
@@ -3188,7 +3188,7 @@ MoveFaze:AddSlider("XrayTransparency", {
 	Min = 0.1,
 	Max = 1,
 	Rounding = 2,
-	Compact = false,
+	Compact = true,
 })
 
 local MoveLeft = Tabs.Movement:AddLeftGroupbox("Speed", "gauge")
@@ -3205,7 +3205,7 @@ MoveLeft:AddSlider("SpeedValue", {
 	Min = 16,
 	Max = 50,
 	Rounding = 1,
-	Compact = false,
+	Compact = true,
 })
 
 local MoveSwimBoost = Tabs.Movement:AddLeftGroupbox("Swim Boost", "droplet")
@@ -3221,7 +3221,7 @@ MoveSwimBoost:AddSlider("SwimBoostValue", {
 	Min = 16,
 	Max = 100,
 	Rounding = 1,
-	Compact = false,
+	Compact = true,
 })
 
 MoveSwimBoost:AddToggle("SinkFastPVP", {
@@ -3242,7 +3242,7 @@ MoveBoatSpeed:AddSlider("BoatSpeedValue", {
 	Min = 0.1,
 	Max = 5,
 	Rounding = 1,
-	Compact = false,
+	Compact = true,
 })
 
 do
@@ -3420,7 +3420,7 @@ MoveSwingSpeed:AddSlider("SwingSpeedVal", {
 	Min = 1,
 	Max = 15,
 	Rounding = 1,
-	Compact = false,
+	Compact = true,
 })
 
 MoveRight:AddToggle("Fly", {
@@ -3434,7 +3434,7 @@ MoveRight:AddSlider("FlySpeed", {
 	Min = 10,
 	Max = 150,
 	Rounding = 0,
-	Compact = false,
+	Compact = true,
 })
 
 local MoveLowGravity = Tabs.Movement:AddRightGroupbox("Low Gravity", "arrow-down")
@@ -3450,7 +3450,7 @@ MoveLowGravity:AddSlider("LowGravityHeight", {
         Min = 0,
         Max = 300,
         Rounding = 0,
-        Compact = false,
+        Compact = true,
 })
 
 Toggles.LowGravity:OnChanged(function()
@@ -3480,7 +3480,7 @@ FakeLagGroup:AddSlider("FakeLagValue", {
 	Min = 0,
 	Max = 100,
 	Rounding = 0,
-	Compact = false,
+	Compact = true,
 })
 
 local InvisibleFlyGroup = Tabs.Movement:AddRightGroupbox("Invisible Fly", "plane")
@@ -3496,7 +3496,7 @@ InvisibleFlyGroup:AddSlider("InvisibleFlySpeedSlider", {
         Max = 15,
         Default = 5,
         Rounding = 1,
-        Compact = false,
+        Compact = true,
 })
 
 InvisibleFlyGroup:AddLabel("Highlight Fill Color"):AddColorPicker("InvisibleFlyFillColor", {
@@ -3977,7 +3977,7 @@ FarmMine:AddSlider("AutoMineRange", {
 	Min = 5,
 	Max = 60,
 	Rounding = 1,
-	Compact = false,
+	Compact = true,
 })
 
 FarmMine:AddDropdown("AutoMineSlot", {
@@ -4005,7 +4005,7 @@ FarmChop:AddSlider("AutoChopRange", {
 	Min = 5,
 	Max = 60,
 	Rounding = 1,
-	Compact = false,
+	Compact = true,
 })
 
 FarmChop:AddDropdown("AutoChopSlot", {
@@ -4055,7 +4055,7 @@ FarmAI:AddSlider("AiAuraRange", {
 	Min = 5,
 	Max = 60,
 	Rounding = 1,
-	Compact = false,
+	Compact = true,
 })
 
 FarmAI:AddToggle("HighlightAI", {
@@ -5544,7 +5544,7 @@ VisualLeft:AddSlider("ESPDistance", {
 	Min = 50,
 	Max = 2000,
 	Rounding = 0,
-	Compact = false,
+	Compact = true,
 })
 
 VisualLeft:AddToggle("ShowDistance", {
@@ -5610,7 +5610,7 @@ VisualEnv:AddSlider("ControlTheHours", {
 	Min = 0,
 	Max = 24,
 	Rounding = 1,
-	Compact = false,
+	Compact = true,
 })
 
 local espObjects = {}
@@ -6316,7 +6316,7 @@ MenuGroup:AddSlider("UICornerSlider", {
 	Min = 0,
 	Max = 20,
 	Rounding = 0,
-	Compact = false,
+	Compact = true,
 	Callback = function(value)
 		Window:SetCornerRadius(value)
 	end
