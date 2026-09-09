@@ -48,7 +48,6 @@ local updatePVPModulesVisibility
 local updateTouchFlingVisibility
 local updateAutoPickupVisibility
 local updatePlayerESPVisibility
-local updateLowRenderVisibility
 
 Library.ShowToggleFrameInKeybinds = true
 
@@ -5423,89 +5422,84 @@ VisualFPS:AddToggle("UncapFPS", {
 	end,
 })
 
-VisualFPS:AddToggle("LowRenderDistance", {
-	Text = "Low Render Distance",
-	Default = false,
-})
+do
+	local HEAVY_POST_CLASSES = {
+		DepthOfFieldEffect = true,
+		SunRaysEffect = true,
+		BloomEffect = true,
+		ColorCorrectionEffect = true,
+		MotionBlurEffect = true,
+	}
+	local originalPostEnabled = setmetatable({}, { __mode = "k" })
+	local postPropConnections = {}
 
-VisualFPS:AddSlider("FarClipStuds", {
-	Text = "Render Distance",
-	Default = 800,
-	Min = 100,
-	Max = 3000,
-	Rounding = 0,
-})
-
-updateLowRenderVisibility = function()
-	local isLow = (Toggles.LowRenderDistance and Toggles.LowRenderDistance.Value) or false
-	if Options.FarClipStuds then
-		Options.FarClipStuds.Visible = isLow
-		if Options.FarClipStuds.Holder then
-			Options.FarClipStuds.Holder.Visible = isLow
-		end
+	local function isHeavyPost(v)
+		return v and HEAVY_POST_CLASSES[v.ClassName]
 	end
-	VisualFPS:Resize()
-end
 
-updateLowRenderVisibility()
-task.spawn(function()
-	task.wait(0.05)
-	if updateLowRenderVisibility then
-		updateLowRenderVisibility()
-	end
-end)
-
-local originalFarPlane = nil
-
-Toggles.LowRenderDistance:OnChanged(function()
-	disconnect("LowRenderDistance_Stepped")
-	disconnect("LowRenderDistance_Property")
-	updateLowRenderVisibility()
-	if Toggles.LowRenderDistance.Value then
-		local Camera = workspace.CurrentCamera
-		if Camera then
-			originalFarPlane = Camera.FarPlane
-			local clip = Options.FarClipStuds and Options.FarClipStuds.Value or 800
-			pcall(function() Camera.FarPlane = clip end)
-
-			track("LowRenderDistance_Property", Camera:GetPropertyChangedSignal("FarPlane"):Connect(function()
-				if Toggles.LowRenderDistance and Toggles.LowRenderDistance.Value then
-					local newClip = Options.FarClipStuds and Options.FarClipStuds.Value or 800
-					pcall(function() Camera.FarPlane = newClip end)
-				end
-			end))
-
-			track("LowRenderDistance_Stepped", RunService.RenderStepped:Connect(function()
-				local Cam = workspace.CurrentCamera
-				if not Cam then return end
-				local curClip = Options.FarClipStuds and Options.FarClipStuds.Value or 800
-				pcall(function()
-					if Cam.FarPlane ~= curClip then
-						Cam.FarPlane = curClip
-					end
-				end)
-			end))
+	local function disablePost(v)
+		if not isHeavyPost(v) then return end
+		if originalPostEnabled[v] == nil then
+			originalPostEnabled[v] = v.Enabled
 		end
-		Library:Notify({ Title = "Low Render Distance", Description = "Enabled (" .. tostring(Options.FarClipStuds and Options.FarClipStuds.Value or 800) .. " studs)", Time = 2 })
-	else
-		local Camera = workspace.CurrentCamera
-		if Camera and originalFarPlane then
-			pcall(function() Camera.FarPlane = originalFarPlane end)
-		end
-		originalFarPlane = nil
-		Library:Notify({ Title = "Low Render Distance", Description = "Disabled", Time = 2 })
-	end
-end)
-
-if Options.FarClipStuds then
-	Options.FarClipStuds:OnChanged(function()
-		if Toggles.LowRenderDistance and Toggles.LowRenderDistance.Value then
-			local Camera = workspace.CurrentCamera
-			if Camera then
-				pcall(function() Camera.FarPlane = Options.FarClipStuds.Value end)
+		pcall(function() v.Enabled = false end)
+		local conn = v:GetPropertyChangedSignal("Enabled"):Connect(function()
+			if Toggles.KillHeavyPostEffects and Toggles.KillHeavyPostEffects.Value and v.Enabled then
+				pcall(function() v.Enabled = false end)
 			end
+		end)
+		table.insert(postPropConnections, conn)
+	end
+
+	local function restorePost(v)
+		if not isHeavyPost(v) then return end
+		local original = originalPostEnabled[v]
+		if original ~= nil then
+			pcall(function() v.Enabled = original end)
 		end
-	end)
+	end
+
+	VisualFPS:AddToggle("KillHeavyPostEffects", {
+		Text = "Kill Heavy Post FX",
+		Default = false,
+		Callback = function(state)
+			disconnect("KillHeavyPostEffects_ChildAdded")
+			for _, conn in ipairs(postPropConnections) do
+				pcall(function() conn:Disconnect() end)
+			end
+			table.clear(postPropConnections)
+
+			local Lighting = game:GetService("Lighting")
+
+			if state then
+				local children = nil
+				pcall(function() children = Lighting:GetChildren() end)
+				if children then
+					for _, v in ipairs(children) do
+						disablePost(v)
+					end
+				end
+
+				track("KillHeavyPostEffects_ChildAdded", Lighting.ChildAdded:Connect(function(child)
+					if Toggles.KillHeavyPostEffects and Toggles.KillHeavyPostEffects.Value then
+						task.defer(function() disablePost(child) end)
+					end
+				end))
+
+				Library:Notify({ Title = "Kill Heavy Post FX", Description = "Enabled", Time = 2 })
+			else
+				local children = nil
+				pcall(function() children = Lighting:GetChildren() end)
+				if children then
+					for _, v in ipairs(children) do
+						restorePost(v)
+					end
+				end
+				table.clear(originalPostEnabled)
+				Library:Notify({ Title = "Kill Heavy Post FX", Description = "Disabled", Time = 2 })
+			end
+		end,
+	})
 end
 
 VisualLeft:AddToggle("PlayerESP", {
@@ -6364,6 +6358,9 @@ Library:OnUnload(function()
 	if Toggles.RemovePBR and Toggles.RemovePBR.Value then
 		Toggles.RemovePBR:SetValue(false)
 	end
+	if Toggles.KillHeavyPostEffects and Toggles.KillHeavyPostEffects.Value then
+		Toggles.KillHeavyPostEffects:SetValue(false)
+	end
 	if Toggles.DisableShadows and Toggles.DisableShadows.Value then
 		Toggles.DisableShadows:SetValue(false)
 	end
@@ -6382,9 +6379,6 @@ Library:OnUnload(function()
 	end
 	if Toggles.StretchedRES and Toggles.StretchedRES.Value then
 		Toggles.StretchedRES:SetValue(false)
-	end
-	if Toggles.LowRenderDistance and Toggles.LowRenderDistance.Value then
-		Toggles.LowRenderDistance:SetValue(false)
 	end
 	if Toggles.WalkOnWater and Toggles.WalkOnWater.Value then
 		Toggles.WalkOnWater:SetValue(false)
