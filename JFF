@@ -5260,26 +5260,22 @@ VisualFPS:AddToggle("LowTextures", {
 	end,
 })
 
-local VisualOptimize = Tabs.Visuals:AddRightGroupbox("Optimize", "gauge")
-
-VisualOptimize:AddToggle("UncapFPS", {
-	Text = "Uncap FPS",
+VisualFPS:AddToggle("DisableEffects", {
+	Text = "Disable Effects",
 	Default = false,
 	Callback = function(state)
-		pcall(function()
-			if state then
-				setfpscap(999)
-			else
-				setfpscap(60)
+		for _, v in ipairs(game:GetService("Lighting"):GetChildren()) do
+			if v:IsA("PostEffect") then
+				v.Enabled = not state
 			end
-		end)
+		end
 	end,
 })
 
 do
 	local PBR_TYPES = { SurfaceAppearance = true, Texture = true, Decal = true }
 
-	VisualOptimize:AddToggle("RemovePBR", {
+	VisualFPS:AddToggle("RemovePBR", {
 		Text = "Remove PBR Textures",
 		Default = false,
 		Callback = function(state)
@@ -5367,7 +5363,7 @@ do
 		table.insert(particleConnections, conn)
 	end
 
-	VisualOptimize:AddToggle("RemoveParticles", {
+	VisualFPS:AddToggle("RemoveParticles", {
 		Text = "Remove Particles",
 		Default = false,
 		Callback = function(state)
@@ -5412,6 +5408,20 @@ do
 	})
 end
 
+VisualFPS:AddToggle("UncapFPS", {
+	Text = "Uncap FPS",
+	Default = false,
+	Callback = function(state)
+		pcall(function()
+			if state then
+				setfpscap(999)
+			else
+				setfpscap(60)
+			end
+		end)
+	end,
+})
+
 do
 	local HEAVY_POST_CLASSES = {
 		DepthOfFieldEffect = true,
@@ -5449,7 +5459,7 @@ do
 		end
 	end
 
-	VisualOptimize:AddToggle("KillHeavyPostEffects", {
+	VisualFPS:AddToggle("KillHeavyPostEffects", {
 		Text = "Kill Heavy Post FX",
 		Default = false,
 		Callback = function(state)
@@ -5491,18 +5501,6 @@ do
 		end,
 	})
 end
-
-VisualOptimize:AddToggle("DisableEffects", {
-	Text = "Disable Effects",
-	Default = false,
-	Callback = function(state)
-		for _, v in ipairs(game:GetService("Lighting"):GetChildren()) do
-			if v:IsA("PostEffect") then
-				v.Enabled = not state
-			end
-		end
-	end,
-})
 
 VisualLeft:AddToggle("PlayerESP", {
 	Text = "Enabled",
@@ -6360,17 +6358,8 @@ Library:OnUnload(function()
 	if Toggles.RemovePBR and Toggles.RemovePBR.Value then
 		Toggles.RemovePBR:SetValue(false)
 	end
-	if Toggles.RemoveParticles and Toggles.RemoveParticles.Value then
-		Toggles.RemoveParticles:SetValue(false)
-	end
-	if Toggles.UncapFPS and Toggles.UncapFPS.Value then
-		Toggles.UncapFPS:SetValue(false)
-	end
 	if Toggles.KillHeavyPostEffects and Toggles.KillHeavyPostEffects.Value then
 		Toggles.KillHeavyPostEffects:SetValue(false)
-	end
-	if Toggles.DisableEffects and Toggles.DisableEffects.Value then
-		Toggles.DisableEffects:SetValue(false)
 	end
 	if Toggles.DisableShadows and Toggles.DisableShadows.Value then
 		Toggles.DisableShadows:SetValue(false)
