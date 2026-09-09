@@ -5502,6 +5502,111 @@ do
 	})
 end
 
+do
+	local FOLIAGE_NAMES = {
+		leaf = true, leaves = true, tree = true, bush = true, grass = true,
+		foliage = true, plant = true, stick = true, wood = true, log = true,
+		branch = true, pine = true, oak = true, canopy = true, frond = true,
+		fern = true, vine = true, flower = true, moss = true, root = true,
+		trunk = true, sapling = true, reed = true, cactus = true, shrub = true,
+	}
+
+	local originalFoliageState = setmetatable({}, { __mode = "k" })
+
+	local function isFoliagePart(v)
+		if not v then return false end
+		if not (v:IsA("BasePart") or v:IsA("MeshPart") or v:IsA("Part")) then return false end
+		local ok, n = pcall(function() return (v.Name or ""):lower() end)
+		if not ok or not n then return false end
+		for key in pairs(FOLIAGE_NAMES) do
+			if n:find(key, 1, true) then
+				return true
+			end
+		end
+		return false
+	end
+
+	local function applyFoliageHide(v)
+		if not isFoliagePart(v) then return end
+		if v == getRootPart() then return end
+		local char = getCharacter()
+		if char and v:IsDescendantOf(char) then return end
+		if originalFoliageState[v] == nil then
+			originalFoliageState[v] = {
+				Transparency = v.Transparency,
+				CanCollide = v.CanCollide,
+				CanTouch = v.CanTouch,
+			}
+		end
+		pcall(function()
+			v.Transparency = 1
+			v.CanCollide = false
+			v.CanTouch = false
+		end)
+	end
+
+	local function restoreFoliage(v)
+		local saved = originalFoliageState[v]
+		if not saved then return end
+		pcall(function()
+			v.Transparency = saved.Transparency
+			v.CanCollide = saved.CanCollide
+			v.CanTouch = saved.CanTouch
+		end)
+	end
+
+	VisualFPS:AddToggle("NoFoliage", {
+		Text = "No Foliage",
+		Default = false,
+		Callback = function(state)
+			disconnect("NoFoliage_DescendantAdded")
+			if state then
+				task.spawn(function()
+					local queue = {workspace}
+					local head = 1
+					local tail = 2
+					local count = 0
+					while head < tail and Toggles.NoFoliage and Toggles.NoFoliage.Value do
+						local current = queue[head]
+						queue[head] = nil
+						head += 1
+						if current and current.Parent then
+							applyFoliageHide(current)
+							local success, children = pcall(current.GetChildren, current)
+							if success and children then
+								for i = 1, #children do
+									queue[tail] = children[i]
+									tail += 1
+								end
+							end
+						end
+						count += 1
+						if count % 300 == 0 then
+							task.wait()
+						end
+					end
+				end)
+
+				track("NoFoliage_DescendantAdded", workspace.DescendantAdded:Connect(function(v)
+					if Toggles.NoFoliage and Toggles.NoFoliage.Value then
+						applyFoliageHide(v)
+					end
+				end))
+
+				Library:Notify({ Title = "No Foliage", Description = "Enabled", Time = 2 })
+			else
+				for v in pairs(originalFoliageState) do
+					if v and v.Parent then
+						restoreFoliage(v)
+					end
+				end
+				table.clear(originalFoliageState)
+				Library:Notify({ Title = "No Foliage", Description = "Disabled", Time = 2 })
+			end
+		end,
+	})
+end
+
 VisualLeft:AddToggle("PlayerESP", {
 	Text = "Enabled",
 	Default = false,
@@ -6363,6 +6468,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.DisableShadows and Toggles.DisableShadows.Value then
 		Toggles.DisableShadows:SetValue(false)
+	end
+	if Toggles.NoFoliage and Toggles.NoFoliage.Value then
+		Toggles.NoFoliage:SetValue(false)
 	end
 	if Toggles.NoGrass and Toggles.NoGrass.Value then
 		Toggles.NoGrass:SetValue(false)
