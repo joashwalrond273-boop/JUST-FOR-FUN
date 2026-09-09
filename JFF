@@ -5027,7 +5027,6 @@ end
 -- VISUALS
 -- ==========================================
 local VisualLeft = Tabs.Visuals:AddLeftGroupbox("Player ESP", "scan-eye")
-local VisualOptimize = Tabs.Visuals:AddRightGroupbox("Optimize", "cpu")
 local VisualFPS = Tabs.Visuals:AddRightGroupbox("FPS Booster", "zap")
 
 -- ==========================================
@@ -5050,20 +5049,27 @@ VisualFPS:AddToggle("StretchedRES", {
 		if state then
 			local Camera = workspace.CurrentCamera
 
-			if getgenv().StretchActive == nil then
-				track("StretchedRES", game:GetService("RunService").RenderStepped:Connect(function()
-					Camera.CFrame = Camera.CFrame * CFrame.new(0, 0, 0, 1, 0, 0, 0, 0.67, 0, 0, 0, 1)
-				end))
-			end
+			disconnect("StretchedRES")
+			track("StretchedRES", game:GetService("RunService").RenderStepped:Connect(function()
+				local factor = (Options.StretchFactor and Options.StretchFactor.Value) or 0.67
+				Camera.CFrame = Camera.CFrame * CFrame.new(0, 0, 0, 1, 0, 0, 0, factor, 0, 0, 0, 1)
+			end))
 
-			getgenv().StretchActive = true
 			Library:Notify({ Title = "Stretched RES", Description = "Enabled", Time = 2 })
 		else
 			disconnect("StretchedRES")
-			getgenv().StretchActive = nil
 			Library:Notify({ Title = "Stretched RES", Description = "Disabled", Time = 2 })
 		end
 	end,
+})
+
+VisualFPS:AddSlider("StretchFactor", {
+	Text = "Stretch Factor",
+	Default = 0.67,
+	Min = 0.2,
+	Max = 1.5,
+	Rounding = 2,
+	Compact = true,
 })
 
 VisualFPS:AddToggle("DisableShadows", {
