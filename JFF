@@ -5260,22 +5260,26 @@ VisualFPS:AddToggle("LowTextures", {
 	end,
 })
 
-VisualFPS:AddToggle("DisableEffects", {
-	Text = "Disable Effects",
+local VisualOptimize = Tabs.Visuals:AddRightGroupbox("Optimize", "gauge")
+
+VisualOptimize:AddToggle("UncapFPS", {
+	Text = "Uncap FPS",
 	Default = false,
 	Callback = function(state)
-		for _, v in ipairs(game:GetService("Lighting"):GetChildren()) do
-			if v:IsA("PostEffect") then
-				v.Enabled = not state
+		pcall(function()
+			if state then
+				setfpscap(999)
+			else
+				setfpscap(60)
 			end
-		end
+		end)
 	end,
 })
 
 do
 	local PBR_TYPES = { SurfaceAppearance = true, Texture = true, Decal = true }
 
-	VisualFPS:AddToggle("RemovePBR", {
+	VisualOptimize:AddToggle("RemovePBR", {
 		Text = "Remove PBR Textures",
 		Default = false,
 		Callback = function(state)
@@ -5363,7 +5367,7 @@ do
 		table.insert(particleConnections, conn)
 	end
 
-	VisualFPS:AddToggle("RemoveParticles", {
+	VisualOptimize:AddToggle("RemoveParticles", {
 		Text = "Remove Particles",
 		Default = false,
 		Callback = function(state)
@@ -5408,20 +5412,6 @@ do
 	})
 end
 
-VisualFPS:AddToggle("UncapFPS", {
-	Text = "Uncap FPS",
-	Default = false,
-	Callback = function(state)
-		pcall(function()
-			if state then
-				setfpscap(999)
-			else
-				setfpscap(60)
-			end
-		end)
-	end,
-})
-
 do
 	local HEAVY_POST_CLASSES = {
 		DepthOfFieldEffect = true,
@@ -5459,7 +5449,7 @@ do
 		end
 	end
 
-	VisualFPS:AddToggle("KillHeavyPostEffects", {
+	VisualOptimize:AddToggle("KillHeavyPostEffects", {
 		Text = "Kill Heavy Post FX",
 		Default = false,
 		Callback = function(state)
@@ -5502,210 +5492,17 @@ do
 	})
 end
 
-do
-	local FOLIAGE_NAMES = {
-		leaf = true, leaves = true, tree = true, bush = true, grass = true,
-		foliage = true, plant = true, stick = true, wood = true, log = true,
-		branch = true, pine = true, oak = true, canopy = true, frond = true,
-		fern = true, vine = true, flower = true, moss = true, root = true,
-		trunk = true, sapling = true, reed = true, cactus = true, shrub = true,
-	}
-
-	local originalFoliageState = setmetatable({}, { __mode = "k" })
-
-	local function isFoliagePart(v)
-		if not v then return false end
-		if not (v:IsA("BasePart") or v:IsA("MeshPart") or v:IsA("Part")) then return false end
-		local ok, n = pcall(function() return (v.Name or ""):lower() end)
-		if not ok or not n then return false end
-		for key in pairs(FOLIAGE_NAMES) do
-			if n:find(key, 1, true) then
-				return true
+VisualOptimize:AddToggle("DisableEffects", {
+	Text = "Disable Effects",
+	Default = false,
+	Callback = function(state)
+		for _, v in ipairs(game:GetService("Lighting"):GetChildren()) do
+			if v:IsA("PostEffect") then
+				v.Enabled = not state
 			end
 		end
-		return false
-	end
-
-	local function applyFoliageHide(v)
-		if not isFoliagePart(v) then return end
-		if v == getRootPart() then return end
-		local char = getCharacter()
-		if char and v:IsDescendantOf(char) then return end
-		if originalFoliageState[v] == nil then
-			originalFoliageState[v] = {
-				Transparency = v.Transparency,
-				CanCollide = v.CanCollide,
-				CanTouch = v.CanTouch,
-			}
-		end
-		pcall(function()
-			v.Transparency = 1
-			v.CanCollide = false
-			v.CanTouch = false
-		end)
-	end
-
-	local function restoreFoliage(v)
-		local saved = originalFoliageState[v]
-		if not saved then return end
-		pcall(function()
-			v.Transparency = saved.Transparency
-			v.CanCollide = saved.CanCollide
-			v.CanTouch = saved.CanTouch
-		end)
-	end
-
-	VisualFPS:AddToggle("NoFoliage", {
-		Text = "No Foliage",
-		Default = false,
-		Callback = function(state)
-			disconnect("NoFoliage_DescendantAdded")
-			if state then
-				task.spawn(function()
-					local queue = {workspace}
-					local head = 1
-					local tail = 2
-					local count = 0
-					while head < tail and Toggles.NoFoliage and Toggles.NoFoliage.Value do
-						local current = queue[head]
-						queue[head] = nil
-						head += 1
-						if current and current.Parent then
-							applyFoliageHide(current)
-							local success, children = pcall(current.GetChildren, current)
-							if success and children then
-								for i = 1, #children do
-									queue[tail] = children[i]
-									tail += 1
-								end
-							end
-						end
-						count += 1
-						if count % 300 == 0 then
-							task.wait()
-						end
-					end
-				end)
-
-				track("NoFoliage_DescendantAdded", workspace.DescendantAdded:Connect(function(v)
-					if Toggles.NoFoliage and Toggles.NoFoliage.Value then
-						applyFoliageHide(v)
-					end
-				end))
-
-				Library:Notify({ Title = "No Foliage", Description = "Enabled", Time = 2 })
-			else
-				for v in pairs(originalFoliageState) do
-					if v and v.Parent then
-						restoreFoliage(v)
-					end
-				end
-				table.clear(originalFoliageState)
-				Library:Notify({ Title = "No Foliage", Description = "Disabled", Time = 2 })
-			end
-		end,
-	})
-end
-
-do
-	local BEAM_CLASSES = {
-		Beam = true,
-		Trail = true,
-		RopeConstraint = true,
-	}
-
-	local originalBeamEnabled = setmetatable({}, { __mode = "k" })
-	local beamPropConnections = {}
-
-	local function isBeamObject(v)
-		return v and BEAM_CLASSES[v.ClassName]
-	end
-
-	local function disableBeam(v)
-		if not isBeamObject(v) then return end
-		if originalBeamEnabled[v] == nil then
-			local ok, enabled = pcall(function() return v.Enabled end)
-			if not ok then return end
-			originalBeamEnabled[v] = enabled
-		end
-		pcall(function() v.Enabled = false end)
-		local ok_conn, conn = pcall(function()
-			return v:GetPropertyChangedSignal("Enabled"):Connect(function()
-				if Toggles.NoBeams and Toggles.NoBeams.Value then
-					local ok_e, e = pcall(function() return v.Enabled end)
-					if ok_e and e then
-						pcall(function() v.Enabled = false end)
-					end
-				end
-			end)
-		end)
-		if ok_conn and conn then
-			table.insert(beamPropConnections, conn)
-		end
-	end
-
-	local function restoreBeam(v)
-		local saved = originalBeamEnabled[v]
-		if saved == nil then return end
-		pcall(function() v.Enabled = saved end)
-	end
-
-	VisualFPS:AddToggle("NoBeams", {
-		Text = "No Beams / Trails",
-		Default = false,
-		Callback = function(state)
-			disconnect("NoBeams_DescendantAdded")
-			for _, c in ipairs(beamPropConnections) do
-				pcall(function() c:Disconnect() end)
-			end
-			table.clear(beamPropConnections)
-
-			if state then
-				task.spawn(function()
-					local queue = {workspace}
-					local head = 1
-					local tail = 2
-					local count = 0
-					while head < tail and Toggles.NoBeams and Toggles.NoBeams.Value do
-						local current = queue[head]
-						queue[head] = nil
-						head += 1
-						if current and current.Parent then
-							disableBeam(current)
-							local success, children = pcall(current.GetChildren, current)
-							if success and children then
-								for i = 1, #children do
-									queue[tail] = children[i]
-									tail += 1
-								end
-							end
-						end
-						count += 1
-						if count % 300 == 0 then
-							task.wait()
-						end
-					end
-				end)
-
-				track("NoBeams_DescendantAdded", workspace.DescendantAdded:Connect(function(v)
-					if Toggles.NoBeams and Toggles.NoBeams.Value then
-						disableBeam(v)
-					end
-				end))
-
-				Library:Notify({ Title = "No Beams / Trails", Description = "Enabled", Time = 2 })
-			else
-				for v in pairs(originalBeamEnabled) do
-					if v and v.Parent then
-						restoreBeam(v)
-					end
-				end
-				table.clear(originalBeamEnabled)
-				Library:Notify({ Title = "No Beams / Trails", Description = "Disabled", Time = 2 })
-			end
-		end,
-	})
-end
+	end,
+})
 
 VisualLeft:AddToggle("PlayerESP", {
 	Text = "Enabled",
@@ -6563,17 +6360,20 @@ Library:OnUnload(function()
 	if Toggles.RemovePBR and Toggles.RemovePBR.Value then
 		Toggles.RemovePBR:SetValue(false)
 	end
+	if Toggles.RemoveParticles and Toggles.RemoveParticles.Value then
+		Toggles.RemoveParticles:SetValue(false)
+	end
+	if Toggles.UncapFPS and Toggles.UncapFPS.Value then
+		Toggles.UncapFPS:SetValue(false)
+	end
 	if Toggles.KillHeavyPostEffects and Toggles.KillHeavyPostEffects.Value then
 		Toggles.KillHeavyPostEffects:SetValue(false)
 	end
+	if Toggles.DisableEffects and Toggles.DisableEffects.Value then
+		Toggles.DisableEffects:SetValue(false)
+	end
 	if Toggles.DisableShadows and Toggles.DisableShadows.Value then
 		Toggles.DisableShadows:SetValue(false)
-	end
-	if Toggles.NoFoliage and Toggles.NoFoliage.Value then
-		Toggles.NoFoliage:SetValue(false)
-	end
-	if Toggles.NoBeams and Toggles.NoBeams.Value then
-		Toggles.NoBeams:SetValue(false)
 	end
 	if Toggles.NoGrass and Toggles.NoGrass.Value then
 		Toggles.NoGrass:SetValue(false)
