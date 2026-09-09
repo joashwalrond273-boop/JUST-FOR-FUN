@@ -5027,6 +5027,7 @@ end
 -- VISUALS
 -- ==========================================
 local VisualLeft = Tabs.Visuals:AddLeftGroupbox("Player ESP", "scan-eye")
+local VisualOptimize = Tabs.Visuals:AddRightGroupbox("Optimize", "cpu")
 local VisualFPS = Tabs.Visuals:AddRightGroupbox("FPS Booster", "zap")
 
 -- ==========================================
