@@ -5607,6 +5607,106 @@ do
 	})
 end
 
+do
+	local BEAM_CLASSES = {
+		Beam = true,
+		Trail = true,
+		RopeConstraint = true,
+	}
+
+	local originalBeamEnabled = setmetatable({}, { __mode = "k" })
+	local beamPropConnections = {}
+
+	local function isBeamObject(v)
+		return v and BEAM_CLASSES[v.ClassName]
+	end
+
+	local function disableBeam(v)
+		if not isBeamObject(v) then return end
+		if originalBeamEnabled[v] == nil then
+			local ok, enabled = pcall(function() return v.Enabled end)
+			if not ok then return end
+			originalBeamEnabled[v] = enabled
+		end
+		pcall(function() v.Enabled = false end)
+		local ok_conn, conn = pcall(function()
+			return v:GetPropertyChangedSignal("Enabled"):Connect(function()
+				if Toggles.NoBeams and Toggles.NoBeams.Value then
+					local ok_e, e = pcall(function() return v.Enabled end)
+					if ok_e and e then
+						pcall(function() v.Enabled = false end)
+					end
+				end
+			end)
+		end)
+		if ok_conn and conn then
+			table.insert(beamPropConnections, conn)
+		end
+	end
+
+	local function restoreBeam(v)
+		local saved = originalBeamEnabled[v]
+		if saved == nil then return end
+		pcall(function() v.Enabled = saved end)
+	end
+
+	VisualFPS:AddToggle("NoBeams", {
+		Text = "No Beams / Trails",
+		Default = false,
+		Callback = function(state)
+			disconnect("NoBeams_DescendantAdded")
+			for _, c in ipairs(beamPropConnections) do
+				pcall(function() c:Disconnect() end)
+			end
+			table.clear(beamPropConnections)
+
+			if state then
+				task.spawn(function()
+					local queue = {workspace}
+					local head = 1
+					local tail = 2
+					local count = 0
+					while head < tail and Toggles.NoBeams and Toggles.NoBeams.Value do
+						local current = queue[head]
+						queue[head] = nil
+						head += 1
+						if current and current.Parent then
+							disableBeam(current)
+							local success, children = pcall(current.GetChildren, current)
+							if success and children then
+								for i = 1, #children do
+									queue[tail] = children[i]
+									tail += 1
+								end
+							end
+						end
+						count += 1
+						if count % 300 == 0 then
+							task.wait()
+						end
+					end
+				end)
+
+				track("NoBeams_DescendantAdded", workspace.DescendantAdded:Connect(function(v)
+					if Toggles.NoBeams and Toggles.NoBeams.Value then
+						disableBeam(v)
+					end
+				end))
+
+				Library:Notify({ Title = "No Beams / Trails", Description = "Enabled", Time = 2 })
+			else
+				for v in pairs(originalBeamEnabled) do
+					if v and v.Parent then
+						restoreBeam(v)
+					end
+				end
+				table.clear(originalBeamEnabled)
+				Library:Notify({ Title = "No Beams / Trails", Description = "Disabled", Time = 2 })
+			end
+		end,
+	})
+end
+
 VisualLeft:AddToggle("PlayerESP", {
 	Text = "Enabled",
 	Default = false,
@@ -6471,6 +6571,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.NoFoliage and Toggles.NoFoliage.Value then
 		Toggles.NoFoliage:SetValue(false)
+	end
+	if Toggles.NoBeams and Toggles.NoBeams.Value then
+		Toggles.NoBeams:SetValue(false)
 	end
 	if Toggles.NoGrass and Toggles.NoGrass.Value then
 		Toggles.NoGrass:SetValue(false)
