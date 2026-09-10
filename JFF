@@ -16,6 +16,7 @@ local CollectionService = game:GetService("CollectionService")
 local LocalPlayer = Players.LocalPlayer
 
 local joinLowPingServer
+local isAdmin
 
 -- Obsidian
 local repo = "https://raw.githubusercontent.com/deividcomsono/Obsidian/main/"
@@ -1162,7 +1163,7 @@ AntiIdleGroup:AddToggle("AntiKick", {
 	Default = false,
 })
 
-local function isAdmin(player)
+isAdmin = function(player)
 	local success, rank = pcall(function()
 		return player:GetRankInGroup(7312028)
 	end)
@@ -5652,8 +5653,11 @@ local function removeESP(player)
 		if data.billboard and typeof(data.billboard) == "Instance" then
 			pcall(function() data.billboard:Destroy() end)
 		end
-		if data.highlight and typeof(data.highlight) == "Instance" then
-			pcall(function() data.highlight:Destroy() end)
+		if data.highlight1 and typeof(data.highlight1) == "Instance" then
+			pcall(function() data.highlight1:Destroy() end)
+		end
+		if data.highlight2 and typeof(data.highlight2) == "Instance" then
+			pcall(function() data.highlight2:Destroy() end)
 		end
 		espObjects[player] = nil
 	end
@@ -5692,7 +5696,7 @@ local function setupPlayerESP(player)
 	label.Size = UDim2.fromScale(1, 1)
 	label.BackgroundTransparency = 1
 	label.TextColor3 = (Options and Options.PlayerESPColor and Options.PlayerESPColor.Value) or Color3.new(1, 1, 1)
-	label.TextStrokeTransparency = 0.4
+	label.TextStrokeTransparency = 0.3
 	label.TextStrokeColor3 = Color3.new(0, 0, 0)
 	label.Font = Enum.Font.Jura
 	label.TextSize = 14
@@ -5700,21 +5704,35 @@ local function setupPlayerESP(player)
 	label.Text = player.Name
 	label.Parent = billboard
 
-	local highlight = Instance.new("Highlight")
-	highlight.Name = "TSG_ESPHighlight"
-	highlight.FillColor = Color3.fromRGB(255, 255, 255)
-	highlight.OutlineColor = (Options and Options.OutlineESPColor and Options.OutlineESPColor.Value) or Color3.fromRGB(255, 255, 255)
-	highlight.FillTransparency = 1
-	highlight.OutlineTransparency = 0
-	highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-	highlight.Adornee = character
-	highlight.Enabled = false
-	highlight.Parent = character
+	-- Primary Outer Highlight Layer (AlwaysOnTop + Color Match)
+	local highlight1 = Instance.new("Highlight")
+	highlight1.Name = "TSG_ESPHighlight_Outer"
+	highlight1.FillColor = (Options and Options.OutlineESPColor and Options.OutlineESPColor.Value) or Color3.fromRGB(255, 255, 255)
+	highlight1.OutlineColor = (Options and Options.OutlineESPColor and Options.OutlineESPColor.Value) or Color3.fromRGB(255, 255, 255)
+	highlight1.FillTransparency = 0.85
+	highlight1.OutlineTransparency = 0
+	highlight1.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+	highlight1.Adornee = character
+	highlight1.Enabled = false
+	highlight1.Parent = character
+
+	-- Secondary Inner Highlight Layer (Double Line Effect)
+	local highlight2 = Instance.new("Highlight")
+	highlight2.Name = "TSG_ESPHighlight_Inner"
+	highlight2.FillColor = Color3.fromRGB(255, 255, 255)
+	highlight2.OutlineColor = Color3.fromRGB(255, 255, 255)
+	highlight2.FillTransparency = 1
+	highlight2.OutlineTransparency = 0.15
+	highlight2.DepthMode = Enum.HighlightDepthMode.Occluded
+	highlight2.Adornee = character
+	highlight2.Enabled = false
+	highlight2.Parent = character
 
 	espObjects[player] = {
 		billboard = billboard,
 		label = label,
-		highlight = highlight,
+		highlight1 = highlight1,
+		highlight2 = highlight2,
 		root = root,
 		character = character
 	}
@@ -5807,9 +5825,14 @@ local function updateMasterESP()
 					data.label.Text = text
 				end
 
-				if data.highlight then
-					data.highlight.Enabled = inRange and outlineEnabled
-					data.highlight.OutlineColor = outlineColor
+				if data.highlight1 then
+					data.highlight1.Enabled = inRange and outlineEnabled
+					data.highlight1.OutlineColor = outlineColor
+					data.highlight1.FillColor = outlineColor
+				end
+
+				if data.highlight2 then
+					data.highlight2.Enabled = inRange and outlineEnabled
 				end
 			end
 		end
@@ -5870,8 +5893,9 @@ end)
 Options.OutlineESPColor:OnChanged(function()
 	local color = Options.OutlineESPColor.Value
 	for _, data in pairs(espObjects) do
-		if data.highlight and typeof(data.highlight) == "Instance" then
-			data.highlight.OutlineColor = color
+		if data.highlight1 and typeof(data.highlight1) == "Instance" then
+			data.highlight1.OutlineColor = color
+			data.highlight1.FillColor = color
 		end
 	end
 end)
@@ -6474,7 +6498,6 @@ ThemeManager:ApplyToTab(Tabs["UI Settings"])
 SaveManager:LoadAutoloadConfig()
 
 Library:OnUnload(function()
-
 	if Toggles.DesyncToggle and Toggles.DesyncToggle.Value then
 		Toggles.DesyncToggle:SetValue(false)
 	end
