@@ -5691,35 +5691,22 @@ local function createESP(player)
 	label.Parent = billboard
 
 	local highlight = Instance.new("Highlight")
-	highlight.Name = "ESPHighlight"
 	highlight.FillColor = Color3.fromRGB(255, 255, 255)
 	highlight.OutlineColor = Options.OutlineESPColor.Value
 	highlight.FillTransparency = 1
-	highlight.OutlineTransparency = 0.35
+	highlight.OutlineTransparency = 0
 	highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
 	highlight.Adornee = character
 	highlight.Parent = character
 	highlight.Enabled = false
 
-	local highlightInner = Instance.new("Highlight")
-	highlightInner.Name = "ESPHighlightInner"
-	highlightInner.FillColor = Color3.fromRGB(255, 255, 255)
-	highlightInner.OutlineColor = Color3.fromRGB(255, 255, 255)
-	highlightInner.FillTransparency = 1
-	highlightInner.OutlineTransparency = 0.65
-	highlightInner.DepthMode = Enum.HighlightDepthMode.Occluded
-	highlightInner.Adornee = character
-	highlightInner.Parent = character
-	highlightInner.Enabled = false
-
-	espObjects[player] = { billboard, label, highlight, highlightInner }
+	espObjects[player] = { billboard, label, highlight }
 
 	local lastUpdate = 0
 	local function update()
 		local myRoot = getRootPart()
 		if not myRoot or not character.Parent then
 			if highlight then highlight.Enabled = false end
-			if highlightInner then highlightInner.Enabled = false end
 			return
 		end
 
@@ -5739,12 +5726,8 @@ local function createESP(player)
 		end
 		label.Text = text
 
-		local isOutline = (shouldShow and Toggles.OutlineESP and Toggles.OutlineESP.Value == true)
 		if highlight then
-			highlight.Enabled = isOutline
-		end
-		if highlightInner then
-			highlightInner.Enabled = isOutline
+			highlight.Enabled = (shouldShow and Toggles.OutlineESP and Toggles.OutlineESP.Value == true)
 		end
 	end
 
