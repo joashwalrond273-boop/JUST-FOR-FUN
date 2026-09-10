@@ -16,7 +16,6 @@ local CollectionService = game:GetService("CollectionService")
 local LocalPlayer = Players.LocalPlayer
 
 local joinLowPingServer
-local isAdmin
 
 -- Obsidian
 local repo = "https://raw.githubusercontent.com/deividcomsono/Obsidian/main/"
@@ -49,7 +48,6 @@ local updatePVPModulesVisibility
 local updateTouchFlingVisibility
 local updateAutoPickupVisibility
 local updatePlayerESPVisibility
-local updateStretchedRESVisibility
 
 Library.ShowToggleFrameInKeybinds = true
 
@@ -1163,7 +1161,7 @@ AntiIdleGroup:AddToggle("AntiKick", {
 	Default = false,
 })
 
-isAdmin = function(player)
+local function isAdmin(player)
 	local success, rank = pcall(function()
 		return player:GetRankInGroup(7312028)
 	end)
@@ -5048,53 +5046,24 @@ VisualFPS:AddToggle("StretchedRES", {
 	Text = "Stretched RES",
 	Default = false,
 	Callback = function(state)
-		if updateStretchedRESVisibility then
-			updateStretchedRESVisibility()
-		end
 		if state then
 			local Camera = workspace.CurrentCamera
 
-			disconnect("StretchedRES")
-			track("StretchedRES", game:GetService("RunService").RenderStepped:Connect(function()
-				local factor = (Options.StretchFactor and Options.StretchFactor.Value) or 0.67
-				Camera.CFrame = Camera.CFrame * CFrame.new(0, 0, 0, 1, 0, 0, 0, factor, 0, 0, 0, 1)
-			end))
+			if getgenv().StretchActive == nil then
+				track("StretchedRES", game:GetService("RunService").RenderStepped:Connect(function()
+					Camera.CFrame = Camera.CFrame * CFrame.new(0, 0, 0, 1, 0, 0, 0, 0.67, 0, 0, 0, 1)
+				end))
+			end
 
+			getgenv().StretchActive = true
 			Library:Notify({ Title = "Stretched RES", Description = "Enabled", Time = 2 })
 		else
 			disconnect("StretchedRES")
+			getgenv().StretchActive = nil
 			Library:Notify({ Title = "Stretched RES", Description = "Disabled", Time = 2 })
 		end
 	end,
 })
-
-VisualFPS:AddSlider("StretchFactor", {
-	Text = "Stretch Factor",
-	Default = 0.67,
-	Min = 0.2,
-	Max = 1.5,
-	Rounding = 2,
-	Compact = true,
-})
-
-updateStretchedRESVisibility = function()
-	local isStretch = (Toggles.StretchedRES and Toggles.StretchedRES.Value) or false
-	if Options.StretchFactor then
-		Options.StretchFactor.Visible = isStretch
-		if Options.StretchFactor.Holder then
-			Options.StretchFactor.Holder.Visible = isStretch
-		end
-	end
-	VisualFPS:Resize()
-end
-
-updateStretchedRESVisibility()
-task.spawn(function()
-	task.wait(0.05)
-	if updateStretchedRESVisibility then
-		updateStretchedRESVisibility()
-	end
-end)
 
 VisualFPS:AddToggle("DisableShadows", {
 	Text = "Disable Shadows",
