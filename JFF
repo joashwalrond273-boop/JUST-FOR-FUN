@@ -303,6 +303,7 @@ pcall(function()
 end)
 
 Library.Font = Enum.Font.Jura
+Library.CornerRadius = 15
 
 -- Window
 local Window = Library:CreateWindow({
@@ -314,6 +315,7 @@ local Window = Library:CreateWindow({
 	Resizable = true,
 	NotifySide = "Right",
 	ShowCustomCursor = true,
+	CornerRadius = 15,
 })
 
 local Tabs = {
@@ -1304,7 +1306,7 @@ CombatAutoSwingGroup:AddToggle("AutoSwing", {
 	Default = false,
 })
 
-CombatAutoSwingGroup:AddToggle("SmartSwing", {
+CombatAutoSwingGroup:AddCheckbox("SmartSwing", {
 	Text = "+ Smart Swing",
 	Default = false,
 })
@@ -1381,7 +1383,54 @@ task.spawn(function()
 	end
 end)
 
-local CombatAutoPVP = Tabs.Combat:AddLeftGroupbox("PVP Modules", "swords")
+local CombatAimbot = Tabs.Combat:AddLeftGroupbox("AIMBOT", "crosshair")
+
+CombatAimbot:AddToggle("AimbotLockOn", {
+	Text = "Lock On",
+	Default = false,
+})
+
+CombatAimbot:AddSlider("AimbotFOV", {
+	Text = "FOV Slider",
+	Default = 100,
+	Min = 10,
+	Max = 600,
+	Rounding = 0,
+	Compact = true,
+})
+
+CombatAimbot:AddToggle("InfiniteDistance", {
+	Text = "Infinite Distance",
+	Default = false,
+})
+
+local CombatSwordBot = Tabs.Combat:AddLeftGroupbox("Sword Bot", "swords")
+
+CombatSwordBot:AddToggle("SwordBot", {
+	Text = "Sword Hunter",
+	Default = false,
+})
+
+CombatSwordBot:AddDropdown("ChooseVictim", {
+	Text = "Choose a Victim",
+	Values = {},
+	Default = "",
+})
+
+CombatRight:AddToggle("TargetPlayers", {
+	Text = "Target Players",
+	Default = true,
+})
+
+CombatRight:AddToggle("HighlightTarget", {
+	Text = "Highlight Target",
+	Default = true,
+}):AddColorPicker("HighlightTargetColor", {
+	Default = Color3.fromRGB(255, 60, 60),
+	Title = "Highlight Target Color",
+})
+
+local CombatAutoPVP = Tabs.Combat:AddRightGroupbox("PVP Modules", "swords")
 
 CombatAutoPVP:AddCheckbox("AutoShiftlock", {
 	Text = "Shiftlock",
@@ -1475,53 +1524,6 @@ task.spawn(function()
 		updatePVPModulesVisibility()
 	end
 end)
-
-local CombatSwordBot = Tabs.Combat:AddLeftGroupbox("Sword Bot", "swords")
-
-CombatSwordBot:AddToggle("SwordBot", {
-	Text = "Sword Hunter",
-	Default = false,
-})
-
-CombatSwordBot:AddDropdown("ChooseVictim", {
-	Text = "Choose a Victim",
-	Values = {},
-	Default = "",
-})
-
-CombatRight:AddToggle("TargetPlayers", {
-	Text = "Target Players",
-	Default = true,
-})
-
-CombatRight:AddToggle("HighlightTarget", {
-	Text = "Highlight Target",
-	Default = true,
-}):AddColorPicker("HighlightTargetColor", {
-	Default = Color3.fromRGB(255, 60, 60),
-	Title = "Highlight Target Color",
-})
-
-local CombatAimbot = Tabs.Combat:AddRightGroupbox("AIMBOT", "crosshair")
-
-CombatAimbot:AddToggle("AimbotLockOn", {
-	Text = "Lock On",
-	Default = false,
-})
-
-CombatAimbot:AddSlider("AimbotFOV", {
-	Text = "FOV Slider",
-	Default = 100,
-	Min = 10,
-	Max = 600,
-	Rounding = 0,
-	Compact = true,
-})
-
-CombatAimbot:AddToggle("InfiniteDistance", {
-	Text = "Infinite Distance",
-	Default = false,
-})
 
 local CombatReach = Tabs.Combat:AddRightGroupbox("Advance Reach", "expand")
 
@@ -2884,6 +2886,11 @@ MoveSwimBoost:AddToggle("SwimBoost", {
 	Default = false,
 })
 
+MoveSwimBoost:AddCheckbox("SinkFastPVP", {
+	Text = "+ Sink Fast PVP",
+	Default = false,
+})
+
 MoveSwimBoost:AddSlider("SwimBoostValue", {
 	Text = "Swim Speed Value",
 	Default = 30,
@@ -2891,11 +2898,6 @@ MoveSwimBoost:AddSlider("SwimBoostValue", {
 	Max = 100,
 	Rounding = 1,
 	Compact = true,
-})
-
-MoveSwimBoost:AddToggle("SinkFastPVP", {
-	Text = "+ Sink Fast PVP",
-	Default = false,
 })
 
 local MoveBoatSpeed = Tabs.Movement:AddLeftGroupbox("Boat Speed", "anchor")
