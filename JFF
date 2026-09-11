@@ -48,6 +48,7 @@ local updatePVPModulesVisibility
 local updateTouchFlingVisibility
 local updateAutoPickupVisibility
 local updatePlayerESPVisibility
+local updateFlightVisibility
 
 Library.ShowToggleFrameInKeybinds = true
 
@@ -3149,15 +3150,60 @@ MoveRight:AddSlider("InvisibleFlySpeedSlider", {
 	Compact = true,
 })
 
-MoveRight:AddLabel("Highlight Fill Color"):AddColorPicker("InvisibleFlyFillColor", {
+local invisFillLabel = MoveRight:AddLabel("Highlight Fill Color")
+invisFillLabel:AddColorPicker("InvisibleFlyFillColor", {
 	Default = Color3.fromRGB(0, 255, 0),
 	Title = "Invisible Fly Highlight Fill Color",
 })
 
-MoveRight:AddLabel("Highlight Outline Color"):AddColorPicker("InvisibleFlyOutlineColor", {
+local invisOutlineLabel = MoveRight:AddLabel("Highlight Outline Color")
+invisOutlineLabel:AddColorPicker("InvisibleFlyOutlineColor", {
 	Default = Color3.fromRGB(255, 255, 255),
 	Title = "Invisible Fly Highlight Outline Color",
 })
+
+updateFlightVisibility = function()
+	local isFly = (Toggles.Fly and Toggles.Fly.Value) or false
+	local isInvisFly = (Toggles.InvisibleFlyToggle and Toggles.InvisibleFlyToggle.Value) or false
+
+	if Options.FlySpeed then
+		Options.FlySpeed.Visible = isFly
+		if Options.FlySpeed.Holder then
+			Options.FlySpeed.Holder.Visible = isFly
+		end
+	end
+
+	if Options.InvisibleFlySpeedSlider then
+		Options.InvisibleFlySpeedSlider.Visible = isInvisFly
+		if Options.InvisibleFlySpeedSlider.Holder then
+			Options.InvisibleFlySpeedSlider.Holder.Visible = isInvisFly
+		end
+	end
+
+	if invisFillLabel then
+		invisFillLabel.Visible = isInvisFly
+		if invisFillLabel.Holder then
+			invisFillLabel.Holder.Visible = isInvisFly
+		end
+	end
+
+	if invisOutlineLabel then
+		invisOutlineLabel.Visible = isInvisFly
+		if invisOutlineLabel.Holder then
+			invisOutlineLabel.Holder.Visible = isInvisFly
+		end
+	end
+
+	MoveRight:Resize()
+end
+
+updateFlightVisibility()
+task.spawn(function()
+	task.wait(0.05)
+	if updateFlightVisibility then
+		updateFlightVisibility()
+	end
+end)
 
 local MoveLowGravity = Tabs.Movement:AddRightGroupbox("Low Gravity", "arrow-down")
 
@@ -3464,6 +3510,9 @@ track("FlyInputBegan", flyInputBegan)
 track("FlyInputEnded", flyInputEnded)
 
 Toggles.Fly:OnChanged(function()
+	if updateFlightVisibility then
+		updateFlightVisibility()
+	end
 	disconnect("Fly")
 	if Toggles.Fly.Value then
 		track("Fly", RunService.Heartbeat:Connect(function()
@@ -5792,6 +5841,9 @@ local function restoreInvisFlyTranslucency()
 end
 
 local function onInvisibleFlyToggle(state)
+	if updateFlightVisibility then
+		updateFlightVisibility()
+	end
 	invisibleFlyVars.invisiblefly = state
 
 	if state then
