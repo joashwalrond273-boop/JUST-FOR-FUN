@@ -5354,83 +5354,147 @@ do
 end
 
 do
-	local particleConnections = {}
-	local originalEnabledStates = setmetatable({}, { __mode = "k" })
-	local knownParticleNames = {}
+	local PARTICLE_CLASSES = {
+		ParticleEmitter = true,
+		Fire = true,
+		Smoke = true,
+		Sparkles = true,
+		Trail = true,
+		Beam = true,
+	}
 
-	local function rebuildKnownParticles()
-		table.clear(knownParticleNames)
-		local particlesFolder = ReplicatedStorage:FindFirstChild("Particles")
-		if particlesFolder then
-			for _, v in ipairs(particlesFolder:GetDescendants()) do
-				if v:IsA("ParticleEmitter") or v:IsA("Fire") or v:IsA("Smoke") or v:IsA("Sparkles") then
-					knownParticleNames[v.Name] = true
-				end
-			end
-		end
-	end
+	local originalStates = setmetatable({}, { __mode = "k" })
+	local activeParticleConns = {}
 
 	local function disableParticle(v)
-		if not (v:IsA("ParticleEmitter") or v:IsA("Fire") or v:IsA("Smoke") or v:IsA("Sparkles")) then return end
-		if not knownParticleNames[v.Name] then return end
+		if not v or not PARTICLE_CLASSES[v.ClassName] then return end
 
-		if originalEnabledStates[v] == nil then
-			originalEnabledStates[v] = v.Enabled
+		if originalStates[v] == nil then
+			originalStates[v] = {
+				Enabled = v.Enabled,
+				Rate = v:IsA("ParticleEmitter") and v.Rate or nil,
+			}
 		end
+
 		pcall(function()
 			v.Enabled = false
+			if v:IsA("ParticleEmitter") then
+				v:Clear()
+			end
 		end)
 
-		local conn = v:GetPropertyChangedSignal("Enabled"):Connect(function()
-			if Toggles.RemoveParticles and Toggles.RemoveParticles.Value and v.Enabled then
+		-- Prevent memory leaks: clean up previous connection for this instance if any
+		if activeParticleConns[v] then
+			pcall(function() activeParticleConns[v]:Disconnect() end)
+			activeParticleConns[v] = nil
+		end
+
+		-- Listen for re-enabling by game scripts
+		local conn
+		conn = v:GetPropertyChangedSignal("Enabled"):Connect(function()
+			if not (Toggles.RemoveParticles and Toggles.RemoveParticles.Value) then
+				if conn then
+					pcall(function() conn:Disconnect() end)
+					activeParticleConns[v] = nil
+				end
+				return
+			end
+			if v.Enabled then
 				pcall(function()
 					v.Enabled = false
+					if v:IsA("ParticleEmitter") then
+						v:Clear()
+					end
 				end)
 			end
 		end)
-		table.insert(particleConnections, conn)
+		activeParticleConns[v] = conn
+
+		-- Auto cleanup connection when destroyed or removed
+		local ancestryConn
+		ancestryConn = v.AncestryChanged:Connect(function(_, parent)
+			if not parent then
+				if conn then
+					pcall(function() conn:Disconnect() end)
+					activeParticleConns[v] = nil
+				end
+				if ancestryConn then
+					pcall(function() ancestryConn:Disconnect() end)
+				end
+			end
+		end)
 	end
 
 	VisualFPS:AddToggle("RemoveParticles", {
 		Text = "Remove Particles",
 		Default = false,
 		Callback = function(state)
-			disconnect("RemoveParticles_Templates")
 			disconnect("RemoveParticles_Workspace")
-			for _, conn in ipairs(particleConnections) do
+			disconnect("RemoveParticles_Lighting")
+			for v, conn in pairs(activeParticleConns) do
 				pcall(function() conn:Disconnect() end)
 			end
-			table.clear(particleConnections)
+			table.clear(activeParticleConns)
 
 			if state then
-				rebuildKnownParticles()
-				local particlesFolder = ReplicatedStorage:FindFirstChild("Particles")
-				if particlesFolder then
-					for _, v in ipairs(particlesFolder:GetDescendants()) do
+				-- Process workspace & lighting asynchronously without freeze/stutter
+				task.spawn(function()
+					local queue = { workspace, game:GetService("Lighting") }
+					local head = 1
+					local tail = 3
+					local count = 0
+					while head < tail and Toggles.RemoveParticles and Toggles.RemoveParticles.Value do
+						local current = queue[head]
+						queue[head] = nil
+						head += 1
+						if current and current.Parent then
+							local success, children = pcall(current.GetChildren, current)
+							if success and children then
+								for i = 1, #children do
+									local child = children[i]
+									if PARTICLE_CLASSES[child.ClassName] then
+										disableParticle(child)
+									end
+									queue[tail] = child
+									tail += 1
+								end
+							end
+						end
+						count += 1
+						if count % 350 == 0 then
+							task.wait()
+						end
+					end
+				end)
+
+				track("RemoveParticles_Workspace", workspace.DescendantAdded:Connect(function(v)
+					if Toggles.RemoveParticles and Toggles.RemoveParticles.Value and PARTICLE_CLASSES[v.ClassName] then
 						disableParticle(v)
 					end
-					track("RemoveParticles_Templates", particlesFolder.DescendantAdded:Connect(function(v)
-						if v:IsA("ParticleEmitter") or v:IsA("Fire") or v:IsA("Smoke") or v:IsA("Sparkles") then
-							knownParticleNames[v.Name] = true
-							disableParticle(v)
-						end
-					end))
-				end
+				end))
 
-				for _, v in ipairs(workspace:GetDescendants()) do
-					disableParticle(v)
-				end
-				track("RemoveParticles_Workspace", workspace.DescendantAdded:Connect(disableParticle))
+				track("RemoveParticles_Lighting", game:GetService("Lighting").DescendantAdded:Connect(function(v)
+					if Toggles.RemoveParticles and Toggles.RemoveParticles.Value and PARTICLE_CLASSES[v.ClassName] then
+						disableParticle(v)
+					end
+				end))
+
+				Library:Notify({ Title = "Remove Particles", Description = "Enabled", Time = 2 })
 			else
-				for v, originalState in pairs(originalEnabledStates) do
+				for v, stateInfo in pairs(originalStates) do
 					if v and v.Parent then
 						pcall(function()
-							v.Enabled = originalState
+							if stateInfo.Enabled ~= nil then
+								v.Enabled = stateInfo.Enabled
+							end
+							if stateInfo.Rate ~= nil and v:IsA("ParticleEmitter") then
+								v.Rate = stateInfo.Rate
+							end
 						end)
 					end
 				end
-				table.clear(originalEnabledStates)
-				table.clear(knownParticleNames)
+				table.clear(originalStates)
+				Library:Notify({ Title = "Remove Particles", Description = "Disabled", Time = 2 })
 			end
 		end,
 	})
