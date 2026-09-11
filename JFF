@@ -125,6 +125,170 @@ local function isAlive()
 	return humanoid and humanoid.Health > 0
 end
 
+local SharedScan = {
+	subscribers = {},
+	lastScan = 0,
+	scanInterval = 1 / 30,
+	results = {
+		players = {},
+		aiEntries = {},
+		root = nil,
+		rootPos = nil,
+		hasAlivePlayer = false,
+	},
+}
+
+function SharedScan:Subscribe(name, callback)
+	self.subscribers[name] = callback
+	disconnect("SharedScan_Main")
+	track("SharedScan_Main", RunService.Heartbeat:Connect(function()
+		self:Run()
+	end))
+end
+
+function SharedScan:Unsubscribe(name)
+	self.subscribers[name] = nil
+	local hasAny = false
+	for _ in pairs(self.subscribers) do hasAny = true; break end
+	if not hasAny then
+		disconnect("SharedScan_Main")
+	end
+end
+
+function SharedScan:Run()
+	local now = tick()
+	if now - self.lastScan < self.scanInterval then return end
+	self.lastScan = now
+
+	local myRoot = getRootPart()
+	if not myRoot then return end
+	local results = self.results
+	results.root = myRoot
+	results.rootPos = myRoot.Position
+	table.clear(results.players)
+	table.clear(results.aiEntries)
+	results.hasAlivePlayer = false
+
+	local players = Players:GetPlayers()
+	for i = 1, #players do
+		local otherPlayer = players[i]
+		if otherPlayer ~= LocalPlayer then
+			local char = otherPlayer.Character
+			if char then
+				local otherHum = char:FindFirstChildOfClass("Humanoid")
+				local otherRoot = char:FindFirstChild("HumanoidRootPart") or char.PrimaryPart
+				local alive = otherHum and otherHum.Health > 0
+				local dist = 999999
+				local rootPos = results.rootPos
+				if otherRoot and rootPos then
+					local dx = otherRoot.Position.X - rootPos.X
+					local dy = otherRoot.Position.Y - rootPos.Y
+					local dz = otherRoot.Position.Z - rootPos.Z
+					dist = math.sqrt(dx * dx + dy * dy + dz * dz)
+				end
+				local teammate = false
+				if LocalPlayer.Team and otherPlayer.Team and LocalPlayer.Team == otherPlayer.Team then
+					teammate = true
+				elseif LocalPlayer.TeamColor and otherPlayer.TeamColor and LocalPlayer.TeamColor == otherPlayer.TeamColor and LocalPlayer.TeamColor ~= BrickColor.new("White") then
+					teammate = true
+				end
+				if not teammate then
+					pcall(function()
+						if TSG.ClientData and TSG.ClientData.getKingdom then
+							local myKingdom = TSG.ClientData.getKingdom()
+							local otherKingdom = otherPlayer:GetAttribute("Kingdom") or otherPlayer:GetAttribute("Clan") or otherPlayer:GetAttribute("Team")
+							if myKingdom and otherKingdom and myKingdom == otherKingdom then
+								teammate = true
+							end
+						end
+					end)
+				end
+				if not teammate then
+					local myClan = LocalPlayer:GetAttribute("Clan") or LocalPlayer:GetAttribute("Kingdom") or LocalPlayer:GetAttribute("Tribe") or LocalPlayer:GetAttribute("Team")
+					local theirClan = otherPlayer:GetAttribute("Clan") or otherPlayer:GetAttribute("Kingdom") or otherPlayer:GetAttribute("Tribe") or otherPlayer:GetAttribute("Team")
+					if myClan and theirClan and myClan ~= "" and myClan == theirClan then
+						teammate = true
+					end
+				end
+				if not teammate and char then
+					local myCharClan = LocalPlayer.Character and (LocalPlayer.Character:GetAttribute("Clan") or LocalPlayer.Character:GetAttribute("Kingdom") or LocalPlayer.Character:GetAttribute("Tribe"))
+					local theirCharClan = char:GetAttribute("Clan") or char:GetAttribute("Kingdom") or char:GetAttribute("Tribe")
+					if myCharClan and theirCharClan and myCharClan ~= "" and myCharClan == theirCharClan then
+						teammate = true
+					end
+				end
+
+				results.players[#results.players + 1] = {
+					player = otherPlayer,
+					character = char,
+					root = otherRoot,
+					hum = otherHum,
+					alive = alive,
+					dist = dist,
+					teammate = teammate,
+					animator = otherHum and otherHum:FindFirstChild("Animator"),
+				}
+				if alive and otherRoot then
+					results.hasAlivePlayer = true
+				end
+			end
+		end
+	end
+
+	local aiServer = workspace:FindFirstChild("AI_Server")
+	if aiServer then
+		local ais = aiServer:GetChildren()
+		for i = 1, #ais do
+			local ai = ais[i]
+			if ai:IsA("Model") then
+				local aiHRP = ai:FindFirstChild("HumanoidRootPart") or ai.PrimaryPart
+				local hum = ai:FindFirstChildOfClass("Humanoid")
+				if aiHRP and (not hum or hum.Health > 0) then
+					local dx = aiHRP.Position.X - results.rootPos.X
+					local dy = aiHRP.Position.Y - results.rootPos.Y
+					local dz = aiHRP.Position.Z - results.rootPos.Z
+					local d = math.sqrt(dx * dx + dy * dy + dz * dz)
+					results.aiEntries[#results.aiEntries + 1] = {
+						model = ai,
+						root = aiHRP,
+						hum = hum,
+						dist = d,
+						isServer = true,
+					}
+				end
+			end
+		end
+	end
+	local aiClient = workspace:FindFirstChild("AI_Client")
+	if aiClient then
+		local ais = aiClient:GetChildren()
+		for i = 1, #ais do
+			local ai = ais[i]
+			if ai:IsA("Model") then
+				local aiHRP = ai:FindFirstChild("HumanoidRootPart") or ai.PrimaryPart
+				local hum = ai:FindFirstChildOfClass("Humanoid")
+				if aiHRP and (not hum or hum.Health > 0) then
+					local dx = aiHRP.Position.X - results.rootPos.X
+					local dy = aiHRP.Position.Y - results.rootPos.Y
+					local dz = aiHRP.Position.Z - results.rootPos.Z
+					local d = math.sqrt(dx * dx + dy * dy + dz * dz)
+					results.aiEntries[#results.aiEntries + 1] = {
+						model = ai,
+						root = aiHRP,
+						hum = hum,
+						dist = d,
+						isServer = false,
+					}
+				end
+			end
+		end
+	end
+
+	for _, cb in pairs(self.subscribers) do
+		pcall(cb, results)
+	end
+end
+
 local function isHoldingSelectedSlot(selectedSlot)
 	if not selectedSlot then return false end
 	local character = getCharacter()
@@ -2025,36 +2189,31 @@ local function performInstantDodgeBehind(enemyRoot)
 	root.CFrame = targetCF
 end
 
-local function checkAndPerformDodge()
+local function checkAndPerformDodgeFromScan(scan)
 	if not isAlive() or not Toggles.DodgeAura or not Toggles.DodgeAura.Value then return end
 	if tick() - lastDodgeTime < dodgeCooldown then return end
 
-	local root = getRootPart()
+	local root = scan.root
 	if not root then return end
 
-	for _, player in ipairs(Players:GetPlayers()) do
-		if player ~= LocalPlayer and player.Character then
-			local enemyRoot = player.Character:FindFirstChild("HumanoidRootPart")
-			local hum = player.Character:FindFirstChildOfClass("Humanoid")
-			if enemyRoot and hum and hum.Health > 0 then
-				local dist = (enemyRoot.Position - root.Position).Magnitude
-				if dist <= 10 then
-					local isSwinging = false
-					local animator = hum:FindFirstChild("Animator")
-					if animator then
-						for _, trackObj in ipairs(animator:GetPlayingAnimationTracks()) do
-							if trackObj.Speed > 0 and isSwingAnimation(trackObj) then
-								isSwinging = true
-								break
-							end
-						end
-					end
-
-					if isSwinging then
-						performInstantDodgeBehind(enemyRoot)
+	local pl = scan.players
+	for i = 1, #pl do
+		local e = pl[i]
+		if e.alive and e.root and e.dist <= 10 then
+			local isSwinging = false
+			local animator = e.animator
+			if animator then
+				for _, trackObj in ipairs(animator:GetPlayingAnimationTracks()) do
+					if trackObj.Speed > 0 and isSwingAnimation(trackObj) then
+						isSwinging = true
 						break
 					end
 				end
+			end
+
+			if isSwinging then
+				performInstantDodgeBehind(e.root)
+				break
 			end
 		end
 	end
@@ -2080,6 +2239,7 @@ end
 
 Toggles.DodgeAura:OnChanged(function()
 	disconnect("DodgeAura_Heartbeat")
+	SharedScan:Unsubscribe("DodgeAura")
 	for name in pairs(Connections) do
 		if name:sub(1, 10) == "DodgeAnim_" then
 			disconnect(name)
@@ -2087,7 +2247,7 @@ Toggles.DodgeAura:OnChanged(function()
 	end
 
 	if Toggles.DodgeAura.Value then
-		track("DodgeAura_Heartbeat", RunService.Heartbeat:Connect(checkAndPerformDodge))
+		SharedScan:Subscribe("DodgeAura", checkAndPerformDodgeFromScan)
 
 		for _, player in ipairs(Players:GetPlayers()) do
 			if player ~= LocalPlayer and player.Character then
@@ -2209,15 +2369,15 @@ local function attackNPC(slot, target)
 	end
 end
 
-local function killAuraLoop()
+local function killAuraLoopFromScan(scan)
 	local delayVal = Options.KillAuraSpeed and Options.KillAuraSpeed.Value or 0.2
 	if not isAlive() or tick() - lastKillAuraHit < delayVal then return end
-	local root = getRootPart()
-	if not root then return end
 
 	local slot = tonumber(Options.KillAuraSlot.Value) or 1
 	local range = Options.KillAuraRange.Value
-	local pos = root.Position
+	local root = scan.root
+	local pos = scan.rootPos
+	if not root or not pos then return end
 	local nearestDist = range
 	local nearestTarget = nil
 
@@ -2233,20 +2393,29 @@ local function killAuraLoop()
 
 	local targetSetting = Options.KillAuraTarget and Options.KillAuraTarget.Value or "All"
 
-	-- Scan Players
 	if Toggles.TargetPlayers.Value then
-		for _, otherPlayer in ipairs(Players:GetPlayers()) do
-			if otherPlayer ~= LocalPlayer and otherPlayer.Character then
-				local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
-				local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart") or otherPlayer.Character.PrimaryPart
-				if otherHum and otherHum.Health > 0 and otherRoot then
-					if targetSetting == "All" or otherPlayer.Name == targetSetting then
-						local d = (otherRoot.Position - pos).Magnitude
-						if d < nearestDist and passesAngleCheck(otherRoot.Position) then
-							nearestDist = d
-							nearestTarget = otherPlayer.Character
-						end
+		local pl = scan.players
+		for i = 1, #pl do
+			local e = pl[i]
+			if e.alive and e.root then
+				if targetSetting == "All" or e.player.Name == targetSetting then
+					if e.dist < nearestDist and passesAngleCheck(e.root.Position) then
+						nearestDist = e.dist
+						nearestTarget = e.character
 					end
+				end
+			end
+		end
+	end
+
+	if not nearestTarget then
+		local ai = scan.aiEntries
+		for i = 1, #ai do
+			local e = ai[i]
+			if e.root then
+				if e.dist < nearestDist and passesAngleCheck(e.root.Position) then
+					nearestDist = e.dist
+					nearestTarget = e.model
 				end
 			end
 		end
@@ -2260,7 +2429,6 @@ local function killAuraLoop()
 	lastKillAuraHit = tick()
 	local targetPlayer = Players:GetPlayerFromCharacter(nearestTarget)
 	if targetPlayer then
-		-- Player: use Crypt encryption, fire (slot, encryptedUserId)
 		if Crypt then
 			pcall(function()
 				local k1, k2, k3 = Crypt.checkpublickeys()
@@ -2275,6 +2443,11 @@ local function killAuraLoop()
 	else
 		attackNPC(slot, nearestTarget)
 	end
+end
+
+local function killAuraLoop()
+	SharedScan:Run()
+	killAuraLoopFromScan(SharedScan.results)
 end
 
 -- Aimbot Script
@@ -2317,6 +2490,8 @@ local function getClosestPlayerToCenter()
 	return closestPlayer
 end
 
+local lastAimbotTick = 0
+local lastAimbotFOVTick = 0
 Toggles.AimbotLockOn:OnChanged(function()
 	disconnect("AimbotLoop")
    disconnect("AimbotFOVCircleUpdate")
@@ -2324,6 +2499,9 @@ Toggles.AimbotLockOn:OnChanged(function()
 
 	if Toggles.AimbotLockOn.Value then
            track("AimbotFOVCircleUpdate", RunService.RenderStepped:Connect(function()
+                   local now = tick()
+                   if now - lastAimbotFOVTick < 0.1 then return end
+                   lastAimbotFOVTick = now
                    if fovCircle then
                            local viewportSize = workspace.CurrentCamera.ViewportSize
                            fovCircle.Position = Vector2.new(viewportSize.X / 2, viewportSize.Y / 2)
@@ -2336,6 +2514,9 @@ Toggles.AimbotLockOn:OnChanged(function()
 
 		track("AimbotLoop", RunService.RenderStepped:Connect(function()
 			if Toggles.AimbotLockOn.Value then
+				local now = tick()
+				if now - lastAimbotTick < 1/30 then return end
+				lastAimbotTick = now
 				local target = getClosestPlayerToCenter()
 				if target then
 					local camera = workspace.CurrentCamera
@@ -2349,6 +2530,7 @@ end)
 
 Toggles.KillAura:OnChanged(function()
 	disconnect("KillAura")
+	SharedScan:Unsubscribe("KillAura")
 	if Toggles.KillAura.Value then
 		if not TSG.MeleePlayerRemote and not TSG.MeleeAnimalRemote then
 			Library:Notify({
@@ -2359,7 +2541,7 @@ Toggles.KillAura:OnChanged(function()
 			Toggles.KillAura:SetValue(false)
 			return
 		end
-		track("KillAura", RunService.Heartbeat:Connect(killAuraLoop))
+		SharedScan:Subscribe("KillAura", killAuraLoopFromScan)
 		Library:Notify({ Title = "Kill Aura", Description = "Enabled", Time = 2 })
 	end
 end)
@@ -2459,50 +2641,49 @@ local function isTeammate(otherPlayer)
 end
 
 local lastSmartSwing = 0
+local function smartSwingFromScan(scan)
+	if not isAlive() then return end
+	local root = scan.root
+	if not root then return end
+
+	local speedVal = Options.AutoSwingSpeed and Options.AutoSwingSpeed.Value or 10
+	local delay = 1 / math.max(0.1, speedVal)
+	if tick() - lastSmartSwing < delay then return end
+
+	local maxDist = Options.PlayerStuds and Options.PlayerStuds.Value or 20
+	local ignoreTeam = Toggles.SmartSwingIgnoreTeam and Toggles.SmartSwingIgnoreTeam.Value
+	local playerNearby = false
+
+	local pl = scan.players
+	for i = 1, #pl do
+		local e = pl[i]
+		if e.alive and e.root then
+			if not ignoreTeam or not e.teammate then
+				if e.dist <= maxDist then
+					playerNearby = true
+					break
+				end
+			end
+		end
+	end
+
+	if playerNearby then
+		local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
+		if tool then
+			tool:Activate()
+			lastSmartSwing = tick()
+		end
+	end
+end
+
 Toggles.SmartSwing:OnChanged(function()
 	disconnect("SmartSwing")
+	SharedScan:Unsubscribe("SmartSwing")
 	if updateAutoSwingSliderVisibility then
 		updateAutoSwingSliderVisibility()
 	end
 	if Toggles.SmartSwing.Value then
-		track("SmartSwing", RunService.Heartbeat:Connect(function()
-			if not isAlive() then return end
-			local root = getRootPart()
-			if not root then return end
-
-			local speedVal = Options.AutoSwingSpeed and Options.AutoSwingSpeed.Value or 10
-			local delay = 1 / math.max(0.1, speedVal)
-			if tick() - lastSmartSwing < delay then return end
-
-			local maxDist = Options.PlayerStuds and Options.PlayerStuds.Value or 20
-			local ignoreTeam = Toggles.SmartSwingIgnoreTeam and Toggles.SmartSwingIgnoreTeam.Value
-			local pos = root.Position
-			local playerNearby = false
-
-			for _, otherPlayer in ipairs(Players:GetPlayers()) do
-				if otherPlayer ~= LocalPlayer and otherPlayer.Character then
-					if not ignoreTeam or not isTeammate(otherPlayer) then
-						local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart") or otherPlayer.Character.PrimaryPart
-						local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
-						if otherRoot and otherHum and otherHum.Health > 0 then
-							local dist = (otherRoot.Position - pos).Magnitude
-							if dist <= maxDist then
-								playerNearby = true
-								break
-							end
-						end
-					end
-				end
-			end
-
-			if playerNearby then
-				local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
-				if tool then
-					tool:Activate()
-					lastSmartSwing = tick()
-				end
-			end
-		end))
+		SharedScan:Subscribe("SmartSwing", smartSwingFromScan)
 		local studs = Options.PlayerStuds and Options.PlayerStuds.Value or 20
 		Library:Notify({ Title = "Smart Swing", Description = "Enabled (Within " .. tostring(studs) .. " Studs)", Time = 2 })
 	else
@@ -2510,55 +2691,52 @@ Toggles.SmartSwing:OnChanged(function()
 	end
 end)
 
+local function autoHopFromScan(scan)
+	if not isAlive() then return end
+	local root = scan.root
+	local hum = getHumanoid()
+	if not root or not hum then return end
+
+	if not hum:GetAttribute("JumpAdjusted") then
+		hum:SetAttribute("JumpAdjusted", true)
+		hum:SetAttribute("OrigJumpPower", hum.JumpPower)
+		hum:SetAttribute("OrigJumpHeight", hum.JumpHeight)
+		if hum.UseJumpPower then
+			hum.JumpPower = math.max(0, hum.JumpPower - 2)
+		else
+			hum.JumpHeight = math.max(0, hum.JumpHeight - 2)
+		end
+	end
+
+	local maxDist = Options.AutoHopStuds and Options.AutoHopStuds.Value or 20
+	local playerNearby = false
+	local pl = scan.players
+	for i = 1, #pl do
+		local e = pl[i]
+		if e.alive and e.root and e.dist <= maxDist then
+			playerNearby = true
+			break
+		end
+	end
+
+	if playerNearby then
+		if hum.FloorMaterial ~= Enum.Material.Air then
+			hum.Jump = true
+			pcall(function()
+				hum:ChangeState(Enum.HumanoidStateType.Jumping)
+			end)
+		end
+	end
+end
+
 Toggles.AutoHop:OnChanged(function()
 	disconnect("AutoHop")
+	SharedScan:Unsubscribe("AutoHop")
 	if updatePVPModulesVisibility then
 		updatePVPModulesVisibility()
 	end
 	if Toggles.AutoHop.Value then
-		track("AutoHop", RunService.Heartbeat:Connect(function()
-			if not isAlive() then return end
-			local root = getRootPart()
-			local hum = getHumanoid()
-			if not root or not hum then return end
-
-			if not hum:GetAttribute("JumpAdjusted") then
-				hum:SetAttribute("JumpAdjusted", true)
-				hum:SetAttribute("OrigJumpPower", hum.JumpPower)
-				hum:SetAttribute("OrigJumpHeight", hum.JumpHeight)
-				if hum.UseJumpPower then
-					hum.JumpPower = math.max(0, hum.JumpPower - 2)
-				else
-					hum.JumpHeight = math.max(0, hum.JumpHeight - 2)
-				end
-			end
-
-			local maxDist = Options.AutoHopStuds and Options.AutoHopStuds.Value or 20
-			local pos = root.Position
-			local playerNearby = false
-			for _, otherPlayer in ipairs(Players:GetPlayers()) do
-				if otherPlayer ~= LocalPlayer and otherPlayer.Character then
-					local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
-					local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
-					if otherRoot and otherHum and otherHum.Health > 0 then
-						local dist = (otherRoot.Position - pos).Magnitude
-						if dist <= maxDist then
-							playerNearby = true
-							break
-						end
-					end
-				end
-			end
-
-			if playerNearby then
-				if hum.FloorMaterial ~= Enum.Material.Air then
-					hum.Jump = true
-					pcall(function()
-						hum:ChangeState(Enum.HumanoidStateType.Jumping)
-					end)
-				end
-			end
-		end))
+		SharedScan:Subscribe("AutoHop", autoHopFromScan)
 	else
 		local hum = getHumanoid()
 		if hum and hum:GetAttribute("JumpAdjusted") then
@@ -2814,6 +2992,8 @@ Toggles.SwordBot:OnChanged(function()
 	if Toggles.SwordBot.Value then
 		local lastSwing = 0
 		local orbitAngle = 0
+		local lastMove = 0
+		local lastFace = 0
 		track("SwordBot", RunService.Heartbeat:Connect(function(dt)
 			if not isAlive() then return end
 			local root = getRootPart()
@@ -2830,17 +3010,18 @@ Toggles.SwordBot:OnChanged(function()
 				return
 			end
 
+			local now = tick()
 			local targetPos = targetRoot.Position
 			local myPos = root.Position
 			local dist = (targetPos - myPos).Magnitude
 
-			-- Force camera/body lock-on facing target on Y axis
-			root.CFrame = CFrame.lookAt(root.Position, Vector3.new(targetPos.X, root.Position.Y, targetPos.Z))
+			if now - lastFace >= 1/30 then
+				lastFace = now
+				root.CFrame = CFrame.lookAt(root.Position, Vector3.new(targetPos.X, root.Position.Y, targetPos.Z))
+			end
 
-			-- Determine movement position (prevent getting closer than 20 studs)
 			local movePos
 			if dist > 20.5 then
-				-- Head directly to the closest point on the 20-stud perimeter
 				local dir = (myPos - targetPos)
 				local flatDir = Vector3.new(dir.X, 0, dir.Z)
 				if flatDir.Magnitude > 0.1 then
@@ -2849,18 +3030,17 @@ Toggles.SwordBot:OnChanged(function()
 					movePos = targetPos + Vector3.new(20, 0, 0)
 				end
 			else
-				-- Orbit smoothly at exactly 20 studs
 				orbitAngle = orbitAngle + (dt * 5)
 				local offset = Vector3.new(math.cos(orbitAngle) * 20, 0, math.sin(orbitAngle) * 20)
 				movePos = targetPos + offset
 			end
 
-			-- Move to calculated position
-			hum:MoveTo(movePos)
+			if now - lastMove >= 0.08 then
+				lastMove = now
+				hum:MoveTo(movePos)
+			end
 
-			-- Check distance for auto hop and attack (jumping around their body in circles)
 			if dist <= 22 then
-				-- Constantly Hop
 				if hum.FloorMaterial ~= Enum.Material.Air then
 					hum.Jump = true
 					pcall(function()
@@ -2868,7 +3048,6 @@ Toggles.SwordBot:OnChanged(function()
 					end)
 				end
 
-				-- Constant auto swing
 				local delay = 0.2
 				if tick() - lastSwing >= delay then
 					local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
@@ -2912,22 +3091,22 @@ local phantomModeVars = {
 	targetPlayer = nil
 }
 
-local function getClosestPlayerInRange()
-	local root = getRootPart()
-	if not root then return nil end
+local phantomLastTick = 0
+
+local function getClosestPlayerInRangeFromScan(scan)
 	local range = Options.RangeAura.Value
 	local closestPlayer = nil
 	local closestDistance = math.huge
 	local targetSetting = Options.PhantomAuraTarget and Options.PhantomAuraTarget.Value or "All"
 
-	for _, player in ipairs(Players:GetPlayers()) do
-		if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-			if targetSetting == "All" or player.Name == targetSetting then
-				local targetRoot = player.Character.HumanoidRootPart
-				local distance = (targetRoot.Position - root.Position).Magnitude
-				if distance < closestDistance and distance <= range then
-					closestPlayer = player
-					closestDistance = distance
+	local pl = scan.players
+	for i = 1, #pl do
+		local e = pl[i]
+		if e.root and e.alive then
+			if targetSetting == "All" or e.player.Name == targetSetting then
+				if e.dist < closestDistance and e.dist <= range then
+					closestPlayer = e.player
+					closestDistance = e.dist
 				end
 			end
 		end
@@ -2936,39 +3115,38 @@ local function getClosestPlayerInRange()
 	return closestPlayer
 end
 
-local function phantomModeLoop(dt)
+local function phantomModeLoopFromScan(scan)
 	if not Toggles.PhantomMode.Value or not isAlive() then
 		return
 	end
 
-	local myRoot = getRootPart()
+	local myRoot = scan.root
 	if not myRoot then return end
 
-	-- Find closest player in range
-	local closestPlayer = getClosestPlayerInRange()
+	local now = tick()
+	local dt = math.min(0.05, now - (phantomLastTick > 0 and phantomLastTick or now))
+	phantomLastTick = now
+
+	local closestPlayer = getClosestPlayerInRangeFromScan(scan)
 	if closestPlayer and closestPlayer.Character and closestPlayer.Character:FindFirstChild("HumanoidRootPart") then
 		phantomModeVars.targetPlayer = closestPlayer
 		local targetRoot = closestPlayer.Character.HumanoidRootPart
 		local targetHum = closestPlayer.Character:FindFirstChildOfClass("Humanoid")
 
-		-- Spectate the target
 		if targetHum then
 			workspace.CurrentCamera.CameraSubject = targetHum
 		end
 
-		-- Orbit around the target's head
 		phantomModeVars.orbitAngle += phantomModeVars.orbitSpeed * dt
 		local offsetX = math.cos(phantomModeVars.orbitAngle) * phantomModeVars.orbitRadius
 		local offsetZ = math.sin(phantomModeVars.orbitAngle) * phantomModeVars.orbitRadius
 		local orbitPosition = targetRoot.Position + Vector3.new(offsetX, phantomModeVars.orbitHeight, offsetZ)
 		myRoot.CFrame = CFrame.new(orbitPosition, targetRoot.Position)
 
-		-- Enable Kill Aura and set best weapon
 		if not Toggles.KillAura.Value then
 			Toggles.KillAura:SetValue(true)
 		end
 
-		-- Find and set best melee weapon
 		local bestWeaponId = getBestMeleeWeapon()
 		if bestWeaponId then
 			local wantedSlot = nil
@@ -2990,7 +3168,6 @@ local function phantomModeLoop(dt)
 			end
 		end
 	else
-		-- If no target, reset camera and disable kill aura
 		phantomModeVars.targetPlayer = nil
 		local myHum = getHumanoid()
 		if myHum then
@@ -3001,11 +3178,12 @@ end
 
 Toggles.PhantomMode:OnChanged(function()
 	disconnect("PhantomMode")
+	SharedScan:Unsubscribe("PhantomMode")
 	if Toggles.PhantomMode.Value then
-		track("PhantomMode", RunService.Heartbeat:Connect(phantomModeLoop))
+		phantomLastTick = 0
+		SharedScan:Subscribe("PhantomMode", phantomModeLoopFromScan)
 		Library:Notify({ Title = "Phantom Mode", Description = "Enabled", Time = 2 })
 	else
-		-- Reset
 		phantomModeVars.targetPlayer = nil
 		local myHum = getHumanoid()
 		if myHum then
@@ -4368,42 +4546,18 @@ end)
 -- ==========================================
 local lastAiAuraHit = 0
 
-local function aiAuraLoop()
+local function aiAuraLoopFromScan(scan)
 	if not isAlive() or tick() - lastAiAuraHit < 0.25 then return end
-	local root = getRootPart()
-	if not root then return end
+	if not isAiAuraRunning then return end
 
 	local range = Options.AiAuraRange.Value
 	local closest, dist = nil, range
-	local pos = root.Position
 
-	-- Check AI_Server
-	local aiServer = workspace:FindFirstChild("AI_Server")
-	if aiServer then
-		for _, ai in ipairs(aiServer:GetChildren()) do
-			local aiHRP = ai:FindFirstChild("HumanoidRootPart") or ai.PrimaryPart
-			local hum = ai:FindFirstChildOfClass("Humanoid")
-			if ai:IsA("Model") and aiHRP and (not hum or hum.Health > 0) then
-				local d = (aiHRP.Position - pos).Magnitude
-				if d < dist then
-					closest, dist = ai, d
-				end
-			end
-		end
-	end
-
-	-- Check AI_Client (like KillAura does)
-	local aiClient = workspace:FindFirstChild("AI_Client")
-	if aiClient then
-		for _, ai in ipairs(aiClient:GetChildren()) do
-			local aiHRP = ai:FindFirstChild("HumanoidRootPart") or ai.PrimaryPart
-			local hum = ai:FindFirstChildOfClass("Humanoid")
-			if ai:IsA("Model") and aiHRP and (not hum or hum.Health > 0) then
-				local d = (aiHRP.Position - pos).Magnitude
-				if d < dist then
-					closest, dist = ai, d
-				end
-			end
+	local ai = scan.aiEntries
+	for i = 1, #ai do
+		local e = ai[i]
+		if e.root and e.dist < dist then
+			closest, dist = e.model, e.dist
 		end
 	end
 
@@ -4415,11 +4569,12 @@ local function aiAuraLoop()
 	local slot = tonumber(Options.AiAuraSlot.Value) or 1
 	lastAiAuraHit = tick()
 
-	attackNPC(slot, closest) -- Use attackNPC for proper server model handling
+	attackNPC(slot, closest)
 end
 
 Toggles.AiAura:OnChanged(function()
 	disconnect("AiAura")
+	SharedScan:Unsubscribe("AiAura")
 	updateHighlight(hlAI, nil, false)
 	if Toggles.AiAura.Value then
 		if not TSG.MeleeAI and not TSG.MeleeAnimalRemote then
@@ -4428,10 +4583,7 @@ Toggles.AiAura:OnChanged(function()
 			return
 		end
 		isAiAuraRunning = true
-		track("AiAura", RunService.Heartbeat:Connect(function()
-			if not isAlive() or not isAiAuraRunning then return end
-			aiAuraLoop()
-		end))
+		SharedScan:Subscribe("AiAura", aiAuraLoopFromScan)
 		Library:Notify({ Title = "AI Aura", Description = "Enabled", Time = 2 })
 	else
 		isAiAuraRunning = false
@@ -4503,6 +4655,8 @@ local function isOreFilterEnabled(oreName)
 end
 
 local lastOreESPUpdate = 0
+local lastOreESPCleanup = 0
+local ORE_ESP_HARD_DISTANCE_CULL = 450
 
 local function oreESPLoop()
 	local now = tick()
@@ -4514,14 +4668,36 @@ local function oreESPLoop()
 
 	local root = getRootPart()
 	local rootPos = root and root.Position
+	if not rootPos then return end
 
 	local showNames = not (Toggles and Toggles.OreESPRemoveNames and Toggles.OreESPRemoveNames.Value)
 	local seen = {}
 	local candidateHighlights = {}
+	local hardDistSq = ORE_ESP_HARD_DISTANCE_CULL * ORE_ESP_HARD_DISTANCE_CULL
+	local highlightDistSq = 350 * 350
+	local didCleanup = false
+	if now - lastOreESPCleanup >= 3 then
+		lastOreESPCleanup = now
+		didCleanup = true
+	end
 
-	for _, chunkFolder in ipairs(folder:GetChildren()) do
+	local chunkFolders = folder:GetChildren()
+	for ci = 1, #chunkFolders do
+		local chunkFolder = chunkFolders[ci]
 		if not chunkFolder:IsA("Folder") then continue end
-		for _, obj in ipairs(chunkFolder:GetChildren()) do
+
+		local chunkPrim = chunkFolder.PrimaryPart or chunkFolder:FindFirstChildWhichIsA("BasePart")
+		if chunkPrim then
+			local dx = chunkPrim.Position.X - rootPos.X
+			local dz = chunkPrim.Position.Z - rootPos.Z
+			if dx * dx + dz * dz > hardDistSq then
+				continue
+			end
+		end
+
+		local objs = chunkFolder:GetChildren()
+		for oi = 1, #objs do
+			local obj = objs[oi]
 			if not obj or not obj.Parent then continue end
 			local oreName = obj.Name or "Unknown"
 			seen[obj] = oreName
@@ -4530,8 +4706,19 @@ local function oreESPLoop()
 			local enabled = isOreFilterEnabled(oreName)
 			local oreColor = getOreColor(oreName)
 
-			local anchor = obj:IsA("Model") and (obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")) or (obj:IsA("BasePart") and obj)
-			local dist = (rootPos and anchor) and (anchor.Position - rootPos).Magnitude or 9999
+			local anchor
+			local dist = 9999
+			if entry and entry._anchor and entry._anchor.Parent then
+				anchor = entry._anchor
+			else
+				anchor = obj:IsA("Model") and (obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")) or (obj:IsA("BasePart") and obj)
+				if entry then entry._anchor = anchor end
+			end
+			if anchor then
+				local dx = anchor.Position.X - rootPos.X
+				local dz = anchor.Position.Z - rootPos.Z
+				dist = math.sqrt(dx * dx + dz * dz + (anchor.Position.Y - rootPos.Y) ^ 2)
+			end
 
 			if not entry then
 				local bill = nil
@@ -4568,7 +4755,7 @@ local function oreESPLoop()
 				hl.Enabled = false
 				hl.Parent = workspace
 
-				entry = { hl = hl, bill = bill, lbl = lbl, oreName = oreName, lastColor = oreColor, lastEnabled = enabled, lastShowNames = showNames, dist = dist }
+				entry = { hl = hl, bill = bill, lbl = lbl, oreName = oreName, lastColor = oreColor, lastEnabled = enabled, lastShowNames = showNames, dist = dist, _anchor = anchor }
 				oreESP.highlights[obj] = entry
 			else
 				entry.dist = dist
@@ -4604,7 +4791,9 @@ local function oreESPLoop()
 	end
 
 	table.sort(candidateHighlights, function(a, b) return a.dist < b.dist end)
-	for i, item in ipairs(candidateHighlights) do
+	local candCount = #candidateHighlights
+	for i = 1, candCount do
+		local item = candidateHighlights[i]
 		if i <= 25 then
 			if not item.entry.hl.Enabled then
 				item.entry.hl.Enabled = true
@@ -4616,11 +4805,13 @@ local function oreESPLoop()
 		end
 	end
 
-	for obj, entry in pairs(oreESP.highlights) do
-		if not seen[obj] or not obj or not obj.Parent then
-			if entry.hl then pcall(function() entry.hl:Destroy() end) end
-			if entry.bill then pcall(function() entry.bill:Destroy() end) end
-			oreESP.highlights[obj] = nil
+	if didCleanup then
+		for obj, entry in pairs(oreESP.highlights) do
+			if not seen[obj] or not obj or not obj.Parent then
+				if entry.hl then pcall(function() entry.hl:Destroy() end) end
+				if entry.bill then pcall(function() entry.bill:Destroy() end) end
+				oreESP.highlights[obj] = nil
+			end
 		end
 	end
 end
@@ -4708,10 +4899,14 @@ Toggles.OreESPToggle:OnChanged(function()
 	Library:Notify({ Title = "Ore ESP", Description = "Enabled (Lag-Optimized)", Time = 2 })
 end)
 
+local lastTitanFloat = 0
 Toggles.TitanAura:OnChanged(function()
 	disconnect("TitanAuraFloat")
 	if Toggles.TitanAura.Value then
 		track("TitanAuraFloat", RunService.Heartbeat:Connect(function()
+			local now = tick()
+			if now - lastTitanFloat < 0.1 then return end
+			lastTitanFloat = now
 			if not isAlive() then return end
 			local root = getRootPart()
 			if not root then return end
@@ -4730,10 +4925,14 @@ Toggles.TitanAura:OnChanged(function()
 	end
 end)
 
+local lastSamuraiFloat = 0
 Toggles.SamuraiAura:OnChanged(function()
 	disconnect("SamuraiAuraFloat")
 	if Toggles.SamuraiAura.Value then
 		track("SamuraiAuraFloat", RunService.Heartbeat:Connect(function()
+			local now = tick()
+			if now - lastSamuraiFloat < 0.1 then return end
+			lastSamuraiFloat = now
 			if not isAlive() then return end
 			local root = getRootPart()
 			if not root then return end
@@ -4752,10 +4951,14 @@ Toggles.SamuraiAura:OnChanged(function()
 	end
 end)
 
+local lastJuggernautFloat = 0
 Toggles.JuggernautAura:OnChanged(function()
 	disconnect("JuggernautAuraFloat")
 	if Toggles.JuggernautAura.Value then
 		track("JuggernautAuraFloat", RunService.Heartbeat:Connect(function()
+			local now = tick()
+			if now - lastJuggernautFloat < 0.1 then return end
+			lastJuggernautFloat = now
 			if not isAlive() then return end
 			local root = getRootPart()
 			if not root then return end
@@ -5357,21 +5560,52 @@ do
 	local particleConnections = {}
 	local originalEnabledStates = setmetatable({}, { __mode = "k" })
 	local knownParticleNames = {}
+	local workspaceWalkerActive = false
+
+	local PARTICLE_CLASSES = {
+		ParticleEmitter = true,
+		Fire = true,
+		Smoke = true,
+		Sparkles = true,
+	}
 
 	local function rebuildKnownParticles()
 		table.clear(knownParticleNames)
 		local particlesFolder = ReplicatedStorage:FindFirstChild("Particles")
 		if particlesFolder then
-			for _, v in ipairs(particlesFolder:GetDescendants()) do
-				if v:IsA("ParticleEmitter") or v:IsA("Fire") or v:IsA("Smoke") or v:IsA("Sparkles") then
-					knownParticleNames[v.Name] = true
+			task.spawn(function()
+				local queue = {particlesFolder}
+				local head = 1
+				local tail = 2
+				local count = 0
+				while head < tail and Toggles.RemoveParticles and Toggles.RemoveParticles.Value do
+					local current = queue[head]
+					queue[head] = nil
+					head += 1
+					if current and current.Parent then
+						if PARTICLE_CLASSES[current.ClassName] then
+							knownParticleNames[current.Name] = true
+							disableParticle(current)
+						end
+						local success, children = pcall(current.GetChildren, current)
+						if success and children then
+							for i = 1, #children do
+								queue[tail] = children[i]
+								tail += 1
+							end
+						end
+					end
+					count += 1
+					if count % 300 == 0 then
+						task.wait()
+					end
 				end
-			end
+			end)
 		end
 	end
 
 	local function disableParticle(v)
-		if not (v:IsA("ParticleEmitter") or v:IsA("Fire") or v:IsA("Smoke") or v:IsA("Sparkles")) then return end
+		if not PARTICLE_CLASSES[v.ClassName] then return end
 		if not knownParticleNames[v.Name] then return end
 
 		if originalEnabledStates[v] == nil then
@@ -5391,12 +5625,43 @@ do
 		table.insert(particleConnections, conn)
 	end
 
+	local function asyncWalkWorkspaceAndDisable()
+		workspaceWalkerActive = true
+		task.spawn(function()
+			local queue = {workspace}
+			local head = 1
+			local tail = 2
+			local count = 0
+			while head < tail and Toggles.RemoveParticles and Toggles.RemoveParticles.Value and workspaceWalkerActive do
+				local current = queue[head]
+				queue[head] = nil
+				head += 1
+				if current and current.Parent then
+					disableParticle(current)
+					local success, children = pcall(current.GetChildren, current)
+					if success and children then
+						for i = 1, #children do
+							queue[tail] = children[i]
+							tail += 1
+						end
+					end
+				end
+				count += 1
+				if count % 300 == 0 then
+					task.wait()
+				end
+			end
+			workspaceWalkerActive = false
+		end)
+	end
+
 	VisualFPS:AddToggle("RemoveParticles", {
 		Text = "Remove Particles",
 		Default = false,
 		Callback = function(state)
 			disconnect("RemoveParticles_Templates")
 			disconnect("RemoveParticles_Workspace")
+			workspaceWalkerActive = false
 			for _, conn in ipairs(particleConnections) do
 				pcall(function() conn:Disconnect() end)
 			end
@@ -5406,20 +5671,15 @@ do
 				rebuildKnownParticles()
 				local particlesFolder = ReplicatedStorage:FindFirstChild("Particles")
 				if particlesFolder then
-					for _, v in ipairs(particlesFolder:GetDescendants()) do
-						disableParticle(v)
-					end
 					track("RemoveParticles_Templates", particlesFolder.DescendantAdded:Connect(function(v)
-						if v:IsA("ParticleEmitter") or v:IsA("Fire") or v:IsA("Smoke") or v:IsA("Sparkles") then
+						if PARTICLE_CLASSES[v.ClassName] then
 							knownParticleNames[v.Name] = true
 							disableParticle(v)
 						end
 					end))
 				end
 
-				for _, v in ipairs(workspace:GetDescendants()) do
-					disableParticle(v)
-				end
+				asyncWalkWorkspaceAndDisable()
 				track("RemoveParticles_Workspace", workspace.DescendantAdded:Connect(disableParticle))
 			else
 				for v, originalState in pairs(originalEnabledStates) do
@@ -5632,6 +5892,58 @@ local function clearESP()
 	table.clear(espObjects)
 end
 
+local espLastBatchUpdate = 0
+local function espBatchUpdate()
+	if not Toggles.PlayerESP or not Toggles.PlayerESP.Value then return end
+	local now = tick()
+	if now - espLastBatchUpdate < 0.1 then return end
+	espLastBatchUpdate = now
+
+	local myRoot = getRootPart()
+	if not myRoot then return end
+
+	local espDist = Options.ESPDistance and Options.ESPDistance.Value or math.huge
+	local nameColor = Options and Options.PlayerESPColor and Options.PlayerESPColor.Value or Color3.new(1, 1, 1)
+	local distColor = Options and Options.ShowDistanceColor and Options.ShowDistanceColor.Value or Color3.new(1, 1, 1)
+	local showOutline = Toggles.OutlineESP and Toggles.OutlineESP.Value == true
+	local showDist = Toggles.ShowDistance and Toggles.ShowDistance.Value
+	local myPos = myRoot.Position
+
+	for player, entry in pairs(espObjects) do
+		local billboard = entry[1]
+		local label = entry[2]
+		local highlight = entry[3]
+		local root = entry._root
+		local character = entry._char
+
+		if not character or not character.Parent or not root or not root.Parent then
+			if highlight then highlight.Enabled = false end
+			if billboard then billboard.Enabled = false end
+			continue
+		end
+
+		local dx = root.Position.X - myPos.X
+		local dy = root.Position.Y - myPos.Y
+		local dz = root.Position.Z - myPos.Z
+		local dist = math.sqrt(dx * dx + dy * dy + dz * dz)
+		local shouldShow = dist <= espDist
+
+		if billboard then
+			billboard.Enabled = shouldShow
+		end
+		if shouldShow then
+			local text = '<font color="#' .. nameColor:ToHex() .. '">' .. player.Name .. '</font>'
+			if showDist then
+				text ..= '\n<font color="#' .. distColor:ToHex() .. '">' .. string.format("%.0fm", dist) .. '</font>'
+			end
+			if label then label.Text = text end
+		end
+		if highlight then
+			highlight.Enabled = (shouldShow and showOutline)
+		end
+	end
+end
+
 local function createESP(player)
 	local character = player.Character
 	if not character then
@@ -5669,39 +5981,11 @@ local function createESP(player)
 	highlight.Parent = character
 	highlight.Enabled = false
 
-	espObjects[player] = { billboard, label, highlight }
+	local entry = { billboard, label, highlight, _root = root, _char = character }
+	espObjects[player] = entry
 
-	local lastUpdate = 0
-	local function update()
-		local myRoot = getRootPart()
-		if not myRoot or not character.Parent then
-			if highlight then highlight.Enabled = false end
-			return
-		end
-
-		local now = tick()
-		if now - lastUpdate < 0.1 then return end
-		lastUpdate = now
-
-		local dist = (root.Position - myRoot.Position).Magnitude
-		local shouldShow = dist <= Options.ESPDistance.Value and Toggles.PlayerESP.Value
-
-		billboard.Enabled = shouldShow
-		local nameColor = Options and Options.PlayerESPColor and Options.PlayerESPColor.Value or Color3.new(1, 1, 1)
-		local distColor = Options and Options.ShowDistanceColor and Options.ShowDistanceColor.Value or Color3.new(1, 1, 1)
-		local text = '<font color="#' .. nameColor:ToHex() .. '">' .. player.Name .. '</font>'
-		if Toggles.ShowDistance.Value then
-			text ..= '\n<font color="#' .. distColor:ToHex() .. '">' .. string.format("%.0fm", dist) .. '</font>'
-		end
-		label.Text = text
-
-		if highlight then
-			highlight.Enabled = (shouldShow and Toggles.OutlineESP and Toggles.OutlineESP.Value == true)
-		end
-	end
-
-	update()
-	track("ESP_" .. player.Name, RunService.Heartbeat:Connect(update))
+	disconnect("ESP_BatchLoop")
+	track("ESP_BatchLoop", RunService.Heartbeat:Connect(espBatchUpdate))
 end
 
 Toggles.PlayerESP:OnChanged(function()
@@ -5710,6 +5994,7 @@ Toggles.PlayerESP:OnChanged(function()
 	end
 	if not Toggles.PlayerESP.Value then
 		clearESP()
+		disconnect("ESP_BatchLoop")
 		for name in pairs(Connections) do
 			if name:sub(1, 4) == "ESP_" then
 				disconnect(name)
@@ -5763,8 +6048,14 @@ Toggles.AlwaysDay:OnChanged(function()
 		Toggles.Midday:SetValue(false)
 		Toggles.AlwaysNight:SetValue(false)
 		disconnect("EnvironmentTime")
+		game:GetService("Lighting").ClockTime = 14
+		local lastClock = 14
 		track("EnvironmentTime", RunService.Heartbeat:Connect(function()
-			game:GetService("Lighting").ClockTime = 14
+			local Lighting = game:GetService("Lighting")
+			if Lighting.ClockTime ~= lastClock then
+				Lighting.ClockTime = 14
+				lastClock = 14
+			end
 		end))
 		Library:Notify({ Title = "Always Day", Description = "Enabled", Time = 2 })
 	else
@@ -5777,8 +6068,14 @@ Toggles.Midday:OnChanged(function()
 		Toggles.AlwaysDay:SetValue(false)
 		Toggles.AlwaysNight:SetValue(false)
 		disconnect("EnvironmentTime")
+		game:GetService("Lighting").ClockTime = 12
+		local lastClock = 12
 		track("EnvironmentTime", RunService.Heartbeat:Connect(function()
-			game:GetService("Lighting").ClockTime = 12
+			local Lighting = game:GetService("Lighting")
+			if Lighting.ClockTime ~= lastClock then
+				Lighting.ClockTime = 12
+				lastClock = 12
+			end
 		end))
 		Library:Notify({ Title = "Midday", Description = "Enabled", Time = 2 })
 	else
@@ -5791,8 +6088,14 @@ Toggles.AlwaysNight:OnChanged(function()
 		Toggles.AlwaysDay:SetValue(false)
 		Toggles.Midday:SetValue(false)
 		disconnect("EnvironmentTime")
+		game:GetService("Lighting").ClockTime = 0
+		local lastClock = 0
 		track("EnvironmentTime", RunService.Heartbeat:Connect(function()
-			game:GetService("Lighting").ClockTime = 0
+			local Lighting = game:GetService("Lighting")
+			if Lighting.ClockTime ~= lastClock then
+				Lighting.ClockTime = 0
+				lastClock = 0
+			end
 		end))
 		Library:Notify({ Title = "Always Night", Description = "Enabled", Time = 2 })
 	else
