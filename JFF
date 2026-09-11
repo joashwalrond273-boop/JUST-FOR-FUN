@@ -2860,36 +2860,6 @@ setupReachTracking()
 -- ==========================================
 -- MOVEMENT
 -- ==========================================
-local MoveFaze = Tabs.Movement:AddLeftGroupbox("FAZE", "zap")
-
-MoveFaze:AddToggle("Noclip", {
-	Text = "Noclip",
-	Default = false,
-})
-
-MoveFaze:AddToggle("Xray", {
-	Text = "Xray",
-	Default = false,
-})
-
-MoveFaze:AddSlider("XrayRadius", {
-	Text = "Xray Radius",
-	Default = 25,
-	Min = 10,
-	Max = 60,
-	Rounding = 0,
-	Compact = true,
-})
-
-MoveFaze:AddSlider("XrayTransparency", {
-	Text = "Xray Transparency",
-	Default = 0.75,
-	Min = 0.1,
-	Max = 1,
-	Rounding = 2,
-	Compact = true,
-})
-
 local MoveLeft = Tabs.Movement:AddLeftGroupbox("Speed", "gauge")
 local MoveRight = Tabs.Movement:AddRightGroupbox("Flight", "plane")
 
@@ -3219,6 +3189,36 @@ MoveLowGravity:AddSlider("LowGravityHeight", {
         Max = 300,
         Rounding = 0,
         Compact = true,
+})
+
+local MoveFaze = Tabs.Movement:AddRightGroupbox("FAZE", "zap")
+
+MoveFaze:AddToggle("Noclip", {
+	Text = "Noclip",
+	Default = false,
+})
+
+MoveFaze:AddToggle("Xray", {
+	Text = "Xray",
+	Default = false,
+})
+
+MoveFaze:AddSlider("XrayRadius", {
+	Text = "Xray Radius",
+	Default = 25,
+	Min = 10,
+	Max = 60,
+	Rounding = 0,
+	Compact = true,
+})
+
+MoveFaze:AddSlider("XrayTransparency", {
+	Text = "Xray Transparency",
+	Default = 0.75,
+	Min = 0.1,
+	Max = 1,
+	Rounding = 2,
+	Compact = true,
 })
 
 Toggles.LowGravity:OnChanged(function()
@@ -5269,15 +5269,6 @@ VisualLeft:AddToggle("PlayerESP", {
 	Title = "Player ESP Color",
 })
 
-VisualLeft:AddSlider("ESPDistance", {
-	Text = "Max Distance",
-	Default = 500,
-	Min = 50,
-	Max = 2000,
-	Rounding = 0,
-	Compact = true,
-})
-
 VisualLeft:AddToggle("ShowDistance", {
 	Text = "Show Distance",
 	Default = false,
@@ -5292,6 +5283,15 @@ VisualLeft:AddToggle("OutlineESP", {
 }):AddColorPicker("OutlineESPColor", {
 	Default = Color3.fromRGB(255, 255, 255),
 	Title = "Outline ESP Color",
+})
+
+VisualLeft:AddSlider("ESPDistance", {
+	Text = "Max Distance",
+	Default = 500,
+	Min = 50,
+	Max = 2000,
+	Rounding = 0,
+	Compact = true,
 })
 
 local updatePlayerESPVisibility = function()
