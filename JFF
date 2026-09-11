@@ -49,22 +49,6 @@ local updateTouchFlingVisibility
 local updateAutoPickupVisibility
 local updatePlayerESPVisibility
 local updateFlightVisibility
-local updateAutoEatVisibility
-local updateKillAuraVisibility
-local updatePhantomAuraVisibility
-local updateAimbotVisibility
-local updateReachVisibility
-local updateQuickVanishVisibility
-local updateXrayVisibility
-local updateSpeedVisibility
-local updateSwimBoostVisibility
-local updateBoatSpeedVisibility
-local updateSwingSpeedVisibility
-local updateLowGravityVisibility
-local updateFakeLagVisibility
-local updateAutoMineVisibility
-local updateAutoChopVisibility
-local updateAiAuraVisibility
 
 Library.ShowToggleFrameInKeybinds = true
 
@@ -454,8 +438,8 @@ KillswitchGroup:AddToggle("KillswitchToggle", {
 	Default = false,
 })
 
-KillswitchGroup:AddToggle("AntiAFK", {
-	Text = "+ Anti-AFK",
+KillswitchGroup:AddCheckbox("AntiAFK", {
+	Text = "Anti-AFK",
 	Default = false,
 })
 
@@ -875,25 +859,6 @@ AdvanceHealGroup:AddSlider("AutoEatThreshold", {
 	Compact = true,
 })
 
-updateAutoEatVisibility = function()
-	local isEat = (Toggles.AutoEatCustom and Toggles.AutoEatCustom.Value) or false
-	if Options.AutoEatFood then
-		Options.AutoEatFood.Visible = isEat
-		if Options.AutoEatFood.Holder then Options.AutoEatFood.Holder.Visible = isEat end
-	end
-	if Options.AutoEatThreshold then
-		Options.AutoEatThreshold.Visible = isEat
-		if Options.AutoEatThreshold.Holder then Options.AutoEatThreshold.Holder.Visible = isEat end
-	end
-	AdvanceHealGroup:Resize()
-end
-
-updateAutoEatVisibility()
-task.spawn(function()
-	task.wait(0.05)
-	if updateAutoEatVisibility then updateAutoEatVisibility() end
-end)
-
 
 local function isAdmin(player)
 	local success, rank = pcall(function()
@@ -1249,9 +1214,6 @@ local function tryEatCustom()
 end
 
 Toggles.AutoEatCustom:OnChanged(function()
-	if updateAutoEatVisibility then
-		updateAutoEatVisibility()
-	end
 	disconnect("AutoEatCustom")
 	if Toggles.AutoEatCustom.Value then
 		track("AutoEatCustom", RunService.Heartbeat:Connect(tryEatCustom))
@@ -1300,33 +1262,6 @@ CombatLeft:AddSlider("KillAuraAngle", {
 	Compact = true,
 })
 
-updateKillAuraVisibility = function()
-	local isAura = (Toggles.KillAura and Toggles.KillAura.Value) or false
-	if Options.KillAuraTarget then
-		Options.KillAuraTarget.Visible = isAura
-		if Options.KillAuraTarget.Holder then Options.KillAuraTarget.Holder.Visible = isAura end
-	end
-	if Options.KillAuraSlot then
-		Options.KillAuraSlot.Visible = isAura
-		if Options.KillAuraSlot.Holder then Options.KillAuraSlot.Holder.Visible = isAura end
-	end
-	if Options.KillAuraRange then
-		Options.KillAuraRange.Visible = isAura
-		if Options.KillAuraRange.Holder then Options.KillAuraRange.Holder.Visible = isAura end
-	end
-	if Options.KillAuraAngle then
-		Options.KillAuraAngle.Visible = isAura
-		if Options.KillAuraAngle.Holder then Options.KillAuraAngle.Holder.Visible = isAura end
-	end
-	CombatLeft:Resize()
-end
-
-updateKillAuraVisibility()
-task.spawn(function()
-	task.wait(0.05)
-	if updateKillAuraVisibility then updateKillAuraVisibility() end
-end)
-
 local CombatPhantomAura = Tabs.Combat:AddLeftGroupbox("Phantom Aura", "ghost")
 
 CombatPhantomAura:AddToggle("PhantomMode", {
@@ -1366,33 +1301,6 @@ CombatPhantomAura:AddSlider("OrbitSpeed", {
 	Rounding = 0,
 	Compact = true,
 })
-
-updatePhantomAuraVisibility = function()
-	local isPhantom = (Toggles.PhantomMode and Toggles.PhantomMode.Value) or false
-	if Options.PhantomAuraTarget then
-		Options.PhantomAuraTarget.Visible = isPhantom
-		if Options.PhantomAuraTarget.Holder then Options.PhantomAuraTarget.Holder.Visible = isPhantom end
-	end
-	if Options.RangeAura then
-		Options.RangeAura.Visible = isPhantom
-		if Options.RangeAura.Holder then Options.RangeAura.Holder.Visible = isPhantom end
-	end
-	if Options.OrbitAdjust then
-		Options.OrbitAdjust.Visible = isPhantom
-		if Options.OrbitAdjust.Holder then Options.OrbitAdjust.Holder.Visible = isPhantom end
-	end
-	if Options.OrbitSpeed then
-		Options.OrbitSpeed.Visible = isPhantom
-		if Options.OrbitSpeed.Holder then Options.OrbitSpeed.Holder.Visible = isPhantom end
-	end
-	CombatPhantomAura:Resize()
-end
-
-updatePhantomAuraVisibility()
-task.spawn(function()
-	task.wait(0.05)
-	if updatePhantomAuraVisibility then updatePhantomAuraVisibility() end
-end)
 
 local CombatAutoSwingGroup = Tabs.Combat:AddLeftGroupbox("Auto Swing", "swords")
 
@@ -1610,21 +1518,6 @@ CombatAimbot:AddSlider("AimbotFOV", {
 	Compact = true,
 })
 
-updateAimbotVisibility = function()
-	local isLock = (Toggles.AimbotLockOn and Toggles.AimbotLockOn.Value) or false
-	if Options.AimbotFOV then
-		Options.AimbotFOV.Visible = isLock
-		if Options.AimbotFOV.Holder then Options.AimbotFOV.Holder.Visible = isLock end
-	end
-	CombatAimbot:Resize()
-end
-
-updateAimbotVisibility()
-task.spawn(function()
-	task.wait(0.05)
-	if updateAimbotVisibility then updateAimbotVisibility() end
-end)
-
 CombatAimbot:AddToggle("InfiniteDistance", {
 	Text = "Infinite Distance",
 	Default = false,
@@ -1651,25 +1544,6 @@ CombatReach:AddSlider("ReachRange", {
 	Rounding = 1,
 	Compact = true,
 })
-
-updateReachVisibility = function()
-	local isReach = (Toggles.Reach and Toggles.Reach.Value) or false
-	if Options.AdvancePreset then
-		Options.AdvancePreset.Visible = isReach
-		if Options.AdvancePreset.Holder then Options.AdvancePreset.Holder.Visible = isReach end
-	end
-	if Options.ReachRange then
-		Options.ReachRange.Visible = isReach
-		if Options.ReachRange.Holder then Options.ReachRange.Holder.Visible = isReach end
-	end
-	CombatReach:Resize()
-end
-
-updateReachVisibility()
-task.spawn(function()
-	task.wait(0.05)
-	if updateReachVisibility then updateReachVisibility() end
-end)
 
 local CombatAutoBlock = Tabs.Combat:AddRightGroupbox("Immortal Mode", "shield")
 
@@ -1701,21 +1575,6 @@ CombatAutoBlock:AddSlider("QuickVanishThreshold", {
 	Rounding = 0,
 	Compact = true,
 })
-
-updateQuickVanishVisibility = function()
-	local isVanish = (Toggles.QuickVanish and Toggles.QuickVanish.Value) or false
-	if Options.QuickVanishThreshold then
-		Options.QuickVanishThreshold.Visible = isVanish
-		if Options.QuickVanishThreshold.Holder then Options.QuickVanishThreshold.Holder.Visible = isVanish end
-	end
-	CombatAutoBlock:Resize()
-end
-
-updateQuickVanishVisibility()
-task.spawn(function()
-	task.wait(0.05)
-	if updateQuickVanishVisibility then updateQuickVanishVisibility() end
-end)
 
 local function isSwingAnimation(trackObj)
 	local anim = trackObj.Animation
@@ -2158,9 +2017,6 @@ local function getClosestPlayerToCenter()
 end
 
 Toggles.AimbotLockOn:OnChanged(function()
-	if updateAimbotVisibility then
-		updateAimbotVisibility()
-	end
 	disconnect("AimbotLoop")
    disconnect("AimbotFOVCircleUpdate")
    if fovCircle then fovCircle.Visible = false end
@@ -2191,9 +2047,6 @@ Toggles.AimbotLockOn:OnChanged(function()
 end)
 
 Toggles.KillAura:OnChanged(function()
-	if updateKillAuraVisibility then
-		updateKillAuraVisibility()
-	end
 	disconnect("KillAura")
 	if Toggles.KillAura.Value then
 		if not TSG.MeleePlayerRemote and not TSG.MeleeAnimalRemote then
@@ -2846,9 +2699,6 @@ local function phantomModeLoop(dt)
 end
 
 Toggles.PhantomMode:OnChanged(function()
-	if updatePhantomAuraVisibility then
-		updatePhantomAuraVisibility()
-	end
 	disconnect("PhantomMode")
 	if Toggles.PhantomMode.Value then
 		track("PhantomMode", RunService.Heartbeat:Connect(phantomModeLoop))
@@ -2873,9 +2723,6 @@ Options.OrbitSpeed:OnChanged(function()
 end)
 
 Toggles.Reach:OnChanged(function()
-	if updateReachVisibility then
-		updateReachVisibility()
-	end
 	if Toggles.Reach.Value then
 		Library:Notify({ Title = "Reach", Description = "Enabled", Time = 2 })
 	end
@@ -3043,25 +2890,6 @@ MoveFaze:AddSlider("XrayTransparency", {
 	Compact = true,
 })
 
-updateXrayVisibility = function()
-	local isXray = (Toggles.Xray and Toggles.Xray.Value) or false
-	if Options.XrayRadius then
-		Options.XrayRadius.Visible = isXray
-		if Options.XrayRadius.Holder then Options.XrayRadius.Holder.Visible = isXray end
-	end
-	if Options.XrayTransparency then
-		Options.XrayTransparency.Visible = isXray
-		if Options.XrayTransparency.Holder then Options.XrayTransparency.Holder.Visible = isXray end
-	end
-	MoveFaze:Resize()
-end
-
-updateXrayVisibility()
-task.spawn(function()
-	task.wait(0.05)
-	if updateXrayVisibility then updateXrayVisibility() end
-end)
-
 local MoveLeft = Tabs.Movement:AddLeftGroupbox("Speed", "gauge")
 local MoveRight = Tabs.Movement:AddRightGroupbox("Flight", "plane")
 
@@ -3078,21 +2906,6 @@ MoveLeft:AddSlider("SpeedValue", {
 	Rounding = 1,
 	Compact = true,
 })
-
-updateSpeedVisibility = function()
-	local isSpeed = (Toggles.SpeedHack and Toggles.SpeedHack.Value) or false
-	if Options.SpeedValue then
-		Options.SpeedValue.Visible = isSpeed
-		if Options.SpeedValue.Holder then Options.SpeedValue.Holder.Visible = isSpeed end
-	end
-	MoveLeft:Resize()
-end
-
-updateSpeedVisibility()
-task.spawn(function()
-	task.wait(0.05)
-	if updateSpeedVisibility then updateSpeedVisibility() end
-end)
 
 local MoveSwimBoost = Tabs.Movement:AddLeftGroupbox("Swim Boost", "droplet")
 
@@ -3115,21 +2928,6 @@ MoveSwimBoost:AddToggle("SinkFastPVP", {
 	Default = false,
 })
 
-updateSwimBoostVisibility = function()
-	local isSwim = (Toggles.SwimBoost and Toggles.SwimBoost.Value) or false
-	if Options.SwimBoostValue then
-		Options.SwimBoostValue.Visible = isSwim
-		if Options.SwimBoostValue.Holder then Options.SwimBoostValue.Holder.Visible = isSwim end
-	end
-	MoveSwimBoost:Resize()
-end
-
-updateSwimBoostVisibility()
-task.spawn(function()
-	task.wait(0.05)
-	if updateSwimBoostVisibility then updateSwimBoostVisibility() end
-end)
-
 local MoveBoatSpeed = Tabs.Movement:AddLeftGroupbox("Boat Speed", "anchor")
 
 MoveBoatSpeed:AddToggle("BoatSpeedToggle", {
@@ -3146,21 +2944,6 @@ MoveBoatSpeed:AddSlider("BoatSpeedValue", {
 	Compact = true,
 })
 
-updateBoatSpeedVisibility = function()
-	local isBoat = (Toggles.BoatSpeedToggle and Toggles.BoatSpeedToggle.Value) or false
-	if Options.BoatSpeedValue then
-		Options.BoatSpeedValue.Visible = isBoat
-		if Options.BoatSpeedValue.Holder then Options.BoatSpeedValue.Holder.Visible = isBoat end
-	end
-	MoveBoatSpeed:Resize()
-end
-
-updateBoatSpeedVisibility()
-task.spawn(function()
-	task.wait(0.05)
-	if updateBoatSpeedVisibility then updateBoatSpeedVisibility() end
-end)
-
 do
 	local boatPlatform = nil
 
@@ -3172,9 +2955,6 @@ do
 	end
 
 	Toggles.BoatSpeedToggle:OnChanged(function()
-		if updateBoatSpeedVisibility then
-			updateBoatSpeedVisibility()
-		end
 		local function getCurrentBoat()
 			local humanoid = getHumanoid()
 			if humanoid and humanoid.SeatPart then
@@ -3342,21 +3122,6 @@ MoveSwingSpeed:AddSlider("SwingSpeedVal", {
 	Compact = true,
 })
 
-updateSwingSpeedVisibility = function()
-	local isSwing = (Toggles.SwingSpeedToggle and Toggles.SwingSpeedToggle.Value) or false
-	if Options.SwingSpeedVal then
-		Options.SwingSpeedVal.Visible = isSwing
-		if Options.SwingSpeedVal.Holder then Options.SwingSpeedVal.Holder.Visible = isSwing end
-	end
-	MoveSwingSpeed:Resize()
-end
-
-updateSwingSpeedVisibility()
-task.spawn(function()
-	task.wait(0.05)
-	if updateSwingSpeedVisibility then updateSwingSpeedVisibility() end
-end)
-
 MoveRight:AddToggle("Fly", {
 	Text = "Fly",
 	Default = false,
@@ -3456,36 +3221,18 @@ MoveLowGravity:AddSlider("LowGravityHeight", {
         Compact = true,
 })
 
-updateLowGravityVisibility = function()
-	local isLowGrav = (Toggles.LowGravity and Toggles.LowGravity.Value) or false
-	if Options.LowGravityHeight then
-		Options.LowGravityHeight.Visible = isLowGrav
-		if Options.LowGravityHeight.Holder then Options.LowGravityHeight.Holder.Visible = isLowGrav end
-	end
-	MoveLowGravity:Resize()
-end
-
-updateLowGravityVisibility()
-task.spawn(function()
-	task.wait(0.05)
-	if updateLowGravityVisibility then updateLowGravityVisibility() end
-end)
-
 Toggles.LowGravity:OnChanged(function()
-	if updateLowGravityVisibility then
-		updateLowGravityVisibility()
-	end
-	if Toggles.LowGravity.Value then
-		workspace.Gravity = math.max(0, 196.2 - Options.LowGravityHeight.Value)
-	else
-		workspace.Gravity = 196.2
-	end
+        if Toggles.LowGravity.Value then
+           workspace.Gravity = math.max(0, 196.2 - Options.LowGravityHeight.Value)
+        else
+                workspace.Gravity = 196.2
+        end
 end)
 
 Options.LowGravityHeight:OnChanged(function()
-	if Toggles.LowGravity.Value then
-		workspace.Gravity = math.max(0, 196.2 - Options.LowGravityHeight.Value)
-	end
+        if Toggles.LowGravity.Value then
+           workspace.Gravity = math.max(0, 196.2 - Options.LowGravityHeight.Value)
+        end
 end)
 
 local FakeLagGroup = Tabs.Movement:AddRightGroupbox("Fake Lag", "zap")
@@ -3503,21 +3250,6 @@ FakeLagGroup:AddSlider("FakeLagValue", {
 	Rounding = 0,
 	Compact = true,
 })
-
-updateFakeLagVisibility = function()
-	local isLag = (Toggles.FakeLag and Toggles.FakeLag.Value) or false
-	if Options.FakeLagValue then
-		Options.FakeLagValue.Visible = isLag
-		if Options.FakeLagValue.Holder then Options.FakeLagValue.Holder.Visible = isLag end
-	end
-	FakeLagGroup:Resize()
-end
-
-updateFakeLagVisibility()
-task.spawn(function()
-	task.wait(0.05)
-	if updateFakeLagVisibility then updateFakeLagVisibility() end
-end)
 
 local noclipCorePartNames = {
 	["HumanoidRootPart"] = true,
@@ -3566,9 +3298,6 @@ Toggles.Noclip:OnChanged(function()
 end)
 
 Toggles.FakeLag:OnChanged(function()
-	if updateFakeLagVisibility then
-		updateFakeLagVisibility()
-	end
 	disconnect("FakeLag")
 	if Toggles.FakeLag.Value then
 		local anchoredCounter = 0
@@ -3643,9 +3372,6 @@ local function scanXrayProximity()
 end
 
 Toggles.Xray:OnChanged(function()
-	if updateXrayVisibility then
-		updateXrayVisibility()
-	end
 	if xrayLoopTask then
 		task.cancel(xrayLoopTask)
 		xrayLoopTask = nil
@@ -3667,9 +3393,6 @@ Toggles.Xray:OnChanged(function()
 end)
 
 Toggles.SpeedHack:OnChanged(function()
-	if updateSpeedVisibility then
-		updateSpeedVisibility()
-	end
 	disconnect("SpeedHack")
 	if Toggles.SpeedHack.Value then
 		Library:Notify({ Title = "Speed", Description = "Enabled", Time = 2 })
@@ -3722,9 +3445,6 @@ Toggles.PlusSpeedBoost:OnChanged(function()
 end)
 
 Toggles.SwimBoost:OnChanged(function()
-	if updateSwimBoostVisibility then
-		updateSwimBoostVisibility()
-	end
 	disconnect("SwimBoost")
 	if Toggles.SwimBoost.Value then
 		Library:Notify({ Title = "Swim Boost", Description = "Enabled", Time = 2 })
@@ -3853,9 +3573,6 @@ Toggles.AntiAFK:OnChanged(function()
 end)
 
 Toggles.SwingSpeedToggle:OnChanged(function()
-	if updateSwingSpeedVisibility then
-		updateSwingSpeedVisibility()
-	end
 	if Toggles.SwingSpeedToggle.Value then
 		Library:Notify({ Title = "Swing Speed", Description = "Enabled", Time = 2 })
 	end
@@ -3987,29 +3704,6 @@ FarmMine:AddToggle("HighlightMine", {
 	Default = true,
 })
 
-updateAutoMineVisibility = function()
-	local isMine = (Toggles.AutoMine and Toggles.AutoMine.Value) or false
-	if Options.AutoMineRange then
-		Options.AutoMineRange.Visible = isMine
-		if Options.AutoMineRange.Holder then Options.AutoMineRange.Holder.Visible = isMine end
-	end
-	if Options.AutoMineSlot then
-		Options.AutoMineSlot.Visible = isMine
-		if Options.AutoMineSlot.Holder then Options.AutoMineSlot.Holder.Visible = isMine end
-	end
-	if Toggles.HighlightMine then
-		if Toggles.HighlightMine.Visible ~= nil then Toggles.HighlightMine.Visible = isMine end
-		if Toggles.HighlightMine.Holder then Toggles.HighlightMine.Holder.Visible = isMine end
-	end
-	FarmMine:Resize()
-end
-
-updateAutoMineVisibility()
-task.spawn(function()
-	task.wait(0.05)
-	if updateAutoMineVisibility then updateAutoMineVisibility() end
-end)
-
 -- ==========================================
 local FarmChop = Tabs.Farming:AddLeftGroupbox("Auto Chop", "axe")
 
@@ -4037,29 +3731,6 @@ FarmChop:AddToggle("HighlightChop", {
 	Text = "Highlight Target",
 	Default = true,
 })
-
-updateAutoChopVisibility = function()
-	local isChop = (Toggles.AutoChop and Toggles.AutoChop.Value) or false
-	if Options.AutoChopRange then
-		Options.AutoChopRange.Visible = isChop
-		if Options.AutoChopRange.Holder then Options.AutoChopRange.Holder.Visible = isChop end
-	end
-	if Options.AutoChopSlot then
-		Options.AutoChopSlot.Visible = isChop
-		if Options.AutoChopSlot.Holder then Options.AutoChopSlot.Holder.Visible = isChop end
-	end
-	if Toggles.HighlightChop then
-		if Toggles.HighlightChop.Visible ~= nil then Toggles.HighlightChop.Visible = isChop end
-		if Toggles.HighlightChop.Holder then Toggles.HighlightChop.Holder.Visible = isChop end
-	end
-	FarmChop:Resize()
-end
-
-updateAutoChopVisibility()
-task.spawn(function()
-	task.wait(0.05)
-	if updateAutoChopVisibility then updateAutoChopVisibility() end
-end)
 
 -- ==========================================
 local OreESPGroup = Tabs.Farming:AddLeftGroupbox("Ore ESP", "gem")
@@ -4104,29 +3775,6 @@ FarmAI:AddToggle("HighlightAI", {
 	Text = "Highlight Target",
 	Default = true,
 })
-
-updateAiAuraVisibility = function()
-	local isAI = (Toggles.AiAura and Toggles.AiAura.Value) or false
-	if Options.AiAuraRange then
-		Options.AiAuraRange.Visible = isAI
-		if Options.AiAuraRange.Holder then Options.AiAuraRange.Holder.Visible = isAI end
-	end
-	if Options.AiAuraSlot then
-		Options.AiAuraSlot.Visible = isAI
-		if Options.AiAuraSlot.Holder then Options.AiAuraSlot.Holder.Visible = isAI end
-	end
-	if Toggles.HighlightAI then
-		if Toggles.HighlightAI.Visible ~= nil then Toggles.HighlightAI.Visible = isAI end
-		if Toggles.HighlightAI.Holder then Toggles.HighlightAI.Holder.Visible = isAI end
-	end
-	FarmAI:Resize()
-end
-
-updateAiAuraVisibility()
-task.spawn(function()
-	task.wait(0.05)
-	if updateAiAuraVisibility then updateAiAuraVisibility() end
-end)
 
 -- ==========================================
 local OreFarm = Tabs.Farming:AddRightGroupbox("Ore Farm", "gem")
@@ -4346,9 +3994,6 @@ local function autoMine()
 end
 
 Toggles.AutoMine:OnChanged(function()
-	if updateAutoMineVisibility then
-		updateAutoMineVisibility()
-	end
 	disconnect("AutoMine")
 	updateHighlight(hlMine, nil, false)
 	if Toggles.AutoMine.Value then
@@ -4413,9 +4058,6 @@ local function autoChop()
 end
 
 Toggles.AutoChop:OnChanged(function()
-	if updateAutoChopVisibility then
-		updateAutoChopVisibility()
-	end
 	disconnect("AutoChop")
 	updateHighlight(hlChop, nil, false)
 	if Toggles.AutoChop.Value then
@@ -4490,9 +4132,6 @@ local function aiAuraLoop()
 end
 
 Toggles.AiAura:OnChanged(function()
-	if updateAiAuraVisibility then
-		updateAiAuraVisibility()
-	end
 	disconnect("AiAura")
 	updateHighlight(hlAI, nil, false)
 	if Toggles.AiAura.Value then
@@ -6374,9 +6013,6 @@ local function checkQuickVanish()
 end
 
 Toggles.QuickVanish:OnChanged(function()
-	if updateQuickVanishVisibility then
-		updateQuickVanishVisibility()
-	end
 	disconnect("QuickVanish")
 	quickVanishTriggered = false
 	if Toggles.QuickVanish.Value then
