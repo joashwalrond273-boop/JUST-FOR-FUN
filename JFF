@@ -51,37 +51,6 @@ local updatePlayerESPVisibility
 
 Library.ShowToggleFrameInKeybinds = true
 
--- Hook Kick function to prevent kicks when Anti-Kick is enabled
-local oldKick
-pcall(function()
-	oldKick = hookmetamethod(game, "__namecall", function(self, ...)
-		local method = getnamecallmethod()
-		if self == LocalPlayer and (method == "Kick" or method == "kick") then
-			if Toggles.AntiKick and Toggles.AntiKick.Value then
-				pcall(function()
-					Library:Notify({ Title = "Anti-Kick", Description = "Blocked an attempted kick call!", Time = 5 })
-				end)
-				return nil
-			end
-		end
-		return oldKick(self, ...)
-	end)
-end)
-
-pcall(function()
-	if typeof(hookfunction) == "function" then
-		local oldKickFunc
-		oldKickFunc = hookfunction(LocalPlayer.Kick, function(self, ...)
-			if Toggles.AntiKick and Toggles.AntiKick.Value then
-				pcall(function()
-					Library:Notify({ Title = "Anti-Kick", Description = "Blocked an attempted kick call!", Time = 5 })
-				end)
-				return nil
-			end
-			return oldKickFunc(self, ...)
-		end)
-	end
-end)
 
 -- Helpers
 local function waitForChild(parent, name, timeout)
@@ -468,13 +437,10 @@ KillswitchGroup:AddToggle("KillswitchToggle", {
 	Default = false,
 })
 
-local DesyncToggle = KillswitchGroup:AddToggle("DesyncToggle", {
-    Text = "+ Desync",
-    Default = false,
+KillswitchGroup:AddToggle("AntiAFK", {
+	Text = "+ Anti-AFK",
+	Default = false,
 })
-if DesyncToggle.TextLabel then
-    DesyncToggle.TextLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
-end
 
 Toggles.KillswitchToggle:OnChanged(function()
 	if Toggles.KillswitchToggle.Value then
@@ -566,15 +532,6 @@ task.spawn(function()
 	end
 end)
 
-FunLeft:AddToggle("Dropkick", {
-	Text = "Dropkick",
-	Default = false,
-	Callback = function(state)
-		if state then
-			loadstring(game:HttpGet("https://raw.githubusercontent.com/platinww/CrustyMain/refs/heads/main/universal/DropKick.lua"))()
-		end
-	end,
-})
 
 local TeleportGroup = Tabs.Main:AddRightGroupbox("TELEPORT", "map-pin")
 
@@ -878,254 +835,6 @@ MainRight:AddButton({
 	end,
 })
 
-local desyncConnections = {}
-local desyncAnimTracks = {}
-local fakeChar = nil
-local originalCF = nil
-
-local function startDesync()
-	local RealChar = LocalPlayer.Character
-	if not RealChar or not RealChar:FindFirstChild("HumanoidRootPart") then return end
-
-	originalCF = RealChar.HumanoidRootPart.CFrame
-	RealChar.Archivable = true
-
-	local ok, err = pcall(function()
-		fakeChar = RealChar:Clone()
-	end)
-	if not ok or not fakeChar then
-		Library:Notify({ Title = "DESYNC", Description = "Failed to clone character: " .. tostring(err), Time = 3 })
-		Toggles.DesyncToggle:SetValue(false)
-		return
-	end
-
-	fakeChar.Name = "Desync_Clone"
-	fakeChar.Parent = workspace
-
-	RealChar.HumanoidRootPart.Anchored = true
-
-	local fakeHum = fakeChar:FindFirstChild("Humanoid")
-	local fakeRoot = fakeChar:FindFirstChild("HumanoidRootPart")
-
-	if not fakeHum or not fakeRoot then
-		fakeChar:Destroy()
-		fakeChar = nil
-		RealChar.HumanoidRootPart.Anchored = false
-		Library:Notify({ Title = "DESYNC", Description = "Clone humanoid/rootpart missing.", Time = 3 })
-		Toggles.DesyncToggle:SetValue(false)
-		return
-	end
-
-	local fakeParts = {}
-	for _, v in pairs(fakeChar:GetDescendants()) do
-		if v:IsA("LocalScript") or v:IsA("Script") then
-			pcall(function() v:Destroy() end)
-		end
-		if v:IsA("BasePart") then
-			v.CanCollide = (v.Name == "HumanoidRootPart")
-			if v.Name == "HumanoidRootPart" then v.Transparency = 1 end
-			table.insert(fakeParts, v)
-		end
-	end
-
-	local function LoadAnim(hum, id)
-		local a = Instance.new("Animation")
-		a.AnimationId = id
-		local trackObj
-		pcall(function()
-			trackObj = hum:LoadAnimation(a)
-		end)
-		return trackObj
-	end
-
-	local OfficialIDs = {
-		Idle  = "rbxassetid://507766388",
-		Walk  = "rbxassetid://507777826",
-		Run   = "rbxassetid://507767714",
-		Jump  = "rbxassetid://507765000",
-		Fall  = "rbxassetid://507767968",
-		Swim  = "rbxassetid://507784064",
-	}
-
-	desyncAnimTracks.Idle  = LoadAnim(fakeHum, OfficialIDs.Idle)
-	desyncAnimTracks.Walk  = LoadAnim(fakeHum, OfficialIDs.Walk)
-	desyncAnimTracks.Run   = LoadAnim(fakeHum, OfficialIDs.Run)
-	desyncAnimTracks.Jump  = LoadAnim(fakeHum, OfficialIDs.Jump)
-	desyncAnimTracks.Fall  = LoadAnim(fakeHum, OfficialIDs.Fall)
-	desyncAnimTracks.Swim  = LoadAnim(fakeHum, OfficialIDs.Swim)
-
-	local function StopAll()
-		for _, trackObj in pairs(desyncAnimTracks) do
-			if trackObj and trackObj.IsPlaying then
-				pcall(function() trackObj:Stop(0.1) end)
-			end
-		end
-	end
-
-	workspace.CurrentCamera.CameraSubject = fakeHum
-	if desyncAnimTracks.Idle then
-		pcall(function() desyncAnimTracks.Idle:Play() end)
-	end
-
-	table.insert(desyncConnections, fakeHum.StateChanged:Connect(function(oldState, newState)
-		if newState == Enum.HumanoidStateType.Jumping then
-			StopAll()
-			if desyncAnimTracks.Jump then pcall(function() desyncAnimTracks.Jump:Play() end) end
-		elseif newState == Enum.HumanoidStateType.Freefall then
-			StopAll()
-			if desyncAnimTracks.Fall then pcall(function() desyncAnimTracks.Fall:Play() end) end
-		elseif newState == Enum.HumanoidStateType.Landed then
-			StopAll()
-			if desyncAnimTracks.Idle then pcall(function() desyncAnimTracks.Idle:Play() end) end
-		elseif newState == Enum.HumanoidStateType.Swimming then
-			StopAll()
-			if desyncAnimTracks.Swim then pcall(function() desyncAnimTracks.Swim:Play(0.1) end) end
-		elseif oldState == Enum.HumanoidStateType.Swimming then
-			StopAll()
-			if desyncAnimTracks.Idle then pcall(function() desyncAnimTracks.Idle:Play(0.1) end) end
-		end
-	end))
-
-	local realHum = RealChar:FindFirstChildOfClass("Humanoid")
-	if realHum then
-		table.insert(desyncConnections, realHum.Died:Connect(function()
-			Toggles.DesyncToggle:SetValue(false)
-		end))
-		table.insert(desyncConnections, RunService.Heartbeat:Connect(function()
-			if not Toggles.DesyncToggle.Value then return end
-			local realCharNow = LocalPlayer.Character
-			if not realCharNow then return end
-			local inWater = realCharNow:GetAttribute("inWater")
-			local rh = realCharNow:FindFirstChildOfClass("Humanoid")
-			local swimmingState = rh and rh:GetState() == Enum.HumanoidStateType.Swimming
-			if inWater or swimmingState then
-				Toggles.DesyncToggle:SetValue(false)
-			end
-		end))
-	end
-	table.insert(desyncConnections, fakeHum.Died:Connect(function()
-		Toggles.DesyncToggle:SetValue(false)
-	end))
-
-	local Controls = nil
-	pcall(function()
-		local PlayerModule = require(LocalPlayer:WaitForChild("PlayerScripts"):WaitForChild("PlayerModule"))
-		Controls = PlayerModule:GetControls()
-	end)
-
-	table.insert(desyncConnections, RunService.RenderStepped:Connect(function()
-		if not Toggles.DesyncToggle.Value or not fakeHum or not fakeRoot then return end
-
-		for _, v in ipairs(fakeParts) do
-			if v and v.CanCollide ~= (v.Name == "HumanoidRootPart") then
-				v.CanCollide = (v.Name == "HumanoidRootPart")
-			end
-		end
-
-		local currentSpeed = 16
-		if Toggles.SpeedHack and Toggles.SpeedHack.Value and Options.SpeedValue then
-			currentSpeed = Options.SpeedValue.Value
-		elseif Toggles.PlusSpeedBoost and Toggles.PlusSpeedBoost.Value and Options.SpeedBoostValue and isHoldingSelectedSlot(Options.SpeedBoostSlot and Options.SpeedBoostSlot.Value) then
-			currentSpeed = Options.SpeedBoostValue.Value
-		elseif RealChar:FindFirstChildOfClass("Humanoid") then
-			currentSpeed = RealChar:FindFirstChildOfClass("Humanoid").WalkSpeed
-		end
-		fakeHum.WalkSpeed = currentSpeed
-
-		local inputVector = Vector3.new(0, 0, 0)
-		if Controls then
-			inputVector = Controls:GetMoveVector()
-		else
-			if UserInputService:IsKeyDown(Enum.KeyCode.W) then inputVector = inputVector + Vector3.new(0, 0, -1) end
-			if UserInputService:IsKeyDown(Enum.KeyCode.S) then inputVector = inputVector + Vector3.new(0, 0, 1) end
-			if UserInputService:IsKeyDown(Enum.KeyCode.A) then inputVector = inputVector + Vector3.new(-1, 0, 0) end
-			if UserInputService:IsKeyDown(Enum.KeyCode.D) then inputVector = inputVector + Vector3.new(1, 0, 0) end
-		end
-
-		local camCF = workspace.CurrentCamera.CFrame
-		fakeHum.PlatformStand = false
-
-		local finalDir = (camCF.RightVector * inputVector.X) + (camCF.LookVector * -inputVector.Z)
-		finalDir = Vector3.new(finalDir.X, 0, finalDir.Z)
-
-		local currentState = fakeHum:GetState()
-		local isGrounded = (currentState == Enum.HumanoidStateType.Running or currentState == Enum.HumanoidStateType.RunningNoPhysics)
-
-		if finalDir.Magnitude > 0 then
-			fakeHum:Move(finalDir.Unit, false)
-			if isGrounded then
-				if desyncAnimTracks.Run and not desyncAnimTracks.Run.IsPlaying then
-					StopAll()
-					pcall(function() desyncAnimTracks.Run:Play(0.1) end)
-				end
-			end
-		else
-			fakeHum:Move(Vector3.new(0, 0, 0), false)
-			if isGrounded then
-				if desyncAnimTracks.Idle and not desyncAnimTracks.Idle.IsPlaying then
-					StopAll()
-					pcall(function() desyncAnimTracks.Idle:Play(0.1) end)
-				end
-			end
-		end
-	end))
-
-	table.insert(desyncConnections, UserInputService.JumpRequest:Connect(function()
-		if Toggles.DesyncToggle.Value and fakeHum and fakeHum:GetState() ~= Enum.HumanoidStateType.Freefall then
-			fakeHum.Jump = true
-		end
-	end))
-end
-
-local function stopDesync()
-	for _, conn in pairs(desyncConnections) do
-		pcall(function() conn:Disconnect() end)
-	end
-	table.clear(desyncConnections)
-
-	for _, trackObj in pairs(desyncAnimTracks) do
-		if trackObj and trackObj.IsPlaying then
-			pcall(function() trackObj:Stop() end)
-		end
-	end
-	table.clear(desyncAnimTracks)
-
-	originalCF = nil
-
-	if fakeChar then
-		local lastCF
-		pcall(function()
-			lastCF = fakeChar:GetPrimaryPartCFrame()
-		end)
-		pcall(function() fakeChar:Destroy() end)
-		fakeChar = nil
-
-		local RealChar = LocalPlayer.Character
-		if RealChar and RealChar:FindFirstChild("HumanoidRootPart") then
-			RealChar.HumanoidRootPart.Anchored = false
-			if lastCF then
-				RealChar.HumanoidRootPart.CFrame = lastCF
-			end
-			local realHum = RealChar:FindFirstChildOfClass("Humanoid")
-			if realHum then
-				workspace.CurrentCamera.CameraSubject = realHum
-			end
-		end
-	end
-end
-
-DesyncToggle:OnChanged(function(Value)
-	if DesyncToggle.TextLabel then
-		DesyncToggle.TextLabel.TextColor3 = Value and Color3.fromRGB(255, 100, 100) or Color3.fromRGB(255, 0, 0)
-	end
-	if Value then
-		startDesync()
-		Library:Notify({ Title = "DESYNC", Description = "Desync Enabled. Body locked.", Time = 2 })
-	else
-		stopDesync()
-		Library:Notify({ Title = "DESYNC", Description = "Desync Disabled. Teleported to clone.", Time = 2 })
-	end
-end)
 
 local AdvanceHealGroup = Tabs.Player:AddRightGroupbox("Advance Heal", "heart")
 
@@ -1149,17 +858,6 @@ AdvanceHealGroup:AddSlider("AutoEatThreshold", {
 	Compact = true,
 })
 
-local AntiIdleGroup = Tabs.Player:AddRightGroupbox("Anti-Idle", "clock")
-
-AntiIdleGroup:AddToggle("AntiAFK", {
-	Text = "Anti-AFK",
-	Default = false,
-})
-
-AntiIdleGroup:AddToggle("AntiKick", {
-	Text = "Anti-Kick",
-	Default = false,
-})
 
 local function isAdmin(player)
 	local success, rank = pcall(function()
@@ -1610,16 +1308,16 @@ CombatAutoSwingGroup:AddToggle("AutoSwing", {
 	Default = false,
 })
 
+CombatAutoSwingGroup:AddToggle("SmartSwing", {
+	Text = "+ Smart Swing",
+	Default = false,
+})
+
 CombatAutoSwingGroup:AddDropdown("AutoSwingSlot", {
 	Text = "Tool Slot",
 	Values = { "Normal", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" },
 	Default = { "Normal" },
 	Multi = true,
-})
-
-CombatAutoSwingGroup:AddToggle("SmartSwing", {
-	Text = "+ Smart Swing",
-	Default = false,
 })
 
 CombatAutoSwingGroup:AddSlider("AutoSwingSpeed", {
@@ -3428,6 +3126,11 @@ MoveRight:AddToggle("Fly", {
 	Default = false,
 })
 
+MoveRight:AddToggle("InvisibleFlyToggle", {
+	Text = "Invis Fly",
+	Default = false,
+})
+
 MoveRight:AddSlider("FlySpeed", {
 	Text = "Fly Speed",
 	Default = 50,
@@ -3435,6 +3138,25 @@ MoveRight:AddSlider("FlySpeed", {
 	Max = 150,
 	Rounding = 0,
 	Compact = true,
+})
+
+MoveRight:AddSlider("InvisibleFlySpeedSlider", {
+	Text = "Invis Slider",
+	Min = 1,
+	Max = 15,
+	Default = 5,
+	Rounding = 1,
+	Compact = true,
+})
+
+MoveRight:AddLabel("Highlight Fill Color"):AddColorPicker("InvisibleFlyFillColor", {
+	Default = Color3.fromRGB(0, 255, 0),
+	Title = "Invisible Fly Highlight Fill Color",
+})
+
+MoveRight:AddLabel("Highlight Outline Color"):AddColorPicker("InvisibleFlyOutlineColor", {
+	Default = Color3.fromRGB(255, 255, 255),
+	Title = "Invisible Fly Highlight Outline Color",
 })
 
 local MoveLowGravity = Tabs.Movement:AddRightGroupbox("Low Gravity", "arrow-down")
@@ -3481,32 +3203,6 @@ FakeLagGroup:AddSlider("FakeLagValue", {
 	Max = 100,
 	Rounding = 0,
 	Compact = true,
-})
-
-local InvisibleFlyGroup = Tabs.Movement:AddRightGroupbox("Invisible Fly", "plane")
-
-InvisibleFlyGroup:AddToggle("InvisibleFlyToggle", {
-        Text = "Invis Fly",
-        Default = false,
-})
-
-InvisibleFlyGroup:AddSlider("InvisibleFlySpeedSlider", {
-        Text = "Fly Speed",
-        Min = 1,
-        Max = 15,
-        Default = 5,
-        Rounding = 1,
-        Compact = true,
-})
-
-InvisibleFlyGroup:AddLabel("Highlight Fill Color"):AddColorPicker("InvisibleFlyFillColor", {
-        Default = Color3.fromRGB(0, 255, 0),
-        Title = "Invisible Fly Highlight Fill Color",
-})
-
-InvisibleFlyGroup:AddLabel("Highlight Outline Color"):AddColorPicker("InvisibleFlyOutlineColor", {
-        Default = Color3.fromRGB(255, 255, 255),
-        Title = "Invisible Fly Highlight Outline Color",
 })
 
 local noclipCorePartNames = {
@@ -3808,7 +3504,6 @@ Toggles.Fly:OnChanged(function()
 end)
 
 local antiAfkConn = nil
-local antiKickConn = nil
 
 Toggles.AntiAFK:OnChanged(function()
 	if antiAfkConn then
@@ -3825,37 +3520,6 @@ Toggles.AntiAFK:OnChanged(function()
 			end)
 		end)
 		Library:Notify({ Title = "Anti-AFK", Description = "Anti-AFK Enabled", Time = 2 })
-	end
-end)
-
-Toggles.AntiKick:OnChanged(function()
-	if antiKickConn then
-		antiKickConn:Disconnect()
-		antiKickConn = nil
-	end
-	if Toggles.AntiKick.Value then
-		local virtualUser = game:GetService("VirtualUser")
-		local lastWiggle = 0
-		antiKickConn = RunService.Heartbeat:Connect(function()
-			if math.random(1, 2000) == 1 then
-				pcall(function()
-					virtualUser:CaptureController()
-					virtualUser:ClickButton2(Vector2.zero)
-				end)
-			end
-			if isAlive() and tick() - lastWiggle > 10 then
-				lastWiggle = tick()
-				pcall(function()
-					local root = getRootPart()
-					if root then
-						root.CFrame = root.CFrame * CFrame.new(0, 0, 0.01)
-						task.wait(0.1)
-						root.CFrame = root.CFrame * CFrame.new(0, 0, -0.01)
-					end
-				end)
-			end
-		end)
-		Library:Notify({ Title = "Anti-Kick", Description = "Anti-Kick Enabled", Time = 2 })
 	end
 end)
 
@@ -6414,9 +6078,6 @@ ThemeManager:ApplyToTab(Tabs["UI Settings"])
 SaveManager:LoadAutoloadConfig()
 
 Library:OnUnload(function()
-	if Toggles.DesyncToggle and Toggles.DesyncToggle.Value then
-		Toggles.DesyncToggle:SetValue(false)
-	end
 	if Toggles.ImmortalMode and Toggles.ImmortalMode.Value then
 		Toggles.ImmortalMode:SetValue(false)
 	end
@@ -6428,9 +6089,6 @@ Library:OnUnload(function()
 	end
 	if Toggles.TouchFling and Toggles.TouchFling.Value then
 		Toggles.TouchFling:SetValue(false)
-	end
-	if Toggles.Dropkick and Toggles.Dropkick.Value then
-		Toggles.Dropkick:SetValue(false)
 	end
 	if Toggles.InfiniteBackpack and Toggles.InfiniteBackpack.Value then
 		Toggles.InfiniteBackpack:SetValue(false)
@@ -6478,9 +6136,6 @@ Library:OnUnload(function()
 	end
 	if Toggles.AntiAFK and Toggles.AntiAFK.Value then
 		Toggles.AntiAFK:SetValue(false)
-	end
-	if Toggles.AntiKick and Toggles.AntiKick.Value then
-		Toggles.AntiKick:SetValue(false)
 	end
 	if Toggles.AimbotLockOn and Toggles.AimbotLockOn.Value then
 		Toggles.AimbotLockOn:SetValue(false)
