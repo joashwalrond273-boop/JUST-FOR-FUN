@@ -528,9 +528,9 @@ FunLeft:AddToggle("TouchFling", {
 
 FunLeft:AddSlider("TouchFlingPower", {
 	Text = "Fling Power",
-	Default = 10000,
+	Default = 5000,
 	Min = 500,
-	Max = 10000,
+	Max = 5000,
 	Rounding = 0,
 	Compact = true,
 })
@@ -5357,148 +5357,292 @@ VisualEnv:AddSlider("ControlTheHours", {
 })
 
 local espObjects = {}
+local espFolder = nil
+
+local function getESPFolder()
+	if espFolder and espFolder.Parent then
+		return espFolder
+	end
+	pcall(function()
+		local safeParent = nil
+		if typeof(gethui) == "function" then
+			safeParent = gethui()
+		elseif typeof(CoreGui) == "Instance" then
+			safeParent = CoreGui
+		else
+			safeParent = workspace
+		end
+		espFolder = Instance.new("Folder")
+		espFolder.Name = "TSG_PlayerESP_Folder"
+		espFolder.Parent = safeParent
+	end)
+	return espFolder or workspace
+end
+
+local function removePlayerESP(player)
+	local entry = espObjects[player]
+	if entry then
+		if entry.billboard then pcall(function() entry.billboard:Destroy() end) end
+		if entry.highlight then pcall(function() entry.highlight:Destroy() end) end
+		if entry.charCon then pcall(function() entry.charCon:Disconnect() end) end
+		espObjects[player] = nil
+	end
+end
 
 local function clearESP()
-	for _, obj in pairs(espObjects) do
-		if typeof(obj) == "Instance" then
-			obj:Destroy()
-		elseif typeof(obj) == "table" then
-			for _, child in pairs(obj) do
-				if typeof(child) == "Instance" then
-					child:Destroy()
+	for player in pairs(espObjects) do
+		removePlayerESP(player)
+	end
+	table.clear(espObjects)
+	if espFolder then
+		pcall(function() espFolder:ClearAllChildren() end)
+	end
+end
+
+local function getOrCreateESP(player)
+	if player == LocalPlayer then return nil end
+	local entry = espObjects[player]
+	local character = player.Character
+	if not character then
+		if entry then
+			if entry.billboard then entry.billboard.Enabled = false end
+			if entry.highlight then entry.highlight.Enabled = false end
+		end
+		return nil
+	end
+
+	local root = character:FindFirstChild("HumanoidRootPart")
+	local hum = character:FindFirstChildOfClass("Humanoid")
+	if not root or not hum or hum.Health <= 0 then
+		if entry then
+			if entry.billboard then entry.billboard.Enabled = false end
+			if entry.highlight then entry.highlight.Enabled = false end
+		end
+		return nil
+	end
+
+	if not entry or entry.character ~= character then
+		if entry then
+			if entry.billboard then pcall(function() entry.billboard:Destroy() end) end
+			if entry.highlight then pcall(function() entry.highlight:Destroy() end) end
+		end
+
+		local billboard = Instance.new("BillboardGui")
+		billboard.Size = UDim2.fromOffset(140, 36)
+		billboard.AlwaysOnTop = true
+		billboard.Adornee = root
+		billboard.MaxDistance = (Options and Options.ESPDistance and Options.ESPDistance.Value) or 2000
+		billboard.Enabled = false
+		billboard.Parent = getESPFolder()
+
+		local label = Instance.new("TextLabel")
+		label.Size = UDim2.fromScale(1, 1)
+		label.BackgroundTransparency = 1
+		label.TextColor3 = (Options and Options.PlayerESPColor and Options.PlayerESPColor.Value) or Color3.new(1, 1, 1)
+		label.TextStrokeTransparency = 0.4
+		label.Font = Enum.Font.Jura
+		label.TextSize = 14
+		label.RichText = true
+		label.Parent = billboard
+
+		local highlight = Instance.new("Highlight")
+		highlight.FillColor = Color3.fromRGB(255, 255, 255)
+		highlight.OutlineColor = (Options and Options.OutlineESPColor and Options.OutlineESPColor.Value) or Color3.fromRGB(255, 255, 255)
+		highlight.FillTransparency = 1
+		highlight.OutlineTransparency = 0
+		highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+		highlight.Adornee = character
+		highlight.Enabled = false
+		highlight.Parent = getESPFolder()
+
+		entry = {
+			player = player,
+			character = character,
+			root = root,
+			hum = hum,
+			billboard = billboard,
+			label = label,
+			highlight = highlight,
+			lastDist = -1,
+			lastShowDist = nil,
+			lastText = "",
+		}
+		espObjects[player] = entry
+	else
+		entry.root = root
+		entry.hum = hum
+	end
+
+	return entry
+end
+
+local lastESPUpdate = 0
+local function updateAllESP()
+	if not Toggles.PlayerESP or not Toggles.PlayerESP.Value then return end
+	local now = tick()
+	if now - lastESPUpdate < 0.05 then return end
+	lastESPUpdate = now
+
+	local myRoot = getRootPart()
+	if not myRoot then
+		for _, entry in pairs(espObjects) do
+			if entry.billboard and entry.billboard.Enabled then entry.billboard.Enabled = false end
+			if entry.highlight and entry.highlight.Enabled then entry.highlight.Enabled = false end
+		end
+		return
+	end
+
+	local maxDist = (Options and Options.ESPDistance and Options.ESPDistance.Value) or 500
+	local showDist = (Toggles.ShowDistance and Toggles.ShowDistance.Value) or false
+	local outlineEnabled = (Toggles.OutlineESP and Toggles.OutlineESP.Value) or false
+	local myPos = myRoot.Position
+
+	local pColor = (Options and Options.PlayerESPColor and Options.PlayerESPColor.Value) or Color3.new(1, 1, 1)
+	local dColor = (Options and Options.ShowDistanceColor and Options.ShowDistanceColor.Value) or Color3.new(1, 1, 1)
+	local oColor = (Options and Options.OutlineESPColor and Options.OutlineESPColor.Value) or Color3.new(1, 1, 1)
+
+	local pColorHex = pColor:ToHex()
+	local dColorHex = dColor:ToHex()
+
+	local activeCandidates = {}
+
+	for _, player in ipairs(Players:GetPlayers()) do
+		if player ~= LocalPlayer then
+			local entry = getOrCreateESP(player)
+			if entry and entry.root and entry.hum and entry.hum.Health > 0 and entry.character.Parent then
+				local dist = (entry.root.Position - myPos).Magnitude
+				if dist <= maxDist then
+					table.insert(activeCandidates, { entry = entry, dist = dist })
 				else
-					pcall(function() child:Remove() end)
+					if entry.billboard.Enabled then entry.billboard.Enabled = false end
+					if entry.highlight.Enabled then entry.highlight.Enabled = false end
 				end
 			end
 		end
 	end
-	table.clear(espObjects)
-end
 
-local function createESP(player)
-	local character = player.Character
-	if not character then
-		return
-	end
-	local root = character:FindFirstChild("HumanoidRootPart")
-	local hum = character:FindFirstChildOfClass("Humanoid")
-	if not root or not hum then
-		return
+	if #activeCandidates > 1 then
+		table.sort(activeCandidates, function(a, b) return a.dist < b.dist end)
 	end
 
-	local billboard = Instance.new("BillboardGui")
-	billboard.Size = UDim2.fromOffset(120, 40)
-	billboard.AlwaysOnTop = true
-	billboard.Adornee = root
-	billboard.Parent = root
+	for i, cand in ipairs(activeCandidates) do
+		local entry = cand.entry
+		local dist = cand.dist
 
-	local label = Instance.new("TextLabel")
-	label.Size = UDim2.fromScale(1, 1)
-	label.BackgroundTransparency = 1
-	label.TextColor3 = Options and Options.PlayerESPColor and Options.PlayerESPColor.Value or Color3.new(1, 1, 1)
-	label.TextStrokeTransparency = 0.5
-	label.Font = Enum.Font.Jura
-	label.TextSize = 14
-	label.RichText = true
-	label.Parent = billboard
-
-	local highlight = Instance.new("Highlight")
-	highlight.FillColor = Color3.fromRGB(255, 255, 255)
-	highlight.OutlineColor = Options.OutlineESPColor.Value
-	highlight.FillTransparency = 1
-	highlight.OutlineTransparency = 0
-	highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-	highlight.Adornee = character
-	highlight.Parent = character
-	highlight.Enabled = false
-
-	espObjects[player] = { billboard, label, highlight }
-
-	local lastUpdate = 0
-	local function update()
-		local myRoot = getRootPart()
-		if not myRoot or not character.Parent then
-			if highlight then highlight.Enabled = false end
-			return
+		if not entry.billboard.Enabled then
+			entry.billboard.Enabled = true
+		end
+		if entry.billboard.Adornee ~= entry.root then
+			entry.billboard.Adornee = entry.root
 		end
 
-		local now = tick()
-		if now - lastUpdate < 0.1 then return end
-		lastUpdate = now
-
-		local dist = (root.Position - myRoot.Position).Magnitude
-		local shouldShow = dist <= Options.ESPDistance.Value and Toggles.PlayerESP.Value
-
-		billboard.Enabled = shouldShow
-		local nameColor = Options and Options.PlayerESPColor and Options.PlayerESPColor.Value or Color3.new(1, 1, 1)
-		local distColor = Options and Options.ShowDistanceColor and Options.ShowDistanceColor.Value or Color3.new(1, 1, 1)
-		local text = '<font color="#' .. nameColor:ToHex() .. '">' .. player.Name .. '</font>'
-		if Toggles.ShowDistance.Value then
-			text ..= '\n<font color="#' .. distColor:ToHex() .. '">' .. string.format("%.0fm", dist) .. '</font>'
+		local roundedDist = math.floor(dist)
+		if entry.lastDist ~= roundedDist or entry.lastShowDist ~= showDist then
+			entry.lastDist = roundedDist
+			entry.lastShowDist = showDist
+			local text = '<font color="#' .. pColorHex .. '">' .. entry.player.Name .. '</font>'
+			if showDist then
+				text = text .. '\n<font color="#' .. dColorHex .. '">' .. roundedDist .. 'm</font>'
+			end
+			entry.label.Text = text
 		end
-		label.Text = text
 
-		if highlight then
-			highlight.Enabled = (shouldShow and Toggles.OutlineESP and Toggles.OutlineESP.Value == true)
+		local shouldHighlight = outlineEnabled and (i <= 20)
+		if entry.highlight.Adornee ~= entry.character then
+			entry.highlight.Adornee = entry.character
+		end
+		if entry.highlight.OutlineColor ~= oColor then
+			entry.highlight.OutlineColor = oColor
+		end
+		if entry.highlight.Enabled ~= shouldHighlight then
+			entry.highlight.Enabled = shouldHighlight
 		end
 	end
-
-	update()
-	track("ESP_" .. player.Name, RunService.Heartbeat:Connect(update))
 end
 
 Toggles.PlayerESP:OnChanged(function()
 	if updatePlayerESPVisibility then
 		updatePlayerESPVisibility()
 	end
+	disconnect("ESP_Loop")
+	disconnect("ESP_PlayerAdded")
+	disconnect("ESP_PlayerRemoving")
 	if not Toggles.PlayerESP.Value then
 		clearESP()
-		for name in pairs(Connections) do
-			if name:sub(1, 4) == "ESP_" then
-				disconnect(name)
-			end
-		end
 		return
 	end
-	disconnect("ESP_PlayerAdded")
-	clearESP()
+
+	track("ESP_Loop", RunService.Heartbeat:Connect(updateAllESP))
+
 	for _, player in ipairs(Players:GetPlayers()) do
 		if player ~= LocalPlayer then
-			createESP(player)
-		end
-	end
-	track("ESP_PlayerAdded", Players.PlayerAdded:Connect(function(player)
-		if Toggles.PlayerESP.Value then
-			player.CharacterAdded:Connect(function()
-				task.wait(1)
-				if Toggles.PlayerESP.Value then
-					createESP(player)
+			local entry = espObjects[player] or {}
+			if entry.charCon then entry.charCon:Disconnect() end
+			entry.charCon = player.CharacterAdded:Connect(function()
+				task.wait(0.2)
+				if Toggles.PlayerESP and Toggles.PlayerESP.Value then
+					getOrCreateESP(player)
 				end
 			end)
 		end
+	end
+
+	track("ESP_PlayerAdded", Players.PlayerAdded:Connect(function(player)
+		player.CharacterAdded:Connect(function()
+			task.wait(0.2)
+			if Toggles.PlayerESP and Toggles.PlayerESP.Value then
+				getOrCreateESP(player)
+			end
+		end)
 	end))
+
+	track("ESP_PlayerRemoving", Players.PlayerRemoving:Connect(function(player)
+		removePlayerESP(player)
+	end))
+
+	updateAllESP()
+end)
+
+Toggles.OutlineESP:OnChanged(function()
+	if not Toggles.OutlineESP.Value then
+		for _, entry in pairs(espObjects) do
+			if entry.highlight and entry.highlight.Enabled then
+				entry.highlight.Enabled = false
+			end
+		end
+	else
+		updateAllESP()
+	end
+end)
+
+Toggles.ShowDistance:OnChanged(function()
+	for _, entry in pairs(espObjects) do
+		entry.lastDist = -1
+	end
+	updateAllESP()
 end)
 
 Options.OutlineESPColor:OnChanged(function()
 	local color = Options.OutlineESPColor.Value
-	for _, objects in pairs(espObjects) do
-		local highlight = objects[3]
-		if highlight and typeof(highlight) == "Instance" and highlight:IsA("Highlight") then
-			highlight.OutlineColor = color
+	for _, entry in pairs(espObjects) do
+		if entry.highlight then
+			entry.highlight.OutlineColor = color
 		end
 	end
 end)
 
 Options.PlayerESPColor:OnChanged(function()
-	for _, objects in pairs(espObjects) do
-		local label = objects[2]
-		if label and typeof(label) == "Instance" and label:IsA("TextLabel") then
-			label.TextColor3 = Options.PlayerESPColor.Value
-		end
+	for _, entry in pairs(espObjects) do
+		entry.lastDist = -1
 	end
+	updateAllESP()
 end)
 
 Options.ShowDistanceColor:OnChanged(function()
+	for _, entry in pairs(espObjects) do
+		entry.lastDist = -1
+	end
+	updateAllESP()
 end)
 
 Toggles.AlwaysDay:OnChanged(function()
@@ -5574,7 +5718,7 @@ local function touchFlingLoop()
 		local c = LocalPlayer.Character
 		local hrp = c and c:FindFirstChild("HumanoidRootPart")
 		if hrp then
-			local power = (Options.TouchFlingPower and Options.TouchFlingPower.Value) or 10000
+			local power = (Options.TouchFlingPower and Options.TouchFlingPower.Value) or 5000
 			local vel = hrp.Velocity
 			hrp.Velocity = vel * power + Vector3.new(0, power, 0)
 			RunService.RenderStepped:Wait()
