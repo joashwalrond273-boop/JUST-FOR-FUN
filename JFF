@@ -46,6 +46,7 @@ local shouldTeleportBack = false
 local updateAutoSwingSliderVisibility
 local updatePVPModulesVisibility
 local updateTouchFlingVisibility
+local updateHelicopterVisibility
 local updateAutoPickupVisibility
 local updatePlayerESPVisibility
 local updateFlightVisibility
@@ -520,7 +521,7 @@ SpectateGroup:AddDropdown("SpectatePlayerList", {
 
 local FunLeft = Tabs.Main:AddRightGroupbox("FLING A BULLY", "swords")
 
-FunLeft:AddToggle("TouchFling", {
+FunLeft:AddCheckbox("TouchFling", {
 	Text = "Touch Fling",
 	Default = false,
 })
@@ -534,9 +535,7 @@ FunLeft:AddSlider("TouchFlingPower", {
 	Compact = true,
 })
 
-FunLeft:AddDivider()
-
-FunLeft:AddToggle("HelicopterTroll", {
+FunLeft:AddCheckbox("HelicopterTroll", {
 	Text = "Helicopter Spin",
 	Default = false,
 })
@@ -567,14 +566,39 @@ FunLeft:AddSlider("HelicopterSpeed", {
 
 updateTouchFlingVisibility = function()
 	local isFling = (Toggles.TouchFling and Toggles.TouchFling.Value) or false
+	local isHeli = (Toggles.HelicopterTroll and Toggles.HelicopterTroll.Value) or false
+
 	if Options.TouchFlingPower then
 		Options.TouchFlingPower.Visible = isFling
 		if Options.TouchFlingPower.Holder then
 			Options.TouchFlingPower.Holder.Visible = isFling
 		end
 	end
+
+	if Options.HelicopterPlayerList then
+		Options.HelicopterPlayerList.Visible = isHeli
+		if Options.HelicopterPlayerList.Holder then
+			Options.HelicopterPlayerList.Holder.Visible = isHeli
+		end
+	end
+
+	if Options.HelicopterHeight then
+		Options.HelicopterHeight.Visible = isHeli
+		if Options.HelicopterHeight.Holder then
+			Options.HelicopterHeight.Holder.Visible = isHeli
+		end
+	end
+
+	if Options.HelicopterSpeed then
+		Options.HelicopterSpeed.Visible = isHeli
+		if Options.HelicopterSpeed.Holder then
+			Options.HelicopterSpeed.Holder.Visible = isHeli
+		end
+	end
+
 	FunLeft:Resize()
 end
+updateHelicopterVisibility = updateTouchFlingVisibility
 
 updateTouchFlingVisibility()
 task.spawn(function()
@@ -1422,6 +1446,9 @@ local CombatAimbot = Tabs.Combat:AddLeftGroupbox("AIMBOT", "crosshair")
 CombatAimbot:AddToggle("AimbotLockOn", {
 	Text = "Lock On",
 	Default = false,
+}):AddColorPicker("AimbotFOVCircleColor", {
+	Default = Color3.fromRGB(255, 0, 0),
+	Title = "FOV Circle Color",
 })
 
 CombatAimbot:AddCheckbox("InfiniteDistance", {
@@ -2044,8 +2071,8 @@ local fovCircle = nil
 pcall(function()
    if typeof(Drawing) ~= "nil" then
 		fovCircle = Drawing.new("Circle")
-           fovCircle.Thickness = 1.5
-           fovCircle.Color = Color3.fromRGB(255, 0, 0)
+		fovCircle.Thickness = 1.5
+		fovCircle.Color = (Options and Options.AimbotFOVCircleColor and Options.AimbotFOVCircleColor.Value) or Color3.fromRGB(255, 0, 0)
 		fovCircle.Filled = false
 		fovCircle.Transparency = 1
 		fovCircle.Visible = false
@@ -2090,6 +2117,7 @@ Toggles.AimbotLockOn:OnChanged(function()
                            local viewportSize = workspace.CurrentCamera.ViewportSize
                            fovCircle.Position = Vector2.new(viewportSize.X / 2, viewportSize.Y / 2)
                            fovCircle.Radius = (Options.AimbotFOV and Options.AimbotFOV.Value) or 100
+                           fovCircle.Color = (Options.AimbotFOVCircleColor and Options.AimbotFOVCircleColor.Value) or Color3.fromRGB(255, 0, 0)
 
                            local infiniteRange = Toggles.InfiniteDistance and Toggles.InfiniteDistance.Value
                            fovCircle.Visible = not infiniteRange
@@ -2106,6 +2134,12 @@ Toggles.AimbotLockOn:OnChanged(function()
 			end
 		end))
 		Library:Notify({ Title = "AIMBOT", Description = "Aimbot Enabled (Locking to Torso)", Time = 2 })
+	end
+end)
+
+Options.AimbotFOVCircleColor:OnChanged(function(newColor)
+	if fovCircle then
+		fovCircle.Color = newColor
 	end
 end)
 
@@ -4460,7 +4494,7 @@ local extraLocations = {
 	{ name = "Arena",       pos = Vector3.new(-1315.59, 41.19, 1972.84)  },
 	{ name = "Bamboo",      pos = Vector3.new(-1330.92, 39.43, 5798.47)  },
 	{ name = "Volcano",     pos = Vector3.new(1769.70, 36.43, 1832.10)   },
-	{ name = "Asia Cave",   pos = Vector3.new(-2108.44, 201.04, 6823.05) },
+	{ name = "Asia Cave",   pos = Vector3.new(-2108.44, 210, 6823.05) },
 	{ name = "Juggernaut",  pos = Vector3.new(-1645.06, 336.32, -2874.34)},
 	{ name = "Waterfall",   pos = Vector3.new(-1949.89, 25.29, 345.83)   },
 	{ name = "Desert Maze", pos = Vector3.new(1529.42, 55.33, -938.31)   },
@@ -4687,29 +4721,6 @@ local function setPlayerShadows(castShadow)
 		end
 	end
 end
-
-VisualFPS:AddToggle("StretchedRES", {
-	Text = "Stretched RES",
-	Default = false,
-	Callback = function(state)
-		if state then
-			local Camera = workspace.CurrentCamera
-
-			if getgenv().StretchActive == nil then
-				track("StretchedRES", game:GetService("RunService").RenderStepped:Connect(function()
-					Camera.CFrame = Camera.CFrame * CFrame.new(0, 0, 0, 1, 0, 0, 0, 0.67, 0, 0, 0, 1)
-				end))
-			end
-
-			getgenv().StretchActive = true
-			Library:Notify({ Title = "Stretched RES", Description = "Enabled", Time = 2 })
-		else
-			disconnect("StretchedRES")
-			getgenv().StretchActive = nil
-			Library:Notify({ Title = "Stretched RES", Description = "Disabled", Time = 2 })
-		end
-	end,
-})
 
 VisualFPS:AddToggle("DisableShadows", {
 	Text = "Disable Shadows",
@@ -5777,6 +5788,9 @@ local function startHelicopter()
 end
 
 Toggles.HelicopterTroll:OnChanged(function()
+	if updateHelicopterVisibility then
+		updateHelicopterVisibility()
+	end
 	startHelicopter()
 	if Toggles.HelicopterTroll.Value then
 		Library:Notify({ Title = "HELICOPTER TROLL", Description = "Spinning above: " .. tostring(Options.HelicopterPlayerList.Value), Time = 2 })
@@ -6344,9 +6358,6 @@ Library:OnUnload(function()
 	end
 	if Toggles.JuggernautAura and Toggles.JuggernautAura.Value then
 		Toggles.JuggernautAura:SetValue(false)
-	end
-	if Toggles.StretchedRES and Toggles.StretchedRES.Value then
-		Toggles.StretchedRES:SetValue(false)
 	end
 	if Toggles.WalkOnWater and Toggles.WalkOnWater.Value then
 		Toggles.WalkOnWater:SetValue(false)
