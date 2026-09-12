@@ -484,6 +484,8 @@ FunAttach:AddDropdown("AttachPlayerList", {
         Default = "",
 })
 
+FunAttach:AddDivider()
+
 local PlusKillPlayerToggle = FunAttach:AddCheckbox("PlusKillPlayerToggle", {
         Text = "+ Kill player",
         Default = false,
