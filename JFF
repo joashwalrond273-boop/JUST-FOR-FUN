@@ -518,11 +518,6 @@ SpectateGroup:AddDropdown("SpectatePlayerList", {
 	Default = "",
 })
 
-SpectateGroup:AddCheckbox("SpectateSitOnHead", {
-	Text = "Sit On Head",
-	Default = false,
-})
-
 local FunLeft = Tabs.Main:AddRightGroupbox("FLING A BULLY", "swords")
 
 FunLeft:AddToggle("TouchFling", {
@@ -535,6 +530,37 @@ FunLeft:AddSlider("TouchFlingPower", {
 	Default = 5000,
 	Min = 500,
 	Max = 5000,
+	Rounding = 0,
+	Compact = true,
+})
+
+FunLeft:AddDivider()
+
+FunLeft:AddToggle("HelicopterTroll", {
+	Text = "Helicopter Spin",
+	Default = false,
+})
+
+FunLeft:AddDropdown("HelicopterPlayerList", {
+	Text = "Select Target",
+	Values = {},
+	Default = "",
+})
+
+FunLeft:AddSlider("HelicopterHeight", {
+	Text = "Height Offset",
+	Default = 5,
+	Min = 1,
+	Max = 20,
+	Rounding = 1,
+	Compact = true,
+})
+
+FunLeft:AddSlider("HelicopterSpeed", {
+	Text = "Spin Speed",
+	Default = 35,
+	Min = 5,
+	Max = 100,
 	Rounding = 0,
 	Compact = true,
 })
@@ -5700,6 +5726,71 @@ Toggles.TouchFling:OnChanged(function()
 	end
 end)
 
+-- Helicopter Troll Script Logic
+local helicopterAngle = 0
+local function startHelicopter()
+	disconnect("HelicopterLoop")
+	local myHum = getHumanoid()
+	if Toggles.HelicopterTroll.Value then
+		track("HelicopterLoop", RunService.Heartbeat:Connect(function(dt)
+			if not Toggles.HelicopterTroll.Value then return end
+			local targetName = Options.HelicopterPlayerList and Options.HelicopterPlayerList.Value
+			if not targetName or targetName == "" then return end
+
+			local targetPlayer = Players:FindFirstChild(targetName)
+			local targetChar = targetPlayer and targetPlayer.Character
+			local targetRoot = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
+			local char = getCharacter()
+			local myRoot = getRootPart()
+			local hum = getHumanoid()
+
+			if targetRoot and myRoot and isAlive() then
+				for _, part in ipairs(char:GetDescendants()) do
+					if part:IsA("BasePart") then
+						part.CanCollide = false
+					end
+				end
+
+				local speed = (Options.HelicopterSpeed and Options.HelicopterSpeed.Value) or 35
+				local height = (Options.HelicopterHeight and Options.HelicopterHeight.Value) or 5
+				helicopterAngle = (helicopterAngle + (speed * 15) * dt) % 360
+
+				if hum then
+					hum.PlatformStand = true
+				end
+
+				local targetPos = targetRoot.Position + Vector3.new(0, height, 0)
+				myRoot.CFrame = CFrame.new(targetPos) * CFrame.Angles(0, math.rad(helicopterAngle), 0)
+				myRoot.Velocity = Vector3.zero
+				myRoot.RotVelocity = Vector3.new(0, speed * 25, 0)
+			end
+		end))
+	else
+		if myHum then
+			myHum.PlatformStand = false
+		end
+		local myRoot = getRootPart()
+		if myRoot then
+			myRoot.RotVelocity = Vector3.zero
+		end
+	end
+end
+
+Toggles.HelicopterTroll:OnChanged(function()
+	startHelicopter()
+	if Toggles.HelicopterTroll.Value then
+		Library:Notify({ Title = "HELICOPTER TROLL", Description = "Spinning above: " .. tostring(Options.HelicopterPlayerList.Value), Time = 2 })
+	else
+		Library:Notify({ Title = "HELICOPTER TROLL", Description = "Helicopter Disabled", Time = 2 })
+	end
+end)
+
+Options.HelicopterPlayerList:OnChanged(function()
+	if Toggles.HelicopterTroll.Value then
+		startHelicopter()
+	end
+end)
+
 -- Attach Script Logic
 local function updateAttachPlayerList()
 	local list = {}
@@ -5718,6 +5809,18 @@ local function updateAttachPlayerList()
 			end
 		else
 			Options.AttachPlayerList:SetValue("")
+		end
+	end)
+	pcall(function()
+		if Options.HelicopterPlayerList then
+			Options.HelicopterPlayerList:SetValues(list)
+			if #list > 0 then
+				if not table.find(list, Options.HelicopterPlayerList.Value) then
+					Options.HelicopterPlayerList:SetValue(list[1])
+				end
+			else
+				Options.HelicopterPlayerList:SetValue("")
+			end
 		end
 	end)
 	pcall(function()
@@ -5809,99 +5912,6 @@ Toggles.FloatOverToggle:OnChanged(function()
 end)
 
 -- Spectate Script Logic
-local spectateClone = nil
-
-local function removeSpectateClone()
-	if spectateClone then
-		pcall(function()
-			spectateClone:Destroy()
-		end)
-		spectateClone = nil
-	end
-end
-
-local function createSpectateClone()
-	if spectateClone and spectateClone.Parent then
-		return spectateClone
-	end
-	local char = LocalPlayer.Character
-	if not char then return nil end
-
-	char.Archivable = true
-	local clone = nil
-	pcall(function()
-		clone = char:Clone()
-	end)
-	char.Archivable = false
-	if not clone then return nil end
-
-	clone.Name = LocalPlayer.Name .. "_SpectateHeadClone"
-
-	for _, desc in ipairs(clone:GetDescendants()) do
-		if desc:IsA("LocalScript") or desc:IsA("Script") then
-			pcall(function() desc:Destroy() end)
-		elseif desc:IsA("BasePart") then
-			desc.CanCollide = false
-			desc.Anchored = true
-			desc.CastShadow = false
-		end
-	end
-
-	local cloneHum = clone:FindFirstChildOfClass("Humanoid")
-	if cloneHum then
-		cloneHum.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
-		cloneHum.HealthDisplayType = Enum.HumanoidHealthDisplayType.AlwaysOff
-		cloneHum.PlatformStand = false
-		cloneHum.Sit = true
-		pcall(function()
-			cloneHum:ChangeState(Enum.HumanoidStateType.Seated)
-		end)
-		pcall(function()
-			local isR15 = cloneHum.RigType == Enum.HumanoidRigType.R15
-			local anim = Instance.new("Animation")
-			anim.AnimationId = isR15 and "rbxassetid://507768133" or "rbxassetid://178130996"
-			local track = cloneHum:LoadAnimation(anim)
-			track.Priority = Enum.AnimationPriority.Action
-			track.Looped = true
-			track:Play()
-		end)
-	end
-
-	clone.Parent = workspace
-	spectateClone = clone
-	return clone
-end
-
-local function updateSpectateClone(targetChar)
-	if not (Toggles.SpectateSitOnHead and Toggles.SpectateSitOnHead.Value) then
-		removeSpectateClone()
-		return
-	end
-
-	local targetHead = targetChar and (targetChar:FindFirstChild("Head") or targetChar:FindFirstChild("HumanoidRootPart"))
-	if not targetHead then
-		removeSpectateClone()
-		return
-	end
-
-	local clone = spectateClone
-	if not clone or not clone.Parent or not clone:FindFirstChild("HumanoidRootPart") then
-		removeSpectateClone()
-		clone = createSpectateClone()
-	end
-
-	if clone and clone:FindFirstChild("HumanoidRootPart") then
-		local cloneRoot = clone.HumanoidRootPart
-		local cloneHum = clone:FindFirstChildOfClass("Humanoid")
-		if cloneHum and not cloneHum.Sit then
-			cloneHum.Sit = true
-		end
-		local isR15 = cloneHum and cloneHum.RigType == Enum.HumanoidRigType.R15
-		local yOffset = isR15 and 1.25 or 1.0
-		cloneRoot.CFrame = targetHead.CFrame * CFrame.new(0, yOffset, 0)
-	end
-end
-
 local function updateSpectatePlayerList()
 	local list = {}
 	for _, player in ipairs(Players:GetPlayers()) do
@@ -5932,8 +5942,7 @@ local function startSpectate()
 			if not Toggles.SpectateToggle.Value then return end
 			local targetName = Options.SpectatePlayerList.Value
 			local targetPlayer = targetName and Players:FindFirstChild(targetName)
-			local targetChar = targetPlayer and targetPlayer.Character
-			local targetHum = targetChar and targetChar:FindFirstChildOfClass("Humanoid")
+			local targetHum = targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChildOfClass("Humanoid")
 			local camera = workspace.CurrentCamera
 
 			if targetHum then
@@ -5946,15 +5955,8 @@ local function startSpectate()
 					camera.CameraSubject = localHum
 				end
 			end
-
-			if Toggles.SpectateSitOnHead and Toggles.SpectateSitOnHead.Value then
-				updateSpectateClone(targetChar)
-			else
-				removeSpectateClone()
-			end
 		end))
 	else
-		removeSpectateClone()
 		local camera = workspace.CurrentCamera
 		local localHum = getHumanoid()
 		if localHum then
@@ -5972,16 +5974,7 @@ Toggles.SpectateToggle:OnChanged(function()
 	end
 end)
 
-Toggles.SpectateSitOnHead:OnChanged(function()
-	if not Toggles.SpectateSitOnHead.Value then
-		removeSpectateClone()
-	elseif Toggles.SpectateToggle.Value then
-		startSpectate()
-	end
-end)
-
 Options.SpectatePlayerList:OnChanged(function()
-	removeSpectateClone()
 	if Toggles.SpectateToggle.Value then
 		startSpectate()
 	end
@@ -6383,8 +6376,11 @@ Library:OnUnload(function()
 	if Toggles.SpectateToggle and Toggles.SpectateToggle.Value then
 		Toggles.SpectateToggle:SetValue(false)
 	end
-	if Toggles.SpectateSitOnHead and Toggles.SpectateSitOnHead.Value then
-		Toggles.SpectateSitOnHead:SetValue(false)
+	if Toggles.TouchFling and Toggles.TouchFling.Value then
+		Toggles.TouchFling:SetValue(false)
+	end
+	if Toggles.HelicopterTroll and Toggles.HelicopterTroll.Value then
+		Toggles.HelicopterTroll:SetValue(false)
 	end
 	if Toggles.NoBearTrapDMG and Toggles.NoBearTrapDMG.Value then
 		Toggles.NoBearTrapDMG:SetValue(false)
@@ -6436,7 +6432,6 @@ Library:OnUnload(function()
 	end
 	clearESP()
 	pcall(function() clearOreESPHighlights() end)
-	pcall(function() removeSpectateClone() end)
 	highlightTarget:Destroy()
 	workspace.Gravity = 196.2
 	LocalPlayer.CameraMaxZoomDistance = 400
