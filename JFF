@@ -1393,6 +1393,11 @@ CombatAimbot:AddToggle("AimbotLockOn", {
 	Default = false,
 })
 
+CombatAimbot:AddCheckbox("InfiniteDistance", {
+	Text = "Infinite Distance",
+	Default = false,
+})
+
 CombatAimbot:AddSlider("AimbotFOV", {
 	Text = "FOV Slider",
 	Default = 100,
@@ -1400,11 +1405,6 @@ CombatAimbot:AddSlider("AimbotFOV", {
 	Max = 600,
 	Rounding = 0,
 	Compact = true,
-})
-
-CombatAimbot:AddToggle("InfiniteDistance", {
-	Text = "Infinite Distance",
-	Default = false,
 })
 
 local CombatSwordBot = Tabs.Combat:AddLeftGroupbox("Sword Bot", "swords")
@@ -3642,8 +3642,8 @@ OreESPGroup:AddToggle("OreESPToggle", {
 	Default = false,
 })
 
-OreESPGroup:AddToggle("OreESPRemoveNames", {
-	Text = "Remove Names",
+OreESPGroup:AddCheckbox("OreESPRemoveNames", {
+	Text = "+ Remove Names",
 	Default = false,
 })
 
@@ -5217,7 +5217,9 @@ VisualLeft:AddToggle("PlayerESP", {
 	Title = "Player ESP Color",
 })
 
-VisualLeft:AddToggle("ShowDistance", {
+VisualLeft:AddDivider()
+
+VisualLeft:AddCheckbox("ShowDistance", {
 	Text = "Show Distance",
 	Default = false,
 }):AddColorPicker("ShowDistanceColor", {
@@ -5225,7 +5227,7 @@ VisualLeft:AddToggle("ShowDistance", {
 	Title = "Show Distance Color",
 })
 
-VisualLeft:AddToggle("OutlineESP", {
+VisualLeft:AddCheckbox("OutlineESP", {
 	Text = "Outline ESP",
 	Default = false,
 }):AddColorPicker("OutlineESPColor", {
