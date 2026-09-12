@@ -1424,7 +1424,7 @@ CombatRight:AddToggle("TargetPlayers", {
 	Default = true,
 })
 
-CombatRight:AddToggle("HighlightTarget", {
+CombatRight:AddCheckbox("HighlightTarget", {
 	Text = "Highlight Target",
 	Default = true,
 }):AddColorPicker("HighlightTargetColor", {
@@ -3657,7 +3657,7 @@ FarmMine:AddDropdown("AutoMineSlot", {
 	Default = "1",
 })
 
-FarmMine:AddToggle("HighlightMine", {
+FarmMine:AddCheckbox("HighlightMine", {
 	Text = "Highlight Target",
 	Default = true,
 })
@@ -3685,7 +3685,7 @@ FarmChop:AddDropdown("AutoChopSlot", {
 	Default = "1",
 })
 
-FarmChop:AddToggle("HighlightChop", {
+FarmChop:AddCheckbox("HighlightChop", {
 	Text = "Highlight Target",
 	Default = true,
 })
@@ -3729,7 +3729,7 @@ FarmAI:AddSlider("AiAuraRange", {
 	Compact = true,
 })
 
-FarmAI:AddToggle("HighlightAI", {
+FarmAI:AddCheckbox("HighlightAI", {
 	Text = "Highlight Target",
 	Default = true,
 })
