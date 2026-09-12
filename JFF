@@ -458,6 +458,7 @@ KillswitchGroup:AddToggle("KillswitchToggle", {
 KillswitchGroup:AddCheckbox("AntiAFK", {
 	Text = "Anti-AFK",
 	Default = false,
+	Risky = true,
 })
 
 Toggles.KillswitchToggle:OnChanged(function()
@@ -487,6 +488,7 @@ FunAttach:AddDropdown("AttachPlayerList", {
 local PlusKillPlayerToggle = FunAttach:AddCheckbox("PlusKillPlayerToggle", {
         Text = "+ Kill player",
         Default = false,
+        Risky = true,
 })
 if PlusKillPlayerToggle.TextLabel then
         PlusKillPlayerToggle.TextLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
@@ -495,11 +497,13 @@ end
 FunAttach:AddCheckbox("HideBeneathToggle", {
         Text = "Hide Beneath",
         Default = false,
+        Risky = true,
 })
 
 FunAttach:AddCheckbox("FloatOverToggle", {
         Text = "Float Over",
         Default = false,
+        Risky = true,
 })
 
 local SpectateGroup = Tabs.Main:AddRightGroupbox("SPECTATE", "scan-eye")
@@ -1309,6 +1313,7 @@ CombatAutoSwingGroup:AddToggle("AutoSwing", {
 CombatAutoSwingGroup:AddCheckbox("SmartSwing", {
 	Text = "+ Smart Swing",
 	Default = false,
+	Risky = true,
 })
 
 CombatAutoSwingGroup:AddDropdown("AutoSwingSlot", {
@@ -1435,11 +1440,13 @@ local CombatAutoPVP = Tabs.Combat:AddRightGroupbox("PVP Modules", "swords")
 CombatAutoPVP:AddCheckbox("AutoShiftlock", {
 	Text = "Shiftlock",
 	Default = false,
+	Risky = true,
 })
 
 CombatAutoPVP:AddCheckbox("AutoHop", {
 	Text = "+ Auto Hop",
 	Default = false,
+	Risky = true,
 })
 
 CombatAutoPVP:AddSlider("AutoHopStuds", {
@@ -1454,6 +1461,7 @@ CombatAutoPVP:AddSlider("AutoHopStuds", {
 CombatAutoPVP:AddCheckbox("Camlock", {
 	Text = "+ Camlock",
 	Default = false,
+	Risky = true,
 })
 
 CombatAutoPVP:AddSlider("CamlockStuds", {
@@ -1468,6 +1476,7 @@ CombatAutoPVP:AddSlider("CamlockStuds", {
 CombatAutoPVP:AddCheckbox("PlusSpeedBoost", {
 	Text = "+ Speed Boost",
 	Default = false,
+	Risky = true,
 })
 
 CombatAutoPVP:AddDropdown("SpeedBoostSlot", {
@@ -2889,6 +2898,7 @@ MoveSwimBoost:AddToggle("SwimBoost", {
 MoveSwimBoost:AddCheckbox("SinkFastPVP", {
 	Text = "+ Sink Fast PVP",
 	Default = false,
+	Risky = true,
 })
 
 MoveSwimBoost:AddSlider("SwimBoostValue", {
