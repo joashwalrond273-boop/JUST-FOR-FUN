@@ -3297,6 +3297,12 @@ end)
 
 local xrayOriginal = {}
 local xrayLoopTask = nil
+local xrayOverlap = OverlapParams.new()
+xrayOverlap.FilterType = Enum.RaycastFilterType.Exclude
+xrayOverlap.FilterDescendantsInstances = {}
+
+local lastXrayScanPos = nil
+local lastXrayScanTime = 0
 
 local function restoreXrayPart(part, orig)
 	if part and part.Parent then
@@ -3304,27 +3310,38 @@ local function restoreXrayPart(part, orig)
 	end
 end
 
-local function scanXrayProximity()
+local function scanXrayProximity(force)
 	local character = getCharacter()
 	local hrp = character and character:FindFirstChild("HumanoidRootPart")
 	if not hrp then return end
 
+	local now = tick()
+	local pos = hrp.Position
+	if not force and lastXrayScanPos and (pos - lastXrayScanPos).Magnitude < 1.5 and (now - lastXrayScanTime) < 0.4 then
+		return
+	end
+	lastXrayScanPos = pos
+	lastXrayScanTime = now
+
 	local radius = (Options.XrayRadius and Options.XrayRadius.Value) or 25
 	local transparency = (Options.XrayTransparency and Options.XrayTransparency.Value) or 0.75
 
-	local overlap = OverlapParams.new()
-	overlap.FilterType = Enum.RaycastFilterType.Exclude
-	overlap.FilterDescendantsInstances = { character }
+	xrayOverlap.FilterDescendantsInstances = { character }
 
-	local nearbyParts = workspace:GetPartBoundsInRadius(hrp.Position, radius, overlap)
+	local nearbyParts = workspace:GetPartBoundsInRadius(pos, radius, xrayOverlap)
 	local currentParts = {}
 
 	for _, part in ipairs(nearbyParts) do
-		if part:IsA("BasePart") and not part:IsA("Terrain") and not part.Parent:FindFirstChildOfClass("Humanoid") then
-			currentParts[part] = true
-			if not xrayOriginal[part] then
-				xrayOriginal[part] = part.LocalTransparencyModifier
-				part.LocalTransparencyModifier = transparency
+		if part:IsA("BasePart") and not part:IsA("Terrain") and part.Transparency < 0.95 then
+			local parent = part.Parent
+			if parent and not parent:IsA("Accessory") and not parent:IsA("Tool") and not parent:FindFirstChildOfClass("Humanoid") then
+				currentParts[part] = true
+				if not xrayOriginal[part] then
+					xrayOriginal[part] = part.LocalTransparencyModifier
+					part.LocalTransparencyModifier = transparency
+				elseif part.LocalTransparencyModifier ~= transparency then
+					part.LocalTransparencyModifier = transparency
+				end
 			end
 		end
 	end
@@ -3337,6 +3354,22 @@ local function scanXrayProximity()
 	end
 end
 
+if Options.XrayRadius then
+	Options.XrayRadius:OnChanged(function()
+		if Toggles.Xray and Toggles.Xray.Value then
+			scanXrayProximity(true)
+		end
+	end)
+end
+
+if Options.XrayTransparency then
+	Options.XrayTransparency:OnChanged(function()
+		if Toggles.Xray and Toggles.Xray.Value then
+			scanXrayProximity(true)
+		end
+	end)
+end
+
 Toggles.Xray:OnChanged(function()
 	if xrayLoopTask then
 		task.cancel(xrayLoopTask)
@@ -3344,10 +3377,13 @@ Toggles.Xray:OnChanged(function()
 	end
 
 	if Toggles.Xray.Value then
+		lastXrayScanPos = nil
+		lastXrayScanTime = 0
+		scanXrayProximity(true)
 		xrayLoopTask = task.spawn(function()
 			while Toggles.Xray and Toggles.Xray.Value do
-				scanXrayProximity()
-				task.wait(0.1)
+				scanXrayProximity(false)
+				task.wait(0.15)
 			end
 		end)
 	else
@@ -3355,6 +3391,7 @@ Toggles.Xray:OnChanged(function()
 			restoreXrayPart(part, orig)
 		end
 		table.clear(xrayOriginal)
+		lastXrayScanPos = nil
 	end
 end)
 
@@ -3706,9 +3743,23 @@ OreESPGroup:AddToggle("OreESPToggle", {
 	Default = false,
 })
 
+OreESPGroup:AddSlider("OreESPDistance", {
+	Text = "Max Distance",
+	Default = 500,
+	Min = 100,
+	Max = 2000,
+	Rounding = 0,
+	Compact = true,
+})
+
 OreESPGroup:AddToggle("OreESPRemoveNames", {
 	Text = "Remove Names",
 	Default = false,
+})
+
+OreESPGroup:AddToggle("OreESPHighlights", {
+	Text = "Highlight Ores",
+	Default = true,
 })
 
 OreESPGroup:AddDivider()
@@ -4119,21 +4170,55 @@ Toggles.AiAura:OnChanged(function()
 end)
 
 -- ==========================================
--- Ore ESP (reads ore names from workspace.worldResources.mineable, per-ore filters)
+-- Ore ESP (Lag-Free & Optimized: Highlight Pooling, Distance Culling, Cached Chunk Scanning)
+local oreESPFolder = nil
+local function getOreESPFolder()
+	if not oreESPFolder or not oreESPFolder.Parent then
+		oreESPFolder = workspace:FindFirstChild("UrielOreESP")
+		if not oreESPFolder then
+			oreESPFolder = Instance.new("Folder")
+			oreESPFolder.Name = "UrielOreESP"
+			oreESPFolder.Parent = workspace
+		end
+	end
+	return oreESPFolder
+end
+
+local MAX_ORE_HIGHLIGHTS = 16
+local oreHighlightPool = {}
+
+local function initOreHighlightPool()
+	local folder = getOreESPFolder()
+	for i = 1, MAX_ORE_HIGHLIGHTS do
+		if not oreHighlightPool[i] or not oreHighlightPool[i].Parent then
+			local hl = Instance.new("Highlight")
+			hl.FillTransparency = 0.25
+			hl.OutlineTransparency = 0
+			hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+			hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+			hl.Enabled = false
+			hl.Parent = folder
+			oreHighlightPool[i] = hl
+		end
+	end
+end
+
 local oreESP = {
-	highlights = {},
+	billboards = {},
 	oreToggles = {},
 	oreColors = {},
+	oreHex = {},
+	oreFormattedNames = {},
 	oreColorPickers = {},
 	fixedOreColors = {
-		["Coal"]    = Color3.fromRGB(0, 0, 0),
-		["Ice"]     = Color3.fromRGB(150, 210, 255),
+		["Coal"]      = Color3.fromRGB(0, 0, 0),
+		["Ice"]       = Color3.fromRGB(150, 210, 255),
 		["Bluesteel"] = Color3.fromRGB(40, 120, 255),
-		["Copper"]  = Color3.fromRGB(255, 140, 60),
-		["Coral"]   = Color3.fromRGB(160, 40, 220),
-		["Gold"]    = Color3.fromRGB(255, 190, 50),
-		["Iron"]    = Color3.fromRGB(230, 232, 238),
-		["Stone"]   = Color3.fromRGB(140, 140, 146),
+		["Copper"]    = Color3.fromRGB(255, 140, 60),
+		["Coral"]     = Color3.fromRGB(160, 40, 220),
+		["Gold"]      = Color3.fromRGB(255, 190, 50),
+		["Iron"]      = Color3.fromRGB(230, 232, 238),
+		["Stone"]     = Color3.fromRGB(140, 140, 146),
 	},
 	orePalette = {
 		Color3.fromRGB(255, 80, 80),
@@ -4151,28 +4236,45 @@ local oreESP = {
 	},
 }
 
+local function updateOreColorCache(oreName, color)
+	oreESP.oreColors[oreName] = color
+	local hex = color:ToHex()
+	oreESP.oreHex[oreName] = hex
+	oreESP.oreFormattedNames[oreName] = '<font color="#' .. hex .. '">' .. oreName .. '</font>'
+end
+
 local function getOreColor(oreName, index)
 	if oreESP.oreColors[oreName] then
 		return oreESP.oreColors[oreName]
 	end
 	if oreESP.fixedOreColors[oreName] then
-		oreESP.oreColors[oreName] = oreESP.fixedOreColors[oreName]
-		return oreESP.oreColors[oreName]
+		local c = oreESP.fixedOreColors[oreName]
+		updateOreColorCache(oreName, c)
+		return c
 	end
-	local palette = oreESP.orePalette
-	local hue = (string.byte(oreName, 1) or 0) * 3.7 + (index or 0) * 29
-	hue = hue % 360 / 360
+	local hue = ((string.byte(oreName, 1) or 0) * 3.7 + (index or 0) * 29) % 360 / 360
 	local c = Color3.fromHSV(hue, 0.75, 0.95)
-	oreESP.oreColors[oreName] = c
+	updateOreColorCache(oreName, c)
 	return c
 end
 
 local function clearOreESPHighlights()
-	for _, entry in pairs(oreESP.highlights) do
-		pcall(function() entry.hl:Destroy() end)
-		pcall(function() entry.bill:Destroy() end)
+	for _, hl in ipairs(oreHighlightPool) do
+		if hl then
+			hl.Enabled = false
+			hl.Adornee = nil
+		end
 	end
-	table.clear(oreESP.highlights)
+	for _, entry in pairs(oreESP.billboards) do
+		if entry and entry.bill then
+			pcall(function() entry.bill:Destroy() end)
+		end
+	end
+	table.clear(oreESP.billboards)
+	if oreESPFolder and oreESPFolder.Parent then
+		pcall(function() oreESPFolder:ClearAllChildren() end)
+		table.clear(oreHighlightPool)
+	end
 end
 
 local function isOreFilterEnabled(oreName)
@@ -4181,125 +4283,177 @@ local function isOreFilterEnabled(oreName)
 	return t
 end
 
-local lastOreESPUpdate = 0
+local cachedOres = {}
 
-local function oreESPLoop()
-	local now = tick()
-	if now - lastOreESPUpdate < 0.3 then return end
-	lastOreESPUpdate = now
-
+local function refreshOreCache()
 	local folder = workspace:FindFirstChild("worldResources") and workspace.worldResources:FindFirstChild("mineable")
-	if not folder then return end
+	if not folder then
+		table.clear(cachedOres)
+		return
+	end
 
-	local root = getRootPart()
-	local rootPos = root and root.Position
-
-	local showNames = not (Toggles and Toggles.OreESPRemoveNames and Toggles.OreESPRemoveNames.Value)
-	local seen = {}
-	local candidateHighlights = {}
+	local newOres = {}
+	local newLookup = {}
 
 	for _, chunkFolder in ipairs(folder:GetChildren()) do
 		if not chunkFolder:IsA("Folder") then continue end
 		for _, obj in ipairs(chunkFolder:GetChildren()) do
 			if not obj or not obj.Parent then continue end
-			local oreName = obj.Name or "Unknown"
-			seen[obj] = oreName
+			local anchor = obj:IsA("Model") and (obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")) or (obj:IsA("BasePart") and obj)
+			if anchor then
+				local oreName = obj.Name or "Unknown"
+				table.insert(newOres, {
+					obj = obj,
+					name = oreName,
+					anchor = anchor,
+					pos = anchor.Position,
+				})
+				newLookup[obj] = true
+			end
+		end
+	end
 
-			local entry = oreESP.highlights[obj]
-			local enabled = isOreFilterEnabled(oreName)
+	cachedOres = newOres
+
+	for obj, entry in pairs(oreESP.billboards) do
+		if not newLookup[obj] or not obj.Parent then
+			if entry.bill then pcall(function() entry.bill:Destroy() end) end
+			oreESP.billboards[obj] = nil
+		end
+	end
+end
+
+local lastOreESPUpdate = 0
+
+local function oreESPLoop()
+	local now = tick()
+	if now - lastOreESPUpdate < 0.25 then return end
+	lastOreESPUpdate = now
+
+	local root = getRootPart()
+	if not root then
+		for _, hl in ipairs(oreHighlightPool) do hl.Enabled = false end
+		for _, entry in pairs(oreESP.billboards) do entry.bill.Enabled = false end
+		return
+	end
+
+	local rootPos = root.Position
+	local rx, ry, rz = rootPos.X, rootPos.Y, rootPos.Z
+
+	local maxDist = (Options and Options.OreESPDistance and Options.OreESPDistance.Value) or 500
+	local maxDistSq = maxDist * maxDist
+
+	local showNames = not (Toggles and Toggles.OreESPRemoveNames and Toggles.OreESPRemoveNames.Value)
+	local enableHighlights = not (Toggles and Toggles.OreESPHighlights and Toggles.OreESPHighlights.Value == false)
+
+	initOreHighlightPool()
+
+	local highlightCandidates = {}
+	local maxHighlightDistSq = 350 * 350
+
+	for _, oreData in ipairs(cachedOres) do
+		local obj = oreData.obj
+		if not obj or not obj.Parent then continue end
+
+		local oreName = oreData.name
+		local enabled = isOreFilterEnabled(oreName)
+		local pos = oreData.pos
+		local dx = pos.X - rx
+		local dy = pos.Y - ry
+		local dz = pos.Z - rz
+		local distSq = dx * dx + dy * dy + dz * dz
+
+		local entry = oreESP.billboards[obj]
+
+		if enabled and distSq <= maxDistSq then
 			local oreColor = getOreColor(oreName)
 
-			local anchor = obj:IsA("Model") and (obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")) or (obj:IsA("BasePart") and obj)
-			local dist = (rootPos and anchor) and (anchor.Position - rootPos).Magnitude or 9999
-
 			if not entry then
-				local bill = nil
-				local lbl = nil
-				if anchor then
-					bill = Instance.new("BillboardGui")
-					bill.Size = UDim2.fromOffset(160, 28)
-					bill.AlwaysOnTop = true
-					bill.Adornee = anchor
-					bill.StudsOffset = Vector3.new(0, 3.2, 0)
-					bill.MaxDistance = 1500
+				local anchor = oreData.anchor
+				local bill = Instance.new("BillboardGui")
+				bill.Size = UDim2.fromOffset(160, 28)
+				bill.AlwaysOnTop = true
+				bill.Adornee = anchor
+				bill.StudsOffset = Vector3.new(0, 3.2, 0)
+				bill.MaxDistance = maxDist
 
-					lbl = Instance.new("TextLabel")
-					lbl.Size = UDim2.fromScale(1, 1)
-					lbl.BackgroundTransparency = 1
-					lbl.TextColor3 = oreColor
-					lbl.TextStrokeTransparency = 0.4
-					lbl.Font = Enum.Font.Jura
-					lbl.TextSize = 16
-					lbl.RichText = true
-					lbl.Text = '<font color="#' .. oreColor:ToHex() .. '">' .. oreName .. '</font>'
-					lbl.Parent = bill
+				local lbl = Instance.new("TextLabel")
+				lbl.Size = UDim2.fromScale(1, 1)
+				lbl.BackgroundTransparency = 1
+				lbl.TextColor3 = oreColor
+				lbl.TextStrokeTransparency = 0.4
+				lbl.Font = Enum.Font.Jura
+				lbl.TextSize = 16
+				lbl.RichText = true
+				lbl.Text = oreESP.oreFormattedNames[oreName] or ('<font color="#' .. oreColor:ToHex() .. '">' .. oreName .. '</font>')
+				lbl.Parent = bill
 
-					bill.Enabled = enabled and showNames
-					bill.Parent = workspace
-				end
+				bill.Enabled = showNames
+				bill.Parent = getOreESPFolder()
 
-				local hl = Instance.new("Highlight")
-				hl.FillColor = oreColor
-				hl.OutlineColor = Color3.fromRGB(255, 255, 255)
-				hl.FillTransparency = 0.25
-				hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-				hl.Adornee = obj
-				hl.Enabled = false
-				hl.Parent = workspace
-
-				entry = { hl = hl, bill = bill, lbl = lbl, oreName = oreName, lastColor = oreColor, lastEnabled = enabled, lastShowNames = showNames, dist = dist }
-				oreESP.highlights[obj] = entry
+				entry = { bill = bill, lbl = lbl, lastColor = oreColor, lastShowNames = showNames }
+				oreESP.billboards[obj] = entry
 			else
-				entry.dist = dist
-				if entry.lastEnabled ~= enabled or entry.lastShowNames ~= showNames then
-					entry.lastEnabled = enabled
-					entry.lastShowNames = showNames
-					if entry.bill then
-						entry.bill.Enabled = enabled and showNames
-					end
+				if entry.bill.Enabled ~= showNames then
+					entry.bill.Enabled = showNames
+				end
+				if entry.bill.MaxDistance ~= maxDist then
+					entry.bill.MaxDistance = maxDist
 				end
 				if entry.lastColor ~= oreColor then
 					entry.lastColor = oreColor
-					if entry.hl then entry.hl.FillColor = oreColor end
-					if entry.lbl then
-						entry.lbl.TextColor3 = oreColor
-						entry.lbl.Text = '<font color="#' .. oreColor:ToHex() .. '">' .. oreName .. '</font>'
-					end
-				end
-				if entry.bill and entry.bill.Adornee == nil and anchor then
-					entry.bill.Adornee = anchor
-				end
-				if entry.hl and entry.hl.Adornee == nil then
-					entry.hl.Adornee = obj
+					entry.lbl.TextColor3 = oreColor
+					entry.lbl.Text = oreESP.oreFormattedNames[oreName] or ('<font color="#' .. oreColor:ToHex() .. '">' .. oreName .. '</font>')
 				end
 			end
 
-			if enabled and dist <= 350 then
-				table.insert(candidateHighlights, { entry = entry, dist = dist })
-			elseif entry and entry.hl and entry.hl.Enabled then
-				entry.hl.Enabled = false
-			end
-		end
-	end
-
-	table.sort(candidateHighlights, function(a, b) return a.dist < b.dist end)
-	for i, item in ipairs(candidateHighlights) do
-		if i <= 25 then
-			if not item.entry.hl.Enabled then
-				item.entry.hl.Enabled = true
+			if enableHighlights and distSq <= maxHighlightDistSq then
+				table.insert(highlightCandidates, {
+					obj = obj,
+					color = oreColor,
+					distSq = distSq
+				})
 			end
 		else
-			if item.entry.hl.Enabled then
-				item.entry.hl.Enabled = false
+			if entry and entry.bill and entry.bill.Enabled then
+				entry.bill.Enabled = false
 			end
 		end
 	end
 
-	for obj, entry in pairs(oreESP.highlights) do
-		if not seen[obj] or not obj or not obj.Parent then
-			if entry.hl then pcall(function() entry.hl:Destroy() end) end
-			if entry.bill then pcall(function() entry.bill:Destroy() end) end
-			oreESP.highlights[obj] = nil
+	if enableHighlights and #highlightCandidates > 0 then
+		if #highlightCandidates > 1 then
+			table.sort(highlightCandidates, function(a, b) return a.distSq < b.distSq end)
+		end
+		local hlCount = math.min(#highlightCandidates, MAX_ORE_HIGHLIGHTS)
+		for i = 1, hlCount do
+			local cand = highlightCandidates[i]
+			local hl = oreHighlightPool[i]
+			if hl then
+				if hl.Adornee ~= cand.obj then
+					hl.Adornee = cand.obj
+				end
+				if hl.FillColor ~= cand.color then
+					hl.FillColor = cand.color
+				end
+				if not hl.Enabled then
+					hl.Enabled = true
+				end
+			end
+		end
+		for i = hlCount + 1, MAX_ORE_HIGHLIGHTS do
+			local hl = oreHighlightPool[i]
+			if hl and hl.Enabled then
+				hl.Enabled = false
+				hl.Adornee = nil
+			end
+		end
+	else
+		for _, hl in ipairs(oreHighlightPool) do
+			if hl.Enabled then
+				hl.Enabled = false
+				hl.Adornee = nil
+			end
 		end
 	end
 end
@@ -4329,8 +4483,7 @@ local function scanOreTypesAndBuildUI()
 		if oreESP.oreToggles[oreName] == nil then
 			oreESP.oreToggles[oreName] = true
 			local defaultColor = oreESP.fixedOreColors[oreName] or getOreColor(oreName, i)
-			oreESP.oreColors[oreName] = defaultColor
-			oreESP.fixedOreColors[oreName] = defaultColor
+			updateOreColorCache(oreName, defaultColor)
 
 			local colorPickerKey = "OreESPColor_" .. oreName
 			oreESP.oreColorPickers[oreName] = colorPickerKey
@@ -4351,7 +4504,7 @@ local function scanOreTypesAndBuildUI()
 			if Options[colorPickerKey] then
 				Options[colorPickerKey]:OnChanged(function(newColor)
 					oreESP.fixedOreColors[oreName] = newColor
-					oreESP.oreColors[oreName] = newColor
+					updateOreColorCache(oreName, newColor)
 				end)
 			end
 
@@ -4370,12 +4523,14 @@ Toggles.OreESPToggle:OnChanged(function()
 	end
 
 	scanOreTypesAndBuildUI()
+	refreshOreCache()
 	local lastScan = 0
 	track("OreESPScan", RunService.Heartbeat:Connect(function()
 		local now = tick()
 		if now - lastScan >= 3 then
 			lastScan = now
 			pcall(scanOreTypesAndBuildUI)
+			pcall(refreshOreCache)
 		end
 	end))
 
@@ -4384,7 +4539,7 @@ Toggles.OreESPToggle:OnChanged(function()
 		oreESPLoop()
 	end))
 
-	Library:Notify({ Title = "Ore ESP", Description = "Enabled (Lag-Optimized)", Time = 2 })
+	Library:Notify({ Title = "Ore ESP", Description = "Enabled (Lag-Free)", Time = 2 })
 end)
 
 Toggles.TitanAura:OnChanged(function()
