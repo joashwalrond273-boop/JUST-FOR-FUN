@@ -49,6 +49,7 @@ local updateTouchFlingVisibility
 local updateAutoPickupVisibility
 local updatePlayerESPVisibility
 local updateFlightVisibility
+local updateImmortalModeVisibility
 
 Library.ShowToggleFrameInKeybinds = true
 
@@ -307,9 +308,9 @@ Library.CornerRadius = 15
 
 -- Window
 local Window = Library:CreateWindow({
-	Title = "URIEL",
-	Footer = "URIEL",
-	Icon = nil,
+	Title = "♠ URIEL",
+	Footer = "♠ URIEL",
+	Icon = "playing-card",
 	Center = true,
 	AutoShow = true,
 	Resizable = true,
@@ -1580,6 +1581,30 @@ CombatAutoBlock:AddSlider("QuickVanishThreshold", {
 	Compact = true,
 })
 
+updateImmortalModeVisibility = function()
+	local isImmortal = (Toggles.ImmortalMode and Toggles.ImmortalMode.Value) or false
+	if Toggles.BypassShield then
+		if Toggles.BypassShield.Visible ~= nil then
+			Toggles.BypassShield.Visible = isImmortal
+		end
+		if Toggles.BypassShield.Holder then
+			Toggles.BypassShield.Holder.Visible = isImmortal
+		end
+	end
+	if not isImmortal and Toggles.BypassShield and Toggles.BypassShield.Value then
+		Toggles.BypassShield:SetValue(false)
+	end
+	CombatAutoBlock:Resize()
+end
+
+updateImmortalModeVisibility()
+task.spawn(function()
+	task.wait(0.05)
+	if updateImmortalModeVisibility then
+		updateImmortalModeVisibility()
+	end
+end)
+
 local function isSwingAnimation(trackObj)
 	local anim = trackObj.Animation
 	if not anim then return false end
@@ -1681,6 +1706,9 @@ local function updateImmortalMode()
 end
 
 Toggles.ImmortalMode:OnChanged(function()
+	if updateImmortalModeVisibility then
+		updateImmortalModeVisibility()
+	end
 	disconnect("ImmortalMode")
 	if Toggles.ImmortalMode.Value then
 		track("ImmortalMode", RunService.Heartbeat:Connect(updateImmortalMode))
@@ -6368,7 +6396,7 @@ Library:OnUnload(function()
 end)
 
 Library:Notify({
-	Title = "URIEL",
+	Title = "♠ URIEL",
 	Description = "Script loaded successfully!",
 	Time = 2,
 })
