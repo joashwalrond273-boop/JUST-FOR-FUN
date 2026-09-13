@@ -54,6 +54,7 @@ local updateImmortalModeVisibility
 
 Library.ShowToggleFrameInKeybinds = true
 
+
 -- Helpers
 local function waitForChild(parent, name, timeout)
 	timeout = timeout or 10
