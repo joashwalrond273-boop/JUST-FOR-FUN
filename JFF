@@ -51,7 +51,6 @@ local updateAutoPickupVisibility
 local updatePlayerESPVisibility
 local updateFlightVisibility
 local updateImmortalModeVisibility
-local updateMountSpeedVisibility
 
 Library.ShowToggleFrameInKeybinds = true
 
@@ -3301,11 +3300,6 @@ MoveMountAura:AddToggle("MountSpeedBoost", {
 	Default = false,
 })
 
-MoveMountAura:AddCheckbox("MountNoclip", {
-	Text = "Mount Noclip",
-	Default = false,
-})
-
 MoveMountAura:AddSlider("MountSpeedValue", {
 	Text = "Mount Speed Value",
 	Default = 35,
@@ -3315,26 +3309,10 @@ MoveMountAura:AddSlider("MountSpeedValue", {
 	Compact = true,
 })
 
-updateMountSpeedVisibility = function()
-	local isMountSpeed = (Toggles.MountSpeedBoost and Toggles.MountSpeedBoost.Value) or false
-
-	if Options.MountSpeedValue then
-		Options.MountSpeedValue.Visible = isMountSpeed
-		if Options.MountSpeedValue.Holder then
-			Options.MountSpeedValue.Holder.Visible = isMountSpeed
-		end
-	end
-
-	MoveMountAura:Resize()
-end
-
-updateMountSpeedVisibility()
-task.spawn(function()
-	task.wait(0.05)
-	if updateMountSpeedVisibility then
-		updateMountSpeedVisibility()
-	end
-end)
+MoveMountAura:AddCheckbox("MountNoclip", {
+	Text = "Mount Noclip",
+	Default = false,
+})
 
 local MoveFaze = Tabs.Movement:AddRightGroupbox("FAZE", "zap")
 
@@ -3359,6 +3337,7 @@ Options.LowGravityHeight:OnChanged(function()
            workspace.Gravity = math.max(0, 196.2 - Options.LowGravityHeight.Value)
         end
 end)
+
 
 local noclipCorePartNames = {
 	["HumanoidRootPart"] = true,
@@ -3406,6 +3385,9 @@ Toggles.Noclip:OnChanged(function()
 	end
 end)
 
+
+
+
 Toggles.SpeedHack:OnChanged(function()
 	disconnect("SpeedHack")
 	if Toggles.SpeedHack.Value then
@@ -3445,9 +3427,6 @@ local function getCurrentMount()
 end
 
 Toggles.MountSpeedBoost:OnChanged(function()
-	if updateMountSpeedVisibility then
-		updateMountSpeedVisibility()
-	end
 	disconnect("MountSpeedBoost")
 	if Toggles.MountSpeedBoost.Value then
 		Library:Notify({ Title = "Mount Speed", Description = "Enabled", Time = 2 })
@@ -3496,6 +3475,36 @@ Toggles.MountSpeedBoost:OnChanged(function()
 	end
 end)
 
+Toggles.PlusSpeedBoost:OnChanged(function()
+	disconnect("PlusSpeedBoost")
+	if updatePVPModulesVisibility then
+		updatePVPModulesVisibility()
+	end
+	if Toggles.PlusSpeedBoost.Value then
+		Library:Notify({ Title = "+ Speed Boost", Description = "Enabled", Time = 2 })
+		track("PlusSpeedBoost", RunService.Heartbeat:Connect(function(dt)
+			if not isAlive() then return end
+			if Toggles.SpeedHack and Toggles.SpeedHack.Value then return end
+			local humanoid = getHumanoid()
+			local root = getRootPart()
+			if not humanoid or not root then return end
+			local isSwimming = humanoid:GetState() == Enum.HumanoidStateType.Swimming or (LocalPlayer.Character and LocalPlayer.Character:GetAttribute("inWater"))
+			if not isSwimming then
+				local selectedSlot = Options.SpeedBoostSlot and Options.SpeedBoostSlot.Value or "1"
+				if isHoldingSelectedSlot(selectedSlot) then
+					local targetSpeed = Options.SpeedBoostValue and Options.SpeedBoostValue.Value or 16
+					local factor = targetSpeed - humanoid.WalkSpeed
+					if factor > 0 and humanoid.MoveDirection.Magnitude > 0 then
+						LocalPlayer.Character:TranslateBy(humanoid.MoveDirection * dt * factor)
+					end
+				end
+			end
+		end))
+	else
+		Library:Notify({ Title = "+ Speed Boost", Description = "Disabled", Time = 2 })
+	end
+end)
+
 Toggles.MountNoclip:OnChanged(function()
 	disconnect("MountNoclip")
 	if Toggles.MountNoclip.Value then
@@ -3537,36 +3546,6 @@ Toggles.MountNoclip:OnChanged(function()
 			end
 		end
 		Library:Notify({ Title = "Mount Noclip", Description = "Disabled", Time = 2 })
-	end
-end)
-
-Toggles.PlusSpeedBoost:OnChanged(function()
-	disconnect("PlusSpeedBoost")
-	if updatePVPModulesVisibility then
-		updatePVPModulesVisibility()
-	end
-	if Toggles.PlusSpeedBoost.Value then
-		Library:Notify({ Title = "+ Speed Boost", Description = "Enabled", Time = 2 })
-		track("PlusSpeedBoost", RunService.Heartbeat:Connect(function(dt)
-			if not isAlive() then return end
-			if Toggles.SpeedHack and Toggles.SpeedHack.Value then return end
-			local humanoid = getHumanoid()
-			local root = getRootPart()
-			if not humanoid or not root then return end
-			local isSwimming = humanoid:GetState() == Enum.HumanoidStateType.Swimming or (LocalPlayer.Character and LocalPlayer.Character:GetAttribute("inWater"))
-			if not isSwimming then
-				local selectedSlot = Options.SpeedBoostSlot and Options.SpeedBoostSlot.Value or "1"
-				if isHoldingSelectedSlot(selectedSlot) then
-					local targetSpeed = Options.SpeedBoostValue and Options.SpeedBoostValue.Value or 16
-					local factor = targetSpeed - humanoid.WalkSpeed
-					if factor > 0 and humanoid.MoveDirection.Magnitude > 0 then
-						LocalPlayer.Character:TranslateBy(humanoid.MoveDirection * dt * factor)
-					end
-				end
-			end
-		end))
-	else
-		Library:Notify({ Title = "+ Speed Boost", Description = "Disabled", Time = 2 })
 	end
 end)
 
@@ -4657,7 +4636,6 @@ local extraLocations = {
 	{ name = "Juggernaut",  pos = Vector3.new(-1645.06, 336.32, -2874.34)},
 	{ name = "Waterfall",   pos = Vector3.new(-1949.89, 25.29, 345.83)   },
 	{ name = "Desert Maze", pos = Vector3.new(1529.42, 55.33, -938.31)   },
-	{ name = "Lion",        pos = Vector3.new(1330.51, 25.26, -755.66)   },
 }
 
 for _, loc in ipairs(extraLocations) do
@@ -6570,9 +6548,6 @@ Library:OnUnload(function()
 	end
 	if Toggles.MountSpeedBoost and Toggles.MountSpeedBoost.Value then
 		Toggles.MountSpeedBoost:SetValue(false)
-	end
-	if Toggles.MountNoclip and Toggles.MountNoclip.Value then
-		Toggles.MountNoclip:SetValue(false)
 	end
 	if Toggles.AutoShiftlock and Toggles.AutoShiftlock.Value then
 		Toggles.AutoShiftlock:SetValue(false)
