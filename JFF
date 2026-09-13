@@ -3300,6 +3300,16 @@ MoveMountAura:AddToggle("MountSpeedBoost", {
 	Default = false,
 })
 
+MoveMountAura:AddCheckbox("MountNoclip", {
+	Text = "Mount Noclip",
+	Default = false,
+})
+
+MoveMountAura:AddCheckbox("MountTouchFling", {
+	Text = "Mount Touch Fling",
+	Default = false,
+})
+
 MoveMountAura:AddSlider("MountSpeedValue", {
 	Text = "Mount Speed Value",
 	Default = 35,
@@ -3307,11 +3317,6 @@ MoveMountAura:AddSlider("MountSpeedValue", {
 	Max = 100,
 	Rounding = 1,
 	Compact = true,
-})
-
-MoveMountAura:AddToggle("MountNoclip", {
-	Text = "Mount Noclip",
-	Default = false,
 })
 
 local MoveFaze = Tabs.Movement:AddRightGroupbox("FAZE", "zap")
@@ -3516,6 +3521,80 @@ Toggles.MountNoclip:OnChanged(function()
 			end
 		end
 		Library:Notify({ Title = "Mount Noclip", Description = "Disabled", Time = 2 })
+	end
+end)
+
+Toggles.MountTouchFling:OnChanged(function()
+	disconnect("MountTouchFling")
+	if Toggles.MountTouchFling.Value then
+		Library:Notify({ Title = "Mount Touch Fling", Description = "Enabled", Time = 2 })
+		track("MountTouchFling", RunService.Heartbeat:Connect(function()
+			if not isAlive() then return end
+			local humanoid = getHumanoid()
+			local mountModel, seat = getCurrentMount()
+			if not mountModel or not humanoid then return end
+
+			local mountRoot = mountModel.PrimaryPart or mountModel:FindFirstChild("HumanoidRootPart") or seat
+			if not mountRoot then return end
+
+			-- Ensure rider stays firmly seated
+			if not humanoid.Sit and seat and (seat:IsA("Seat") or seat:IsA("VehicleSeat")) then
+				pcall(function() seat:Sit(humanoid) end)
+			end
+
+			local myPos = mountRoot.Position
+			local targetFound = false
+
+			for _, otherPlayer in ipairs(Players:GetPlayers()) do
+				if otherPlayer ~= LocalPlayer and otherPlayer.Character then
+					local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart") or otherPlayer.Character.PrimaryPart
+					local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
+					if otherRoot and otherHum and otherHum.Health > 0 then
+						local dist = (otherRoot.Position - myPos).Magnitude
+						if dist <= 14 then
+							targetFound = true
+							break
+						end
+					end
+				end
+			end
+
+			if targetFound then
+				pcall(function()
+					mountRoot.AssemblyAngularVelocity = Vector3.new(0, 50000, 0)
+					mountRoot.AssemblyLinearVelocity = Vector3.new(
+						mountRoot.AssemblyLinearVelocity.X * 10,
+						500,
+						mountRoot.AssemblyLinearVelocity.Z * 10
+					)
+				end)
+				pcall(function()
+					mountRoot.RotVelocity = Vector3.new(0, 50000, 0)
+					mountRoot.Velocity = Vector3.new(
+						mountRoot.Velocity.X * 10,
+						500,
+						mountRoot.Velocity.Z * 10
+					)
+				end)
+			else
+				pcall(function()
+					mountRoot.AssemblyAngularVelocity = Vector3.zero
+					mountRoot.RotVelocity = Vector3.zero
+				end)
+			end
+		end))
+	else
+		local mountModel, seat = getCurrentMount()
+		if mountModel then
+			local mountRoot = mountModel.PrimaryPart or mountModel:FindFirstChild("HumanoidRootPart") or seat
+			if mountRoot then
+				pcall(function()
+					mountRoot.AssemblyAngularVelocity = Vector3.zero
+					mountRoot.RotVelocity = Vector3.zero
+				end)
+			end
+		end
+		Library:Notify({ Title = "Mount Touch Fling", Description = "Disabled", Time = 2 })
 	end
 end)
 
@@ -6551,6 +6630,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.MountNoclip and Toggles.MountNoclip.Value then
 		Toggles.MountNoclip:SetValue(false)
+	end
+	if Toggles.MountTouchFling and Toggles.MountTouchFling.Value then
+		Toggles.MountTouchFling:SetValue(false)
 	end
 	if Toggles.AutoShiftlock and Toggles.AutoShiftlock.Value then
 		Toggles.AutoShiftlock:SetValue(false)
