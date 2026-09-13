@@ -3309,6 +3309,11 @@ MoveMountAura:AddSlider("MountSpeedValue", {
 	Compact = true,
 })
 
+MoveMountAura:AddToggle("MountNoclip", {
+	Text = "Mount Noclip",
+	Default = false,
+})
+
 local MoveFaze = Tabs.Movement:AddRightGroupbox("FAZE", "zap")
 
 MoveFaze:AddToggle("Noclip", {
@@ -3467,6 +3472,50 @@ Toggles.MountSpeedBoost:OnChanged(function()
 		end
 		table.clear(originalMountSpeeds)
 		Library:Notify({ Title = "Mount Speed", Description = "Disabled", Time = 2 })
+	end
+end)
+
+Toggles.MountNoclip:OnChanged(function()
+	disconnect("MountNoclip")
+	if Toggles.MountNoclip.Value then
+		Library:Notify({ Title = "Mount Noclip", Description = "Enabled", Time = 2 })
+		track("MountNoclip", RunService.Stepped:Connect(function()
+			if not isAlive() then return end
+			local mountModel = getCurrentMount()
+			if mountModel then
+				for _, part in ipairs(mountModel:GetDescendants()) do
+					if part:IsA("BasePart") and part.CanCollide then
+						part.CanCollide = false
+					end
+				end
+				local character = getCharacter()
+				if character then
+					for _, part in ipairs(character:GetDescendants()) do
+						if part:IsA("BasePart") and part.CanCollide then
+							part.CanCollide = false
+						end
+					end
+				end
+			end
+		end))
+	else
+		local mountModel = getCurrentMount()
+		if mountModel then
+			for _, part in ipairs(mountModel:GetDescendants()) do
+				if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+					part.CanCollide = true
+				end
+			end
+		end
+		local character = getCharacter()
+		if character and not (Toggles.Noclip and Toggles.Noclip.Value) then
+			for _, part in ipairs(character:GetDescendants()) do
+				if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+					part.CanCollide = true
+				end
+			end
+		end
+		Library:Notify({ Title = "Mount Noclip", Description = "Disabled", Time = 2 })
 	end
 end)
 
@@ -6499,6 +6548,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.MountSpeedBoost and Toggles.MountSpeedBoost.Value then
 		Toggles.MountSpeedBoost:SetValue(false)
+	end
+	if Toggles.MountNoclip and Toggles.MountNoclip.Value then
+		Toggles.MountNoclip:SetValue(false)
 	end
 	if Toggles.AutoShiftlock and Toggles.AutoShiftlock.Value then
 		Toggles.AutoShiftlock:SetValue(false)
