@@ -3386,9 +3386,6 @@ Toggles.Noclip:OnChanged(function()
 	end
 end)
 
-
-
-
 Toggles.SpeedHack:OnChanged(function()
 	disconnect("SpeedHack")
 	if Toggles.SpeedHack.Value then
@@ -3476,6 +3473,56 @@ Toggles.MountSpeedBoost:OnChanged(function()
 	end
 end)
 
+local function performAutoMount(nearestTarget, nearestServerModel)
+	local targetObj = nearestServerModel or nearestTarget
+	if not targetObj then return end
+
+	local equipRemote = TSG.EquipHotbarRemote or resolvePath(ReplicatedStorage, "remoteInterface", "inventory", "equipHotbar") or (ReplicatedStorage:FindFirstChild("remoteInterface") and ReplicatedStorage.remoteInterface:FindFirstChild("inventory") and ReplicatedStorage.remoteInterface.inventory:FindFirstChild("equipHotbar"))
+	local meleeRemote = TSG.MeleeAI or resolvePath(ReplicatedStorage, "remoteInterface", "interactions", "meleeAI") or (ReplicatedStorage:FindFirstChild("remoteInterface") and ReplicatedStorage.remoteInterface:FindFirstChild("interactions") and ReplicatedStorage.remoteInterface.interactions:FindFirstChild("meleeAI"))
+	local mountRemote = TSG.ToServer_Mount or resolvePath(ReplicatedStorage, "game", "AILogic", "ToServer_Mount") or (ReplicatedStorage:FindFirstChild("game") and ReplicatedStorage.game:FindFirstChild("AILogic") and ReplicatedStorage.game.AILogic:FindFirstChild("ToServer_Mount"))
+
+	-- 1. Equip inventory slot 6 with item 18 & hit with ID 6
+	if equipRemote then
+		pcall(function() equipRemote:InvokeServer("inventory", 6, 18) end)
+	end
+	if meleeRemote then
+		pcall(function() meleeRemote:FireServer(6, targetObj) end)
+		if nearestTarget and nearestTarget ~= targetObj then
+			pcall(function() meleeRemote:FireServer(6, nearestTarget) end)
+		end
+	end
+	if attackNPC then
+		pcall(function() attackNPC(6, targetObj) end)
+	end
+
+	-- 2. Equip inventory slot 6 with item 255 & hit with ID 255
+	if equipRemote then
+		pcall(function() equipRemote:InvokeServer("inventory", 6, 255) end)
+	end
+	if meleeRemote then
+		pcall(function() meleeRemote:FireServer(255, targetObj) end)
+		pcall(function() meleeRemote:FireServer(6, targetObj) end)
+		if nearestTarget and nearestTarget ~= targetObj then
+			pcall(function() meleeRemote:FireServer(255, nearestTarget) end)
+			pcall(function() meleeRemote:FireServer(6, nearestTarget) end)
+		end
+	end
+	if attackNPC then
+		pcall(function() attackNPC(255, targetObj) end)
+	end
+
+	-- 3. Force mount using ToServer_Mount
+	if mountRemote then
+		pcall(function() mountRemote:FireServer(targetObj) end)
+		pcall(function() mountRemote:FireServer(targetObj, true) end)
+		pcall(function() mountRemote:FireServer(targetObj, "Mount") end)
+		if nearestTarget and nearestTarget ~= targetObj then
+			pcall(function() mountRemote:FireServer(nearestTarget) end)
+			pcall(function() mountRemote:FireServer(nearestTarget, true) end)
+		end
+	end
+end
+
 local function autoMountLoop()
 	if not isAlive() or not Toggles.AutoMount.Value then return end
 	local currentMount = getCurrentMount()
@@ -3484,71 +3531,59 @@ local function autoMountLoop()
 	local root = getRootPart()
 	if not root then return end
 	local pos = root.Position
-	local nearestDist = 30
+	local nearestDist = 50
 	local nearestTarget = nil
 	local nearestServerModel = nil
 
-	-- Scan AI_Server
-	local aiServer = workspace:FindFirstChild("AI_Server")
-	if aiServer then
-		for _, npc in ipairs(aiServer:GetChildren()) do
-			local npcHum = npc:FindFirstChildOfClass("Humanoid")
-			local npcRoot = npc:FindFirstChild("HumanoidRootPart") or npc.PrimaryPart or npc:FindFirstChildWhichIsA("BasePart")
-			if npcRoot and (not npcHum or npcHum.Health > 0) then
-				local d = (npcRoot.Position - pos).Magnitude
-				if d < nearestDist then
-					nearestDist = d
-					nearestTarget = npc
+	local function checkCandidate(npc)
+		if not npc or npc == LocalPlayer.Character then return end
+		local npcHum = npc:FindFirstChildOfClass("Humanoid")
+		local npcRoot = npc:FindFirstChild("HumanoidRootPart") or npc.PrimaryPart or npc:FindFirstChildWhichIsA("BasePart")
+		if npcRoot and (not npcHum or npcHum.Health > 0) then
+			local d = (npcRoot.Position - pos).Magnitude
+			if d < nearestDist then
+				nearestDist = d
+				nearestTarget = npc
+				if AiController then
+					local sModel = AiController:GetServerModelFromClientModel(npc)
+					nearestServerModel = sModel or npc
+				else
 					nearestServerModel = npc
 				end
 			end
 		end
 	end
 
-	-- Scan AI_Client
-	local aiClient = workspace:FindFirstChild("AI_Client")
-	if aiClient then
-		for _, npc in ipairs(aiClient:GetChildren()) do
-			local npcHum = npc:FindFirstChildOfClass("Humanoid")
-			local npcRoot = npc:FindFirstChild("HumanoidRootPart") or npc.PrimaryPart or npc:FindFirstChildWhichIsA("BasePart")
-			if npcRoot and (not npcHum or npcHum.Health > 0) then
-				local d = (npcRoot.Position - pos).Magnitude
-				if d < nearestDist then
-					nearestDist = d
-					nearestTarget = npc
-					if AiController then
-						nearestServerModel = AiController:GetServerModelFromClientModel(npc) or npc
-					else
-						nearestServerModel = npc
-					end
+	local foldersToCheck = {
+		workspace:FindFirstChild("AI_Server"),
+		workspace:FindFirstChild("AI_Client"),
+		workspace:FindFirstChild("animals"),
+		workspace:FindFirstChild("Animals"),
+		workspace:FindFirstChild("Mounts"),
+		workspace:FindFirstChild("mounts"),
+	}
+
+	for _, folder in ipairs(foldersToCheck) do
+		if folder then
+			for _, npc in ipairs(folder:GetChildren()) do
+				checkCandidate(npc)
+			end
+		end
+	end
+
+	if not nearestTarget then
+		for _, obj in ipairs(workspace:GetChildren()) do
+			if obj:IsA("Model") and not Players:GetPlayerFromCharacter(obj) and obj ~= LocalPlayer.Character then
+				local hum = obj:FindFirstChildOfClass("Humanoid")
+				if hum and (obj.Name:find("Horse") or obj.Name:find("Lion") or obj.Name:find("Boar") or obj.Name:find("Deer") or obj.Name:find("Wolf") or obj.Name:find("Bear") or obj.Name:find("Mammoth") or obj.Name:find("Elephant") or obj.Name:find("Moose") or obj.Name:find("Camel") or obj.Name:find("Stag")) then
+					checkCandidate(obj)
 				end
 			end
 		end
 	end
 
-	if nearestTarget and nearestServerModel then
-		-- 1. Melee the AI with ID 6
-		attackNPC(6, nearestTarget)
-		if TSG.MeleeAI then
-			pcall(TSG.MeleeAI.FireServer, TSG.MeleeAI, 6, nearestServerModel)
-		end
-
-		-- 2. Melee the AI with ID 255
-		attackNPC(255, nearestTarget)
-		if TSG.MeleeAI then
-			pcall(TSG.MeleeAI.FireServer, TSG.MeleeAI, 255, nearestServerModel)
-		end
-
-		-- 3. Force mount onto the AI/animal using ToServer_Mount
-		local mountRemote = TSG.ToServer_Mount or (ReplicatedStorage:FindFirstChild("game") and ReplicatedStorage.game:FindFirstChild("AILogic") and ReplicatedStorage.game.AILogic:FindFirstChild("ToServer_Mount"))
-		if mountRemote then
-			pcall(function()
-				mountRemote:FireServer(nearestServerModel)
-			end)
-			pcall(function()
-				mountRemote:FireServer(nearestTarget)
-			end)
-		end
+	if nearestTarget then
+		performAutoMount(nearestTarget, nearestServerModel)
 	end
 end
 
