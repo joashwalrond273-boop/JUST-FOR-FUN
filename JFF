@@ -54,7 +54,6 @@ local updateImmortalModeVisibility
 
 Library.ShowToggleFrameInKeybinds = true
 
-
 -- Helpers
 local function waitForChild(parent, name, timeout)
 	timeout = timeout or 10
@@ -3337,7 +3336,6 @@ Options.LowGravityHeight:OnChanged(function()
            workspace.Gravity = math.max(0, 196.2 - Options.LowGravityHeight.Value)
         end
 end)
-
 
 local noclipCorePartNames = {
 	["HumanoidRootPart"] = true,
