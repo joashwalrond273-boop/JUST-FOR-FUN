@@ -243,7 +243,7 @@ TSG.MeleePlayerRemote = (keyedRemotes and rawget(keyedRemotes, "meleePlayer")) o
 TSG.MineRemote = (keyedRemotes and rawget(keyedRemotes, "mine")) or (interactionsFolder and interactionsFolder:FindFirstChild("mine"))
 TSG.ChopRemote = (keyedRemotes and rawget(keyedRemotes, "chop")) or (interactionsFolder and interactionsFolder:FindFirstChild("chop"))
 TSG.MeleeAI = interactionsFolder and interactionsFolder:FindFirstChild("meleeAI")
-TSG.ToServer_Mount = resolvePath(ReplicatedStorage, "game", "AILogic", "ToServer_Mount") or (ReplicatedStorage:FindFirstChild("game") and ReplicatedStorage.game:FindFirstChild("AILogic") and ReplicatedStorage.game.AILogic:FindFirstChild("ToServer_Mount"))
+TSG.MountAttackRemote = resolvePath(ReplicatedStorage, "game", "AILogic", "ToServer_MountAttack") or (ReplicatedStorage:FindFirstChild("game") and ReplicatedStorage.game:FindFirstChild("AILogic") and ReplicatedStorage.game.AILogic:FindFirstChild("ToServer_MountAttack"))
 
 -- No Bear Trap DMG Remote Interception
 pcall(function()
@@ -3301,11 +3301,6 @@ MoveMountAura:AddToggle("MountSpeedBoost", {
 	Default = false,
 })
 
-MoveMountAura:AddToggle("AutoMount", {
-	Text = "Auto Mount",
-	Default = false,
-})
-
 MoveMountAura:AddSlider("MountSpeedValue", {
 	Text = "Mount Speed Value",
 	Default = 35,
@@ -3313,6 +3308,11 @@ MoveMountAura:AddSlider("MountSpeedValue", {
 	Max = 100,
 	Rounding = 1,
 	Compact = true,
+})
+
+MoveMountAura:AddToggle("MountKillAura", {
+	Text = "Mount Kill Aura",
+	Default = false,
 })
 
 local MoveFaze = Tabs.Movement:AddRightGroupbox("FAZE", "zap")
@@ -3473,133 +3473,93 @@ Toggles.MountSpeedBoost:OnChanged(function()
 	end
 end)
 
-local function performAutoMount(nearestTarget, nearestServerModel)
-	local targetObj = nearestServerModel or nearestTarget
-	if not targetObj then return end
+local lastMountKillAuraHit = 0
+local function mountKillAuraLoop()
+	local delayVal = (Options.KillAuraSpeed and Options.KillAuraSpeed.Value) or 0.2
+	if not isAlive() or tick() - lastMountKillAuraHit < delayVal then return end
 
-	local equipRemote = TSG.EquipHotbarRemote or resolvePath(ReplicatedStorage, "remoteInterface", "inventory", "equipHotbar") or (ReplicatedStorage:FindFirstChild("remoteInterface") and ReplicatedStorage.remoteInterface:FindFirstChild("inventory") and ReplicatedStorage.remoteInterface.inventory:FindFirstChild("equipHotbar"))
-	local meleeRemote = TSG.MeleeAI or resolvePath(ReplicatedStorage, "remoteInterface", "interactions", "meleeAI") or (ReplicatedStorage:FindFirstChild("remoteInterface") and ReplicatedStorage.remoteInterface:FindFirstChild("interactions") and ReplicatedStorage.remoteInterface.interactions:FindFirstChild("meleeAI"))
-	local mountRemote = TSG.ToServer_Mount or resolvePath(ReplicatedStorage, "game", "AILogic", "ToServer_Mount") or (ReplicatedStorage:FindFirstChild("game") and ReplicatedStorage.game:FindFirstChild("AILogic") and ReplicatedStorage.game.AILogic:FindFirstChild("ToServer_Mount"))
+	local mountModel, seat = getCurrentMount()
+	if not mountModel then return end
 
-	-- 1. Equip inventory slot 6 with item 18 & hit with ID 6
-	if equipRemote then
-		pcall(function() equipRemote:InvokeServer("inventory", 6, 18) end)
-	end
-	if meleeRemote then
-		pcall(function() meleeRemote:FireServer(6, targetObj) end)
-		if nearestTarget and nearestTarget ~= targetObj then
-			pcall(function() meleeRemote:FireServer(6, nearestTarget) end)
-		end
-	end
-	if attackNPC then
-		pcall(function() attackNPC(6, targetObj) end)
-	end
-
-	-- 2. Equip inventory slot 6 with item 255 & hit with ID 255
-	if equipRemote then
-		pcall(function() equipRemote:InvokeServer("inventory", 6, 255) end)
-	end
-	if meleeRemote then
-		pcall(function() meleeRemote:FireServer(255, targetObj) end)
-		pcall(function() meleeRemote:FireServer(6, targetObj) end)
-		if nearestTarget and nearestTarget ~= targetObj then
-			pcall(function() meleeRemote:FireServer(255, nearestTarget) end)
-			pcall(function() meleeRemote:FireServer(6, nearestTarget) end)
-		end
-	end
-	if attackNPC then
-		pcall(function() attackNPC(255, targetObj) end)
-	end
-
-	-- 3. Force mount using ToServer_Mount
-	if mountRemote then
-		pcall(function() mountRemote:FireServer(targetObj) end)
-		pcall(function() mountRemote:FireServer(targetObj, true) end)
-		pcall(function() mountRemote:FireServer(targetObj, "Mount") end)
-		if nearestTarget and nearestTarget ~= targetObj then
-			pcall(function() mountRemote:FireServer(nearestTarget) end)
-			pcall(function() mountRemote:FireServer(nearestTarget, true) end)
-		end
-	end
-end
-
-local function autoMountLoop()
-	if not isAlive() or not Toggles.AutoMount.Value then return end
-	local currentMount = getCurrentMount()
-	if currentMount then return end
-
-	local root = getRootPart()
+	local root = mountModel.PrimaryPart or mountModel:FindFirstChild("HumanoidRootPart") or seat or getRootPart()
 	if not root then return end
-	local pos = root.Position
-	local nearestDist = 50
-	local nearestTarget = nil
-	local nearestServerModel = nil
 
-	local function checkCandidate(npc)
-		if not npc or npc == LocalPlayer.Character then return end
-		local npcHum = npc:FindFirstChildOfClass("Humanoid")
-		local npcRoot = npc:FindFirstChild("HumanoidRootPart") or npc.PrimaryPart or npc:FindFirstChildWhichIsA("BasePart")
-		if npcRoot and (not npcHum or npcHum.Health > 0) then
-			local d = (npcRoot.Position - pos).Magnitude
-			if d < nearestDist then
-				nearestDist = d
-				nearestTarget = npc
-				if AiController then
-					local sModel = AiController:GetServerModelFromClientModel(npc)
-					nearestServerModel = sModel or npc
-				else
-					nearestServerModel = npc
+	local range = (Options.KillAuraRange and Options.KillAuraRange.Value) or 15
+	local pos = root.Position
+	local nearestDist = range
+	local nearestTarget = nil
+
+	-- Scan Players
+	if Toggles.TargetPlayers and Toggles.TargetPlayers.Value then
+		for _, otherPlayer in ipairs(Players:GetPlayers()) do
+			if otherPlayer ~= LocalPlayer and otherPlayer.Character then
+				local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
+				local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart") or otherPlayer.Character.PrimaryPart
+				if otherHum and otherHum.Health > 0 and otherRoot then
+					local d = (otherRoot.Position - pos).Magnitude
+					if d < nearestDist then
+						nearestDist = d
+						nearestTarget = otherPlayer.Character
+					end
 				end
 			end
 		end
 	end
 
-	local foldersToCheck = {
-		workspace:FindFirstChild("AI_Server"),
-		workspace:FindFirstChild("AI_Client"),
-		workspace:FindFirstChild("animals"),
-		workspace:FindFirstChild("Animals"),
-		workspace:FindFirstChild("Mounts"),
-		workspace:FindFirstChild("mounts"),
-	}
-
-	for _, folder in ipairs(foldersToCheck) do
-		if folder then
-			for _, npc in ipairs(folder:GetChildren()) do
-				checkCandidate(npc)
+	-- Scan NPC AI Client Models
+	local aiClient = workspace:FindFirstChild("AI_Client")
+	if aiClient then
+		for _, npc in ipairs(aiClient:GetChildren()) do
+			if npc ~= mountModel then
+				local npcHum = npc:FindFirstChildOfClass("Humanoid")
+				local npcRoot = npc:FindFirstChild("HumanoidRootPart") or npc.PrimaryPart
+				if npcHum and npcHum.Health > 0 and npcRoot then
+					local d = (npcRoot.Position - pos).Magnitude
+					if d < nearestDist then
+						nearestDist = d
+						nearestTarget = npc
+					end
+				end
 			end
 		end
 	end
 
-	if not nearestTarget then
-		for _, obj in ipairs(workspace:GetChildren()) do
-			if obj:IsA("Model") and not Players:GetPlayerFromCharacter(obj) and obj ~= LocalPlayer.Character then
-				local hum = obj:FindFirstChildOfClass("Humanoid")
-				if hum and (obj.Name:find("Horse") or obj.Name:find("Lion") or obj.Name:find("Boar") or obj.Name:find("Deer") or obj.Name:find("Wolf") or obj.Name:find("Bear") or obj.Name:find("Mammoth") or obj.Name:find("Elephant") or obj.Name:find("Moose") or obj.Name:find("Camel") or obj.Name:find("Stag")) then
-					checkCandidate(obj)
+	-- Scan NPC AI Server Models
+	local aiServer = workspace:FindFirstChild("AI_Server")
+	if aiServer then
+		for _, npc in ipairs(aiServer:GetChildren()) do
+			if npc ~= mountModel then
+				local npcHum = npc:FindFirstChildOfClass("Humanoid")
+				local npcRoot = npc:FindFirstChild("HumanoidRootPart") or npc.PrimaryPart
+				if (not npcHum or npcHum.Health > 0) and npcRoot then
+					local d = (npcRoot.Position - pos).Magnitude
+					if d < nearestDist then
+						nearestDist = d
+						nearestTarget = npc
+					end
 				end
 			end
 		end
 	end
 
 	if nearestTarget then
-		performAutoMount(nearestTarget, nearestServerModel)
+		lastMountKillAuraHit = tick()
+		local mountAttackRemote = TSG.MountAttackRemote or (ReplicatedStorage:FindFirstChild("game") and ReplicatedStorage.game:FindFirstChild("AILogic") and ReplicatedStorage.game.AILogic:FindFirstChild("ToServer_MountAttack"))
+		if mountAttackRemote then
+			pcall(function()
+				mountAttackRemote:FireServer(nearestTarget)
+			end)
+		end
 	end
 end
 
-local lastAutoMountTick = 0
-Toggles.AutoMount:OnChanged(function()
-	disconnect("AutoMount")
-	if Toggles.AutoMount.Value then
-		track("AutoMount", RunService.Heartbeat:Connect(function()
-			if tick() - lastAutoMountTick >= 0.25 then
-				lastAutoMountTick = tick()
-				autoMountLoop()
-			end
-		end))
-		Library:Notify({ Title = "Auto Mount", Description = "Enabled", Time = 2 })
+Toggles.MountKillAura:OnChanged(function()
+	disconnect("MountKillAura")
+	if Toggles.MountKillAura.Value then
+		track("MountKillAura", RunService.Heartbeat:Connect(mountKillAuraLoop))
+		Library:Notify({ Title = "Mount Kill Aura", Description = "Enabled", Time = 2 })
 	else
-		Library:Notify({ Title = "Auto Mount", Description = "Disabled", Time = 2 })
+		Library:Notify({ Title = "Mount Kill Aura", Description = "Disabled", Time = 2 })
 	end
 end)
 
@@ -6633,8 +6593,8 @@ Library:OnUnload(function()
 	if Toggles.MountSpeedBoost and Toggles.MountSpeedBoost.Value then
 		Toggles.MountSpeedBoost:SetValue(false)
 	end
-	if Toggles.AutoMount and Toggles.AutoMount.Value then
-		Toggles.AutoMount:SetValue(false)
+	if Toggles.MountKillAura and Toggles.MountKillAura.Value then
+		Toggles.MountKillAura:SetValue(false)
 	end
 	if Toggles.AutoShiftlock and Toggles.AutoShiftlock.Value then
 		Toggles.AutoShiftlock:SetValue(false)
