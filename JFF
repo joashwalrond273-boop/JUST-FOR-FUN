@@ -51,6 +51,7 @@ local updateAutoPickupVisibility
 local updatePlayerESPVisibility
 local updateFlightVisibility
 local updateImmortalModeVisibility
+local updateMountSpeedVisibility
 
 Library.ShowToggleFrameInKeybinds = true
 
@@ -3314,6 +3315,27 @@ MoveMountAura:AddSlider("MountSpeedValue", {
 	Compact = true,
 })
 
+updateMountSpeedVisibility = function()
+	local isMountSpeed = (Toggles.MountSpeedBoost and Toggles.MountSpeedBoost.Value) or false
+
+	if Options.MountSpeedValue then
+		Options.MountSpeedValue.Visible = isMountSpeed
+		if Options.MountSpeedValue.Holder then
+			Options.MountSpeedValue.Holder.Visible = isMountSpeed
+		end
+	end
+
+	MoveMountAura:Resize()
+end
+
+updateMountSpeedVisibility()
+task.spawn(function()
+	task.wait(0.05)
+	if updateMountSpeedVisibility then
+		updateMountSpeedVisibility()
+	end
+end)
+
 local MoveFaze = Tabs.Movement:AddRightGroupbox("FAZE", "zap")
 
 MoveFaze:AddToggle("Noclip", {
@@ -3423,6 +3445,9 @@ local function getCurrentMount()
 end
 
 Toggles.MountSpeedBoost:OnChanged(function()
+	if updateMountSpeedVisibility then
+		updateMountSpeedVisibility()
+	end
 	disconnect("MountSpeedBoost")
 	if Toggles.MountSpeedBoost.Value then
 		Library:Notify({ Title = "Mount Speed", Description = "Enabled", Time = 2 })
