@@ -1546,10 +1546,25 @@ CombatAutoPVP:AddSlider("SpeedBoostValue", {
 	Compact = true,
 })
 
+CombatAutoPVP:AddCheckbox("LowGravity", {
+	Text = "+ Low Gravity",
+	Default = false,
+})
+
+CombatAutoPVP:AddSlider("LowGravityHeight", {
+	Text = "Low Gravity Height",
+	Default = 100,
+	Min = 0,
+	Max = 300,
+	Rounding = 0,
+	Compact = true,
+})
+
 updatePVPModulesVisibility = function()
 	local isHop = (Toggles.AutoHop and Toggles.AutoHop.Value) or false
 	local isCam = (Toggles.Camlock and Toggles.Camlock.Value) or false
 	local isSpeedBoost = (Toggles.PlusSpeedBoost and Toggles.PlusSpeedBoost.Value) or false
+	local isLowGrav = (Toggles.LowGravity and Toggles.LowGravity.Value) or false
 
 	if Options.AutoHopStuds then
 		Options.AutoHopStuds.Visible = isHop
@@ -1573,6 +1588,12 @@ updatePVPModulesVisibility = function()
 		Options.SpeedBoostValue.Visible = isSpeedBoost
 		if Options.SpeedBoostValue.Holder then
 			Options.SpeedBoostValue.Holder.Visible = isSpeedBoost
+		end
+	end
+	if Options.LowGravityHeight then
+		Options.LowGravityHeight.Visible = isLowGrav
+		if Options.LowGravityHeight.Holder then
+			Options.LowGravityHeight.Holder.Visible = isLowGrav
 		end
 	end
 	CombatAutoPVP:Resize()
@@ -2974,20 +2995,6 @@ MoveLeft:AddSlider("SpeedValue", {
 	Compact = true,
 })
 
-MoveLeft:AddToggle("MountSpeedBoost", {
-	Text = "Mount Speed",
-	Default = false,
-})
-
-MoveLeft:AddSlider("MountSpeedValue", {
-	Text = "Mount Speed Value",
-	Default = 35,
-	Min = 16,
-	Max = 100,
-	Rounding = 1,
-	Compact = true,
-})
-
 local MoveSwimBoost = Tabs.Movement:AddLeftGroupbox("Swim Boost", "droplet")
 
 MoveSwimBoost:AddToggle("SwimBoost", {
@@ -3286,20 +3293,20 @@ task.spawn(function()
 	end
 end)
 
-local MoveLowGravity = Tabs.Movement:AddRightGroupbox("Low Gravity", "arrow-down")
+local MoveMountAura = Tabs.Movement:AddRightGroupbox("Mount Aura", "paw-print")
 
-MoveLowGravity:AddToggle("LowGravity", {
-        Text = "Low Gravity",
-        Default = false,
+MoveMountAura:AddToggle("MountSpeedBoost", {
+	Text = "Mount Speed",
+	Default = false,
 })
 
-MoveLowGravity:AddSlider("LowGravityHeight", {
-        Text = "Low Gravity Height",
-        Default = 100,
-        Min = 0,
-        Max = 300,
-        Rounding = 0,
-        Compact = true,
+MoveMountAura:AddSlider("MountSpeedValue", {
+	Text = "Mount Speed Value",
+	Default = 35,
+	Min = 16,
+	Max = 100,
+	Rounding = 1,
+	Compact = true,
 })
 
 local MoveFaze = Tabs.Movement:AddRightGroupbox("FAZE", "zap")
@@ -3310,11 +3317,14 @@ MoveFaze:AddToggle("Noclip", {
 })
 
 Toggles.LowGravity:OnChanged(function()
-        if Toggles.LowGravity.Value then
-           workspace.Gravity = math.max(0, 196.2 - Options.LowGravityHeight.Value)
-        else
-                workspace.Gravity = 196.2
-        end
+	if updatePVPModulesVisibility then
+		updatePVPModulesVisibility()
+	end
+	if Toggles.LowGravity.Value then
+		workspace.Gravity = math.max(0, 196.2 - Options.LowGravityHeight.Value)
+	else
+		workspace.Gravity = 196.2
+	end
 end)
 
 Options.LowGravityHeight:OnChanged(function()
@@ -6483,6 +6493,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.PlusSpeedBoost and Toggles.PlusSpeedBoost.Value then
 		Toggles.PlusSpeedBoost:SetValue(false)
+	end
+	if Toggles.LowGravity and Toggles.LowGravity.Value then
+		Toggles.LowGravity:SetValue(false)
 	end
 	if Toggles.MountSpeedBoost and Toggles.MountSpeedBoost.Value then
 		Toggles.MountSpeedBoost:SetValue(false)
