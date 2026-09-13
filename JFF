@@ -3536,22 +3536,15 @@ Toggles.MountTeleport:OnChanged(function()
 		local selectedLocation = Options.MountLocationsDropdown and Options.MountLocationsDropdown.Value
 		local targetPos = mountLocations[selectedLocation]
 		if targetPos then
-			local mountModel, seat = getCurrentMount()
 			local root = getRootPart()
-
-			if mountModel then
-				pcall(function()
-					mountModel:PivotTo(CFrame.new(targetPos + Vector3.new(0, 3, 0)))
-				end)
-				Library:Notify({ Title = "Mount Teleport", Description = "Teleported mount to " .. tostring(selectedLocation), Time = 2 })
-			elseif root then
-				root.CFrame = CFrame.new(targetPos + Vector3.new(0, 3, 0))
-				Library:Notify({ Title = "Teleport", Description = "Teleported to " .. tostring(selectedLocation), Time = 2 })
+			if root then
+				root.CFrame = CFrame.new(targetPos)
+				Library:Notify({ Title = "Teleport", Description = "Teleported to " .. tostring(selectedLocation), Time = 1.5 })
 			else
-				Library:Notify({ Title = "Mount Teleport", Description = "Character not found.", Time = 3 })
+				Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
 			end
 		else
-			Library:Notify({ Title = "Mount Teleport", Description = "Location not found.", Time = 3 })
+			Library:Notify({ Title = "Teleport", Description = "Location not found.", Time = 3 })
 		end
 
 		task.defer(function()
