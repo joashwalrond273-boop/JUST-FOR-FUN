@@ -3313,6 +3313,19 @@ MoveMountAura:AddSlider("MountSpeedValue", {
 	Compact = true,
 })
 
+MoveMountAura:AddDivider()
+
+MoveMountAura:AddToggle("MountTeleport", {
+	Text = "Mount Teleport",
+	Default = false,
+})
+
+MoveMountAura:AddDropdown("MountLocationsDropdown", {
+	Text = "Select Mount Location",
+	Values = { "Lion" },
+	Default = "Lion",
+})
+
 local MoveFaze = Tabs.Movement:AddRightGroupbox("FAZE", "zap")
 
 MoveFaze:AddToggle("Noclip", {
@@ -3511,6 +3524,41 @@ Toggles.MountNoclip:OnChanged(function()
 			end
 		end
 		Library:Notify({ Title = "Mount Noclip", Description = "Disabled", Time = 2 })
+	end
+end)
+
+local mountLocations = {
+	["Lion"] = Vector3.new(1330.51, 25.26, -755.66),
+}
+
+Toggles.MountTeleport:OnChanged(function()
+	if Toggles.MountTeleport.Value then
+		local selectedLocation = Options.MountLocationsDropdown and Options.MountLocationsDropdown.Value
+		local targetPos = mountLocations[selectedLocation]
+		if targetPos then
+			local mountModel, seat = getCurrentMount()
+			local root = getRootPart()
+
+			if mountModel then
+				pcall(function()
+					mountModel:PivotTo(CFrame.new(targetPos + Vector3.new(0, 3, 0)))
+				end)
+				Library:Notify({ Title = "Mount Teleport", Description = "Teleported mount to " .. tostring(selectedLocation), Time = 2 })
+			elseif root then
+				root.CFrame = CFrame.new(targetPos + Vector3.new(0, 3, 0))
+				Library:Notify({ Title = "Teleport", Description = "Teleported to " .. tostring(selectedLocation), Time = 2 })
+			else
+				Library:Notify({ Title = "Mount Teleport", Description = "Character not found.", Time = 3 })
+			end
+		else
+			Library:Notify({ Title = "Mount Teleport", Description = "Location not found.", Time = 3 })
+		end
+
+		task.defer(function()
+			if Toggles.MountTeleport and Toggles.MountTeleport.Value then
+				Toggles.MountTeleport:SetValue(false)
+			end
+		end)
 	end
 end)
 
@@ -6546,6 +6594,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.MountNoclip and Toggles.MountNoclip.Value then
 		Toggles.MountNoclip:SetValue(false)
+	end
+	if Toggles.MountTeleport and Toggles.MountTeleport.Value then
+		Toggles.MountTeleport:SetValue(false)
 	end
 	if Toggles.AutoShiftlock and Toggles.AutoShiftlock.Value then
 		Toggles.AutoShiftlock:SetValue(false)
