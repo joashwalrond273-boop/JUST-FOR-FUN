@@ -2974,6 +2974,20 @@ MoveLeft:AddSlider("SpeedValue", {
 	Compact = true,
 })
 
+MoveLeft:AddToggle("MountSpeedBoost", {
+	Text = "Mount Speed",
+	Default = false,
+})
+
+MoveLeft:AddSlider("MountSpeedValue", {
+	Text = "Mount Speed Value",
+	Default = 35,
+	Min = 16,
+	Max = 100,
+	Rounding = 1,
+	Compact = true,
+})
+
 local MoveSwimBoost = Tabs.Movement:AddLeftGroupbox("Swim Boost", "droplet")
 
 MoveSwimBoost:AddToggle("SwimBoost", {
@@ -3378,6 +3392,71 @@ Toggles.SpeedHack:OnChanged(function()
 		end))
 	else
 		Library:Notify({ Title = "Speed", Description = "Disabled", Time = 2 })
+	end
+end)
+
+local originalMountSpeeds = {}
+
+local function getCurrentMount()
+	local humanoid = getHumanoid()
+	if humanoid and humanoid.SeatPart then
+		local seat = humanoid.SeatPart
+		local folder = seat:FindFirstAncestorOfClass("Folder")
+		if folder and folder == workspace:FindFirstChild("boats") then
+			return nil, nil
+		end
+		local mountModel = seat:FindFirstAncestorOfClass("Model")
+		return mountModel, seat
+	end
+	return nil, nil
+end
+
+Toggles.MountSpeedBoost:OnChanged(function()
+	disconnect("MountSpeedBoost")
+	if Toggles.MountSpeedBoost.Value then
+		Library:Notify({ Title = "Mount Speed", Description = "Enabled", Time = 2 })
+		track("MountSpeedBoost", RunService.Heartbeat:Connect(function(dt)
+			if not isAlive() then return end
+			local humanoid = getHumanoid()
+			local mountModel, seat = getCurrentMount()
+			if not mountModel or not humanoid then return end
+
+			local targetSpeed = (Options.MountSpeedValue and Options.MountSpeedValue.Value) or 35
+			local mountHum = mountModel:FindFirstChildOfClass("Humanoid")
+			local mountRoot = mountModel.PrimaryPart or mountModel:FindFirstChild("HumanoidRootPart") or seat
+
+			if mountHum then
+				if not originalMountSpeeds[mountHum] then
+					originalMountSpeeds[mountHum] = mountHum.WalkSpeed
+				end
+				if mountHum.WalkSpeed ~= targetSpeed then
+					mountHum.WalkSpeed = targetSpeed
+				end
+			end
+
+			if seat and seat:IsA("VehicleSeat") then
+				if seat.MaxSpeed < targetSpeed then
+					seat.MaxSpeed = targetSpeed
+				end
+			end
+
+			local moveDir = humanoid.MoveDirection
+			if moveDir.Magnitude > 0 and mountRoot then
+				local currentSpeed = (mountHum and mountHum.WalkSpeed) or 16
+				local factor = targetSpeed - currentSpeed
+				if factor > 0 then
+					mountModel:TranslateBy(moveDir * dt * factor)
+				end
+			end
+		end))
+	else
+		for hum, origSpeed in pairs(originalMountSpeeds) do
+			if hum and hum.Parent then
+				pcall(function() hum.WalkSpeed = origSpeed end)
+			end
+		end
+		table.clear(originalMountSpeeds)
+		Library:Notify({ Title = "Mount Speed", Description = "Disabled", Time = 2 })
 	end
 end)
 
@@ -6404,6 +6483,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.PlusSpeedBoost and Toggles.PlusSpeedBoost.Value then
 		Toggles.PlusSpeedBoost:SetValue(false)
+	end
+	if Toggles.MountSpeedBoost and Toggles.MountSpeedBoost.Value then
+		Toggles.MountSpeedBoost:SetValue(false)
 	end
 	if Toggles.AutoShiftlock and Toggles.AutoShiftlock.Value then
 		Toggles.AutoShiftlock:SetValue(false)
