@@ -51,7 +51,6 @@ local updateAutoPickupVisibility
 local updatePlayerESPVisibility
 local updateFlightVisibility
 local updateImmortalModeVisibility
-local teleportToLastMount
 
 Library.ShowToggleFrameInKeybinds = true
 
@@ -3306,13 +3305,9 @@ MoveMountAura:AddCheckbox("MountNoclip", {
 	Default = false,
 })
 
-MoveMountAura:AddButton({
-	Text = "Teleport to Mount",
-	Func = function()
-		if teleportToLastMount then
-			teleportToLastMount()
-		end
-	end,
+MoveMountAura:AddCheckbox("MountRainbowTrail", {
+	Text = "Mount Rainbow Trail",
+	Default = false,
 })
 
 MoveMountAura:AddSlider("MountSpeedValue", {
@@ -3418,13 +3413,6 @@ Toggles.SpeedHack:OnChanged(function()
 end)
 
 local originalMountSpeeds = {}
-local lastRiddenMount = {
-	model = nil,
-	seat = nil,
-	position = nil,
-	cframe = nil,
-	name = "Mount",
-}
 
 local function getCurrentMount()
 	local humanoid = getHumanoid()
@@ -3438,69 +3426,6 @@ local function getCurrentMount()
 		return mountModel, seat
 	end
 	return nil, nil
-end
-
-local function trackMountPosition()
-	local mountModel, seat = getCurrentMount()
-	if mountModel then
-		local root = mountModel.PrimaryPart or mountModel:FindFirstChild("HumanoidRootPart") or seat
-		if root then
-			lastRiddenMount.model = mountModel
-			lastRiddenMount.seat = seat
-			lastRiddenMount.position = root.Position
-			lastRiddenMount.cframe = root.CFrame
-			lastRiddenMount.name = mountModel.Name or "Mount"
-		end
-	end
-end
-
-track("MountTracker", RunService.Heartbeat:Connect(function()
-	if isAlive() then
-		trackMountPosition()
-	end
-end))
-
-teleportToLastMount = function()
-	local playerRoot = getRootPart()
-	local humanoid = getHumanoid()
-	if not playerRoot or not humanoid or not isAlive() then
-		Library:Notify({ Title = "Teleport to Mount", Description = "Character not found or dead.", Time = 3 })
-		return
-	end
-
-	local currentModel = getCurrentMount()
-	if currentModel then
-		Library:Notify({ Title = "Teleport to Mount", Description = "You are already riding your mount!", Time = 2 })
-		return
-	end
-
-	-- Case 1: Mount model still exists in workspace
-	if lastRiddenMount.model and lastRiddenMount.model.Parent and lastRiddenMount.model:IsDescendantOf(workspace) then
-		local targetRoot = lastRiddenMount.model.PrimaryPart or lastRiddenMount.model:FindFirstChild("HumanoidRootPart") or lastRiddenMount.seat
-		local targetCFrame = targetRoot and targetRoot.CFrame or lastRiddenMount.model:GetPivot()
-		if targetCFrame then
-			playerRoot.CFrame = targetCFrame + Vector3.new(0, 3.5, 0)
-			if lastRiddenMount.seat and lastRiddenMount.seat.Parent and (lastRiddenMount.seat:IsA("Seat") or lastRiddenMount.seat:IsA("VehicleSeat")) then
-				pcall(function()
-					if not lastRiddenMount.seat.Occupant then
-						lastRiddenMount.seat:Sit(humanoid)
-					end
-				end)
-			end
-			Library:Notify({ Title = "Teleport to Mount", Description = "Teleported to " .. tostring(lastRiddenMount.name) .. "!", Time = 2 })
-			return
-		end
-	end
-
-	-- Case 2: Fallback to last recorded coordinates
-	if lastRiddenMount.cframe or lastRiddenMount.position then
-		local destCFrame = lastRiddenMount.cframe or CFrame.new(lastRiddenMount.position)
-		playerRoot.CFrame = destCFrame + Vector3.new(0, 3.5, 0)
-		Library:Notify({ Title = "Teleport to Mount", Description = "Teleported to last known mount position!", Time = 2.5 })
-		return
-	end
-
-	Library:Notify({ Title = "Teleport to Mount", Description = "No mount recorded yet. Ride a mount first!", Time = 3 })
 end
 
 Toggles.MountSpeedBoost:OnChanged(function()
@@ -3593,6 +3518,106 @@ Toggles.MountNoclip:OnChanged(function()
 			end
 		end
 		Library:Notify({ Title = "Mount Noclip", Description = "Disabled", Time = 2 })
+	end
+end)
+
+local activeMountTrail = nil
+local activeMountAttach0 = nil
+local activeMountAttach1 = nil
+
+local function cleanupMountTrail()
+	if activeMountTrail then
+		pcall(function() activeMountTrail:Destroy() end)
+		activeMountTrail = nil
+	end
+	if activeMountAttach0 then
+		pcall(function() activeMountAttach0:Destroy() end)
+		activeMountAttach0 = nil
+	end
+	if activeMountAttach1 then
+		pcall(function() activeMountAttach1:Destroy() end)
+		activeMountAttach1 = nil
+	end
+end
+
+Toggles.MountRainbowTrail:OnChanged(function()
+	disconnect("MountRainbowTrail")
+	cleanupMountTrail()
+
+	if Toggles.MountRainbowTrail.Value then
+		Library:Notify({ Title = "Mount Rainbow Trail", Description = "Enabled", Time = 2 })
+		local lastTargetRoot = nil
+
+		track("MountRainbowTrail", RunService.RenderStepped:Connect(function()
+			if not isAlive() then
+				cleanupMountTrail()
+				lastTargetRoot = nil
+				return
+			end
+
+			local mountModel, seat = getCurrentMount()
+			if not mountModel then
+				cleanupMountTrail()
+				lastTargetRoot = nil
+				return
+			end
+
+			local mountRoot = mountModel.PrimaryPart or mountModel:FindFirstChild("HumanoidRootPart") or seat
+			if not mountRoot then
+				cleanupMountTrail()
+				lastTargetRoot = nil
+				return
+			end
+
+			if mountRoot ~= lastTargetRoot or not activeMountTrail or not activeMountTrail.Parent then
+				cleanupMountTrail()
+				lastTargetRoot = mountRoot
+
+				local a0 = Instance.new("Attachment")
+				a0.Name = "MountRainbowAttach0"
+				a0.Position = Vector3.new(0, 1.2, -1)
+				a0.Parent = mountRoot
+				activeMountAttach0 = a0
+
+				local a1 = Instance.new("Attachment")
+				a1.Name = "MountRainbowAttach1"
+				a1.Position = Vector3.new(0, -1.2, -1)
+				a1.Parent = mountRoot
+				activeMountAttach1 = a1
+
+				local trail = Instance.new("Trail")
+				trail.Name = "MountRainbowTrail"
+				trail.Attachment0 = a0
+				trail.Attachment1 = a1
+				trail.Lifetime = 1.2
+				trail.MinLength = 0.05
+				trail.LightEmission = 1
+				trail.LightInfluence = 0
+				trail.FaceCamera = true
+				trail.Transparency = NumberSequence.new({
+					NumberSequenceKeypoint.new(0, 0),
+					NumberSequenceKeypoint.new(0.8, 0.3),
+					NumberSequenceKeypoint.new(1, 1),
+				})
+				trail.Parent = mountRoot
+				activeMountTrail = trail
+			end
+
+			if activeMountTrail then
+				local t = tick() * 0.8
+				local c1 = Color3.fromHSV(t % 1, 1, 1)
+				local c2 = Color3.fromHSV((t + 0.25) % 1, 1, 1)
+				local c3 = Color3.fromHSV((t + 0.5) % 1, 1, 1)
+				activeMountTrail.Color = ColorSequence.new({
+					ColorSequenceKeypoint.new(0, c1),
+					ColorSequenceKeypoint.new(0.5, c2),
+					ColorSequenceKeypoint.new(1, c3),
+				})
+			end
+		end))
+	else
+		cleanupMountTrail()
+		Library:Notify({ Title = "Mount Rainbow Trail", Description = "Disabled", Time = 2 })
 	end
 end)
 
@@ -6628,6 +6653,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.MountNoclip and Toggles.MountNoclip.Value then
 		Toggles.MountNoclip:SetValue(false)
+	end
+	if Toggles.MountRainbowTrail and Toggles.MountRainbowTrail.Value then
+		Toggles.MountRainbowTrail:SetValue(false)
 	end
 	if Toggles.AutoShiftlock and Toggles.AutoShiftlock.Value then
 		Toggles.AutoShiftlock:SetValue(false)
