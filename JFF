@@ -243,7 +243,6 @@ TSG.MeleePlayerRemote = (keyedRemotes and rawget(keyedRemotes, "meleePlayer")) o
 TSG.MineRemote = (keyedRemotes and rawget(keyedRemotes, "mine")) or (interactionsFolder and interactionsFolder:FindFirstChild("mine"))
 TSG.ChopRemote = (keyedRemotes and rawget(keyedRemotes, "chop")) or (interactionsFolder and interactionsFolder:FindFirstChild("chop"))
 TSG.MeleeAI = interactionsFolder and interactionsFolder:FindFirstChild("meleeAI")
-TSG.MountAttackRemote = resolvePath(ReplicatedStorage, "game", "AILogic", "ToServer_MountAttack") or (ReplicatedStorage:FindFirstChild("game") and ReplicatedStorage.game:FindFirstChild("AILogic") and ReplicatedStorage.game.AILogic:FindFirstChild("ToServer_MountAttack"))
 
 -- No Bear Trap DMG Remote Interception
 pcall(function()
@@ -3310,11 +3309,6 @@ MoveMountAura:AddSlider("MountSpeedValue", {
 	Compact = true,
 })
 
-MoveMountAura:AddToggle("MountKillAura", {
-	Text = "Mount Kill Aura",
-	Default = false,
-})
-
 local MoveFaze = Tabs.Movement:AddRightGroupbox("FAZE", "zap")
 
 MoveFaze:AddToggle("Noclip", {
@@ -3385,6 +3379,9 @@ Toggles.Noclip:OnChanged(function()
 		end
 	end
 end)
+
+
+
 
 Toggles.SpeedHack:OnChanged(function()
 	disconnect("SpeedHack")
@@ -3470,96 +3467,6 @@ Toggles.MountSpeedBoost:OnChanged(function()
 		end
 		table.clear(originalMountSpeeds)
 		Library:Notify({ Title = "Mount Speed", Description = "Disabled", Time = 2 })
-	end
-end)
-
-local lastMountKillAuraHit = 0
-local function mountKillAuraLoop()
-	local delayVal = (Options.KillAuraSpeed and Options.KillAuraSpeed.Value) or 0.2
-	if not isAlive() or tick() - lastMountKillAuraHit < delayVal then return end
-
-	local mountModel, seat = getCurrentMount()
-	if not mountModel then return end
-
-	local root = mountModel.PrimaryPart or mountModel:FindFirstChild("HumanoidRootPart") or seat or getRootPart()
-	if not root then return end
-
-	local range = (Options.KillAuraRange and Options.KillAuraRange.Value) or 15
-	local pos = root.Position
-	local nearestDist = range
-	local nearestTarget = nil
-
-	-- Scan Players
-	if Toggles.TargetPlayers and Toggles.TargetPlayers.Value then
-		for _, otherPlayer in ipairs(Players:GetPlayers()) do
-			if otherPlayer ~= LocalPlayer and otherPlayer.Character then
-				local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
-				local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart") or otherPlayer.Character.PrimaryPart
-				if otherHum and otherHum.Health > 0 and otherRoot then
-					local d = (otherRoot.Position - pos).Magnitude
-					if d < nearestDist then
-						nearestDist = d
-						nearestTarget = otherPlayer.Character
-					end
-				end
-			end
-		end
-	end
-
-	-- Scan NPC AI Client Models
-	local aiClient = workspace:FindFirstChild("AI_Client")
-	if aiClient then
-		for _, npc in ipairs(aiClient:GetChildren()) do
-			if npc ~= mountModel then
-				local npcHum = npc:FindFirstChildOfClass("Humanoid")
-				local npcRoot = npc:FindFirstChild("HumanoidRootPart") or npc.PrimaryPart
-				if npcHum and npcHum.Health > 0 and npcRoot then
-					local d = (npcRoot.Position - pos).Magnitude
-					if d < nearestDist then
-						nearestDist = d
-						nearestTarget = npc
-					end
-				end
-			end
-		end
-	end
-
-	-- Scan NPC AI Server Models
-	local aiServer = workspace:FindFirstChild("AI_Server")
-	if aiServer then
-		for _, npc in ipairs(aiServer:GetChildren()) do
-			if npc ~= mountModel then
-				local npcHum = npc:FindFirstChildOfClass("Humanoid")
-				local npcRoot = npc:FindFirstChild("HumanoidRootPart") or npc.PrimaryPart
-				if (not npcHum or npcHum.Health > 0) and npcRoot then
-					local d = (npcRoot.Position - pos).Magnitude
-					if d < nearestDist then
-						nearestDist = d
-						nearestTarget = npc
-					end
-				end
-			end
-		end
-	end
-
-	if nearestTarget then
-		lastMountKillAuraHit = tick()
-		local mountAttackRemote = TSG.MountAttackRemote or (ReplicatedStorage:FindFirstChild("game") and ReplicatedStorage.game:FindFirstChild("AILogic") and ReplicatedStorage.game.AILogic:FindFirstChild("ToServer_MountAttack"))
-		if mountAttackRemote then
-			pcall(function()
-				mountAttackRemote:FireServer(nearestTarget)
-			end)
-		end
-	end
-end
-
-Toggles.MountKillAura:OnChanged(function()
-	disconnect("MountKillAura")
-	if Toggles.MountKillAura.Value then
-		track("MountKillAura", RunService.Heartbeat:Connect(mountKillAuraLoop))
-		Library:Notify({ Title = "Mount Kill Aura", Description = "Enabled", Time = 2 })
-	else
-		Library:Notify({ Title = "Mount Kill Aura", Description = "Disabled", Time = 2 })
 	end
 end)
 
@@ -6592,9 +6499,6 @@ Library:OnUnload(function()
 	end
 	if Toggles.MountSpeedBoost and Toggles.MountSpeedBoost.Value then
 		Toggles.MountSpeedBoost:SetValue(false)
-	end
-	if Toggles.MountKillAura and Toggles.MountKillAura.Value then
-		Toggles.MountKillAura:SetValue(false)
 	end
 	if Toggles.AutoShiftlock and Toggles.AutoShiftlock.Value then
 		Toggles.AutoShiftlock:SetValue(false)
