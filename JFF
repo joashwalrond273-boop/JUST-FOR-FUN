@@ -2974,14 +2974,12 @@ MoveLeft:AddSlider("SpeedValue", {
 	Compact = true,
 })
 
-local MoveMountAura = Tabs.Movement:AddLeftGroupbox("Mount Aura", "paw-print")
-
-MoveMountAura:AddToggle("MountSpeedBoost", {
+MoveLeft:AddToggle("MountSpeedBoost", {
 	Text = "Mount Speed",
 	Default = false,
 })
 
-MoveMountAura:AddSlider("MountSpeedValue", {
+MoveLeft:AddSlider("MountSpeedValue", {
 	Text = "Mount Speed Value",
 	Default = 35,
 	Min = 16,
