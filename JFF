@@ -243,6 +243,7 @@ TSG.MeleePlayerRemote = (keyedRemotes and rawget(keyedRemotes, "meleePlayer")) o
 TSG.MineRemote = (keyedRemotes and rawget(keyedRemotes, "mine")) or (interactionsFolder and interactionsFolder:FindFirstChild("mine"))
 TSG.ChopRemote = (keyedRemotes and rawget(keyedRemotes, "chop")) or (interactionsFolder and interactionsFolder:FindFirstChild("chop"))
 TSG.MeleeAI = interactionsFolder and interactionsFolder:FindFirstChild("meleeAI")
+TSG.ToServer_Mount = resolvePath(ReplicatedStorage, "game", "AILogic", "ToServer_Mount") or (ReplicatedStorage:FindFirstChild("game") and ReplicatedStorage.game:FindFirstChild("AILogic") and ReplicatedStorage.game.AILogic:FindFirstChild("ToServer_Mount"))
 
 -- No Bear Trap DMG Remote Interception
 pcall(function()
@@ -3300,6 +3301,11 @@ MoveMountAura:AddToggle("MountSpeedBoost", {
 	Default = false,
 })
 
+MoveMountAura:AddToggle("AutoMount", {
+	Text = "Auto Mount",
+	Default = false,
+})
+
 MoveMountAura:AddSlider("MountSpeedValue", {
 	Text = "Mount Speed Value",
 	Default = 35,
@@ -3467,6 +3473,98 @@ Toggles.MountSpeedBoost:OnChanged(function()
 		end
 		table.clear(originalMountSpeeds)
 		Library:Notify({ Title = "Mount Speed", Description = "Disabled", Time = 2 })
+	end
+end)
+
+local function autoMountLoop()
+	if not isAlive() or not Toggles.AutoMount.Value then return end
+	local currentMount = getCurrentMount()
+	if currentMount then return end
+
+	local root = getRootPart()
+	if not root then return end
+	local pos = root.Position
+	local nearestDist = 30
+	local nearestTarget = nil
+	local nearestServerModel = nil
+
+	-- Scan AI_Server
+	local aiServer = workspace:FindFirstChild("AI_Server")
+	if aiServer then
+		for _, npc in ipairs(aiServer:GetChildren()) do
+			local npcHum = npc:FindFirstChildOfClass("Humanoid")
+			local npcRoot = npc:FindFirstChild("HumanoidRootPart") or npc.PrimaryPart or npc:FindFirstChildWhichIsA("BasePart")
+			if npcRoot and (not npcHum or npcHum.Health > 0) then
+				local d = (npcRoot.Position - pos).Magnitude
+				if d < nearestDist then
+					nearestDist = d
+					nearestTarget = npc
+					nearestServerModel = npc
+				end
+			end
+		end
+	end
+
+	-- Scan AI_Client
+	local aiClient = workspace:FindFirstChild("AI_Client")
+	if aiClient then
+		for _, npc in ipairs(aiClient:GetChildren()) do
+			local npcHum = npc:FindFirstChildOfClass("Humanoid")
+			local npcRoot = npc:FindFirstChild("HumanoidRootPart") or npc.PrimaryPart or npc:FindFirstChildWhichIsA("BasePart")
+			if npcRoot and (not npcHum or npcHum.Health > 0) then
+				local d = (npcRoot.Position - pos).Magnitude
+				if d < nearestDist then
+					nearestDist = d
+					nearestTarget = npc
+					if AiController then
+						nearestServerModel = AiController:GetServerModelFromClientModel(npc) or npc
+					else
+						nearestServerModel = npc
+					end
+				end
+			end
+		end
+	end
+
+	if nearestTarget and nearestServerModel then
+		-- 1. Melee the AI with ID 6
+		attackNPC(6, nearestTarget)
+		if TSG.MeleeAI then
+			pcall(TSG.MeleeAI.FireServer, TSG.MeleeAI, 6, nearestServerModel)
+		end
+
+		-- 2. Melee the AI with ID 255
+		attackNPC(255, nearestTarget)
+		if TSG.MeleeAI then
+			pcall(TSG.MeleeAI.FireServer, TSG.MeleeAI, 255, nearestServerModel)
+		end
+
+		-- 3. Force mount onto the AI/animal using ToServer_Mount
+		local mountRemote = TSG.ToServer_Mount or (ReplicatedStorage:FindFirstChild("game") and ReplicatedStorage.game:FindFirstChild("AILogic") and ReplicatedStorage.game.AILogic:FindFirstChild("ToServer_Mount"))
+		if mountRemote then
+			pcall(function()
+				mountRemote:FireServer(nearestServerModel)
+			end)
+			pcall(function()
+				mountRemote:FireServer(nearestTarget)
+			end)
+		end
+	end
+end
+
+local lastAutoMountTick = 0
+Toggles.AutoMount:OnChanged(function()
+	disconnect("AutoMount")
+	if Toggles.AutoMount.Value then
+		track("AutoMount", RunService.Heartbeat:Connect(function()
+			if tick() - lastAutoMountTick >= 0.25 then
+				lastAutoMountTick = tick()
+				autoMountLoop()
+			end
+		end))
+		Library:Notify({ Title = "Auto Mount", Description = "Enabled", Time = 2 })
+	else
+		Library:Notify({ Title = "Auto Mount", Description = "Disabled", Time = 2 })
 	end
 end)
 
@@ -6499,6 +6597,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.MountSpeedBoost and Toggles.MountSpeedBoost.Value then
 		Toggles.MountSpeedBoost:SetValue(false)
+	end
+	if Toggles.AutoMount and Toggles.AutoMount.Value then
+		Toggles.AutoMount:SetValue(false)
 	end
 	if Toggles.AutoShiftlock and Toggles.AutoShiftlock.Value then
 		Toggles.AutoShiftlock:SetValue(false)
