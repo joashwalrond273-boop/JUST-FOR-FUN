@@ -51,6 +51,7 @@ local updateAutoPickupVisibility
 local updatePlayerESPVisibility
 local updateFlightVisibility
 local updateImmortalModeVisibility
+local teleportToLastMount
 
 Library.ShowToggleFrameInKeybinds = true
 
@@ -3305,9 +3306,13 @@ MoveMountAura:AddCheckbox("MountNoclip", {
 	Default = false,
 })
 
-MoveMountAura:AddCheckbox("MountTouchFling", {
-	Text = "Mount Touch Fling",
-	Default = false,
+MoveMountAura:AddButton({
+	Text = "Teleport to Mount",
+	Func = function()
+		if teleportToLastMount then
+			teleportToLastMount()
+		end
+	end,
 })
 
 MoveMountAura:AddSlider("MountSpeedValue", {
@@ -3416,6 +3421,13 @@ Toggles.SpeedHack:OnChanged(function()
 end)
 
 local originalMountSpeeds = {}
+local lastRiddenMount = {
+	model = nil,
+	seat = nil,
+	position = nil,
+	cframe = nil,
+	name = "Mount",
+}
 
 local function getCurrentMount()
 	local humanoid = getHumanoid()
@@ -3429,6 +3441,69 @@ local function getCurrentMount()
 		return mountModel, seat
 	end
 	return nil, nil
+end
+
+local function trackMountPosition()
+	local mountModel, seat = getCurrentMount()
+	if mountModel then
+		local root = mountModel.PrimaryPart or mountModel:FindFirstChild("HumanoidRootPart") or seat
+		if root then
+			lastRiddenMount.model = mountModel
+			lastRiddenMount.seat = seat
+			lastRiddenMount.position = root.Position
+			lastRiddenMount.cframe = root.CFrame
+			lastRiddenMount.name = mountModel.Name or "Mount"
+		end
+	end
+end
+
+track("MountTracker", RunService.Heartbeat:Connect(function()
+	if isAlive() then
+		trackMountPosition()
+	end
+end))
+
+teleportToLastMount = function()
+	local playerRoot = getRootPart()
+	local humanoid = getHumanoid()
+	if not playerRoot or not humanoid or not isAlive() then
+		Library:Notify({ Title = "Teleport to Mount", Description = "Character not found or dead.", Time = 3 })
+		return
+	end
+
+	local currentModel = getCurrentMount()
+	if currentModel then
+		Library:Notify({ Title = "Teleport to Mount", Description = "You are already riding your mount!", Time = 2 })
+		return
+	end
+
+	-- Case 1: Mount model still exists in workspace
+	if lastRiddenMount.model and lastRiddenMount.model.Parent and lastRiddenMount.model:IsDescendantOf(workspace) then
+		local targetRoot = lastRiddenMount.model.PrimaryPart or lastRiddenMount.model:FindFirstChild("HumanoidRootPart") or lastRiddenMount.seat
+		local targetCFrame = targetRoot and targetRoot.CFrame or lastRiddenMount.model:GetPivot()
+		if targetCFrame then
+			playerRoot.CFrame = targetCFrame + Vector3.new(0, 3.5, 0)
+			if lastRiddenMount.seat and lastRiddenMount.seat.Parent and (lastRiddenMount.seat:IsA("Seat") or lastRiddenMount.seat:IsA("VehicleSeat")) then
+				pcall(function()
+					if not lastRiddenMount.seat.Occupant then
+						lastRiddenMount.seat:Sit(humanoid)
+					end
+				end)
+			end
+			Library:Notify({ Title = "Teleport to Mount", Description = "Teleported to " .. tostring(lastRiddenMount.name) .. "!", Time = 2 })
+			return
+		end
+	end
+
+	-- Case 2: Fallback to last recorded coordinates
+	if lastRiddenMount.cframe or lastRiddenMount.position then
+		local destCFrame = lastRiddenMount.cframe or CFrame.new(lastRiddenMount.position)
+		playerRoot.CFrame = destCFrame + Vector3.new(0, 3.5, 0)
+		Library:Notify({ Title = "Teleport to Mount", Description = "Teleported to last known mount position!", Time = 2.5 })
+		return
+	end
+
+	Library:Notify({ Title = "Teleport to Mount", Description = "No mount recorded yet. Ride a mount first!", Time = 3 })
 end
 
 Toggles.MountSpeedBoost:OnChanged(function()
@@ -3521,80 +3596,6 @@ Toggles.MountNoclip:OnChanged(function()
 			end
 		end
 		Library:Notify({ Title = "Mount Noclip", Description = "Disabled", Time = 2 })
-	end
-end)
-
-Toggles.MountTouchFling:OnChanged(function()
-	disconnect("MountTouchFling")
-	if Toggles.MountTouchFling.Value then
-		Library:Notify({ Title = "Mount Touch Fling", Description = "Enabled", Time = 2 })
-		track("MountTouchFling", RunService.Heartbeat:Connect(function()
-			if not isAlive() then return end
-			local humanoid = getHumanoid()
-			local mountModel, seat = getCurrentMount()
-			if not mountModel or not humanoid then return end
-
-			local mountRoot = mountModel.PrimaryPart or mountModel:FindFirstChild("HumanoidRootPart") or seat
-			if not mountRoot then return end
-
-			-- Ensure rider stays firmly seated
-			if not humanoid.Sit and seat and (seat:IsA("Seat") or seat:IsA("VehicleSeat")) then
-				pcall(function() seat:Sit(humanoid) end)
-			end
-
-			local myPos = mountRoot.Position
-			local targetFound = false
-
-			for _, otherPlayer in ipairs(Players:GetPlayers()) do
-				if otherPlayer ~= LocalPlayer and otherPlayer.Character then
-					local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart") or otherPlayer.Character.PrimaryPart
-					local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
-					if otherRoot and otherHum and otherHum.Health > 0 then
-						local dist = (otherRoot.Position - myPos).Magnitude
-						if dist <= 14 then
-							targetFound = true
-							break
-						end
-					end
-				end
-			end
-
-			if targetFound then
-				pcall(function()
-					mountRoot.AssemblyAngularVelocity = Vector3.new(0, 50000, 0)
-					mountRoot.AssemblyLinearVelocity = Vector3.new(
-						mountRoot.AssemblyLinearVelocity.X * 10,
-						500,
-						mountRoot.AssemblyLinearVelocity.Z * 10
-					)
-				end)
-				pcall(function()
-					mountRoot.RotVelocity = Vector3.new(0, 50000, 0)
-					mountRoot.Velocity = Vector3.new(
-						mountRoot.Velocity.X * 10,
-						500,
-						mountRoot.Velocity.Z * 10
-					)
-				end)
-			else
-				pcall(function()
-					mountRoot.AssemblyAngularVelocity = Vector3.zero
-					mountRoot.RotVelocity = Vector3.zero
-				end)
-			end
-		end))
-	else
-		local mountModel, seat = getCurrentMount()
-		if mountModel then
-			local mountRoot = mountModel.PrimaryPart or mountModel:FindFirstChild("HumanoidRootPart") or seat
-			if mountRoot then
-				pcall(function()
-					mountRoot.AssemblyAngularVelocity = Vector3.zero
-					mountRoot.RotVelocity = Vector3.zero
-				end)
-			end
-		end
-		Library:Notify({ Title = "Mount Touch Fling", Description = "Disabled", Time = 2 })
 	end
 end)
 
@@ -6630,9 +6631,6 @@ Library:OnUnload(function()
 	end
 	if Toggles.MountNoclip and Toggles.MountNoclip.Value then
 		Toggles.MountNoclip:SetValue(false)
-	end
-	if Toggles.MountTouchFling and Toggles.MountTouchFling.Value then
-		Toggles.MountTouchFling:SetValue(false)
 	end
 	if Toggles.AutoShiftlock and Toggles.AutoShiftlock.Value then
 		Toggles.AutoShiftlock:SetValue(false)
