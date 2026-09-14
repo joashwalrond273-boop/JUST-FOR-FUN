@@ -3286,25 +3286,6 @@ MoveMountAura:AddSlider("MountFlySpeed", {
 	Compact = true,
 })
 
-local function updateMountFlyVisibility()
-	local isMountFly = (Toggles.MountFly and Toggles.MountFly.Value) or false
-	if Options.MountFlySpeed then
-		Options.MountFlySpeed.Visible = isMountFly
-		if Options.MountFlySpeed.Holder then
-			Options.MountFlySpeed.Holder.Visible = isMountFly
-		end
-	end
-	MoveMountAura:Resize()
-end
-
-updateMountFlyVisibility()
-task.spawn(function()
-	task.wait(0.05)
-	if updateMountFlyVisibility then
-		updateMountFlyVisibility()
-	end
-end)
-
 local MoveFaze = Tabs.Movement:AddRightGroupbox("FAZE", "zap")
 
 MoveFaze:AddToggle("Noclip", {
@@ -3649,9 +3630,6 @@ Toggles.Fly:OnChanged(function()
 end)
 
 Toggles.MountFly:OnChanged(function()
-	if updateMountFlyVisibility then
-		updateMountFlyVisibility()
-	end
 	disconnect("MountFly")
 	if Toggles.MountFly.Value then
 		Library:Notify({ Title = "Mount Fly", Description = "Enabled", Time = 2 })
