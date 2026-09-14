@@ -3253,18 +3253,9 @@ end)
 
 local MoveMountAura = Tabs.Movement:AddRightGroupbox("Mount Aura", "paw-print")
 
-MoveMountAura:AddToggle("MountSpeedBoost", {
+MoveMountAura:AddCheckbox("MountSpeedBoost", {
 	Text = "Mount Speed",
 	Default = false,
-})
-
-MoveMountAura:AddSlider("MountSpeedValue", {
-	Text = "Mount Speed Value",
-	Default = 35,
-	Min = 16,
-	Max = 100,
-	Rounding = 1,
-	Compact = true,
 })
 
 MoveMountAura:AddCheckbox("MountNoclip", {
@@ -3283,6 +3274,15 @@ MoveMountAura:AddSlider("MountFlySpeed", {
 	Min = 10,
 	Max = 200,
 	Rounding = 0,
+	Compact = true,
+})
+
+MoveMountAura:AddSlider("MountSpeedValue", {
+	Text = "Mount Speed Value",
+	Default = 35,
+	Min = 16,
+	Max = 100,
+	Rounding = 1,
 	Compact = true,
 })
 
