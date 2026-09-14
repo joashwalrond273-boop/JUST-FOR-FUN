@@ -3272,6 +3272,26 @@ MoveMountAura:AddCheckbox("MountNoclip", {
 	Default = false,
 })
 
+MoveMountAura:AddButton({
+	Text = "Lion",
+	Func = function()
+		local targetPos = Vector3.new(1313.46, 25.26, -786.02)
+		local root = getRootPart()
+		if root then
+			local humanoid = getHumanoid()
+			local seat = humanoid and humanoid.SeatPart
+			if seat and seat.Parent and seat.Parent:IsA("Model") then
+				local mountRoot = seat.Parent.PrimaryPart or seat.Parent:FindFirstChild("HumanoidRootPart") or seat
+				mountRoot.CFrame = CFrame.new(targetPos)
+			end
+			root.CFrame = CFrame.new(targetPos)
+			Library:Notify({ Title = "Teleport", Description = "Teleported to Lion", Time = 1.5 })
+		else
+			Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
+		end
+	end,
+})
+
 local MoveFaze = Tabs.Movement:AddRightGroupbox("FAZE", "zap")
 
 MoveFaze:AddToggle("Noclip", {
