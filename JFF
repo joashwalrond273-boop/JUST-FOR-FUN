@@ -4594,6 +4594,11 @@ local extraLocations = {
 	{ name = "Juggernaut",  pos = Vector3.new(-1645.06, 336.32, -2874.34)},
 	{ name = "Waterfall",   pos = Vector3.new(-1949.89, 25.29, 345.83)   },
 	{ name = "Desert Maze", pos = Vector3.new(1529.42, 55.33, -938.31)   },
+	{ name = "Lion",        pos = Vector3.new(1459.50, 26.26, -204.70)   },
+	{ name = "White Wolf",  pos = Vector3.new(-1447.88, 25.26, -1566.85) },
+	{ name = "Horse",       pos = Vector3.new(-215.30, 25.26, 496.58)    },
+	{ name = "Grey wolf",   pos = Vector3.new(84.67, 25.26, 442.49)     },
+	{ name = "Elephant",    pos = Vector3.new(1495.75, 25.26, -313.55)   },
 }
 
 for _, loc in ipairs(extraLocations) do
@@ -4627,7 +4632,7 @@ Area51Group:AddButton({
 	end,
 })
 
--- READ THIS FIRST Groupbox (placed above Mounts)
+-- READ THIS FIRST Groupbox (placed above Trick Spawn)
 local ReadThisFirstGroup = Tabs.Teleport:AddRightGroupbox("READ THIS FIRST!!", "alert-circle")
 
 do
@@ -4641,31 +4646,41 @@ do
 	end)
 end
 
--- Mounts Groupbox
-local MountsTeleportGroup = Tabs.Teleport:AddRightGroupbox("Mounts", "paw-print")
+-- Extra Locations Groupbox
+local ResetTeleportGroup = Tabs.Teleport:AddRightGroupbox("Trick Spawn", "refresh-cw")
 
-local mountLocations = {
-	{ name = "Lion",        pos = Vector3.new(1459.50, 26.26, -204.70)   },
-	{ name = "White Wolf",  pos = Vector3.new(-1447.88, 25.26, -1566.85) },
-	{ name = "Horse",       pos = Vector3.new(-215.30, 25.26, 496.58)    },
-	{ name = "Grey wolf",   pos = Vector3.new(84.67, 25.26, 442.49)     },
-	{ name = "Elephant",    pos = Vector3.new(1495.75, 25.26, -313.55)   },
-}
+ResetTeleportGroup:AddToggle("ResetCharacter", {
+	Text = "Death Spawn",
+	Default = false,
+})
 
-for _, mount in ipairs(mountLocations) do
-	MountsTeleportGroup:AddButton({
-		Text = mount.name,
-		Func = function()
-			local root = getRootPart()
-			if root then
-				root.CFrame = CFrame.new(mount.pos)
-				Library:Notify({ Title = "Teleport", Description = "Teleported to " .. mount.name, Time = 1.5 })
-			else
-				Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
+Toggles.ResetCharacter:OnChanged(function()
+	if Toggles.ResetCharacter.Value then
+		local root = getRootPart()
+		if root then
+			lastDeathPosition = root.Position
+			shouldTeleportBack = true
+		end
+
+		local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
+		if remoteInterface then
+			local characterFolder = remoteInterface:FindFirstChild("character")
+			if characterFolder then
+				local resetRemote = characterFolder:FindFirstChild("reset")
+				if resetRemote then
+					pcall(function()
+						resetRemote:InvokeServer()
+					end)
+				end
 			end
-		end,
-	})
-end
+		end
+
+		task.spawn(function()
+			task.wait(0.5)
+			Toggles.ResetCharacter:SetValue(false)
+		end)
+	end
+end)
 
 -- Merchants Groupbox
 local MerchantsGroup = Tabs.Teleport:AddRightGroupbox("Merchants", "map-pin")
