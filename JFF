@@ -3267,12 +3267,14 @@ MoveMountAura:AddSlider("MountSpeedValue", {
 	Compact = true,
 })
 
+MoveMountAura:AddDivider()
+
 MoveMountAura:AddCheckbox("MountNoclip", {
 	Text = "Mount Noclip",
 	Default = false,
 })
 
-MoveMountAura:AddToggle("MountFly", {
+MoveMountAura:AddCheckbox("MountFly", {
 	Text = "Mount Fly",
 	Default = false,
 })
@@ -3285,6 +3287,25 @@ MoveMountAura:AddSlider("MountFlySpeed", {
 	Rounding = 0,
 	Compact = true,
 })
+
+local function updateMountFlyVisibility()
+	local isMountFly = (Toggles.MountFly and Toggles.MountFly.Value) or false
+	if Options.MountFlySpeed then
+		Options.MountFlySpeed.Visible = isMountFly
+		if Options.MountFlySpeed.Holder then
+			Options.MountFlySpeed.Holder.Visible = isMountFly
+		end
+	end
+	MoveMountAura:Resize()
+end
+
+updateMountFlyVisibility()
+task.spawn(function()
+	task.wait(0.05)
+	if updateMountFlyVisibility then
+		updateMountFlyVisibility()
+	end
+end)
 
 local MoveFaze = Tabs.Movement:AddRightGroupbox("FAZE", "zap")
 
@@ -3630,6 +3651,9 @@ Toggles.Fly:OnChanged(function()
 end)
 
 Toggles.MountFly:OnChanged(function()
+	if updateMountFlyVisibility then
+		updateMountFlyVisibility()
+	end
 	disconnect("MountFly")
 	if Toggles.MountFly.Value then
 		Library:Notify({ Title = "Mount Fly", Description = "Enabled", Time = 2 })
@@ -4656,7 +4680,7 @@ local extraLocations = {
 	{ name = "Juggernaut",  pos = Vector3.new(-1645.06, 336.32, -2874.34)},
 	{ name = "Waterfall",   pos = Vector3.new(-1949.89, 25.29, 345.83)   },
 	{ name = "Desert Maze", pos = Vector3.new(1529.42, 55.33, -938.31)   },
-	{ name = "Lion",        pos = Vector3.new(1459.50, 26.26, -204.70)   },
+	{ name = "Lion",        pos = Vector3.new(1327.79, 25.26, -756.75)   },
 	{ name = "White Wolf",  pos = Vector3.new(-1447.88, 25.26, -1566.85) },
 	{ name = "Horse",       pos = Vector3.new(-215.30, 25.26, 496.58)    },
 	{ name = "Grey wolf",   pos = Vector3.new(84.67, 25.26, 442.49)     },
