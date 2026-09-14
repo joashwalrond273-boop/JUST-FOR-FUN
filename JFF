@@ -54,6 +54,7 @@ local updateImmortalModeVisibility
 
 Library.ShowToggleFrameInKeybinds = true
 
+
 -- Helpers
 local function waitForChild(parent, name, timeout)
 	timeout = timeout or 10
@@ -565,6 +566,7 @@ task.spawn(function()
 	end
 end)
 
+
 local TeleportGroup = Tabs.Main:AddRightGroupbox("TELEPORT", "map-pin")
 
 TeleportGroup:AddDropdown("TeleportPlayerList", {
@@ -866,6 +868,10 @@ MainRight:AddButton({
 		task.spawn(joinLowPingServer)
 	end,
 })
+
+
+
+
 
 local function isAdmin(player)
 	local success, rank = pcall(function()
@@ -3266,45 +3272,6 @@ MoveMountAura:AddCheckbox("MountNoclip", {
 	Default = false,
 })
 
-local mountLocations = {
-	["Lion"] = Vector3.new(1313.46, 25.26, -786.02),
-	["White Wolf"] = Vector3.new(-1447.88, 25.26, -1566.85),
-	["Horse"] = Vector3.new(-215.30, 25.26, 496.58),
-	["Grey wolf"] = Vector3.new(84.67, 25.26, 442.49),
-	["Elephant"] = Vector3.new(1495.75, 25.26, -313.55),
-}
-
-MoveMountAura:AddButton({
-	Text = "Teleport",
-	Func = function()
-		local selected = Options.MountLocationsDropdown and Options.MountLocationsDropdown.Value
-		local targetPos = selected and mountLocations[selected]
-		if not targetPos then
-			Library:Notify({ Title = "Teleport", Description = "Please select a location.", Time = 2 })
-			return
-		end
-		local root = getRootPart()
-		if root then
-			local humanoid = getHumanoid()
-			local seat = humanoid and humanoid.SeatPart
-			if seat and seat.Parent and seat.Parent:IsA("Model") then
-				local mountRoot = seat.Parent.PrimaryPart or seat.Parent:FindFirstChild("HumanoidRootPart") or seat
-				mountRoot.CFrame = CFrame.new(targetPos)
-			end
-			root.CFrame = CFrame.new(targetPos)
-			Library:Notify({ Title = "Teleport", Description = "Teleported to " .. tostring(selected), Time = 1.5 })
-		else
-			Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
-		end
-	end,
-})
-
-MoveMountAura:AddDropdown("MountLocationsDropdown", {
-	Text = "Mount Locations",
-	Values = {"Lion", "White Wolf", "Horse", "Grey wolf", "Elephant"},
-	Default = "Lion",
-})
-
 local MoveFaze = Tabs.Movement:AddRightGroupbox("FAZE", "zap")
 
 MoveFaze:AddToggle("Noclip", {
@@ -3328,6 +3295,7 @@ Options.LowGravityHeight:OnChanged(function()
            workspace.Gravity = math.max(0, 196.2 - Options.LowGravityHeight.Value)
         end
 end)
+
 
 local noclipCorePartNames = {
 	["HumanoidRootPart"] = true,
@@ -3374,6 +3342,9 @@ Toggles.Noclip:OnChanged(function()
 		end
 	end
 end)
+
+
+
 
 Toggles.SpeedHack:OnChanged(function()
 	disconnect("SpeedHack")
