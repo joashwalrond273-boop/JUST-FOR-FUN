@@ -425,6 +425,7 @@ FastArmorGroup:AddButton({
 		local root = character and character:FindFirstChild("HumanoidRootPart")
 		if not root then return end
 		local playerPosition = root.Position
+		local lookVector = root.CFrame.LookVector
 
 		local buildRemote = game:GetService("ReplicatedStorage").remoteInterface.interactions.build
 
@@ -440,7 +441,7 @@ FastArmorGroup:AddButton({
 		pcall(function()
 			buildRemote:InvokeServer(
 				85,
-				CFrame.new(playerPosition.X, playerPosition.Y, playerPosition.Z),
+				CFrame.new(playerPosition.X + (lookVector.X * 4), playerPosition.Y - 3, playerPosition.Z + (lookVector.Z * 4)),
 				0,
 				nil
 			)
