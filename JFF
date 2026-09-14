@@ -440,7 +440,7 @@ FastArmorGroup:AddButton({
 		pcall(function()
 			buildRemote:InvokeServer(
 				85,
-				CFrame.new(playerPosition.X, playerPosition.Y - 3, playerPosition.Z),
+				CFrame.new(playerPosition.X, playerPosition.Y, playerPosition.Z),
 				0,
 				nil
 			)
