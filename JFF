@@ -54,7 +54,6 @@ local updateImmortalModeVisibility
 
 Library.ShowToggleFrameInKeybinds = true
 
-
 -- Helpers
 local function waitForChild(parent, name, timeout)
 	timeout = timeout or 10
@@ -566,7 +565,6 @@ task.spawn(function()
 	end
 end)
 
-
 local TeleportGroup = Tabs.Main:AddRightGroupbox("TELEPORT", "map-pin")
 
 TeleportGroup:AddDropdown("TeleportPlayerList", {
@@ -868,10 +866,6 @@ MainRight:AddButton({
 		task.spawn(joinLowPingServer)
 	end,
 })
-
-
-
-
 
 local function isAdmin(player)
 	local success, rank = pcall(function()
@@ -3335,7 +3329,6 @@ Options.LowGravityHeight:OnChanged(function()
         end
 end)
 
-
 local noclipCorePartNames = {
 	["HumanoidRootPart"] = true,
 	["Head"] = true,
@@ -3381,9 +3374,6 @@ Toggles.Noclip:OnChanged(function()
 		end
 	end
 end)
-
-
-
 
 Toggles.SpeedHack:OnChanged(function()
 	disconnect("SpeedHack")
