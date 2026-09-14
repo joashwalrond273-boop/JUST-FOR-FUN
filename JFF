@@ -4594,6 +4594,11 @@ local extraLocations = {
 	{ name = "Juggernaut",  pos = Vector3.new(-1645.06, 336.32, -2874.34)},
 	{ name = "Waterfall",   pos = Vector3.new(-1949.89, 25.29, 345.83)   },
 	{ name = "Desert Maze", pos = Vector3.new(1529.42, 55.33, -938.31)   },
+	{ name = "Lion",       pos = Vector3.new(1459.50, 26.26, -204.70)    },
+	{ name = "White Wolf", pos = Vector3.new(-1447.88, 25.26, -1566.85)  },
+	{ name = "Horse",      pos = Vector3.new(-215.30, 25.26, 496.58)     },
+	{ name = "Grey wolf",  pos = Vector3.new(84.67, 25.26, 442.49)      },
+	{ name = "Elephant",   pos = Vector3.new(1495.75, 25.26, -313.55)    },
 }
 
 for _, loc in ipairs(extraLocations) do
@@ -4611,31 +4616,21 @@ for _, loc in ipairs(extraLocations) do
 	})
 end
 
--- Mount Locations Groupbox (below Extra Locations)
-local MountGroup = Tabs.Teleport:AddLeftGroupbox("Area 51", "map-pin")
+-- Area 51 Groupbox (below Extra Locations)
+local Area51Group = Tabs.Teleport:AddLeftGroupbox("Area 51", "map-pin")
 
-local mountlocations = {
-    { name = "Lion",       pos = Vector3.new(1459.50, 26.26, -204.70)    },
-	{ name = "White Wolf", pos = Vector3.new(-1447.88, 25.26, -1566.85)  },
-	{ name = "Horse",      pos = Vector3.new(-215.30, 25.26, 496.58)     },
-	{ name = "Grey wolf",  pos = Vector3.new(84.67, 25.26, 442.49)       },
-	{ name = "Elephant",   pos = Vector3.new(1495.75, 25.26, -313.55)    },
-}
-
-for _, loc in ipairs(mountLocations) do
-    TeleportMount:AddButton({
-	    Text = loc.name,
-	    Func = function()
-		   local root = getRootPart()
-		   if root then
-			   root.CFrame = CFrame.new(loc.pos)
-			   Library:Notify({ Title = "Teleport", Description = "Teleported to " .. loc.name, Time = 1.5 })
-		    else
-			   Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
-		    end
-	    end,
-    })
-end
+Area51Group:AddButton({
+	Text = "Hacker Platform",
+	Func = function()
+		local root = getRootPart()
+		if root then
+			root.CFrame = CFrame.new(Vector3.new(3811.73, 1546.83, -977.48))
+			Library:Notify({ Title = "Teleport", Description = "Teleported to Hacker Platform", Time = 1.5 })
+		else
+			Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
+		end
+	end,
+})
 
 -- READ THIS FIRST Groupbox (placed above Trick Spawn)
 local ReadThisFirstGroup = Tabs.Teleport:AddRightGroupbox("READ THIS FIRST!!", "alert-circle")
