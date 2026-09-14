@@ -345,87 +345,15 @@ local function disconnect(name)
 	end
 end
 
-local FastArmorGroup = Tabs.Player:AddLeftGroupbox("FAST ARMOR UP", "shield")
+local ToiletBedGroup = Tabs.Player:AddLeftGroupbox("Toilet/Bed", "bed")
 
-FastArmorGroup:AddButton({
-	Text = "Bluesteel",
-	Func = function()
-		local character = LocalPlayer.Character
-		local root = character and character:FindFirstChild("HumanoidRootPart")
-		if not root then return end
-		local playerPosition = root.Position
-
-		local argsPlaceFurnace = {
-			[1] = 199,
-			[2] = CFrame.new(playerPosition.X, playerPosition.Y - 3, playerPosition.Z) * CFrame.Angles(0, 0, 0),
-			[3] = -3.141592653589793
-		}
-
-		pcall(function()
-			game:GetService("ReplicatedStorage").remoteInterface.interactions.build:InvokeServer(unpack(argsPlaceFurnace))
-		end)
-
-		local furnace = nil
-		for _, structure in pairs(workspace.placedStructures:GetChildren()) do
-			if structure:FindFirstChild("Bluesteel Furnace") then
-				furnace = structure:FindFirstChild("Bluesteel Furnace")
-				break
-			end
-		end
-
-		local itemsToCraft = {
-			{197, "Bluesteel Sword"},
-			{201, "Bluesteel Chestplate"},
-			{202, "Bluesteel Pants"},
-			{200, "Bluesteel Helmet"}
-		}
-
-		for _, item in ipairs(itemsToCraft) do
-			local argsCraft = {
-				[1] = item[1],
-				[2] = furnace,
-				[3] = 1,
-				[4] = 0
-			}
-			pcall(function()
-				game:GetService("ReplicatedStorage").remoteInterface.interactions.craft:InvokeServer(unpack(argsCraft))
-			end)
-		end
-
-		local itemsToEquip = {
-			{197, "inventory", 1, "equipHotbar"},
-			{200, "inventory", 1, "equipClothing"},
-			{201, "inventory", 2, "equipClothing"},
-			{202, "inventory", 3, "equipClothing"}
-		}
-
-		for _, equip in ipairs(itemsToEquip) do
-			local argsEquip = {
-				equip[2],
-				equip[3],
-				equip[1]
-			}
-			pcall(function()
-				game:GetService("ReplicatedStorage").remoteInterface.inventory[equip[4]]:InvokeServer(unpack(argsEquip))
-			end)
-		end
-
-		if furnace then
-			pcall(function()
-				game:GetService("ReplicatedStorage").remoteInterface.interactions.deleteStructure:FireServer(furnace)
-			end)
-		end
-	end,
-})
-
-FastArmorGroup:AddButton({
+ToiletBedGroup:AddButton({
 	Text = "Toilet Bed",
 	Func = function()
 		local character = LocalPlayer.Character
 		local root = character and character:FindFirstChild("HumanoidRootPart")
 		if not root then return end
 		local playerPosition = root.Position
-		local lookVector = root.CFrame.LookVector
 
 		local buildRemote = game:GetService("ReplicatedStorage").remoteInterface.interactions.build
 
@@ -441,7 +369,7 @@ FastArmorGroup:AddButton({
 		pcall(function()
 			buildRemote:InvokeServer(
 				85,
-				CFrame.new(playerPosition.X + (lookVector.X * 4), playerPosition.Y - 3, playerPosition.Z + (lookVector.Z * 4)),
+				CFrame.new(playerPosition.X, playerPosition.Y - 3, playerPosition.Z),
 				0,
 				nil
 			)
@@ -597,7 +525,6 @@ FunLeft:AddSlider("HelicopterSpeed", {
 
 updateTouchFlingVisibility = function()
 	local isFling = (Toggles.TouchFling and Toggles.TouchFling.Value) or false
-	local isHeli = (Toggles.HelicopterTroll and Toggles.HelicopterTroll.Value) or false
 
 	if Options.TouchFlingPower then
 		Options.TouchFlingPower.Visible = isFling
@@ -607,23 +534,23 @@ updateTouchFlingVisibility = function()
 	end
 
 	if Options.HelicopterPlayerList then
-		Options.HelicopterPlayerList.Visible = isHeli
+		Options.HelicopterPlayerList.Visible = true
 		if Options.HelicopterPlayerList.Holder then
-			Options.HelicopterPlayerList.Holder.Visible = isHeli
+			Options.HelicopterPlayerList.Holder.Visible = true
 		end
 	end
 
 	if Options.HelicopterHeight then
-		Options.HelicopterHeight.Visible = isHeli
+		Options.HelicopterHeight.Visible = true
 		if Options.HelicopterHeight.Holder then
-			Options.HelicopterHeight.Holder.Visible = isHeli
+			Options.HelicopterHeight.Holder.Visible = true
 		end
 	end
 
 	if Options.HelicopterSpeed then
-		Options.HelicopterSpeed.Visible = isHeli
+		Options.HelicopterSpeed.Visible = true
 		if Options.HelicopterSpeed.Holder then
-			Options.HelicopterSpeed.Holder.Visible = isHeli
+			Options.HelicopterSpeed.Holder.Visible = true
 		end
 	end
 
