@@ -377,6 +377,50 @@ ToiletBedGroup:AddButton({
 	end,
 })
 
+ToiletBedGroup:AddButton({
+	Text = "Mount Aura",
+	Func = function()
+		local equipRemote = game:GetService("ReplicatedStorage").remoteInterface.inventory.equipHotbar
+		local meleeRemote = game:GetService("ReplicatedStorage").remoteInterface.interactions.meleeAI
+
+		local aiServer = workspace:FindFirstChild("AI_Server")
+		local lions = {}
+		if aiServer then
+			for _, child in ipairs(aiServer:GetChildren()) do
+				if string.find(string.lower(child.Name), "lion") then
+					table.insert(lions, child)
+				end
+			end
+			if #lions == 0 and aiServer:FindFirstChild("Lion") then
+				table.insert(lions, aiServer.Lion)
+			end
+		end
+
+		if #lions == 0 then
+			local direct = (aiServer and aiServer:FindFirstChild("Lion")) or workspace:FindFirstChild("Lion")
+			if direct then
+				table.insert(lions, direct)
+			end
+		end
+
+		for _, lion in ipairs(lions) do
+			pcall(function()
+				equipRemote:InvokeServer("inventory", 6, 18)
+			end)
+			pcall(function()
+				meleeRemote:FireServer(6, lion)
+			end)
+
+			pcall(function()
+				equipRemote:InvokeServer("inventory", 6, 255)
+			end)
+			pcall(function()
+				meleeRemote:FireServer(6, lion)
+			end)
+		end
+	end,
+})
+
 -- ==========================================
 -- MAIN
 -- ==========================================
