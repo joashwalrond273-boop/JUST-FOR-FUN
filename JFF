@@ -3272,6 +3272,20 @@ MoveMountAura:AddCheckbox("MountNoclip", {
 	Default = false,
 })
 
+MoveMountAura:AddToggle("MountFly", {
+	Text = "Mount Fly",
+	Default = false,
+})
+
+MoveMountAura:AddSlider("MountFlySpeed", {
+	Text = "Mount Fly Speed",
+	Default = 50,
+	Min = 10,
+	Max = 200,
+	Rounding = 0,
+	Compact = true,
+})
+
 local MoveFaze = Tabs.Movement:AddRightGroupbox("FAZE", "zap")
 
 MoveFaze:AddToggle("Noclip", {
@@ -3555,7 +3569,7 @@ Toggles.SinkFastPVP:OnChanged(function()
 	end
 end)
 
-local flyKeys = { W = false, A = false, S = false, D = false, Space = false, LeftControl = false }
+local flyKeys = { W = false, A = false, S = false, D = false, Space = false, LeftControl = false, LeftShift = false }
 local flyInputBegan = UserInputService.InputBegan:Connect(function(input, processed)
 	if processed then
 		return
@@ -3603,7 +3617,7 @@ Toggles.Fly:OnChanged(function()
 			if flyKeys.Space then
 				direction += Vector3.yAxis
 			end
-			if flyKeys.LeftControl then
+			if flyKeys.LeftControl or flyKeys.LeftShift then
 				direction -= Vector3.yAxis
 			end
 			if direction.Magnitude > 0 then
@@ -3612,6 +3626,54 @@ Toggles.Fly:OnChanged(function()
 				root.Velocity = Vector3.zero
 			end
 		end))
+	end
+end)
+
+Toggles.MountFly:OnChanged(function()
+	disconnect("MountFly")
+	if Toggles.MountFly.Value then
+		Library:Notify({ Title = "Mount Fly", Description = "Enabled", Time = 2 })
+		track("MountFly", RunService.Heartbeat:Connect(function()
+			if not isAlive() then return end
+			local humanoid = getHumanoid()
+			local mountModel, seat = getCurrentMount()
+			if not mountModel or not humanoid then return end
+
+			local mountRoot = mountModel.PrimaryPart or mountModel:FindFirstChild("HumanoidRootPart") or seat
+			if not mountRoot then return end
+
+			local flySpeed = (Options.MountFlySpeed and Options.MountFlySpeed.Value) or 50
+			local cam = workspace.CurrentCamera
+			local direction = Vector3.zero
+
+			if flyKeys.W then direction += cam.CFrame.LookVector end
+			if flyKeys.S then direction -= cam.CFrame.LookVector end
+			if flyKeys.A then direction -= cam.CFrame.RightVector end
+			if flyKeys.D then direction += cam.CFrame.RightVector end
+			if flyKeys.Space then direction += Vector3.yAxis end
+			if flyKeys.LeftControl or flyKeys.LeftShift then direction -= Vector3.yAxis end
+
+			if direction.Magnitude == 0 and humanoid.MoveDirection.Magnitude > 0 then
+				direction += humanoid.MoveDirection
+			end
+
+			if direction.Magnitude > 0 then
+				mountRoot.AssemblyLinearVelocity = direction.Unit * flySpeed
+			else
+				mountRoot.AssemblyLinearVelocity = Vector3.zero
+			end
+			mountRoot.AssemblyAngularVelocity = Vector3.zero
+		end))
+	else
+		local mountModel, seat = getCurrentMount()
+		if mountModel then
+			local mountRoot = mountModel.PrimaryPart or mountModel:FindFirstChild("HumanoidRootPart") or seat
+			if mountRoot then
+				mountRoot.AssemblyLinearVelocity = Vector3.zero
+				mountRoot.AssemblyAngularVelocity = Vector3.zero
+			end
+		end
+		Library:Notify({ Title = "Mount Fly", Description = "Disabled", Time = 2 })
 	end
 end)
 
