@@ -377,49 +377,100 @@ ToiletBedGroup:AddButton({
 	end,
 })
 
-ToiletBedGroup:AddButton({
+ToiletBedGroup:AddToggle("MountAura", {
 	Text = "Mount Aura",
-	Func = function()
-		local equipRemote = game:GetService("ReplicatedStorage").remoteInterface.inventory.equipHotbar
-		local meleeRemote = game:GetService("ReplicatedStorage").remoteInterface.interactions.meleeAI
+	Default = false,
+})
 
-		local aiServer = workspace:FindFirstChild("AI_Server")
-		local lions = {}
-		if aiServer then
-			for _, child in ipairs(aiServer:GetChildren()) do
-				if string.find(string.lower(child.Name), "lion") then
-					table.insert(lions, child)
+local lastMountAuraHit = 0
+
+local function getClosestLion(range)
+	local root = getRootPart()
+	if not root then return nil end
+	local pos = root.Position
+	local closest, dist = nil, range or 30
+
+	local aiServer = workspace:FindFirstChild("AI_Server")
+	if aiServer then
+		for _, ai in ipairs(aiServer:GetChildren()) do
+			if string.find(string.lower(ai.Name), "lion") then
+				local aiHRP = ai:FindFirstChild("HumanoidRootPart") or ai.PrimaryPart or ai:FindFirstChildWhichIsA("BasePart")
+				local hum = ai:FindFirstChildOfClass("Humanoid")
+				if aiHRP and (not hum or hum.Health > 0) then
+					local d = (aiHRP.Position - pos).Magnitude
+					if d < dist then
+						closest, dist = ai, d
+					end
 				end
 			end
-			if #lions == 0 and aiServer:FindFirstChild("Lion") then
-				table.insert(lions, aiServer.Lion)
+		end
+		if not closest and aiServer:FindFirstChild("Lion") then
+			local ai = aiServer.Lion
+			local aiHRP = ai:FindFirstChild("HumanoidRootPart") or ai.PrimaryPart or ai:FindFirstChildWhichIsA("BasePart")
+			if aiHRP then
+				local d = (aiHRP.Position - pos).Magnitude
+				if d < dist then
+					closest, dist = ai, d
+				end
 			end
 		end
+	end
 
-		if #lions == 0 then
-			local direct = (aiServer and aiServer:FindFirstChild("Lion")) or workspace:FindFirstChild("Lion")
-			if direct then
-				table.insert(lions, direct)
+	local aiClient = workspace:FindFirstChild("AI_Client")
+	if not closest and aiClient then
+		for _, ai in ipairs(aiClient:GetChildren()) do
+			if string.find(string.lower(ai.Name), "lion") then
+				local aiHRP = ai:FindFirstChild("HumanoidRootPart") or ai.PrimaryPart or ai:FindFirstChildWhichIsA("BasePart")
+				local hum = ai:FindFirstChildOfClass("Humanoid")
+				if aiHRP and (not hum or hum.Health > 0) then
+					local d = (aiHRP.Position - pos).Magnitude
+					if d < dist then
+						if AiController then
+							closest = AiController:GetServerModelFromClientModel(ai) or ai
+						else
+							closest = ai
+						end
+						dist = d
+					end
+				end
 			end
 		end
+	end
 
-		for _, lion in ipairs(lions) do
-			pcall(function()
-				equipRemote:InvokeServer("inventory", 6, 18)
-			end)
-			pcall(function()
-				meleeRemote:FireServer(6, lion)
-			end)
+	return closest
+end
 
-			pcall(function()
-				equipRemote:InvokeServer("inventory", 6, 255)
-			end)
-			pcall(function()
-				meleeRemote:FireServer(6, lion)
-			end)
-		end
-	end,
-})
+local function mountAuraLoop()
+	if not isAlive() or tick() - lastMountAuraHit < 0.2 then return end
+	local lion = getClosestLion(30)
+	if not lion then return end
+
+	lastMountAuraHit = tick()
+
+	local meleeRemote = TSG.MeleeAI or (game:GetService("ReplicatedStorage"):FindFirstChild("remoteInterface") and game:GetService("ReplicatedStorage").remoteInterface:FindFirstChild("interactions") and game:GetService("ReplicatedStorage").remoteInterface.interactions:FindFirstChild("meleeAI"))
+	if not meleeRemote then return end
+
+	pcall(function()
+		meleeRemote:FireServer(18, lion)
+	end)
+
+	pcall(function()
+		meleeRemote:FireServer(255, lion)
+	end)
+end
+
+Toggles.MountAura:OnChanged(function()
+	disconnect("MountAura")
+	if Toggles.MountAura.Value then
+		track("MountAura", RunService.Heartbeat:Connect(function()
+			if not isAlive() or not Toggles.MountAura.Value then return end
+			mountAuraLoop()
+		end))
+		Library:Notify({ Title = "Mount Aura", Description = "Enabled", Time = 2 })
+	else
+		Library:Notify({ Title = "Mount Aura", Description = "Disabled", Time = 2 })
+	end
+end)
 
 -- ==========================================
 -- MAIN
@@ -6516,6 +6567,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.PlusKillPlayerToggle and Toggles.PlusKillPlayerToggle.Value then
 		Toggles.PlusKillPlayerToggle:SetValue(false)
+	end
+	if Toggles.MountAura and Toggles.MountAura.Value then
+		Toggles.MountAura:SetValue(false)
 	end
 
 	if Toggles.HideBeneathToggle and Toggles.HideBeneathToggle.Value then
