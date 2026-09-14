@@ -418,6 +418,36 @@ FastArmorGroup:AddButton({
 	end,
 })
 
+FastArmorGroup:AddButton({
+	Text = "Toilet Bed",
+	Func = function()
+		local character = LocalPlayer.Character
+		local root = character and character:FindFirstChild("HumanoidRootPart")
+		if not root then return end
+		local playerPosition = root.Position
+
+		local buildRemote = game:GetService("ReplicatedStorage").remoteInterface.interactions.build
+
+		pcall(function()
+			buildRemote:InvokeServer(
+				90,
+				CFrame.new(playerPosition.X, playerPosition.Y - 3, playerPosition.Z),
+				0,
+				nil
+			)
+		end)
+
+		pcall(function()
+			buildRemote:InvokeServer(
+				85,
+				CFrame.new(playerPosition.X, playerPosition.Y - 3, playerPosition.Z),
+				0,
+				nil
+			)
+		end)
+	end,
+})
+
 -- ==========================================
 -- MAIN
 -- ==========================================
