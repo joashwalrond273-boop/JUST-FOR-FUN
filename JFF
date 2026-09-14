@@ -3267,8 +3267,6 @@ MoveMountAura:AddSlider("MountSpeedValue", {
 	Compact = true,
 })
 
-MoveMountAura:AddDivider()
-
 MoveMountAura:AddCheckbox("MountNoclip", {
 	Text = "Mount Noclip",
 	Default = false,
