@@ -5364,9 +5364,12 @@ VisualLeft:AddCheckbox("PlayerChams", {
 	Title = "Chams Color",
 })
 
-VisualLeft:AddCheckbox("PlayerHealthBar", {
-	Text = "Health Bar",
+VisualLeft:AddCheckbox("PlayerLookDirection", {
+	Text = "Look Direction",
 	Default = false,
+}):AddColorPicker("PlayerLookDirectionColor", {
+	Default = Color3.fromRGB(255, 255, 255),
+	Title = "Look Direction Color",
 })
 
 VisualLeft:AddCheckbox("PlayerCornerBoxes", {
@@ -5375,6 +5378,11 @@ VisualLeft:AddCheckbox("PlayerCornerBoxes", {
 }):AddColorPicker("PlayerCornerBoxesColor", {
 	Default = Color3.fromRGB(255, 255, 255),
 	Title = "Corner Boxes Color",
+})
+
+VisualLeft:AddCheckbox("PlayerHealthBar", {
+	Text = "Health Bar",
+	Default = false,
 })
 
 VisualLeft:AddDivider()
@@ -5588,6 +5596,7 @@ local function removePlayerESP(player)
 			end
 			entry.cornerLines = nil
 		end
+		if entry.lookLine then pcall(function() entry.lookLine:Remove() end) end
 		if entry.charCon then pcall(function() entry.charCon:Disconnect() end) end
 		espObjects[player] = nil
 	end
@@ -5620,6 +5629,7 @@ local function getOrCreateESP(player)
 					line.Visible = false
 				end
 			end
+			if entry.lookLine then entry.lookLine.Visible = false end
 		end
 		return nil
 	end
@@ -5639,6 +5649,7 @@ local function getOrCreateESP(player)
 					line.Visible = false
 				end
 			end
+			if entry.lookLine then entry.lookLine.Visible = false end
 		end
 		return nil
 	end
@@ -5656,6 +5667,7 @@ local function getOrCreateESP(player)
 					pcall(function() line:Remove() end)
 				end
 			end
+			if entry.lookLine then pcall(function() entry.lookLine:Remove() end) end
 		end
 
 		local billboard = Instance.new("BillboardGui")
@@ -5691,6 +5703,7 @@ local function getOrCreateESP(player)
 		local healthBarOutline = nil
 		local healthBar = nil
 		local cornerLines = createCornerLines()
+		local lookLine = nil
 		if typeof(Drawing) ~= "nil" then
 			pcall(function()
 				tracer = Drawing.new("Line")
@@ -5721,6 +5734,13 @@ local function getOrCreateESP(player)
 				healthBar.Transparency = 1
 				healthBar.Visible = false
 			end)
+			pcall(function()
+				lookLine = Drawing.new("Line")
+				lookLine.Thickness = 1.5
+				lookLine.Color = (Options and Options.PlayerLookDirectionColor and Options.PlayerLookDirectionColor.Value) or Color3.fromRGB(255, 255, 255)
+				lookLine.Transparency = 1
+				lookLine.Visible = false
+			end)
 		end
 
 		entry = {
@@ -5736,6 +5756,7 @@ local function getOrCreateESP(player)
 			healthBarOutline = healthBarOutline,
 			healthBar = healthBar,
 			cornerLines = cornerLines,
+			lookLine = lookLine,
 			lastDist = -1,
 			lastShowDist = nil,
 			lastText = "",
@@ -5784,6 +5805,15 @@ local function getOrCreateESP(player)
 		if not entry.cornerLines then
 			entry.cornerLines = createCornerLines()
 		end
+		if not entry.lookLine and typeof(Drawing) ~= "nil" then
+			pcall(function()
+				entry.lookLine = Drawing.new("Line")
+				entry.lookLine.Thickness = 1.5
+				entry.lookLine.Color = (Options and Options.PlayerLookDirectionColor and Options.PlayerLookDirectionColor.Value) or Color3.fromRGB(255, 255, 255)
+				entry.lookLine.Transparency = 1
+				entry.lookLine.Visible = false
+			end)
+		end
 	end
 
 	return entry
@@ -5806,6 +5836,7 @@ local function updateAllESP()
 					if line.Visible then line.Visible = false end
 				end
 			end
+			if entry.lookLine and entry.lookLine.Visible then entry.lookLine.Visible = false end
 		end
 		return
 	end
@@ -5817,6 +5848,7 @@ local function updateAllESP()
 	local tracersEnabled = (Toggles.PlayerTracers and Toggles.PlayerTracers.Value) or false
 	local boxesEnabled = (Toggles.PlayerBoxes and Toggles.PlayerBoxes.Value) or false
 	local cornerBoxesEnabled = (Toggles.PlayerCornerBoxes and Toggles.PlayerCornerBoxes.Value) or false
+	local lookDirEnabled = (Toggles.PlayerLookDirection and Toggles.PlayerLookDirection.Value) or false
 	local healthBarEnabled = (Toggles.PlayerHealthBar and Toggles.PlayerHealthBar.Value) or false
 	local myPos = myRoot.Position
 
@@ -5827,6 +5859,7 @@ local function updateAllESP()
 	local tColor = (Options and Options.PlayerTracersColor and Options.PlayerTracersColor.Value) or Color3.new(1, 1, 1)
 	local bColor = (Options and Options.PlayerBoxesColor and Options.PlayerBoxesColor.Value) or Color3.new(1, 1, 1)
 	local cbColor = (Options and Options.PlayerCornerBoxesColor and Options.PlayerCornerBoxesColor.Value) or Color3.new(1, 1, 1)
+	local ldColor = (Options and Options.PlayerLookDirectionColor and Options.PlayerLookDirectionColor.Value) or Color3.new(1, 1, 1)
 
 	local pColorHex = pColor:ToHex()
 	local dColorHex = dColor:ToHex()
@@ -5859,6 +5892,7 @@ local function updateAllESP()
 							if line.Visible then line.Visible = false end
 						end
 					end
+					if entry.lookLine and entry.lookLine.Visible then entry.lookLine.Visible = false end
 				end
 			end
 		end
@@ -6042,6 +6076,43 @@ local function updateAllESP()
 			end
 		end
 
+		if entry.lookLine then
+			if lookDirEnabled and camera then
+				local head = entry.character:FindFirstChild("Head") or entry.root
+				if head then
+					local from3D = head.Position
+					local lookVector = head.CFrame.LookVector
+					local to3D = from3D + (lookVector * 7)
+
+					local fromScreen, fromVisible = camera:WorldToViewportPoint(from3D)
+					local toScreen, toVisible = camera:WorldToViewportPoint(to3D)
+
+					if (fromVisible or toVisible) and fromScreen.Z > 0 and toScreen.Z > 0 then
+						entry.lookLine.From = Vector2.new(fromScreen.X, fromScreen.Y)
+						entry.lookLine.To = Vector2.new(toScreen.X, toScreen.Y)
+						if entry.lookLine.Color ~= ldColor then
+							entry.lookLine.Color = ldColor
+						end
+						if not entry.lookLine.Visible then
+							entry.lookLine.Visible = true
+						end
+					else
+						if entry.lookLine.Visible then
+							entry.lookLine.Visible = false
+						end
+					end
+				else
+					if entry.lookLine.Visible then
+						entry.lookLine.Visible = false
+					end
+				end
+			else
+				if entry.lookLine.Visible then
+					entry.lookLine.Visible = false
+				end
+			end
+		end
+
 		if entry.healthBar and entry.healthBarOutline then
 			if healthBarEnabled and onScreen2D then
 				local health = (entry.hum and entry.hum.Health) or 0
@@ -6184,6 +6255,18 @@ Toggles.PlayerCornerBoxes:OnChanged(function()
 	end
 end)
 
+Toggles.PlayerLookDirection:OnChanged(function()
+	if not Toggles.PlayerLookDirection.Value then
+		for _, entry in pairs(espObjects) do
+			if entry.lookLine and entry.lookLine.Visible then
+				entry.lookLine.Visible = false
+			end
+		end
+	else
+		updateAllESP()
+	end
+end)
+
 Toggles.PlayerHealthBar:OnChanged(function()
 	if not Toggles.PlayerHealthBar.Value then
 		for _, entry in pairs(espObjects) do
@@ -6249,6 +6332,15 @@ Options.PlayerCornerBoxesColor:OnChanged(function()
 			for _, line in ipairs(entry.cornerLines) do
 				line.Color = color
 			end
+		end
+	end
+end)
+
+Options.PlayerLookDirectionColor:OnChanged(function()
+	local color = Options.PlayerLookDirectionColor.Value
+	for _, entry in pairs(espObjects) do
+		if entry.lookLine then
+			entry.lookLine.Color = color
 		end
 	end
 end)
