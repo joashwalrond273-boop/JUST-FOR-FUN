@@ -5380,6 +5380,14 @@ VisualLeft:AddCheckbox("PlayerCornerBoxes", {
 	Title = "Corner Boxes Color",
 })
 
+VisualLeft:AddCheckbox("PlayerHealthText", {
+	Text = "Health Text",
+	Default = false,
+}):AddColorPicker("PlayerHealthTextColor", {
+	Default = Color3.fromRGB(255, 255, 255),
+	Title = "Health Text Color",
+})
+
 VisualLeft:AddCheckbox("PlayerHealthBar", {
 	Text = "Health Bar",
 	Default = false,
@@ -5597,6 +5605,7 @@ local function removePlayerESP(player)
 			entry.cornerLines = nil
 		end
 		if entry.lookLine then pcall(function() entry.lookLine:Remove() end) end
+		if entry.healthText then pcall(function() entry.healthText:Remove() end) end
 		if entry.charCon then pcall(function() entry.charCon:Disconnect() end) end
 		espObjects[player] = nil
 	end
@@ -5630,6 +5639,7 @@ local function getOrCreateESP(player)
 				end
 			end
 			if entry.lookLine then entry.lookLine.Visible = false end
+			if entry.healthText then entry.healthText.Visible = false end
 		end
 		return nil
 	end
@@ -5650,6 +5660,7 @@ local function getOrCreateESP(player)
 				end
 			end
 			if entry.lookLine then entry.lookLine.Visible = false end
+			if entry.healthText then entry.healthText.Visible = false end
 		end
 		return nil
 	end
@@ -5668,6 +5679,7 @@ local function getOrCreateESP(player)
 				end
 			end
 			if entry.lookLine then pcall(function() entry.lookLine:Remove() end) end
+			if entry.healthText then pcall(function() entry.healthText:Remove() end) end
 		end
 
 		local billboard = Instance.new("BillboardGui")
@@ -5704,6 +5716,7 @@ local function getOrCreateESP(player)
 		local healthBar = nil
 		local cornerLines = createCornerLines()
 		local lookLine = nil
+		local healthText = nil
 		if typeof(Drawing) ~= "nil" then
 			pcall(function()
 				tracer = Drawing.new("Line")
@@ -5741,6 +5754,16 @@ local function getOrCreateESP(player)
 				lookLine.Transparency = 1
 				lookLine.Visible = false
 			end)
+			pcall(function()
+				healthText = Drawing.new("Text")
+				healthText.Size = 13
+				healthText.Center = false
+				healthText.Outline = true
+				healthText.OutlineColor = Color3.fromRGB(0, 0, 0)
+				healthText.Color = (Options and Options.PlayerHealthTextColor and Options.PlayerHealthTextColor.Value) or Color3.fromRGB(255, 255, 255)
+				healthText.Transparency = 1
+				healthText.Visible = false
+			end)
 		end
 
 		entry = {
@@ -5757,6 +5780,7 @@ local function getOrCreateESP(player)
 			healthBar = healthBar,
 			cornerLines = cornerLines,
 			lookLine = lookLine,
+			healthText = healthText,
 			lastDist = -1,
 			lastShowDist = nil,
 			lastText = "",
@@ -5814,6 +5838,18 @@ local function getOrCreateESP(player)
 				entry.lookLine.Visible = false
 			end)
 		end
+		if not entry.healthText and typeof(Drawing) ~= "nil" then
+			pcall(function()
+				entry.healthText = Drawing.new("Text")
+				entry.healthText.Size = 13
+				entry.healthText.Center = false
+				entry.healthText.Outline = true
+				entry.healthText.OutlineColor = Color3.fromRGB(0, 0, 0)
+				entry.healthText.Color = (Options and Options.PlayerHealthTextColor and Options.PlayerHealthTextColor.Value) or Color3.fromRGB(255, 255, 255)
+				entry.healthText.Transparency = 1
+				entry.healthText.Visible = false
+			end)
+		end
 	end
 
 	return entry
@@ -5837,6 +5873,7 @@ local function updateAllESP()
 				end
 			end
 			if entry.lookLine and entry.lookLine.Visible then entry.lookLine.Visible = false end
+			if entry.healthText and entry.healthText.Visible then entry.healthText.Visible = false end
 		end
 		return
 	end
@@ -5849,6 +5886,7 @@ local function updateAllESP()
 	local boxesEnabled = (Toggles.PlayerBoxes and Toggles.PlayerBoxes.Value) or false
 	local cornerBoxesEnabled = (Toggles.PlayerCornerBoxes and Toggles.PlayerCornerBoxes.Value) or false
 	local lookDirEnabled = (Toggles.PlayerLookDirection and Toggles.PlayerLookDirection.Value) or false
+	local healthTextEnabled = (Toggles.PlayerHealthText and Toggles.PlayerHealthText.Value) or false
 	local healthBarEnabled = (Toggles.PlayerHealthBar and Toggles.PlayerHealthBar.Value) or false
 	local myPos = myRoot.Position
 
@@ -5860,6 +5898,7 @@ local function updateAllESP()
 	local bColor = (Options and Options.PlayerBoxesColor and Options.PlayerBoxesColor.Value) or Color3.new(1, 1, 1)
 	local cbColor = (Options and Options.PlayerCornerBoxesColor and Options.PlayerCornerBoxesColor.Value) or Color3.new(1, 1, 1)
 	local ldColor = (Options and Options.PlayerLookDirectionColor and Options.PlayerLookDirectionColor.Value) or Color3.new(1, 1, 1)
+	local htColor = (Options and Options.PlayerHealthTextColor and Options.PlayerHealthTextColor.Value) or Color3.new(1, 1, 1)
 
 	local pColorHex = pColor:ToHex()
 	local dColorHex = dColor:ToHex()
@@ -5893,6 +5932,7 @@ local function updateAllESP()
 						end
 					end
 					if entry.lookLine and entry.lookLine.Visible then entry.lookLine.Visible = false end
+					if entry.healthText and entry.healthText.Visible then entry.healthText.Visible = false end
 				end
 			end
 		end
@@ -5973,7 +6013,7 @@ local function updateAllESP()
 		local onScreen2D = false
 		local height, width, leftX, topY, botY = 0, 0, 0, 0, 0
 
-		if camera and (boxesEnabled or cornerBoxesEnabled or healthBarEnabled) then
+		if camera and (boxesEnabled or cornerBoxesEnabled or healthBarEnabled or healthTextEnabled) then
 			local rootPos = entry.root.Position
 			local head = entry.character:FindFirstChild("Head")
 			local topPos = (head and (head.Position + Vector3.new(0, 0.6, 0))) or (rootPos + Vector3.new(0, 2.8, 0))
@@ -6145,6 +6185,31 @@ local function updateAllESP()
 				end
 			end
 		end
+
+		if entry.healthText then
+			if healthTextEnabled and onScreen2D then
+				local health = (entry.hum and entry.hum.Health) or 0
+				local roundedHealth = math.floor(health)
+				entry.healthText.Text = tostring(roundedHealth) .. " HP"
+				if entry.healthText.Color ~= htColor then
+					entry.healthText.Color = htColor
+				end
+
+				local textWidth = (entry.healthText.TextBounds and entry.healthText.TextBounds.X) or 34
+				local barOffset = healthBarEnabled and 8 or 4
+				local posX = leftX - barOffset - textWidth
+				local posY = math.floor(topY)
+
+				entry.healthText.Position = Vector2.new(posX, posY)
+				if not entry.healthText.Visible then
+					entry.healthText.Visible = true
+				end
+			else
+				if entry.healthText.Visible then
+					entry.healthText.Visible = false
+				end
+			end
+		end
 	end
 end
 
@@ -6267,6 +6332,18 @@ Toggles.PlayerLookDirection:OnChanged(function()
 	end
 end)
 
+Toggles.PlayerHealthText:OnChanged(function()
+	if not Toggles.PlayerHealthText.Value then
+		for _, entry in pairs(espObjects) do
+			if entry.healthText and entry.healthText.Visible then
+				entry.healthText.Visible = false
+			end
+		end
+	else
+		updateAllESP()
+	end
+end)
+
 Toggles.PlayerHealthBar:OnChanged(function()
 	if not Toggles.PlayerHealthBar.Value then
 		for _, entry in pairs(espObjects) do
@@ -6341,6 +6418,15 @@ Options.PlayerLookDirectionColor:OnChanged(function()
 	for _, entry in pairs(espObjects) do
 		if entry.lookLine then
 			entry.lookLine.Color = color
+		end
+	end
+end)
+
+Options.PlayerHealthTextColor:OnChanged(function()
+	local color = Options.PlayerHealthTextColor.Value
+	for _, entry in pairs(espObjects) do
+		if entry.healthText then
+			entry.healthText.Color = color
 		end
 	end
 end)
