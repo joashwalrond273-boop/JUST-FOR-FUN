@@ -326,7 +326,6 @@ local Tabs = {
 	Combat = Window:AddTab("Combat", "swords"),
 	Movement = Window:AddTab("Movement", "move"),
 	Farming = Window:AddTab("Farming", "sprout"),
-	Planting = Window:AddTab("Planting", "leaf"),
 	Teleport = Window:AddTab("Teleport", "map-pin"),
 	Visuals = Window:AddTab("Visuals", "scan-eye"),
 	["UI Settings"] = Window:AddTab("UI Settings", "settings"),
@@ -3254,18 +3253,9 @@ end)
 
 local MoveMountAura = Tabs.Movement:AddRightGroupbox("Mount Aura", "paw-print")
 
-MoveMountAura:AddToggle("MountSpeedBoost", {
+MoveMountAura:AddCheckbox("MountSpeedBoost", {
 	Text = "Mount Speed",
 	Default = false,
-})
-
-MoveMountAura:AddSlider("MountSpeedValue", {
-	Text = "Mount Speed Value",
-	Default = 35,
-	Min = 16,
-	Max = 100,
-	Rounding = 1,
-	Compact = true,
 })
 
 MoveMountAura:AddCheckbox("MountNoclip", {
@@ -3284,6 +3274,15 @@ MoveMountAura:AddSlider("MountFlySpeed", {
 	Min = 10,
 	Max = 200,
 	Rounding = 0,
+	Compact = true,
+})
+
+MoveMountAura:AddSlider("MountSpeedValue", {
+	Text = "Mount Speed Value",
+	Default = 35,
+	Min = 16,
+	Max = 100,
+	Rounding = 1,
 	Compact = true,
 })
 
@@ -4610,121 +4609,6 @@ Toggles.JuggernautAura:OnChanged(function()
 			Toggles.AiAura:SetValue(false)
 		end
 		Library:Notify({ Title = "Juggernaut Aura", Description = "Disabled", Time = 2 })
-	end
-end)
-
--- ==========================================
--- PLANTING
--- ==========================================
-local FarmLandGroup = Tabs.Planting:AddLeftGroupbox("Farm Land", "sprout")
-
-FarmLandGroup:AddToggle("AutoFarmLand", {
-	Text = "Auto Farm Land",
-	Default = false,
-})
-
-FarmLandGroup:AddDropdown("FarmLandSlot", {
-	Text = "Tool Slot",
-	Values = {"1","2","3","4","5","6","7","8","9","10"},
-	Default = "1",
-})
-
-FarmLandGroup:AddSlider("FarmLandDistance", {
-	Text = "Placement Spacing",
-	Default = 3,
-	Min = 1,
-	Max = 10,
-	Rounding = 1,
-	Compact = true,
-})
-
-FarmLandGroup:AddButton({
-	Text = "Place Farm Land (Once)",
-	Func = function()
-		if createFarmLandAtPlayer then
-			createFarmLandAtPlayer(true)
-		end
-	end,
-})
-
-local isAutoFarmLandRunning = false
-local lastFarmLandPos = nil
-local lastFarmLandTime = 0
-
-local function createFarmLandAtPlayer(forcePlace)
-	if not isAlive() then return end
-	local character = LocalPlayer.Character
-	local root = character and character:FindFirstChild("HumanoidRootPart")
-	if not root then return end
-
-	local playerPosition = root.Position
-	local now = tick()
-
-	if not forcePlace then
-		local requiredDist = (Options.FarmLandDistance and Options.FarmLandDistance.Value) or 3
-		local dist = lastFarmLandPos and (Vector3.new(playerPosition.X, 0, playerPosition.Z) - Vector3.new(lastFarmLandPos.X, 0, lastFarmLandPos.Z)).Magnitude or 999
-		if dist < requiredDist or (now - lastFarmLandTime < 0.15) then
-			return
-		end
-	end
-
-	lastFarmLandPos = playerPosition
-	lastFarmLandTime = now
-
-	local slot = tonumber(Options.FarmLandSlot and Options.FarmLandSlot.Value) or 1
-
-	-- Equip hotbar slot if not currently held
-	if not isHoldingSelectedSlot(slot) then
-		if TSG.EquipHotbarRemote then
-			pcall(function()
-				TSG.EquipHotbarRemote:FireServer(slot)
-			end)
-		elseif ReplicatedStorage:FindFirstChild("remoteInterface") and ReplicatedStorage.remoteInterface:FindFirstChild("inventory") and ReplicatedStorage.remoteInterface.inventory:FindFirstChild("equipHotbar") then
-			pcall(function()
-				ReplicatedStorage.remoteInterface.inventory.equipHotbar:FireServer(slot)
-			end)
-		end
-	end
-
-	-- Tool swing/activation
-	local tool = character:FindFirstChildOfClass("Tool")
-	if tool then
-		pcall(function()
-			tool:Activate()
-		end)
-	end
-
-	-- Invoke build remote with item id 6 and Toilet/Bed position offset (Y - 3)
-	local buildRemote = (interactionsFolder and interactionsFolder:FindFirstChild("build"))
-		or (ReplicatedStorage:FindFirstChild("remoteInterface") and ReplicatedStorage.remoteInterface:FindFirstChild("interactions") and ReplicatedStorage.remoteInterface.interactions:FindFirstChild("build"))
-		or resolvePath(ReplicatedStorage, "remoteInterface", "interactions", "build")
-		or (game:GetService("ReplicatedStorage"):FindFirstChild("remoteInterface") and game:GetService("ReplicatedStorage").remoteInterface:FindFirstChild("interactions") and game:GetService("ReplicatedStorage").remoteInterface.interactions:FindFirstChild("build"))
-
-	if buildRemote then
-		pcall(function()
-			buildRemote:InvokeServer(
-				6,
-				CFrame.new(playerPosition.X, playerPosition.Y - 3, playerPosition.Z),
-				0,
-				nil
-			)
-		end)
-	end
-end
-
-Toggles.AutoFarmLand:OnChanged(function()
-	disconnect("AutoFarmLand")
-	lastFarmLandPos = nil
-	if Toggles.AutoFarmLand.Value then
-		isAutoFarmLandRunning = true
-		track("AutoFarmLand", RunService.Heartbeat:Connect(function()
-			if not isAlive() or not isAutoFarmLandRunning then return end
-			createFarmLandAtPlayer(false)
-		end))
-		Library:Notify({ Title = "Auto Farm Land", Description = "Enabled", Time = 2 })
-	else
-		isAutoFarmLandRunning = false
-		Library:Notify({ Title = "Auto Farm Land", Description = "Disabled", Time = 2 })
 	end
 end)
 
@@ -6704,9 +6588,6 @@ Library:OnUnload(function()
 	end
 	if Toggles.OreESPToggle and Toggles.OreESPToggle.Value then
 		Toggles.OreESPToggle:SetValue(false)
-	end
-	if Toggles.AutoFarmLand and Toggles.AutoFarmLand.Value then
-		Toggles.AutoFarmLand:SetValue(false)
 	end
 
 	if Toggles.NoGliderCooldown and Toggles.NoGliderCooldown.Value then
