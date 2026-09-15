@@ -5364,6 +5364,14 @@ VisualLeft:AddCheckbox("PlayerChams", {
 	Title = "Chams Color",
 })
 
+VisualLeft:AddCheckbox("PlayerSkeleton", {
+	Text = "Skeleton",
+	Default = false,
+}):AddColorPicker("PlayerSkeletonColor", {
+	Default = Color3.fromRGB(255, 255, 255),
+	Title = "Skeleton Color",
+})
+
 VisualLeft:AddCheckbox("PlayerHealthBar", {
 	Text = "Health Bar",
 	Default = false,
@@ -5548,6 +5556,48 @@ local function getESPFolder()
 	return espFolder or workspace
 end
 
+local R15_SKELETON_PAIRS = {
+	{ "Head", "UpperTorso" },
+	{ "UpperTorso", "LowerTorso" },
+	{ "UpperTorso", "LeftUpperArm" },
+	{ "LeftUpperArm", "LeftLowerArm" },
+	{ "LeftLowerArm", "LeftHand" },
+	{ "UpperTorso", "RightUpperArm" },
+	{ "RightUpperArm", "RightLowerArm" },
+	{ "RightLowerArm", "RightHand" },
+	{ "LowerTorso", "LeftUpperLeg" },
+	{ "LeftUpperLeg", "LeftLowerLeg" },
+	{ "LeftLowerLeg", "LeftFoot" },
+	{ "LowerTorso", "RightUpperLeg" },
+	{ "RightUpperLeg", "RightLowerLeg" },
+	{ "RightLowerLeg", "RightFoot" },
+}
+
+local R6_SKELETON_PAIRS = {
+	{ "Head", "Torso" },
+	{ "Torso", "Left Arm" },
+	{ "Torso", "Right Arm" },
+	{ "Torso", "Left Leg" },
+	{ "Torso", "Right Leg" },
+}
+
+local function createSkeletonLines()
+	local lines = {}
+	if typeof(Drawing) ~= "nil" then
+		for i = 1, 14 do
+			pcall(function()
+				local line = Drawing.new("Line")
+				line.Thickness = 1.5
+				line.Color = (Options and Options.PlayerSkeletonColor and Options.PlayerSkeletonColor.Value) or Color3.fromRGB(255, 255, 255)
+				line.Transparency = 1
+				line.Visible = false
+				table.insert(lines, line)
+			end)
+		end
+	end
+	return lines
+end
+
 local function removePlayerESP(player)
 	local entry = espObjects[player]
 	if entry then
@@ -5557,6 +5607,12 @@ local function removePlayerESP(player)
 		if entry.box then pcall(function() entry.box:Remove() end) end
 		if entry.healthBarOutline then pcall(function() entry.healthBarOutline:Remove() end) end
 		if entry.healthBar then pcall(function() entry.healthBar:Remove() end) end
+		if entry.skeletonLines then
+			for _, line in ipairs(entry.skeletonLines) do
+				pcall(function() line:Remove() end)
+			end
+			entry.skeletonLines = nil
+		end
 		if entry.charCon then pcall(function() entry.charCon:Disconnect() end) end
 		espObjects[player] = nil
 	end
@@ -5584,6 +5640,11 @@ local function getOrCreateESP(player)
 			if entry.box then entry.box.Visible = false end
 			if entry.healthBarOutline then entry.healthBarOutline.Visible = false end
 			if entry.healthBar then entry.healthBar.Visible = false end
+			if entry.skeletonLines then
+				for _, line in ipairs(entry.skeletonLines) do
+					line.Visible = false
+				end
+			end
 		end
 		return nil
 	end
@@ -5598,6 +5659,11 @@ local function getOrCreateESP(player)
 			if entry.box then entry.box.Visible = false end
 			if entry.healthBarOutline then entry.healthBarOutline.Visible = false end
 			if entry.healthBar then entry.healthBar.Visible = false end
+			if entry.skeletonLines then
+				for _, line in ipairs(entry.skeletonLines) do
+					line.Visible = false
+				end
+			end
 		end
 		return nil
 	end
@@ -5610,6 +5676,11 @@ local function getOrCreateESP(player)
 			if entry.box then pcall(function() entry.box:Remove() end) end
 			if entry.healthBarOutline then pcall(function() entry.healthBarOutline:Remove() end) end
 			if entry.healthBar then pcall(function() entry.healthBar:Remove() end) end
+			if entry.skeletonLines then
+				for _, line in ipairs(entry.skeletonLines) do
+					pcall(function() line:Remove() end)
+				end
+			end
 		end
 
 		local billboard = Instance.new("BillboardGui")
@@ -5644,6 +5715,7 @@ local function getOrCreateESP(player)
 		local box = nil
 		local healthBarOutline = nil
 		local healthBar = nil
+		local skeletonLines = createSkeletonLines()
 		if typeof(Drawing) ~= "nil" then
 			pcall(function()
 				tracer = Drawing.new("Line")
@@ -5688,6 +5760,7 @@ local function getOrCreateESP(player)
 			box = box,
 			healthBarOutline = healthBarOutline,
 			healthBar = healthBar,
+			skeletonLines = skeletonLines,
 			lastDist = -1,
 			lastShowDist = nil,
 			lastText = "",
@@ -5733,6 +5806,9 @@ local function getOrCreateESP(player)
 				entry.healthBar.Visible = false
 			end)
 		end
+		if not entry.skeletonLines then
+			entry.skeletonLines = createSkeletonLines()
+		end
 	end
 
 	return entry
@@ -5750,6 +5826,11 @@ local function updateAllESP()
 			if entry.box and entry.box.Visible then entry.box.Visible = false end
 			if entry.healthBarOutline and entry.healthBarOutline.Visible then entry.healthBarOutline.Visible = false end
 			if entry.healthBar and entry.healthBar.Visible then entry.healthBar.Visible = false end
+			if entry.skeletonLines then
+				for _, line in ipairs(entry.skeletonLines) do
+					if line.Visible then line.Visible = false end
+				end
+			end
 		end
 		return
 	end
@@ -5760,6 +5841,7 @@ local function updateAllESP()
 	local chamsEnabled = (Toggles.PlayerChams and Toggles.PlayerChams.Value) or false
 	local tracersEnabled = (Toggles.PlayerTracers and Toggles.PlayerTracers.Value) or false
 	local boxesEnabled = (Toggles.PlayerBoxes and Toggles.PlayerBoxes.Value) or false
+	local skeletonEnabled = (Toggles.PlayerSkeleton and Toggles.PlayerSkeleton.Value) or false
 	local healthBarEnabled = (Toggles.PlayerHealthBar and Toggles.PlayerHealthBar.Value) or false
 	local myPos = myRoot.Position
 
@@ -5769,6 +5851,7 @@ local function updateAllESP()
 	local cColor = (Options and Options.PlayerChamsColor and Options.PlayerChamsColor.Value) or Color3.new(1, 1, 1)
 	local tColor = (Options and Options.PlayerTracersColor and Options.PlayerTracersColor.Value) or Color3.new(1, 1, 1)
 	local bColor = (Options and Options.PlayerBoxesColor and Options.PlayerBoxesColor.Value) or Color3.new(1, 1, 1)
+	local sColor = (Options and Options.PlayerSkeletonColor and Options.PlayerSkeletonColor.Value) or Color3.new(1, 1, 1)
 
 	local pColorHex = pColor:ToHex()
 	local dColorHex = dColor:ToHex()
@@ -5796,6 +5879,11 @@ local function updateAllESP()
 					if entry.box and entry.box.Visible then entry.box.Visible = false end
 					if entry.healthBarOutline and entry.healthBarOutline.Visible then entry.healthBarOutline.Visible = false end
 					if entry.healthBar and entry.healthBar.Visible then entry.healthBar.Visible = false end
+					if entry.skeletonLines then
+						for _, line in ipairs(entry.skeletonLines) do
+							if line.Visible then line.Visible = false end
+						end
+					end
 				end
 			end
 		end
@@ -5911,6 +5999,56 @@ local function updateAllESP()
 			else
 				if entry.box.Visible then
 					entry.box.Visible = false
+				end
+			end
+		end
+
+		if entry.skeletonLines then
+			if skeletonEnabled and camera then
+				local pairsList = (entry.hum.RigType == Enum.HumanoidRigType.R6 and R6_SKELETON_PAIRS) or R15_SKELETON_PAIRS
+				local lineIdx = 1
+				for _, pair in ipairs(pairsList) do
+					local p1 = entry.character:FindFirstChild(pair[1])
+					local p2 = entry.character:FindFirstChild(pair[2])
+					local line = entry.skeletonLines[lineIdx]
+					if line then
+						if p1 and p2 then
+							local s1, v1 = camera:WorldToViewportPoint(p1.Position)
+							local s2, v2 = camera:WorldToViewportPoint(p2.Position)
+							if (v1 or v2) and s1.Z > 0 and s2.Z > 0 then
+								line.From = Vector2.new(s1.X, s1.Y)
+								line.To = Vector2.new(s2.X, s2.Y)
+								if line.Color ~= sColor then
+									line.Color = sColor
+								end
+								if not line.Visible then
+									line.Visible = true
+								end
+							else
+								if line.Visible then
+									line.Visible = false
+								end
+							end
+						else
+							if line.Visible then
+								line.Visible = false
+							end
+						end
+					end
+					lineIdx = lineIdx + 1
+				end
+
+				for j = lineIdx, #entry.skeletonLines do
+					local line = entry.skeletonLines[j]
+					if line and line.Visible then
+						line.Visible = false
+					end
+				end
+			else
+				for _, line in ipairs(entry.skeletonLines) do
+					if line.Visible then
+						line.Visible = false
+					end
 				end
 			end
 		end
@@ -6041,6 +6179,22 @@ Toggles.PlayerBoxes:OnChanged(function()
 	end
 end)
 
+Toggles.PlayerSkeleton:OnChanged(function()
+	if not Toggles.PlayerSkeleton.Value then
+		for _, entry in pairs(espObjects) do
+			if entry.skeletonLines then
+				for _, line in ipairs(entry.skeletonLines) do
+					if line.Visible then
+						line.Visible = false
+					end
+				end
+			end
+		end
+	else
+		updateAllESP()
+	end
+end)
+
 Toggles.PlayerHealthBar:OnChanged(function()
 	if not Toggles.PlayerHealthBar.Value then
 		for _, entry in pairs(espObjects) do
@@ -6095,6 +6249,17 @@ Options.PlayerBoxesColor:OnChanged(function()
 	for _, entry in pairs(espObjects) do
 		if entry.box then
 			entry.box.Color = color
+		end
+	end
+end)
+
+Options.PlayerSkeletonColor:OnChanged(function()
+	local color = Options.PlayerSkeletonColor.Value
+	for _, entry in pairs(espObjects) do
+		if entry.skeletonLines then
+			for _, line in ipairs(entry.skeletonLines) do
+				line.Color = color
+			end
 		end
 	end
 end)
