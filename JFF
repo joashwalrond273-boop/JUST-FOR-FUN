@@ -5369,6 +5369,14 @@ VisualLeft:AddCheckbox("PlayerHealthBar", {
 	Default = false,
 })
 
+VisualLeft:AddCheckbox("PlayerCornerBoxes", {
+	Text = "Corner Boxes",
+	Default = false,
+}):AddColorPicker("PlayerCornerBoxesColor", {
+	Default = Color3.fromRGB(255, 255, 255),
+	Title = "Corner Boxes Color",
+})
+
 VisualLeft:AddDivider()
 
 VisualLeft:AddCheckbox("MerchantESP", {
@@ -5548,6 +5556,23 @@ local function getESPFolder()
 	return espFolder or workspace
 end
 
+local function createCornerLines()
+	local lines = {}
+	if typeof(Drawing) ~= "nil" then
+		for i = 1, 8 do
+			pcall(function()
+				local line = Drawing.new("Line")
+				line.Thickness = 1.5
+				line.Color = (Options and Options.PlayerCornerBoxesColor and Options.PlayerCornerBoxesColor.Value) or Color3.fromRGB(255, 255, 255)
+				line.Transparency = 1
+				line.Visible = false
+				table.insert(lines, line)
+			end)
+		end
+	end
+	return lines
+end
+
 local function removePlayerESP(player)
 	local entry = espObjects[player]
 	if entry then
@@ -5557,6 +5582,12 @@ local function removePlayerESP(player)
 		if entry.box then pcall(function() entry.box:Remove() end) end
 		if entry.healthBarOutline then pcall(function() entry.healthBarOutline:Remove() end) end
 		if entry.healthBar then pcall(function() entry.healthBar:Remove() end) end
+		if entry.cornerLines then
+			for _, line in ipairs(entry.cornerLines) do
+				pcall(function() line:Remove() end)
+			end
+			entry.cornerLines = nil
+		end
 		if entry.charCon then pcall(function() entry.charCon:Disconnect() end) end
 		espObjects[player] = nil
 	end
@@ -5584,6 +5615,11 @@ local function getOrCreateESP(player)
 			if entry.box then entry.box.Visible = false end
 			if entry.healthBarOutline then entry.healthBarOutline.Visible = false end
 			if entry.healthBar then entry.healthBar.Visible = false end
+			if entry.cornerLines then
+				for _, line in ipairs(entry.cornerLines) do
+					line.Visible = false
+				end
+			end
 		end
 		return nil
 	end
@@ -5598,6 +5634,11 @@ local function getOrCreateESP(player)
 			if entry.box then entry.box.Visible = false end
 			if entry.healthBarOutline then entry.healthBarOutline.Visible = false end
 			if entry.healthBar then entry.healthBar.Visible = false end
+			if entry.cornerLines then
+				for _, line in ipairs(entry.cornerLines) do
+					line.Visible = false
+				end
+			end
 		end
 		return nil
 	end
@@ -5610,6 +5651,11 @@ local function getOrCreateESP(player)
 			if entry.box then pcall(function() entry.box:Remove() end) end
 			if entry.healthBarOutline then pcall(function() entry.healthBarOutline:Remove() end) end
 			if entry.healthBar then pcall(function() entry.healthBar:Remove() end) end
+			if entry.cornerLines then
+				for _, line in ipairs(entry.cornerLines) do
+					pcall(function() line:Remove() end)
+				end
+			end
 		end
 
 		local billboard = Instance.new("BillboardGui")
@@ -5644,6 +5690,7 @@ local function getOrCreateESP(player)
 		local box = nil
 		local healthBarOutline = nil
 		local healthBar = nil
+		local cornerLines = createCornerLines()
 		if typeof(Drawing) ~= "nil" then
 			pcall(function()
 				tracer = Drawing.new("Line")
@@ -5688,6 +5735,7 @@ local function getOrCreateESP(player)
 			box = box,
 			healthBarOutline = healthBarOutline,
 			healthBar = healthBar,
+			cornerLines = cornerLines,
 			lastDist = -1,
 			lastShowDist = nil,
 			lastText = "",
@@ -5733,6 +5781,9 @@ local function getOrCreateESP(player)
 				entry.healthBar.Visible = false
 			end)
 		end
+		if not entry.cornerLines then
+			entry.cornerLines = createCornerLines()
+		end
 	end
 
 	return entry
@@ -5750,6 +5801,11 @@ local function updateAllESP()
 			if entry.box and entry.box.Visible then entry.box.Visible = false end
 			if entry.healthBarOutline and entry.healthBarOutline.Visible then entry.healthBarOutline.Visible = false end
 			if entry.healthBar and entry.healthBar.Visible then entry.healthBar.Visible = false end
+			if entry.cornerLines then
+				for _, line in ipairs(entry.cornerLines) do
+					if line.Visible then line.Visible = false end
+				end
+			end
 		end
 		return
 	end
@@ -5760,6 +5816,7 @@ local function updateAllESP()
 	local chamsEnabled = (Toggles.PlayerChams and Toggles.PlayerChams.Value) or false
 	local tracersEnabled = (Toggles.PlayerTracers and Toggles.PlayerTracers.Value) or false
 	local boxesEnabled = (Toggles.PlayerBoxes and Toggles.PlayerBoxes.Value) or false
+	local cornerBoxesEnabled = (Toggles.PlayerCornerBoxes and Toggles.PlayerCornerBoxes.Value) or false
 	local healthBarEnabled = (Toggles.PlayerHealthBar and Toggles.PlayerHealthBar.Value) or false
 	local myPos = myRoot.Position
 
@@ -5769,6 +5826,7 @@ local function updateAllESP()
 	local cColor = (Options and Options.PlayerChamsColor and Options.PlayerChamsColor.Value) or Color3.new(1, 1, 1)
 	local tColor = (Options and Options.PlayerTracersColor and Options.PlayerTracersColor.Value) or Color3.new(1, 1, 1)
 	local bColor = (Options and Options.PlayerBoxesColor and Options.PlayerBoxesColor.Value) or Color3.new(1, 1, 1)
+	local cbColor = (Options and Options.PlayerCornerBoxesColor and Options.PlayerCornerBoxesColor.Value) or Color3.new(1, 1, 1)
 
 	local pColorHex = pColor:ToHex()
 	local dColorHex = dColor:ToHex()
@@ -5796,6 +5854,11 @@ local function updateAllESP()
 					if entry.box and entry.box.Visible then entry.box.Visible = false end
 					if entry.healthBarOutline and entry.healthBarOutline.Visible then entry.healthBarOutline.Visible = false end
 					if entry.healthBar and entry.healthBar.Visible then entry.healthBar.Visible = false end
+					if entry.cornerLines then
+						for _, line in ipairs(entry.cornerLines) do
+							if line.Visible then line.Visible = false end
+						end
+					end
 				end
 			end
 		end
@@ -5876,7 +5939,7 @@ local function updateAllESP()
 		local onScreen2D = false
 		local height, width, leftX, topY, botY = 0, 0, 0, 0, 0
 
-		if camera and (boxesEnabled or healthBarEnabled) then
+		if camera and (boxesEnabled or cornerBoxesEnabled or healthBarEnabled) then
 			local rootPos = entry.root.Position
 			local head = entry.character:FindFirstChild("Head")
 			local topPos = (head and (head.Position + Vector3.new(0, 0.6, 0))) or (rootPos + Vector3.new(0, 2.8, 0))
@@ -5911,6 +5974,70 @@ local function updateAllESP()
 			else
 				if entry.box.Visible then
 					entry.box.Visible = false
+				end
+			end
+		end
+
+		if entry.cornerLines then
+			if cornerBoxesEnabled and onScreen2D and #entry.cornerLines == 8 then
+				local rightX = leftX + math.floor(width)
+				local floorTopY = math.floor(topY)
+				local floorBotY = math.floor(botY)
+				local cornerLength = math.clamp(math.floor(width / 4), 3, 14)
+
+				-- 1: Top-Left Horizontal
+				local l1 = entry.cornerLines[1]
+				l1.From = Vector2.new(leftX, floorTopY)
+				l1.To = Vector2.new(leftX + cornerLength, floorTopY)
+
+				-- 2: Top-Left Vertical
+				local l2 = entry.cornerLines[2]
+				l2.From = Vector2.new(leftX, floorTopY)
+				l2.To = Vector2.new(leftX, floorTopY + cornerLength)
+
+				-- 3: Top-Right Horizontal
+				local l3 = entry.cornerLines[3]
+				l3.From = Vector2.new(rightX, floorTopY)
+				l3.To = Vector2.new(rightX - cornerLength, floorTopY)
+
+				-- 4: Top-Right Vertical
+				local l4 = entry.cornerLines[4]
+				l4.From = Vector2.new(rightX, floorTopY)
+				l4.To = Vector2.new(rightX, floorTopY + cornerLength)
+
+				-- 5: Bottom-Left Horizontal
+				local l5 = entry.cornerLines[5]
+				l5.From = Vector2.new(leftX, floorBotY)
+				l5.To = Vector2.new(leftX + cornerLength, floorBotY)
+
+				-- 6: Bottom-Left Vertical
+				local l6 = entry.cornerLines[6]
+				l6.From = Vector2.new(leftX, floorBotY)
+				l6.To = Vector2.new(leftX, floorBotY - cornerLength)
+
+				-- 7: Bottom-Right Horizontal
+				local l7 = entry.cornerLines[7]
+				l7.From = Vector2.new(rightX, floorBotY)
+				l7.To = Vector2.new(rightX - cornerLength, floorBotY)
+
+				-- 8: Bottom-Right Vertical
+				local l8 = entry.cornerLines[8]
+				l8.From = Vector2.new(rightX, floorBotY)
+				l8.To = Vector2.new(rightX, floorBotY - cornerLength)
+
+				for _, line in ipairs(entry.cornerLines) do
+					if line.Color ~= cbColor then
+						line.Color = cbColor
+					end
+					if not line.Visible then
+						line.Visible = true
+					end
+				end
+			else
+				for _, line in ipairs(entry.cornerLines) do
+					if line.Visible then
+						line.Visible = false
+					end
 				end
 			end
 		end
@@ -6041,6 +6168,22 @@ Toggles.PlayerBoxes:OnChanged(function()
 	end
 end)
 
+Toggles.PlayerCornerBoxes:OnChanged(function()
+	if not Toggles.PlayerCornerBoxes.Value then
+		for _, entry in pairs(espObjects) do
+			if entry.cornerLines then
+				for _, line in ipairs(entry.cornerLines) do
+					if line.Visible then
+						line.Visible = false
+					end
+				end
+			end
+		end
+	else
+		updateAllESP()
+	end
+end)
+
 Toggles.PlayerHealthBar:OnChanged(function()
 	if not Toggles.PlayerHealthBar.Value then
 		for _, entry in pairs(espObjects) do
@@ -6095,6 +6238,17 @@ Options.PlayerBoxesColor:OnChanged(function()
 	for _, entry in pairs(espObjects) do
 		if entry.box then
 			entry.box.Color = color
+		end
+	end
+end)
+
+Options.PlayerCornerBoxesColor:OnChanged(function()
+	local color = Options.PlayerCornerBoxesColor.Value
+	for _, entry in pairs(espObjects) do
+		if entry.cornerLines then
+			for _, line in ipairs(entry.cornerLines) do
+				line.Color = color
+			end
 		end
 	end
 end)
