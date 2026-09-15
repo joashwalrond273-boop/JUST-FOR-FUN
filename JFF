@@ -3253,9 +3253,18 @@ end)
 
 local MoveMountAura = Tabs.Movement:AddRightGroupbox("Mount Aura", "paw-print")
 
-MoveMountAura:AddCheckbox("MountSpeedBoost", {
+MoveMountAura:AddToggle("MountSpeedBoost", {
 	Text = "Mount Speed",
 	Default = false,
+})
+
+MoveMountAura:AddSlider("MountSpeedValue", {
+	Text = "Mount Speed Value",
+	Default = 35,
+	Min = 16,
+	Max = 100,
+	Rounding = 1,
+	Compact = true,
 })
 
 MoveMountAura:AddCheckbox("MountNoclip", {
@@ -3274,15 +3283,6 @@ MoveMountAura:AddSlider("MountFlySpeed", {
 	Min = 10,
 	Max = 200,
 	Rounding = 0,
-	Compact = true,
-})
-
-MoveMountAura:AddSlider("MountSpeedValue", {
-	Text = "Mount Speed Value",
-	Default = 35,
-	Min = 16,
-	Max = 100,
-	Rounding = 1,
 	Compact = true,
 })
 
@@ -3869,9 +3869,6 @@ OreESPGroup:AddCheckbox("OreESPRemoveNames", {
 	Text = "+ Remove Names",
 	Default = false,
 })
-
-OreESPGroup:AddDivider()
-OreESPGroup:AddLabel("Ore Filters:")
 
 -- ==========================================
 local FarmAI = Tabs.Farming:AddRightGroupbox("AI Aura", "zap")
