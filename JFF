@@ -5340,6 +5340,14 @@ VisualLeft:AddCheckbox("OutlineESP", {
 	Title = "Outline ESP Color",
 })
 
+VisualLeft:AddCheckbox("PlayerArrows", {
+	Text = "Off-Screen Arrows",
+	Default = false,
+}):AddColorPicker("PlayerArrowsColor", {
+	Default = Color3.fromRGB(255, 255, 255),
+	Title = "Arrows Color",
+})
+
 VisualLeft:AddCheckbox("PlayerTracers", {
 	Text = "Tracers",
 	Default = false,
@@ -5594,6 +5602,7 @@ local function removePlayerESP(player)
 	if entry then
 		if entry.billboard then pcall(function() entry.billboard:Destroy() end) end
 		if entry.highlight then pcall(function() entry.highlight:Destroy() end) end
+		if entry.arrow then pcall(function() entry.arrow:Remove() end) end
 		if entry.tracer then pcall(function() entry.tracer:Remove() end) end
 		if entry.box then pcall(function() entry.box:Remove() end) end
 		if entry.healthBarOutline then pcall(function() entry.healthBarOutline:Remove() end) end
@@ -5629,6 +5638,7 @@ local function getOrCreateESP(player)
 		if entry then
 			if entry.billboard then entry.billboard.Enabled = false end
 			if entry.highlight then entry.highlight.Enabled = false end
+			if entry.arrow then entry.arrow.Visible = false end
 			if entry.tracer then entry.tracer.Visible = false end
 			if entry.box then entry.box.Visible = false end
 			if entry.healthBarOutline then entry.healthBarOutline.Visible = false end
@@ -5650,6 +5660,7 @@ local function getOrCreateESP(player)
 		if entry then
 			if entry.billboard then entry.billboard.Enabled = false end
 			if entry.highlight then entry.highlight.Enabled = false end
+			if entry.arrow then entry.arrow.Visible = false end
 			if entry.tracer then entry.tracer.Visible = false end
 			if entry.box then entry.box.Visible = false end
 			if entry.healthBarOutline then entry.healthBarOutline.Visible = false end
@@ -5669,6 +5680,7 @@ local function getOrCreateESP(player)
 		if entry then
 			if entry.billboard then pcall(function() entry.billboard:Destroy() end) end
 			if entry.highlight then pcall(function() entry.highlight:Destroy() end) end
+			if entry.arrow then pcall(function() entry.arrow:Remove() end) end
 			if entry.tracer then pcall(function() entry.tracer:Remove() end) end
 			if entry.box then pcall(function() entry.box:Remove() end) end
 			if entry.healthBarOutline then pcall(function() entry.healthBarOutline:Remove() end) end
@@ -5710,6 +5722,7 @@ local function getOrCreateESP(player)
 		highlight.Enabled = false
 		highlight.Parent = getESPFolder()
 
+		local arrow = nil
 		local tracer = nil
 		local box = nil
 		local healthBarOutline = nil
@@ -5718,6 +5731,14 @@ local function getOrCreateESP(player)
 		local lookLine = nil
 		local healthText = nil
 		if typeof(Drawing) ~= "nil" then
+			pcall(function()
+				arrow = Drawing.new("Triangle")
+				arrow.Thickness = 1
+				arrow.Filled = true
+				arrow.Color = (Options and Options.PlayerArrowsColor and Options.PlayerArrowsColor.Value) or Color3.fromRGB(255, 255, 255)
+				arrow.Transparency = 1
+				arrow.Visible = false
+			end)
 			pcall(function()
 				tracer = Drawing.new("Line")
 				tracer.Thickness = 1.5
@@ -5774,6 +5795,7 @@ local function getOrCreateESP(player)
 			billboard = billboard,
 			label = label,
 			highlight = highlight,
+			arrow = arrow,
 			tracer = tracer,
 			box = box,
 			healthBarOutline = healthBarOutline,
@@ -5789,6 +5811,16 @@ local function getOrCreateESP(player)
 	else
 		entry.root = root
 		entry.hum = hum
+		if not entry.arrow and typeof(Drawing) ~= "nil" then
+			pcall(function()
+				entry.arrow = Drawing.new("Triangle")
+				entry.arrow.Thickness = 1
+				entry.arrow.Filled = true
+				entry.arrow.Color = (Options and Options.PlayerArrowsColor and Options.PlayerArrowsColor.Value) or Color3.fromRGB(255, 255, 255)
+				entry.arrow.Transparency = 1
+				entry.arrow.Visible = false
+			end)
+		end
 		if not entry.tracer and typeof(Drawing) ~= "nil" then
 			pcall(function()
 				entry.tracer = Drawing.new("Line")
@@ -5863,6 +5895,7 @@ local function updateAllESP()
 		for _, entry in pairs(espObjects) do
 			if entry.billboard and entry.billboard.Enabled then entry.billboard.Enabled = false end
 			if entry.highlight and entry.highlight.Enabled then entry.highlight.Enabled = false end
+			if entry.arrow and entry.arrow.Visible then entry.arrow.Visible = false end
 			if entry.tracer and entry.tracer.Visible then entry.tracer.Visible = false end
 			if entry.box and entry.box.Visible then entry.box.Visible = false end
 			if entry.healthBarOutline and entry.healthBarOutline.Visible then entry.healthBarOutline.Visible = false end
@@ -5882,6 +5915,7 @@ local function updateAllESP()
 	local showDist = (Toggles.ShowDistance and Toggles.ShowDistance.Value) or false
 	local outlineEnabled = (Toggles.OutlineESP and Toggles.OutlineESP.Value) or false
 	local chamsEnabled = (Toggles.PlayerChams and Toggles.PlayerChams.Value) or false
+	local arrowsEnabled = (Toggles.PlayerArrows and Toggles.PlayerArrows.Value) or false
 	local tracersEnabled = (Toggles.PlayerTracers and Toggles.PlayerTracers.Value) or false
 	local boxesEnabled = (Toggles.PlayerBoxes and Toggles.PlayerBoxes.Value) or false
 	local cornerBoxesEnabled = (Toggles.PlayerCornerBoxes and Toggles.PlayerCornerBoxes.Value) or false
@@ -5894,6 +5928,7 @@ local function updateAllESP()
 	local dColor = (Options and Options.ShowDistanceColor and Options.ShowDistanceColor.Value) or Color3.new(1, 1, 1)
 	local oColor = (Options and Options.OutlineESPColor and Options.OutlineESPColor.Value) or Color3.new(1, 1, 1)
 	local cColor = (Options and Options.PlayerChamsColor and Options.PlayerChamsColor.Value) or Color3.new(1, 1, 1)
+	local arrColor = (Options and Options.PlayerArrowsColor and Options.PlayerArrowsColor.Value) or Color3.new(1, 1, 1)
 	local tColor = (Options and Options.PlayerTracersColor and Options.PlayerTracersColor.Value) or Color3.new(1, 1, 1)
 	local bColor = (Options and Options.PlayerBoxesColor and Options.PlayerBoxesColor.Value) or Color3.new(1, 1, 1)
 	local cbColor = (Options and Options.PlayerCornerBoxesColor and Options.PlayerCornerBoxesColor.Value) or Color3.new(1, 1, 1)
@@ -5922,6 +5957,7 @@ local function updateAllESP()
 				else
 					if entry.billboard.Enabled then entry.billboard.Enabled = false end
 					if entry.highlight.Enabled then entry.highlight.Enabled = false end
+					if entry.arrow and entry.arrow.Visible then entry.arrow.Visible = false end
 					if entry.tracer and entry.tracer.Visible then entry.tracer.Visible = false end
 					if entry.box and entry.box.Visible then entry.box.Visible = false end
 					if entry.healthBarOutline and entry.healthBarOutline.Visible then entry.healthBarOutline.Visible = false end
@@ -5984,6 +6020,41 @@ local function updateAllESP()
 		end
 		if entry.highlight.Enabled ~= shouldHighlight then
 			entry.highlight.Enabled = shouldHighlight
+		end
+
+		if entry.arrow then
+			if arrowsEnabled and camera then
+				local screenPos, onScreen = camera:WorldToViewportPoint(entry.root.Position)
+				local viewportSize = camera.ViewportSize
+				local isOffScreen = (not onScreen) or (screenPos.Z <= 0) or (screenPos.X < 0) or (screenPos.X > viewportSize.X) or (screenPos.Y < 0) or (screenPos.Y > viewportSize.Y)
+				if isOffScreen then
+					local rel = camera.CFrame:PointToObjectSpace(entry.root.Position)
+					local angle = math.atan2(-rel.Y, rel.X)
+					local screenCenter = Vector2.new(viewportSize.X / 2, viewportSize.Y / 2)
+					local radius = math.min(viewportSize.X, viewportSize.Y) * 0.38
+					local dir = Vector2.new(math.cos(angle), math.sin(angle))
+					local perp = Vector2.new(-math.sin(angle), math.cos(angle))
+					local arrowTip = screenCenter + (dir * radius)
+					local baseCenter = arrowTip - (dir * 18)
+					entry.arrow.PointA = arrowTip
+					entry.arrow.PointB = baseCenter + (perp * 7)
+					entry.arrow.PointC = baseCenter - (perp * 7)
+					if entry.arrow.Color ~= arrColor then
+						entry.arrow.Color = arrColor
+					end
+					if not entry.arrow.Visible then
+						entry.arrow.Visible = true
+					end
+				else
+					if entry.arrow.Visible then
+						entry.arrow.Visible = false
+					end
+				end
+			else
+				if entry.arrow.Visible then
+					entry.arrow.Visible = false
+				end
+			end
 		end
 
 		if entry.tracer then
@@ -6280,6 +6351,18 @@ Toggles.PlayerChams:OnChanged(function()
 	end
 end)
 
+Toggles.PlayerArrows:OnChanged(function()
+	if not Toggles.PlayerArrows.Value then
+		for _, entry in pairs(espObjects) do
+			if entry.arrow and entry.arrow.Visible then
+				entry.arrow.Visible = false
+			end
+		end
+	else
+		updateAllESP()
+	end
+end)
+
 Toggles.PlayerTracers:OnChanged(function()
 	if not Toggles.PlayerTracers.Value then
 		for _, entry in pairs(espObjects) do
@@ -6380,6 +6463,15 @@ Options.PlayerChamsColor:OnChanged(function()
 	for _, entry in pairs(espObjects) do
 		if entry.highlight then
 			entry.highlight.FillColor = color
+		end
+	end
+end)
+
+Options.PlayerArrowsColor:OnChanged(function()
+	local color = Options.PlayerArrowsColor.Value
+	for _, entry in pairs(espObjects) do
+		if entry.arrow then
+			entry.arrow.Color = color
 		end
 	end
 end)
