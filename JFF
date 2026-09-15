@@ -5730,12 +5730,8 @@ local function getOrCreateESP(player)
 	return entry
 end
 
-local lastESPUpdate = 0
 local function updateAllESP()
 	if not Toggles.PlayerESP or not Toggles.PlayerESP.Value then return end
-	local now = tick()
-	if now - lastESPUpdate < 0.05 then return end
-	lastESPUpdate = now
 
 	local myRoot = getRootPart()
 	if not myRoot then
@@ -5835,7 +5831,7 @@ local function updateAllESP()
 		if entry.tracer then
 			if tracersEnabled and camera and tracerOrigin then
 				local screenPos, onScreen = camera:WorldToViewportPoint(entry.root.Position)
-				if onScreen then
+				if onScreen and screenPos.Z > 0 then
 					entry.tracer.From = tracerOrigin
 					entry.tracer.To = Vector2.new(screenPos.X, screenPos.Y)
 					if entry.tracer.Color ~= tColor then
@@ -5860,8 +5856,10 @@ local function updateAllESP()
 		local height, width, leftX, topY, botY = 0, 0, 0, 0, 0
 
 		if camera and (boxesEnabled or healthBarEnabled) then
-			local topPos = entry.root.Position + Vector3.new(0, 2.8, 0)
-			local botPos = entry.root.Position - Vector3.new(0, 3.2, 0)
+			local rootPos = entry.root.Position
+			local head = entry.character:FindFirstChild("Head")
+			local topPos = (head and (head.Position + Vector3.new(0, 0.6, 0))) or (rootPos + Vector3.new(0, 2.8, 0))
+			local botPos = rootPos - Vector3.new(0, 3.2, 0)
 
 			local topScreen, topVisible = camera:WorldToViewportPoint(topPos)
 			local botScreen, botVisible = camera:WorldToViewportPoint(botPos)
@@ -5943,7 +5941,7 @@ Toggles.PlayerESP:OnChanged(function()
 		return
 	end
 
-	track("ESP_Loop", RunService.Heartbeat:Connect(updateAllESP))
+	track("ESP_Loop", RunService.RenderStepped:Connect(updateAllESP))
 
 	for _, player in ipairs(Players:GetPlayers()) do
 		if player ~= LocalPlayer then
