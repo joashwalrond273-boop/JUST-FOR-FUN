@@ -5356,6 +5356,14 @@ VisualLeft:AddCheckbox("PlayerBoxes", {
 	Title = "2D Boxes Color",
 })
 
+VisualLeft:AddCheckbox("PlayerChams", {
+	Text = "Chams",
+	Default = false,
+}):AddColorPicker("PlayerChamsColor", {
+	Default = Color3.fromRGB(255, 255, 255),
+	Title = "Chams Color",
+})
+
 VisualLeft:AddCheckbox("PlayerHealthBar", {
 	Text = "Health Bar",
 	Default = false,
@@ -5623,10 +5631,10 @@ local function getOrCreateESP(player)
 		label.Parent = billboard
 
 		local highlight = Instance.new("Highlight")
-		highlight.FillColor = Color3.fromRGB(255, 255, 255)
+		highlight.FillColor = (Options and Options.PlayerChamsColor and Options.PlayerChamsColor.Value) or Color3.fromRGB(255, 255, 255)
 		highlight.OutlineColor = (Options and Options.OutlineESPColor and Options.OutlineESPColor.Value) or Color3.fromRGB(255, 255, 255)
-		highlight.FillTransparency = 1
-		highlight.OutlineTransparency = 0
+		highlight.FillTransparency = ((Toggles and Toggles.PlayerChams and Toggles.PlayerChams.Value) and 0.4) or 1
+		highlight.OutlineTransparency = ((Toggles and Toggles.OutlineESP and Toggles.OutlineESP.Value) and 0) or 1
 		highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
 		highlight.Adornee = character
 		highlight.Enabled = false
@@ -5749,6 +5757,7 @@ local function updateAllESP()
 	local maxDist = (Options and Options.ESPDistance and Options.ESPDistance.Value) or 500
 	local showDist = (Toggles.ShowDistance and Toggles.ShowDistance.Value) or false
 	local outlineEnabled = (Toggles.OutlineESP and Toggles.OutlineESP.Value) or false
+	local chamsEnabled = (Toggles.PlayerChams and Toggles.PlayerChams.Value) or false
 	local tracersEnabled = (Toggles.PlayerTracers and Toggles.PlayerTracers.Value) or false
 	local boxesEnabled = (Toggles.PlayerBoxes and Toggles.PlayerBoxes.Value) or false
 	local healthBarEnabled = (Toggles.PlayerHealthBar and Toggles.PlayerHealthBar.Value) or false
@@ -5757,6 +5766,7 @@ local function updateAllESP()
 	local pColor = (Options and Options.PlayerESPColor and Options.PlayerESPColor.Value) or Color3.new(1, 1, 1)
 	local dColor = (Options and Options.ShowDistanceColor and Options.ShowDistanceColor.Value) or Color3.new(1, 1, 1)
 	local oColor = (Options and Options.OutlineESPColor and Options.OutlineESPColor.Value) or Color3.new(1, 1, 1)
+	local cColor = (Options and Options.PlayerChamsColor and Options.PlayerChamsColor.Value) or Color3.new(1, 1, 1)
 	local tColor = (Options and Options.PlayerTracersColor and Options.PlayerTracersColor.Value) or Color3.new(1, 1, 1)
 	local bColor = (Options and Options.PlayerBoxesColor and Options.PlayerBoxesColor.Value) or Color3.new(1, 1, 1)
 
@@ -5817,12 +5827,23 @@ local function updateAllESP()
 			entry.label.Text = text
 		end
 
-		local shouldHighlight = outlineEnabled and (i <= 20)
+		local shouldHighlight = (outlineEnabled or chamsEnabled) and (i <= 20)
 		if entry.highlight.Adornee ~= entry.character then
 			entry.highlight.Adornee = entry.character
 		end
 		if entry.highlight.OutlineColor ~= oColor then
 			entry.highlight.OutlineColor = oColor
+		end
+		if entry.highlight.FillColor ~= cColor then
+			entry.highlight.FillColor = cColor
+		end
+		local targetOutlineTrans = outlineEnabled and 0 or 1
+		if entry.highlight.OutlineTransparency ~= targetOutlineTrans then
+			entry.highlight.OutlineTransparency = targetOutlineTrans
+		end
+		local targetFillTrans = chamsEnabled and 0.4 or 1
+		if entry.highlight.FillTransparency ~= targetFillTrans then
+			entry.highlight.FillTransparency = targetFillTrans
 		end
 		if entry.highlight.Enabled ~= shouldHighlight then
 			entry.highlight.Enabled = shouldHighlight
@@ -5973,7 +5994,19 @@ Toggles.PlayerESP:OnChanged(function()
 end)
 
 Toggles.OutlineESP:OnChanged(function()
-	if not Toggles.OutlineESP.Value then
+	if not Toggles.OutlineESP.Value and not (Toggles.PlayerChams and Toggles.PlayerChams.Value) then
+		for _, entry in pairs(espObjects) do
+			if entry.highlight and entry.highlight.Enabled then
+				entry.highlight.Enabled = false
+			end
+		end
+	else
+		updateAllESP()
+	end
+end)
+
+Toggles.PlayerChams:OnChanged(function()
+	if not Toggles.PlayerChams.Value and not (Toggles.OutlineESP and Toggles.OutlineESP.Value) then
 		for _, entry in pairs(espObjects) do
 			if entry.highlight and entry.highlight.Enabled then
 				entry.highlight.Enabled = false
@@ -6035,6 +6068,15 @@ Options.OutlineESPColor:OnChanged(function()
 	for _, entry in pairs(espObjects) do
 		if entry.highlight then
 			entry.highlight.OutlineColor = color
+		end
+	end
+end)
+
+Options.PlayerChamsColor:OnChanged(function()
+	local color = Options.PlayerChamsColor.Value
+	for _, entry in pairs(espObjects) do
+		if entry.highlight then
+			entry.highlight.FillColor = color
 		end
 	end
 end)
