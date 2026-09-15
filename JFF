@@ -5348,6 +5348,14 @@ VisualLeft:AddCheckbox("PlayerTracers", {
 	Title = "Tracers Color",
 })
 
+VisualLeft:AddCheckbox("PlayerBoxes", {
+	Text = "2D Boxes",
+	Default = false,
+}):AddColorPicker("PlayerBoxesColor", {
+	Default = Color3.fromRGB(255, 255, 255),
+	Title = "2D Boxes Color",
+})
+
 VisualLeft:AddDivider()
 
 VisualLeft:AddCheckbox("MerchantESP", {
@@ -5533,6 +5541,7 @@ local function removePlayerESP(player)
 		if entry.billboard then pcall(function() entry.billboard:Destroy() end) end
 		if entry.highlight then pcall(function() entry.highlight:Destroy() end) end
 		if entry.tracer then pcall(function() entry.tracer:Remove() end) end
+		if entry.box then pcall(function() entry.box:Remove() end) end
 		if entry.charCon then pcall(function() entry.charCon:Disconnect() end) end
 		espObjects[player] = nil
 	end
@@ -5557,6 +5566,7 @@ local function getOrCreateESP(player)
 			if entry.billboard then entry.billboard.Enabled = false end
 			if entry.highlight then entry.highlight.Enabled = false end
 			if entry.tracer then entry.tracer.Visible = false end
+			if entry.box then entry.box.Visible = false end
 		end
 		return nil
 	end
@@ -5568,6 +5578,7 @@ local function getOrCreateESP(player)
 			if entry.billboard then entry.billboard.Enabled = false end
 			if entry.highlight then entry.highlight.Enabled = false end
 			if entry.tracer then entry.tracer.Visible = false end
+			if entry.box then entry.box.Visible = false end
 		end
 		return nil
 	end
@@ -5577,6 +5588,7 @@ local function getOrCreateESP(player)
 			if entry.billboard then pcall(function() entry.billboard:Destroy() end) end
 			if entry.highlight then pcall(function() entry.highlight:Destroy() end) end
 			if entry.tracer then pcall(function() entry.tracer:Remove() end) end
+			if entry.box then pcall(function() entry.box:Remove() end) end
 		end
 
 		local billboard = Instance.new("BillboardGui")
@@ -5608,6 +5620,7 @@ local function getOrCreateESP(player)
 		highlight.Parent = getESPFolder()
 
 		local tracer = nil
+		local box = nil
 		if typeof(Drawing) ~= "nil" then
 			pcall(function()
 				tracer = Drawing.new("Line")
@@ -5615,6 +5628,14 @@ local function getOrCreateESP(player)
 				tracer.Color = (Options and Options.PlayerTracersColor and Options.PlayerTracersColor.Value) or Color3.fromRGB(255, 255, 255)
 				tracer.Transparency = 1
 				tracer.Visible = false
+			end)
+			pcall(function()
+				box = Drawing.new("Square")
+				box.Thickness = 1.5
+				box.Color = (Options and Options.PlayerBoxesColor and Options.PlayerBoxesColor.Value) or Color3.fromRGB(255, 255, 255)
+				box.Filled = false
+				box.Transparency = 1
+				box.Visible = false
 			end)
 		end
 
@@ -5627,6 +5648,7 @@ local function getOrCreateESP(player)
 			label = label,
 			highlight = highlight,
 			tracer = tracer,
+			box = box,
 			lastDist = -1,
 			lastShowDist = nil,
 			lastText = "",
@@ -5642,6 +5664,16 @@ local function getOrCreateESP(player)
 				entry.tracer.Color = (Options and Options.PlayerTracersColor and Options.PlayerTracersColor.Value) or Color3.fromRGB(255, 255, 255)
 				entry.tracer.Transparency = 1
 				entry.tracer.Visible = false
+			end)
+		end
+		if not entry.box and typeof(Drawing) ~= "nil" then
+			pcall(function()
+				entry.box = Drawing.new("Square")
+				entry.box.Thickness = 1.5
+				entry.box.Color = (Options and Options.PlayerBoxesColor and Options.PlayerBoxesColor.Value) or Color3.fromRGB(255, 255, 255)
+				entry.box.Filled = false
+				entry.box.Transparency = 1
+				entry.box.Visible = false
 			end)
 		end
 	end
@@ -5662,6 +5694,7 @@ local function updateAllESP()
 			if entry.billboard and entry.billboard.Enabled then entry.billboard.Enabled = false end
 			if entry.highlight and entry.highlight.Enabled then entry.highlight.Enabled = false end
 			if entry.tracer and entry.tracer.Visible then entry.tracer.Visible = false end
+			if entry.box and entry.box.Visible then entry.box.Visible = false end
 		end
 		return
 	end
@@ -5670,12 +5703,14 @@ local function updateAllESP()
 	local showDist = (Toggles.ShowDistance and Toggles.ShowDistance.Value) or false
 	local outlineEnabled = (Toggles.OutlineESP and Toggles.OutlineESP.Value) or false
 	local tracersEnabled = (Toggles.PlayerTracers and Toggles.PlayerTracers.Value) or false
+	local boxesEnabled = (Toggles.PlayerBoxes and Toggles.PlayerBoxes.Value) or false
 	local myPos = myRoot.Position
 
 	local pColor = (Options and Options.PlayerESPColor and Options.PlayerESPColor.Value) or Color3.new(1, 1, 1)
 	local dColor = (Options and Options.ShowDistanceColor and Options.ShowDistanceColor.Value) or Color3.new(1, 1, 1)
 	local oColor = (Options and Options.OutlineESPColor and Options.OutlineESPColor.Value) or Color3.new(1, 1, 1)
 	local tColor = (Options and Options.PlayerTracersColor and Options.PlayerTracersColor.Value) or Color3.new(1, 1, 1)
+	local bColor = (Options and Options.PlayerBoxesColor and Options.PlayerBoxesColor.Value) or Color3.new(1, 1, 1)
 
 	local pColorHex = pColor:ToHex()
 	local dColorHex = dColor:ToHex()
@@ -5700,6 +5735,7 @@ local function updateAllESP()
 					if entry.billboard.Enabled then entry.billboard.Enabled = false end
 					if entry.highlight.Enabled then entry.highlight.Enabled = false end
 					if entry.tracer and entry.tracer.Visible then entry.tracer.Visible = false end
+					if entry.box and entry.box.Visible then entry.box.Visible = false end
 				end
 			end
 		end
@@ -5762,6 +5798,41 @@ local function updateAllESP()
 			else
 				if entry.tracer.Visible then
 					entry.tracer.Visible = false
+				end
+			end
+		end
+
+		if entry.box then
+			if boxesEnabled and camera then
+				local rootPos = entry.root.Position
+				local topPos = rootPos + Vector3.new(0, 2.8, 0)
+				local botPos = rootPos - Vector3.new(0, 3.2, 0)
+
+				local topScreen, topVisible = camera:WorldToViewportPoint(topPos)
+				local botScreen, botVisible = camera:WorldToViewportPoint(botPos)
+
+				if (topVisible or botVisible) and topScreen.Z > 0 and botScreen.Z > 0 then
+					local height = math.abs(botScreen.Y - topScreen.Y)
+					local width = math.max(height * 0.65, 4)
+					local boxPos = Vector2.new(math.floor(topScreen.X - width * 0.5), math.floor(math.min(topScreen.Y, botScreen.Y)))
+					local boxSize = Vector2.new(math.floor(width), math.floor(height))
+
+					entry.box.Position = boxPos
+					entry.box.Size = boxSize
+					if entry.box.Color ~= bColor then
+						entry.box.Color = bColor
+					end
+					if not entry.box.Visible then
+						entry.box.Visible = true
+					end
+				else
+					if entry.box.Visible then
+						entry.box.Visible = false
+					end
+				end
+			else
+				if entry.box.Visible then
+					entry.box.Visible = false
 				end
 			end
 		end
@@ -5835,6 +5906,18 @@ Toggles.PlayerTracers:OnChanged(function()
 	end
 end)
 
+Toggles.PlayerBoxes:OnChanged(function()
+	if not Toggles.PlayerBoxes.Value then
+		for _, entry in pairs(espObjects) do
+			if entry.box and entry.box.Visible then
+				entry.box.Visible = false
+			end
+		end
+	else
+		updateAllESP()
+	end
+end)
+
 Toggles.ShowDistance:OnChanged(function()
 	for _, entry in pairs(espObjects) do
 		entry.lastDist = -1
@@ -5856,6 +5939,15 @@ Options.PlayerTracersColor:OnChanged(function()
 	for _, entry in pairs(espObjects) do
 		if entry.tracer then
 			entry.tracer.Color = color
+		end
+	end
+end)
+
+Options.PlayerBoxesColor:OnChanged(function()
+	local color = Options.PlayerBoxesColor.Value
+	for _, entry in pairs(espObjects) do
+		if entry.box then
+			entry.box.Color = color
 		end
 	end
 end)
