@@ -1452,7 +1452,7 @@ CombatRight:AddCheckbox("HighlightTarget", {
 local CombatAutoPVP = Tabs.Combat:AddRightGroupbox("PVP Modules", "swords")
 
 CombatAutoPVP:AddCheckbox("AutoShiftlock", {
-	Text = "Shiftlock",
+	Text = "+ Shiftlock",
 	Default = false,
 })
 
@@ -5315,6 +5315,11 @@ do
 		end,
 	})
 end
+
+-- ==========================================
+-- OPTIMIZE
+-- ==========================================
+local OptimizeGroup = Tabs.Visuals:AddRightGroupbox("Optimize", "gauge")
 
 VisualLeft:AddToggle("PlayerESP", {
 	Text = "Enabled",
