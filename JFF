@@ -5356,6 +5356,11 @@ VisualLeft:AddCheckbox("PlayerBoxes", {
 	Title = "2D Boxes Color",
 })
 
+VisualLeft:AddCheckbox("PlayerHealthBar", {
+	Text = "Health Bar",
+	Default = false,
+})
+
 VisualLeft:AddDivider()
 
 VisualLeft:AddCheckbox("MerchantESP", {
@@ -5542,6 +5547,8 @@ local function removePlayerESP(player)
 		if entry.highlight then pcall(function() entry.highlight:Destroy() end) end
 		if entry.tracer then pcall(function() entry.tracer:Remove() end) end
 		if entry.box then pcall(function() entry.box:Remove() end) end
+		if entry.healthBarOutline then pcall(function() entry.healthBarOutline:Remove() end) end
+		if entry.healthBar then pcall(function() entry.healthBar:Remove() end) end
 		if entry.charCon then pcall(function() entry.charCon:Disconnect() end) end
 		espObjects[player] = nil
 	end
@@ -5567,6 +5574,8 @@ local function getOrCreateESP(player)
 			if entry.highlight then entry.highlight.Enabled = false end
 			if entry.tracer then entry.tracer.Visible = false end
 			if entry.box then entry.box.Visible = false end
+			if entry.healthBarOutline then entry.healthBarOutline.Visible = false end
+			if entry.healthBar then entry.healthBar.Visible = false end
 		end
 		return nil
 	end
@@ -5579,6 +5588,8 @@ local function getOrCreateESP(player)
 			if entry.highlight then entry.highlight.Enabled = false end
 			if entry.tracer then entry.tracer.Visible = false end
 			if entry.box then entry.box.Visible = false end
+			if entry.healthBarOutline then entry.healthBarOutline.Visible = false end
+			if entry.healthBar then entry.healthBar.Visible = false end
 		end
 		return nil
 	end
@@ -5589,6 +5600,8 @@ local function getOrCreateESP(player)
 			if entry.highlight then pcall(function() entry.highlight:Destroy() end) end
 			if entry.tracer then pcall(function() entry.tracer:Remove() end) end
 			if entry.box then pcall(function() entry.box:Remove() end) end
+			if entry.healthBarOutline then pcall(function() entry.healthBarOutline:Remove() end) end
+			if entry.healthBar then pcall(function() entry.healthBar:Remove() end) end
 		end
 
 		local billboard = Instance.new("BillboardGui")
@@ -5621,6 +5634,8 @@ local function getOrCreateESP(player)
 
 		local tracer = nil
 		local box = nil
+		local healthBarOutline = nil
+		local healthBar = nil
 		if typeof(Drawing) ~= "nil" then
 			pcall(function()
 				tracer = Drawing.new("Line")
@@ -5637,6 +5652,20 @@ local function getOrCreateESP(player)
 				box.Transparency = 1
 				box.Visible = false
 			end)
+			pcall(function()
+				healthBarOutline = Drawing.new("Line")
+				healthBarOutline.Thickness = 3
+				healthBarOutline.Color = Color3.fromRGB(0, 0, 0)
+				healthBarOutline.Transparency = 1
+				healthBarOutline.Visible = false
+			end)
+			pcall(function()
+				healthBar = Drawing.new("Line")
+				healthBar.Thickness = 1.5
+				healthBar.Color = Color3.fromRGB(0, 255, 0)
+				healthBar.Transparency = 1
+				healthBar.Visible = false
+			end)
 		end
 
 		entry = {
@@ -5649,6 +5678,8 @@ local function getOrCreateESP(player)
 			highlight = highlight,
 			tracer = tracer,
 			box = box,
+			healthBarOutline = healthBarOutline,
+			healthBar = healthBar,
 			lastDist = -1,
 			lastShowDist = nil,
 			lastText = "",
@@ -5676,6 +5707,24 @@ local function getOrCreateESP(player)
 				entry.box.Visible = false
 			end)
 		end
+		if not entry.healthBarOutline and typeof(Drawing) ~= "nil" then
+			pcall(function()
+				entry.healthBarOutline = Drawing.new("Line")
+				entry.healthBarOutline.Thickness = 3
+				entry.healthBarOutline.Color = Color3.fromRGB(0, 0, 0)
+				entry.healthBarOutline.Transparency = 1
+				entry.healthBarOutline.Visible = false
+			end)
+		end
+		if not entry.healthBar and typeof(Drawing) ~= "nil" then
+			pcall(function()
+				entry.healthBar = Drawing.new("Line")
+				entry.healthBar.Thickness = 1.5
+				entry.healthBar.Color = Color3.fromRGB(0, 255, 0)
+				entry.healthBar.Transparency = 1
+				entry.healthBar.Visible = false
+			end)
+		end
 	end
 
 	return entry
@@ -5695,6 +5744,8 @@ local function updateAllESP()
 			if entry.highlight and entry.highlight.Enabled then entry.highlight.Enabled = false end
 			if entry.tracer and entry.tracer.Visible then entry.tracer.Visible = false end
 			if entry.box and entry.box.Visible then entry.box.Visible = false end
+			if entry.healthBarOutline and entry.healthBarOutline.Visible then entry.healthBarOutline.Visible = false end
+			if entry.healthBar and entry.healthBar.Visible then entry.healthBar.Visible = false end
 		end
 		return
 	end
@@ -5704,6 +5755,7 @@ local function updateAllESP()
 	local outlineEnabled = (Toggles.OutlineESP and Toggles.OutlineESP.Value) or false
 	local tracersEnabled = (Toggles.PlayerTracers and Toggles.PlayerTracers.Value) or false
 	local boxesEnabled = (Toggles.PlayerBoxes and Toggles.PlayerBoxes.Value) or false
+	local healthBarEnabled = (Toggles.PlayerHealthBar and Toggles.PlayerHealthBar.Value) or false
 	local myPos = myRoot.Position
 
 	local pColor = (Options and Options.PlayerESPColor and Options.PlayerESPColor.Value) or Color3.new(1, 1, 1)
@@ -5736,6 +5788,8 @@ local function updateAllESP()
 					if entry.highlight.Enabled then entry.highlight.Enabled = false end
 					if entry.tracer and entry.tracer.Visible then entry.tracer.Visible = false end
 					if entry.box and entry.box.Visible then entry.box.Visible = false end
+					if entry.healthBarOutline and entry.healthBarOutline.Visible then entry.healthBarOutline.Visible = false end
+					if entry.healthBar and entry.healthBar.Visible then entry.healthBar.Visible = false end
 				end
 			end
 		end
@@ -5802,37 +5856,75 @@ local function updateAllESP()
 			end
 		end
 
+		local onScreen2D = false
+		local height, width, leftX, topY, botY = 0, 0, 0, 0, 0
+
+		if camera and (boxesEnabled or healthBarEnabled) then
+			local topPos = entry.root.Position + Vector3.new(0, 2.8, 0)
+			local botPos = entry.root.Position - Vector3.new(0, 3.2, 0)
+
+			local topScreen, topVisible = camera:WorldToViewportPoint(topPos)
+			local botScreen, botVisible = camera:WorldToViewportPoint(botPos)
+
+			if (topVisible or botVisible) and topScreen.Z > 0 and botScreen.Z > 0 then
+				onScreen2D = true
+				height = math.abs(botScreen.Y - topScreen.Y)
+				width = math.max(height * 0.65, 4)
+				topY = math.min(topScreen.Y, botScreen.Y)
+				botY = math.max(topScreen.Y, botScreen.Y)
+				leftX = math.floor(topScreen.X - width * 0.5)
+			end
+		end
+
 		if entry.box then
-			if boxesEnabled and camera then
-				local rootPos = entry.root.Position
-				local topPos = rootPos + Vector3.new(0, 2.8, 0)
-				local botPos = rootPos - Vector3.new(0, 3.2, 0)
+			if boxesEnabled and onScreen2D then
+				local boxPos = Vector2.new(leftX, math.floor(topY))
+				local boxSize = Vector2.new(math.floor(width), math.floor(height))
 
-				local topScreen, topVisible = camera:WorldToViewportPoint(topPos)
-				local botScreen, botVisible = camera:WorldToViewportPoint(botPos)
-
-				if (topVisible or botVisible) and topScreen.Z > 0 and botScreen.Z > 0 then
-					local height = math.abs(botScreen.Y - topScreen.Y)
-					local width = math.max(height * 0.65, 4)
-					local boxPos = Vector2.new(math.floor(topScreen.X - width * 0.5), math.floor(math.min(topScreen.Y, botScreen.Y)))
-					local boxSize = Vector2.new(math.floor(width), math.floor(height))
-
-					entry.box.Position = boxPos
-					entry.box.Size = boxSize
-					if entry.box.Color ~= bColor then
-						entry.box.Color = bColor
-					end
-					if not entry.box.Visible then
-						entry.box.Visible = true
-					end
-				else
-					if entry.box.Visible then
-						entry.box.Visible = false
-					end
+				entry.box.Position = boxPos
+				entry.box.Size = boxSize
+				if entry.box.Color ~= bColor then
+					entry.box.Color = bColor
+				end
+				if not entry.box.Visible then
+					entry.box.Visible = true
 				end
 			else
 				if entry.box.Visible then
 					entry.box.Visible = false
+				end
+			end
+		end
+
+		if entry.healthBar and entry.healthBarOutline then
+			if healthBarEnabled and onScreen2D then
+				local health = (entry.hum and entry.hum.Health) or 0
+				local maxHealth = (entry.hum and entry.hum.MaxHealth) or 100
+				if maxHealth <= 0 then maxHealth = 100 end
+				local healthPct = math.clamp(health / maxHealth, 0, 1)
+				local healthColor = Color3.fromHSV(healthPct * 0.33, 1, 1)
+
+				local barX = leftX - 4
+				local fillY = botY - (botY - topY) * healthPct
+
+				entry.healthBarOutline.From = Vector2.new(barX, botY)
+				entry.healthBarOutline.To = Vector2.new(barX, topY)
+				if not entry.healthBarOutline.Visible then
+					entry.healthBarOutline.Visible = true
+				end
+
+				entry.healthBar.From = Vector2.new(barX, botY)
+				entry.healthBar.To = Vector2.new(barX, fillY)
+				entry.healthBar.Color = healthColor
+				if not entry.healthBar.Visible then
+					entry.healthBar.Visible = true
+				end
+			else
+				if entry.healthBarOutline.Visible then
+					entry.healthBarOutline.Visible = false
+				end
+				if entry.healthBar.Visible then
+					entry.healthBar.Visible = false
 				end
 			end
 		end
@@ -5911,6 +6003,21 @@ Toggles.PlayerBoxes:OnChanged(function()
 		for _, entry in pairs(espObjects) do
 			if entry.box and entry.box.Visible then
 				entry.box.Visible = false
+			end
+		end
+	else
+		updateAllESP()
+	end
+end)
+
+Toggles.PlayerHealthBar:OnChanged(function()
+	if not Toggles.PlayerHealthBar.Value then
+		for _, entry in pairs(espObjects) do
+			if entry.healthBarOutline and entry.healthBarOutline.Visible then
+				entry.healthBarOutline.Visible = false
+			end
+			if entry.healthBar and entry.healthBar.Visible then
+				entry.healthBar.Visible = false
 			end
 		end
 	else
