@@ -5324,8 +5324,6 @@ VisualLeft:AddToggle("PlayerESP", {
 	Title = "Player ESP Color",
 })
 
-VisualLeft:AddDivider()
-
 VisualLeft:AddCheckbox("ShowDistance", {
 	Text = "Show Distance",
 	Default = false,
@@ -5342,8 +5340,10 @@ VisualLeft:AddCheckbox("OutlineESP", {
 	Title = "Outline ESP Color",
 })
 
-VisualLeft:AddToggle("MerchantESP", {
-	Text = "+ Show Merchant ESP",
+VisualLeft:AddDivider()
+
+VisualLeft:AddCheckbox("MerchantESP", {
+	Text = "Show Merchant ESP",
 	Default = false,
 })
 
