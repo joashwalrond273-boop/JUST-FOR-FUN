@@ -3253,7 +3253,7 @@ end)
 
 local MoveMountAura = Tabs.Movement:AddRightGroupbox("Mount Aura", "paw-print")
 
-MoveMountAura:AddToggle("MountSpeedBoost", {
+MoveMountAura:AddCheckbox("MountSpeedBoost", {
 	Text = "Mount Speed",
 	Default = false,
 })
