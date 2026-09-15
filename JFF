@@ -5316,11 +5316,6 @@ do
 	})
 end
 
--- ==========================================
--- OPTIMIZE
--- ==========================================
-local OptimizeGroup = Tabs.Visuals:AddRightGroupbox("Optimize", "gauge")
-
 VisualLeft:AddToggle("PlayerESP", {
 	Text = "Enabled",
 	Default = false,
@@ -5343,6 +5338,14 @@ VisualLeft:AddCheckbox("OutlineESP", {
 }):AddColorPicker("OutlineESPColor", {
 	Default = Color3.fromRGB(255, 255, 255),
 	Title = "Outline ESP Color",
+})
+
+VisualLeft:AddCheckbox("PlayerTracers", {
+	Text = "Tracers",
+	Default = false,
+}):AddColorPicker("PlayerTracersColor", {
+	Default = Color3.fromRGB(255, 255, 255),
+	Title = "Tracers Color",
 })
 
 VisualLeft:AddDivider()
@@ -5529,6 +5532,7 @@ local function removePlayerESP(player)
 	if entry then
 		if entry.billboard then pcall(function() entry.billboard:Destroy() end) end
 		if entry.highlight then pcall(function() entry.highlight:Destroy() end) end
+		if entry.tracer then pcall(function() entry.tracer:Remove() end) end
 		if entry.charCon then pcall(function() entry.charCon:Disconnect() end) end
 		espObjects[player] = nil
 	end
@@ -5552,6 +5556,7 @@ local function getOrCreateESP(player)
 		if entry then
 			if entry.billboard then entry.billboard.Enabled = false end
 			if entry.highlight then entry.highlight.Enabled = false end
+			if entry.tracer then entry.tracer.Visible = false end
 		end
 		return nil
 	end
@@ -5562,6 +5567,7 @@ local function getOrCreateESP(player)
 		if entry then
 			if entry.billboard then entry.billboard.Enabled = false end
 			if entry.highlight then entry.highlight.Enabled = false end
+			if entry.tracer then entry.tracer.Visible = false end
 		end
 		return nil
 	end
@@ -5570,6 +5576,7 @@ local function getOrCreateESP(player)
 		if entry then
 			if entry.billboard then pcall(function() entry.billboard:Destroy() end) end
 			if entry.highlight then pcall(function() entry.highlight:Destroy() end) end
+			if entry.tracer then pcall(function() entry.tracer:Remove() end) end
 		end
 
 		local billboard = Instance.new("BillboardGui")
@@ -5600,6 +5607,17 @@ local function getOrCreateESP(player)
 		highlight.Enabled = false
 		highlight.Parent = getESPFolder()
 
+		local tracer = nil
+		if typeof(Drawing) ~= "nil" then
+			pcall(function()
+				tracer = Drawing.new("Line")
+				tracer.Thickness = 1.5
+				tracer.Color = (Options and Options.PlayerTracersColor and Options.PlayerTracersColor.Value) or Color3.fromRGB(255, 255, 255)
+				tracer.Transparency = 1
+				tracer.Visible = false
+			end)
+		end
+
 		entry = {
 			player = player,
 			character = character,
@@ -5608,6 +5626,7 @@ local function getOrCreateESP(player)
 			billboard = billboard,
 			label = label,
 			highlight = highlight,
+			tracer = tracer,
 			lastDist = -1,
 			lastShowDist = nil,
 			lastText = "",
@@ -5616,6 +5635,15 @@ local function getOrCreateESP(player)
 	else
 		entry.root = root
 		entry.hum = hum
+		if not entry.tracer and typeof(Drawing) ~= "nil" then
+			pcall(function()
+				entry.tracer = Drawing.new("Line")
+				entry.tracer.Thickness = 1.5
+				entry.tracer.Color = (Options and Options.PlayerTracersColor and Options.PlayerTracersColor.Value) or Color3.fromRGB(255, 255, 255)
+				entry.tracer.Transparency = 1
+				entry.tracer.Visible = false
+			end)
+		end
 	end
 
 	return entry
@@ -5633,6 +5661,7 @@ local function updateAllESP()
 		for _, entry in pairs(espObjects) do
 			if entry.billboard and entry.billboard.Enabled then entry.billboard.Enabled = false end
 			if entry.highlight and entry.highlight.Enabled then entry.highlight.Enabled = false end
+			if entry.tracer and entry.tracer.Visible then entry.tracer.Visible = false end
 		end
 		return
 	end
@@ -5640,14 +5669,23 @@ local function updateAllESP()
 	local maxDist = (Options and Options.ESPDistance and Options.ESPDistance.Value) or 500
 	local showDist = (Toggles.ShowDistance and Toggles.ShowDistance.Value) or false
 	local outlineEnabled = (Toggles.OutlineESP and Toggles.OutlineESP.Value) or false
+	local tracersEnabled = (Toggles.PlayerTracers and Toggles.PlayerTracers.Value) or false
 	local myPos = myRoot.Position
 
 	local pColor = (Options and Options.PlayerESPColor and Options.PlayerESPColor.Value) or Color3.new(1, 1, 1)
 	local dColor = (Options and Options.ShowDistanceColor and Options.ShowDistanceColor.Value) or Color3.new(1, 1, 1)
 	local oColor = (Options and Options.OutlineESPColor and Options.OutlineESPColor.Value) or Color3.new(1, 1, 1)
+	local tColor = (Options and Options.PlayerTracersColor and Options.PlayerTracersColor.Value) or Color3.new(1, 1, 1)
 
 	local pColorHex = pColor:ToHex()
 	local dColorHex = dColor:ToHex()
+
+	local camera = workspace.CurrentCamera
+	local tracerOrigin = nil
+	if camera then
+		local viewportSize = camera.ViewportSize
+		tracerOrigin = Vector2.new(viewportSize.X / 2, viewportSize.Y)
+	end
 
 	local activeCandidates = {}
 
@@ -5661,6 +5699,7 @@ local function updateAllESP()
 				else
 					if entry.billboard.Enabled then entry.billboard.Enabled = false end
 					if entry.highlight.Enabled then entry.highlight.Enabled = false end
+					if entry.tracer and entry.tracer.Visible then entry.tracer.Visible = false end
 				end
 			end
 		end
@@ -5701,6 +5740,30 @@ local function updateAllESP()
 		end
 		if entry.highlight.Enabled ~= shouldHighlight then
 			entry.highlight.Enabled = shouldHighlight
+		end
+
+		if entry.tracer then
+			if tracersEnabled and camera and tracerOrigin then
+				local screenPos, onScreen = camera:WorldToViewportPoint(entry.root.Position)
+				if onScreen then
+					entry.tracer.From = tracerOrigin
+					entry.tracer.To = Vector2.new(screenPos.X, screenPos.Y)
+					if entry.tracer.Color ~= tColor then
+						entry.tracer.Color = tColor
+					end
+					if not entry.tracer.Visible then
+						entry.tracer.Visible = true
+					end
+				else
+					if entry.tracer.Visible then
+						entry.tracer.Visible = false
+					end
+				end
+			else
+				if entry.tracer.Visible then
+					entry.tracer.Visible = false
+				end
+			end
 		end
 	end
 end
@@ -5760,6 +5823,18 @@ Toggles.OutlineESP:OnChanged(function()
 	end
 end)
 
+Toggles.PlayerTracers:OnChanged(function()
+	if not Toggles.PlayerTracers.Value then
+		for _, entry in pairs(espObjects) do
+			if entry.tracer and entry.tracer.Visible then
+				entry.tracer.Visible = false
+			end
+		end
+	else
+		updateAllESP()
+	end
+end)
+
 Toggles.ShowDistance:OnChanged(function()
 	for _, entry in pairs(espObjects) do
 		entry.lastDist = -1
@@ -5772,6 +5847,15 @@ Options.OutlineESPColor:OnChanged(function()
 	for _, entry in pairs(espObjects) do
 		if entry.highlight then
 			entry.highlight.OutlineColor = color
+		end
+	end
+end)
+
+Options.PlayerTracersColor:OnChanged(function()
+	local color = Options.PlayerTracersColor.Value
+	for _, entry in pairs(espObjects) do
+		if entry.tracer then
+			entry.tracer.Color = color
 		end
 	end
 end)
