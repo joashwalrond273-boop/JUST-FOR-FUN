@@ -1128,9 +1128,25 @@ local function trackDroppedItem(item)
 		droppedItemSpawnTimes[item] = nil
 	end)
 
-	if Toggles and Toggles.OptimizeDrops and Toggles.OptimizeDrops.Value then
+	if Toggles and Toggles.DisableDropPhysics and Toggles.DisableDropPhysics.Value then
 		pcall(function()
 			item.CanCollide = false
+			if item.CanTouch then item.CanTouch = false end
+			if item.CanQuery then item.CanQuery = false end
+			item.Anchored = true
+		end)
+	elseif Toggles and Toggles.OptimizeDrops and Toggles.OptimizeDrops.Value then
+		pcall(function()
+			item.CanCollide = false
+		end)
+	end
+
+	if Toggles and Toggles.DisableDropShadows and Toggles.DisableDropShadows.Value then
+		pcall(function()
+			item.CastShadow = false
+		end)
+	elseif Toggles and Toggles.OptimizeDrops and Toggles.OptimizeDrops.Value then
+		pcall(function()
 			item.CastShadow = false
 		end)
 	end
@@ -5231,6 +5247,86 @@ do
 		end,
 	})
 end
+
+VisualFPS:AddToggle("DisableDropPhysics", {
+	Text = "Disable Drop Physics",
+	Default = false,
+	Callback = function(state)
+		disconnect("DisableDropPhysics")
+		if state then
+			local function freezeDrop(item)
+				if item:IsA("BasePart") then
+					pcall(function()
+						item.CanCollide = false
+						if item.CanTouch then item.CanTouch = false end
+						if item.CanQuery then item.CanQuery = false end
+						item.Anchored = true
+					end)
+				end
+			end
+
+			for _, item in ipairs(CollectionService:GetTagged("DROPPED_ITEM")) do
+				freezeDrop(item)
+			end
+
+			track("DisableDropPhysics", CollectionService:GetInstanceAddedSignal("DROPPED_ITEM"):Connect(function(item)
+				if Toggles.DisableDropPhysics and Toggles.DisableDropPhysics.Value then
+					freezeDrop(item)
+				end
+			end))
+
+			Library:Notify({ Title = "Drop Physics", Description = "Physics & collisions disabled", Time = 2 })
+		else
+			for _, item in ipairs(CollectionService:GetTagged("DROPPED_ITEM")) do
+				if item:IsA("BasePart") then
+					pcall(function()
+						item.CanCollide = true
+						item.Anchored = false
+					end)
+				end
+			end
+			Library:Notify({ Title = "Drop Physics", Description = "Restored", Time = 2 })
+		end
+	end,
+})
+
+VisualFPS:AddToggle("DisableDropShadows", {
+	Text = "Disable Drop Shadows",
+	Default = false,
+	Callback = function(state)
+		disconnect("DisableDropShadows")
+		if state then
+			local function removeShadow(item)
+				if item:IsA("BasePart") then
+					pcall(function()
+						item.CastShadow = false
+					end)
+				end
+			end
+
+			for _, item in ipairs(CollectionService:GetTagged("DROPPED_ITEM")) do
+				removeShadow(item)
+			end
+
+			track("DisableDropShadows", CollectionService:GetInstanceAddedSignal("DROPPED_ITEM"):Connect(function(item)
+				if Toggles.DisableDropShadows and Toggles.DisableDropShadows.Value then
+					removeShadow(item)
+				end
+			end))
+
+			Library:Notify({ Title = "Drop Shadows", Description = "Disabled", Time = 2 })
+		else
+			for _, item in ipairs(CollectionService:GetTagged("DROPPED_ITEM")) do
+				if item:IsA("BasePart") then
+					pcall(function()
+						item.CastShadow = true
+					end)
+				end
+			end
+			Library:Notify({ Title = "Drop Shadows", Description = "Restored", Time = 2 })
+		end
+	end,
+})
 
 VisualFPS:AddToggle("OptimizeDrops", {
 	Text = "Optimize Item Drops",
