@@ -1127,10 +1127,33 @@ local function trackDroppedItem(item)
 	item.Destroying:Once(function()
 		droppedItemSpawnTimes[item] = nil
 	end)
+
+	if Toggles and Toggles.OptimizeDrops and Toggles.OptimizeDrops.Value then
+		pcall(function()
+			item.CanCollide = false
+			item.CastShadow = false
+		end)
+	end
+
+	-- Instant vacuum pickup if in range
+	if Toggles and Toggles.FastPickup and Toggles.FastPickup.Value and isAlive() and TSG.PickupRemote then
+		local root = getRootPart()
+		if root then
+			local maxRange = (Options and Options.AutoPickupRange and Options.AutoPickupRange.Value) or AUTO_PICKUP_RANGE
+			task.defer(function()
+				if item and item.Parent and canAutoPickup(item) then
+					local dist = (item.Position - root.Position).Magnitude
+					if dist <= maxRange then
+						pcall(TSG.PickupRemote.FireServer, TSG.PickupRemote, item)
+					end
+				end
+			end)
+		end
+	end
 end
 
 CollectionService:GetInstanceAddedSignal("DROPPED_ITEM"):Connect(trackDroppedItem)
-for _, item in CollectionService:GetTagged("DROPPED_ITEM") do
+for _, item in ipairs(CollectionService:GetTagged("DROPPED_ITEM")) do
 	trackDroppedItem(item)
 end
 
@@ -1151,7 +1174,7 @@ local function canAutoPickup(item)
 end
 
 local function tryAutoPickup()
-	if time() - lastAutoPickup < AUTO_PICKUP_COOLDOWN then
+	if time() - lastAutoPickup < 0.05 then
 		return
 	end
 	if not isAlive() or not TSG.PickupRemote then
@@ -1163,20 +1186,21 @@ local function tryAutoPickup()
 	end
 
 	local maxRange = (Options.AutoPickupRange and Options.AutoPickupRange.Value) or AUTO_PICKUP_RANGE
-	local closest, closestDist = nil, maxRange
-	for _, item in CollectionService:GetTagged("DROPPED_ITEM") do
+	local pickedCount = 0
+	for _, item in ipairs(CollectionService:GetTagged("DROPPED_ITEM")) do
 		if canAutoPickup(item) then
 			local dist = (item.Position - root.Position).Magnitude
-			if dist < closestDist then
-				closest = item
-				closestDist = dist
+			if dist <= maxRange then
+				pickedCount += 1
+				pcall(TSG.PickupRemote.FireServer, TSG.PickupRemote, item)
+				if pickedCount >= 5 then
+					break
+				end
 			end
 		end
 	end
-
-	if closest then
+	if pickedCount > 0 then
 		lastAutoPickup = time()
-		pcall(TSG.PickupRemote.FireServer, TSG.PickupRemote, closest)
 	end
 end
 
@@ -5207,6 +5231,38 @@ do
 		end,
 	})
 end
+
+VisualFPS:AddToggle("OptimizeDrops", {
+	Text = "Optimize Item Drops",
+	Default = false,
+	Callback = function(state)
+		disconnect("OptimizeDrops")
+		if state then
+			local function optimizeDrop(item)
+				if item:IsA("BasePart") then
+					pcall(function()
+						item.CanCollide = false
+						item.CastShadow = false
+					end)
+				end
+			end
+
+			for _, item in ipairs(CollectionService:GetTagged("DROPPED_ITEM")) do
+				optimizeDrop(item)
+			end
+
+			track("OptimizeDrops", CollectionService:GetInstanceAddedSignal("DROPPED_ITEM"):Connect(function(item)
+				if Toggles.OptimizeDrops and Toggles.OptimizeDrops.Value then
+					optimizeDrop(item)
+				end
+			end))
+
+			Library:Notify({ Title = "Optimize Drops", Description = "Drop physics & shadows disabled", Time = 2 })
+		else
+			Library:Notify({ Title = "Optimize Drops", Description = "Disabled", Time = 2 })
+		end
+	end,
+})
 
 VisualFPS:AddToggle("UncapFPS", {
 	Text = "Uncap FPS",
