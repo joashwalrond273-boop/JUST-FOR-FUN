@@ -904,13 +904,13 @@ end
 
 -- Infinite stamina, no fall damage, anti lava (Behavior > Disabled on workspace.Characters.[name] or Character itself)
 local function applyCharacterModuleToggles()
-	if Toggles.InfiniteStamina.Value then
+	if Toggles.InfiniteStamina and Toggles.InfiniteStamina.Value then
 		setBehaviorDisabled(getCharacterBehavior("stamina"), true)
 	end
-	if Toggles.NoFallDamage.Value then
+	if Toggles.NoFallDamage and Toggles.NoFallDamage.Value then
 		setBehaviorDisabled(getCharacterBehavior("fallDamage"), true)
 	end
-	if Toggles.AntiLava.Value then
+	if Toggles.AntiLava and Toggles.AntiLava.Value then
 		local char = getCharacter()
 		if char then
 			setBehaviorDisabled(char:FindFirstChild("worldHazards"), true)
@@ -933,13 +933,12 @@ Toggles.InfiniteBackpack:OnChanged(function()
 end)
 
 Toggles.InfiniteStamina:OnChanged(function()
-	disconnect("InfiniteStamina")
 	if Toggles.InfiniteStamina.Value then
-		applyCharacterModuleToggles()
-		track("InfiniteStamina", RunService.Heartbeat:Connect(applyCharacterModuleToggles))
+		setBehaviorDisabled(getCharacterBehavior("stamina"), true)
 		Library:Notify({ Title = "Infinite Stamina", Description = "Enabled", Time = 2 })
 	else
 		setBehaviorDisabled(getCharacterBehavior("stamina"), false)
+		Library:Notify({ Title = "Infinite Stamina", Description = "Disabled", Time = 2 })
 	end
 end)
 
@@ -956,13 +955,12 @@ Toggles.InfiniteJump:OnChanged(function()
 end)
 
 Toggles.NoFallDamage:OnChanged(function()
-	disconnect("NoFallDamage")
 	if Toggles.NoFallDamage.Value then
-		applyCharacterModuleToggles()
-		track("NoFallDamage", RunService.Heartbeat:Connect(applyCharacterModuleToggles))
+		setBehaviorDisabled(getCharacterBehavior("fallDamage"), true)
 		Library:Notify({ Title = "No Fall Damage", Description = "Enabled", Time = 2 })
 	else
 		setBehaviorDisabled(getCharacterBehavior("fallDamage"), false)
+		Library:Notify({ Title = "No Fall Damage", Description = "Disabled", Time = 2 })
 	end
 end)
 
@@ -983,16 +981,17 @@ Toggles.NoBearTrapDMG:OnChanged(function()
 end)
 
 Toggles.AntiLava:OnChanged(function()
-	disconnect("AntiLava")
+	local char = getCharacter()
 	if Toggles.AntiLava.Value then
-		applyCharacterModuleToggles()
-		track("AntiLava", RunService.Heartbeat:Connect(applyCharacterModuleToggles))
+		if char then
+			setBehaviorDisabled(char:FindFirstChild("worldHazards"), true)
+		end
 		Library:Notify({ Title = "Anti Fire / Lava", Description = "Enabled", Time = 2 })
 	else
-		local char = getCharacter()
 		if char then
 			setBehaviorDisabled(char:FindFirstChild("worldHazards"), false)
 		end
+		Library:Notify({ Title = "Anti Fire / Lava", Description = "Disabled", Time = 2 })
 	end
 end)
 
