@@ -3870,6 +3870,20 @@ OreESPGroup:AddCheckbox("OreESPRemoveNames", {
 	Default = false,
 })
 
+OreESPGroup:AddCheckbox("OreESPHighlights", {
+	Text = "Ore Highlights (Chams)",
+	Default = true,
+})
+
+OreESPGroup:AddSlider("OreESPDistance", {
+	Text = "Max Distance",
+	Default = 500,
+	Min = 50,
+	Max = 1500,
+	Rounding = 10,
+	Compact = true,
+})
+
 -- ==========================================
 local FarmAI = Tabs.Farming:AddRightGroupbox("AI Aura", "zap")
 
@@ -4341,7 +4355,7 @@ local lastOreESPUpdate = 0
 
 local function oreESPLoop()
 	local now = tick()
-	if now - lastOreESPUpdate < 0.3 then return end
+	if now - lastOreESPUpdate < 0.5 then return end
 	lastOreESPUpdate = now
 
 	local folder = workspace:FindFirstChild("worldResources") and workspace.worldResources:FindFirstChild("mineable")
@@ -4349,8 +4363,11 @@ local function oreESPLoop()
 
 	local root = getRootPart()
 	local rootPos = root and root.Position
+	if not rootPos then return end
 
+	local maxDist = (Options and Options.OreESPDistance and Options.OreESPDistance.Value) or 500
 	local showNames = not (Toggles and Toggles.OreESPRemoveNames and Toggles.OreESPRemoveNames.Value)
+	local chamsEnabled = (Toggles and Toggles.OreESPHighlights and Toggles.OreESPHighlights.Value) ~= false
 	local seen = {}
 	local candidateHighlights = {}
 
@@ -4359,14 +4376,24 @@ local function oreESPLoop()
 		for _, obj in ipairs(chunkFolder:GetChildren()) do
 			if not obj or not obj.Parent then continue end
 			local oreName = obj.Name or "Unknown"
-			seen[obj] = oreName
-
-			local entry = oreESP.highlights[obj]
 			local enabled = isOreFilterEnabled(oreName)
-			local oreColor = getOreColor(oreName)
 
 			local anchor = obj:IsA("Model") and (obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")) or (obj:IsA("BasePart") and obj)
-			local dist = (rootPos and anchor) and (anchor.Position - rootPos).Magnitude or 9999
+			local dist = anchor and (anchor.Position - rootPos).Magnitude or 9999
+
+			-- Distance and filter culling: Skip processing if disabled or out of range
+			if not enabled or dist > maxDist then
+				local existing = oreESP.highlights[obj]
+				if existing then
+					if existing.hl and existing.hl.Enabled then existing.hl.Enabled = false end
+					if existing.bill and existing.bill.Enabled then existing.bill.Enabled = false end
+				end
+				continue
+			end
+
+			seen[obj] = oreName
+			local oreColor = getOreColor(oreName)
+			local entry = oreESP.highlights[obj]
 
 			if not entry then
 				local bill = nil
@@ -4377,7 +4404,7 @@ local function oreESPLoop()
 					bill.AlwaysOnTop = true
 					bill.Adornee = anchor
 					bill.StudsOffset = Vector3.new(0, 3.2, 0)
-					bill.MaxDistance = 1500
+					bill.MaxDistance = maxDist
 
 					lbl = Instance.new("TextLabel")
 					lbl.Size = UDim2.fromScale(1, 1)
@@ -4390,28 +4417,21 @@ local function oreESPLoop()
 					lbl.Text = '<font color="#' .. oreColor:ToHex() .. '">' .. oreName .. '</font>'
 					lbl.Parent = bill
 
-					bill.Enabled = enabled and showNames
+					bill.Enabled = showNames
 					bill.Parent = workspace
 				end
 
-				local hl = Instance.new("Highlight")
-				hl.FillColor = oreColor
-				hl.OutlineColor = Color3.fromRGB(255, 255, 255)
-				hl.FillTransparency = 0.25
-				hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-				hl.Adornee = obj
-				hl.Enabled = false
-				hl.Parent = workspace
-
-				entry = { hl = hl, bill = bill, lbl = lbl, oreName = oreName, lastColor = oreColor, lastEnabled = enabled, lastShowNames = showNames, dist = dist }
+				entry = { hl = nil, bill = bill, lbl = lbl, oreName = oreName, lastColor = oreColor, lastEnabled = enabled, lastShowNames = showNames, dist = dist }
 				oreESP.highlights[obj] = entry
 			else
 				entry.dist = dist
-				if entry.lastEnabled ~= enabled or entry.lastShowNames ~= showNames then
-					entry.lastEnabled = enabled
-					entry.lastShowNames = showNames
-					if entry.bill then
-						entry.bill.Enabled = enabled and showNames
+				if entry.bill then
+					if entry.bill.MaxDistance ~= maxDist then
+						entry.bill.MaxDistance = maxDist
+					end
+					if entry.lastShowNames ~= showNames then
+						entry.lastShowNames = showNames
+						entry.bill.Enabled = showNames
 					end
 				end
 				if entry.lastColor ~= oreColor then
@@ -4425,28 +4445,40 @@ local function oreESPLoop()
 				if entry.bill and entry.bill.Adornee == nil and anchor then
 					entry.bill.Adornee = anchor
 				end
-				if entry.hl and entry.hl.Adornee == nil then
-					entry.hl.Adornee = obj
-				end
 			end
 
-			if enabled and dist <= 350 then
-				table.insert(candidateHighlights, { entry = entry, dist = dist })
+			if chamsEnabled and dist <= 250 then
+				table.insert(candidateHighlights, { entry = entry, obj = obj, color = oreColor, dist = dist })
 			elseif entry and entry.hl and entry.hl.Enabled then
 				entry.hl.Enabled = false
 			end
 		end
 	end
 
-	table.sort(candidateHighlights, function(a, b) return a.dist < b.dist end)
+	-- Cap active highlights strictly to the closest 15 ores (to protect engine FPS)
+	if #candidateHighlights > 1 then
+		table.sort(candidateHighlights, function(a, b) return a.dist < b.dist end)
+	end
+
 	for i, item in ipairs(candidateHighlights) do
-		if i <= 25 then
-			if not item.entry.hl.Enabled then
-				item.entry.hl.Enabled = true
+		local entry = item.entry
+		if i <= 15 then
+			if not entry.hl then
+				local hl = Instance.new("Highlight")
+				hl.FillColor = item.color
+				hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+				hl.FillTransparency = 0.25
+				hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+				hl.Adornee = item.obj
+				hl.Enabled = true
+				hl.Parent = workspace
+				entry.hl = hl
+			elseif not entry.hl.Enabled then
+				entry.hl.Enabled = true
 			end
 		else
-			if item.entry.hl.Enabled then
-				item.entry.hl.Enabled = false
+			if entry.hl and entry.hl.Enabled then
+				entry.hl.Enabled = false
 			end
 		end
 	end
@@ -4526,14 +4558,13 @@ Toggles.OreESPToggle:OnChanged(function()
 	end
 
 	scanOreTypesAndBuildUI()
-	local lastScan = 0
-	track("OreESPScan", RunService.Heartbeat:Connect(function()
-		local now = tick()
-		if now - lastScan >= 3 then
-			lastScan = now
+	local folder = workspace:FindFirstChild("worldResources") and workspace.worldResources:FindFirstChild("mineable")
+	if folder then
+		track("OreESPScan", folder.ChildAdded:Connect(function()
+			task.wait(0.5)
 			pcall(scanOreTypesAndBuildUI)
-		end
-	end))
+		end))
+	end
 
 	track("OreESP", RunService.Heartbeat:Connect(function()
 		if not isAlive() or not Toggles.OreESPToggle.Value then return end
