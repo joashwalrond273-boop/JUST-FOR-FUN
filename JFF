@@ -3324,7 +3324,7 @@ local function updateNoclipParts(character)
 	table.clear(noclipCoreParts)
 	if not character then return end
 	for _, child in ipairs(character:GetChildren()) do
-		if child:IsA("BasePart") and noclipCorePartNames[child.Name] then
+		if child:IsA("BasePart") then
 			table.insert(noclipCoreParts, child)
 		end
 	end
@@ -3333,6 +3333,9 @@ end
 LocalPlayer.CharacterAdded:Connect(function(char)
 	updateNoclipParts(char)
 end)
+if LocalPlayer.Character then
+	updateNoclipParts(LocalPlayer.Character)
+end
 
 Toggles.Noclip:OnChanged(function()
 	disconnect("Noclip")
@@ -3490,12 +3493,9 @@ Toggles.MountNoclip:OnChanged(function()
 						part.CanCollide = false
 					end
 				end
-				local character = getCharacter()
-				if character then
-					for _, part in ipairs(character:GetDescendants()) do
-						if part:IsA("BasePart") and part.CanCollide then
-							part.CanCollide = false
-						end
+				for _, part in ipairs(noclipCoreParts) do
+					if part and part.CanCollide then
+						part.CanCollide = false
 					end
 				end
 			end
@@ -6668,8 +6668,8 @@ local function startHelicopter()
 			local hum = getHumanoid()
 
 			if targetRoot and myRoot and isAlive() then
-				for _, part in ipairs(char:GetDescendants()) do
-					if part:IsA("BasePart") then
+				for _, part in ipairs(noclipCoreParts) do
+					if part and part.CanCollide then
 						part.CanCollide = false
 					end
 				end
@@ -6792,8 +6792,8 @@ local function startAttach()
 			local myRoot = getRootPart()
 
 			if targetRoot and myRoot and isAlive() then
-				for _, part in ipairs(char:GetDescendants()) do
-					if part:IsA("BasePart") then
+				for _, part in ipairs(noclipCoreParts) do
+					if part and part.CanCollide then
 						part.CanCollide = false
 					end
 				end
