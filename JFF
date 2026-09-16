@@ -3860,17 +3860,17 @@ local FarmRight = Tabs.Farming:AddRightGroupbox("Highlight Settings", "palette")
 -- ==========================================
 local BossFarm = Tabs.Farming:AddLeftGroupbox("Boss Farm", "swords")
 
-BossFarm:AddToggle("TitanAura", {
+BossFarm:AddCheckbox("TitanAura", {
 	Text = "Titan Aura",
 	Default = false,
 })
 
-BossFarm:AddToggle("SamuraiAura", {
+BossFarm:AddCheckbox("SamuraiAura", {
 	Text = "Samurai Aura",
 	Default = false,
 })
 
-BossFarm:AddToggle("JuggernautAura", {
+BossFarm:AddCheckbox("JuggernautAura", {
 	Text = "Juggernaut Aura",
 	Default = false,
 })
@@ -4720,11 +4720,11 @@ end)
 local TeleportLeft = Tabs.Teleport:AddLeftGroupbox("Boss Locations", "map-pin")
 
 local bossTeleports = {
-	{ name = "Juggernaut", pos = Vector3.new(-1601.49, 108.01, -2890.59) },
+	{ name = "Juggernaut", pos = Vector3.new(-1601.49, 113.27, -2890.59) },
 	{ name = "Titan",      pos = Vector3.new(1654.57,  23.20,  2312.14)  },
 	{ name = "Samurai",    pos = Vector3.new(-1727.48, 517.20, 7305.50)  },
 	{ name = "Kraken",     pos = Vector3.new(802.42,   19.35,  -1999.35) },
-	{ name = "Spider",     pos = Vector3.new(-319.00,  -81.00, 420.00)   },
+	{ name = "Spider",     pos = Vector3.new(-330.32,  -91.12, 382.67)   },
     { name = "Desert",     pos = Vector3.new(1459.50, 26.26, -204.70)    },
     { name = "Marvin",     pos = Vector3.new(-663.22, 26.14, 741.84)     },
 }
