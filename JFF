@@ -653,6 +653,11 @@ MainLeft:AddToggle("FastPickup", {
 	Default = false,
 })
 
+MainLeft:AddCheckbox("OptimizeDrops", {
+	Text = "+ Optimize Item Drops",
+	Default = false,
+})
+
 MainLeft:AddSlider("AutoPickupRange", {
 	Text = "Pickup Range",
 	Default = 20,
@@ -668,6 +673,12 @@ updateAutoPickupVisibility = function()
 		Options.AutoPickupRange.Visible = isPickup
 		if Options.AutoPickupRange.Holder then
 			Options.AutoPickupRange.Holder.Visible = isPickup
+		end
+	end
+	if Toggles.OptimizeDrops then
+		Toggles.OptimizeDrops.Visible = isPickup
+		if Toggles.OptimizeDrops.Holder then
+			Toggles.OptimizeDrops.Holder.Visible = isPickup
 		end
 	end
 	MainLeft:Resize()
@@ -1128,24 +1139,12 @@ local function trackDroppedItem(item)
 		droppedItemSpawnTimes[item] = nil
 	end)
 
-	if Toggles and Toggles.DisableDropPhysics and Toggles.DisableDropPhysics.Value then
+	if Toggles and Toggles.OptimizeDrops and Toggles.OptimizeDrops.Value then
 		pcall(function()
 			item.CanCollide = false
-			if item.CanTouch then item.CanTouch = false end
-			if item.CanQuery then item.CanQuery = false end
-			item.Anchored = true
-		end)
-	elseif Toggles and Toggles.OptimizeDrops and Toggles.OptimizeDrops.Value then
-		pcall(function()
-			item.CanCollide = false
-		end)
-	end
-
-	if Toggles and Toggles.DisableDropShadows and Toggles.DisableDropShadows.Value then
-		pcall(function()
 			item.CastShadow = false
 		end)
-	elseif Toggles and Toggles.OptimizeDrops and Toggles.OptimizeDrops.Value then
+	elseif Toggles and Toggles.NoDropDetail and Toggles.NoDropDetail.Value then
 		pcall(function()
 			item.CastShadow = false
 		end)
@@ -1235,6 +1234,41 @@ Toggles.FastPickup:OnChanged(function()
 		Library:Notify({ Title = "Auto Pickup", Description = "Enabled", Time = 2 })
 	else
 		Library:Notify({ Title = "Auto Pickup", Description = "Disabled", Time = 2 })
+	end
+end)
+
+Toggles.OptimizeDrops:OnChanged(function()
+	disconnect("OptimizeDrops")
+	if Toggles.OptimizeDrops.Value then
+		local function optimizeDrop(item)
+			if item:IsA("BasePart") then
+				pcall(function()
+					item.CanCollide = false
+					item.CastShadow = false
+				end)
+			end
+		end
+
+		for _, item in ipairs(CollectionService:GetTagged("DROPPED_ITEM")) do
+			optimizeDrop(item)
+		end
+
+		track("OptimizeDrops", CollectionService:GetInstanceAddedSignal("DROPPED_ITEM"):Connect(function(item)
+			if Toggles.OptimizeDrops and Toggles.OptimizeDrops.Value then
+				optimizeDrop(item)
+			end
+		end))
+	else
+		for _, item in ipairs(CollectionService:GetTagged("DROPPED_ITEM")) do
+			if item:IsA("BasePart") then
+				pcall(function()
+					item.CanCollide = true
+					if not (Toggles.NoDropDetail and Toggles.NoDropDetail.Value) then
+						item.CastShadow = true
+					end
+				end)
+			end
+		end
 	end
 end)
 
@@ -5248,55 +5282,13 @@ do
 	})
 end
 
-VisualFPS:AddToggle("DisableDropPhysics", {
-	Text = "Disable Drop Physics",
+VisualFPS:AddToggle("NoDropDetail", {
+	Text = "No Drop Detail",
 	Default = false,
 	Callback = function(state)
-		disconnect("DisableDropPhysics")
+		disconnect("NoDropDetail")
 		if state then
-			local function freezeDrop(item)
-				if item:IsA("BasePart") then
-					pcall(function()
-						item.CanCollide = false
-						if item.CanTouch then item.CanTouch = false end
-						if item.CanQuery then item.CanQuery = false end
-						item.Anchored = true
-					end)
-				end
-			end
-
-			for _, item in ipairs(CollectionService:GetTagged("DROPPED_ITEM")) do
-				freezeDrop(item)
-			end
-
-			track("DisableDropPhysics", CollectionService:GetInstanceAddedSignal("DROPPED_ITEM"):Connect(function(item)
-				if Toggles.DisableDropPhysics and Toggles.DisableDropPhysics.Value then
-					freezeDrop(item)
-				end
-			end))
-
-			Library:Notify({ Title = "Drop Physics", Description = "Physics & collisions disabled", Time = 2 })
-		else
-			for _, item in ipairs(CollectionService:GetTagged("DROPPED_ITEM")) do
-				if item:IsA("BasePart") then
-					pcall(function()
-						item.CanCollide = true
-						item.Anchored = false
-					end)
-				end
-			end
-			Library:Notify({ Title = "Drop Physics", Description = "Restored", Time = 2 })
-		end
-	end,
-})
-
-VisualFPS:AddToggle("DisableDropShadows", {
-	Text = "Disable Drop Shadows",
-	Default = false,
-	Callback = function(state)
-		disconnect("DisableDropShadows")
-		if state then
-			local function removeShadow(item)
+			local function removeDetail(item)
 				if item:IsA("BasePart") then
 					pcall(function()
 						item.CastShadow = false
@@ -5305,16 +5297,16 @@ VisualFPS:AddToggle("DisableDropShadows", {
 			end
 
 			for _, item in ipairs(CollectionService:GetTagged("DROPPED_ITEM")) do
-				removeShadow(item)
+				removeDetail(item)
 			end
 
-			track("DisableDropShadows", CollectionService:GetInstanceAddedSignal("DROPPED_ITEM"):Connect(function(item)
-				if Toggles.DisableDropShadows and Toggles.DisableDropShadows.Value then
-					removeShadow(item)
+			track("NoDropDetail", CollectionService:GetInstanceAddedSignal("DROPPED_ITEM"):Connect(function(item)
+				if Toggles.NoDropDetail and Toggles.NoDropDetail.Value then
+					removeDetail(item)
 				end
 			end))
 
-			Library:Notify({ Title = "Drop Shadows", Description = "Disabled", Time = 2 })
+			Library:Notify({ Title = "No Drop Detail", Description = "Enabled", Time = 2 })
 		else
 			for _, item in ipairs(CollectionService:GetTagged("DROPPED_ITEM")) do
 				if item:IsA("BasePart") then
@@ -5323,39 +5315,7 @@ VisualFPS:AddToggle("DisableDropShadows", {
 					end)
 				end
 			end
-			Library:Notify({ Title = "Drop Shadows", Description = "Restored", Time = 2 })
-		end
-	end,
-})
-
-VisualFPS:AddToggle("OptimizeDrops", {
-	Text = "Optimize Item Drops",
-	Default = false,
-	Callback = function(state)
-		disconnect("OptimizeDrops")
-		if state then
-			local function optimizeDrop(item)
-				if item:IsA("BasePart") then
-					pcall(function()
-						item.CanCollide = false
-						item.CastShadow = false
-					end)
-				end
-			end
-
-			for _, item in ipairs(CollectionService:GetTagged("DROPPED_ITEM")) do
-				optimizeDrop(item)
-			end
-
-			track("OptimizeDrops", CollectionService:GetInstanceAddedSignal("DROPPED_ITEM"):Connect(function(item)
-				if Toggles.OptimizeDrops and Toggles.OptimizeDrops.Value then
-					optimizeDrop(item)
-				end
-			end))
-
-			Library:Notify({ Title = "Optimize Drops", Description = "Drop physics & shadows disabled", Time = 2 })
-		else
-			Library:Notify({ Title = "Optimize Drops", Description = "Disabled", Time = 2 })
+			Library:Notify({ Title = "No Drop Detail", Description = "Disabled", Time = 2 })
 		end
 	end,
 })
@@ -7479,6 +7439,15 @@ Library:OnUnload(function()
 
 	if Toggles.NoGliderCooldown and Toggles.NoGliderCooldown.Value then
 		Toggles.NoGliderCooldown:SetValue(false)
+	end
+	if Toggles.FastPickup and Toggles.FastPickup.Value then
+		Toggles.FastPickup:SetValue(false)
+	end
+	if Toggles.OptimizeDrops and Toggles.OptimizeDrops.Value then
+		Toggles.OptimizeDrops:SetValue(false)
+	end
+	if Toggles.NoDropDetail and Toggles.NoDropDetail.Value then
+		Toggles.NoDropDetail:SetValue(false)
 	end
 
 	pcall(function()
