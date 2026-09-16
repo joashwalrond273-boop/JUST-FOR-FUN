@@ -4966,43 +4966,29 @@ VisualFPS:AddToggle("LowTextures", {
 	Callback = function(state)
 		disconnect("LowTextures")
 		if state then
-			-- Apply to current parts in batches asynchronously to prevent lag
 			local function applyLowTexture(v)
-				if v:IsA("BasePart") or v:IsA("MeshPart") then
+				if (v:IsA("BasePart") or v:IsA("MeshPart")) and v.Material ~= Enum.Material.Plastic then
 					pcall(function() v.Material = Enum.Material.Plastic end)
 				end
 			end
 
+			-- Process workspace smoothly in chunks without memory bloat or FPS freeze
 			task.spawn(function()
-				local queue = {workspace}
-				local head = 1
-				local tail = 2
-				local count = 0
-				while head < tail and Toggles.LowTextures.Value do
-					local current = queue[head]
-					queue[head] = nil
-					head += 1
-					if current and current.Parent then
-						local success, children = pcall(current.GetChildren, current)
-						if success and children then
-							for i = 1, #children do
-								local child = children[i]
-								applyLowTexture(child)
-								queue[tail] = child
-								tail += 1
-							end
-						end
+				local descendants = workspace:GetDescendants()
+				for i = 1, #descendants do
+					if not (Toggles.LowTextures and Toggles.LowTextures.Value) then break end
+					local v = descendants[i]
+					if v and v.Parent then
+						applyLowTexture(v)
 					end
-					count += 1
-					if count % 300 == 0 then
+					if i % 400 == 0 then
 						task.wait()
 					end
 				end
 			end)
 
-			-- Connect descendant added
 			track("LowTextures", workspace.DescendantAdded:Connect(function(v)
-				if Toggles.LowTextures.Value then
+				if Toggles.LowTextures and Toggles.LowTextures.Value then
 					applyLowTexture(v)
 				end
 			end))
@@ -5031,43 +5017,24 @@ do
 		Callback = function(state)
 			disconnect("RemovePBR")
 			if state then
-				local function checkAndRemovePBR(v)
-					if PBR_TYPES[v.ClassName] then
-						pcall(v.Destroy, v)
-					end
-				end
-
-				-- Process workspace asynchronously without lag
+				-- Process workspace smoothly in chunks without freezing the game
 				task.spawn(function()
-					local queue = {workspace}
-					local head = 1
-					local tail = 2
-					local count = 0
-					while head < tail and Toggles.RemovePBR.Value do
-						local current = queue[head]
-						queue[head] = nil
-						head += 1
-						if current and current.Parent then
-							local success, children = pcall(current.GetChildren, current)
-							if success and children then
-								for i = 1, #children do
-									local child = children[i]
-									checkAndRemovePBR(child)
-									queue[tail] = child
-									tail += 1
-								end
-							end
+					local descendants = workspace:GetDescendants()
+					for i = 1, #descendants do
+						if not (Toggles.RemovePBR and Toggles.RemovePBR.Value) then break end
+						local v = descendants[i]
+						if v and v.Parent and PBR_TYPES[v.ClassName] then
+							pcall(v.Destroy, v)
 						end
-						count += 1
-						if count % 300 == 0 then
+						if i % 400 == 0 then
 							task.wait()
 						end
 					end
 				end)
 
 				track("RemovePBR", workspace.DescendantAdded:Connect(function(v)
-					if Toggles.RemovePBR.Value then
-						checkAndRemovePBR(v)
+					if Toggles.RemovePBR and Toggles.RemovePBR.Value and PBR_TYPES[v.ClassName] then
+						pcall(v.Destroy, v)
 					end
 				end))
 			end
@@ -5159,32 +5126,20 @@ do
 			table.clear(activeParticleConns)
 
 			if state then
-				-- Process workspace & lighting asynchronously without freeze/stutter
+				-- Process workspace & lighting smoothly in chunks without freeze/stutter
 				task.spawn(function()
-					local queue = { workspace, game:GetService("Lighting") }
-					local head = 1
-					local tail = 3
-					local count = 0
-					while head < tail and Toggles.RemoveParticles and Toggles.RemoveParticles.Value do
-						local current = queue[head]
-						queue[head] = nil
-						head += 1
-						if current and current.Parent then
-							local success, children = pcall(current.GetChildren, current)
-							if success and children then
-								for i = 1, #children do
-									local child = children[i]
-									if PARTICLE_CLASSES[child.ClassName] then
-										disableParticle(child)
-									end
-									queue[tail] = child
-									tail += 1
-								end
+					local containers = { workspace, game:GetService("Lighting") }
+					for _, container in ipairs(containers) do
+						local descendants = container:GetDescendants()
+						for i = 1, #descendants do
+							if not (Toggles.RemoveParticles and Toggles.RemoveParticles.Value) then break end
+							local v = descendants[i]
+							if v and v.Parent and PARTICLE_CLASSES[v.ClassName] then
+								disableParticle(v)
 							end
-						end
-						count += 1
-						if count % 350 == 0 then
-							task.wait()
+							if i % 400 == 0 then
+								task.wait()
+							end
 						end
 					end
 				end)
