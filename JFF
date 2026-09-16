@@ -5887,9 +5887,6 @@ local function getOrCreateESP(player)
 	return entry
 end
 
-local espActiveCandidates = {}
-local espCandidatePool = {}
-
 local function updateAllESP()
 	if not Toggles.PlayerESP or not Toggles.PlayerESP.Value then return end
 
@@ -5948,7 +5945,7 @@ local function updateAllESP()
 		tracerOrigin = Vector2.new(viewportSize.X / 2, viewportSize.Y)
 	end
 
-	local candidateCount = 0
+	local activeCandidates = {}
 
 	for _, player in ipairs(Players:GetPlayers()) do
 		if player ~= LocalPlayer then
@@ -5956,16 +5953,7 @@ local function updateAllESP()
 			if entry and entry.root and entry.hum and entry.hum.Health > 0 and entry.character.Parent then
 				local dist = (entry.root.Position - myPos).Magnitude
 				if dist <= maxDist then
-					candidateCount += 1
-					local cand = espCandidatePool[candidateCount]
-					if not cand then
-						cand = { entry = entry, dist = dist }
-						espCandidatePool[candidateCount] = cand
-					else
-						cand.entry = entry
-						cand.dist = dist
-					end
-					espActiveCandidates[candidateCount] = cand
+					table.insert(activeCandidates, { entry = entry, dist = dist })
 				else
 					if entry.billboard.Enabled then entry.billboard.Enabled = false end
 					if entry.highlight.Enabled then entry.highlight.Enabled = false end
@@ -5986,16 +5974,11 @@ local function updateAllESP()
 		end
 	end
 
-	for i = candidateCount + 1, #espActiveCandidates do
-		espActiveCandidates[i] = nil
+	if #activeCandidates > 1 then
+		table.sort(activeCandidates, function(a, b) return a.dist < b.dist end)
 	end
 
-	if candidateCount > 20 and (outlineEnabled or chamsEnabled) then
-		table.sort(espActiveCandidates, function(a, b) return a.dist < b.dist end)
-	end
-
-	for i = 1, candidateCount do
-		local cand = espActiveCandidates[i]
+	for i, cand in ipairs(activeCandidates) do
 		local entry = cand.entry
 		local dist = cand.dist
 
