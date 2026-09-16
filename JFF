@@ -51,6 +51,7 @@ local updateAutoPickupVisibility
 local updatePlayerESPVisibility
 local updateFlightVisibility
 local updateImmortalModeVisibility
+local updateRenderDistanceVisibility
 
 Library.ShowToggleFrameInKeybinds = true
 
@@ -5053,6 +5054,9 @@ VisualFPS:AddToggle("NoFog", {
 		pcall(function()
 			local lighting = game:GetService("Lighting")
 			if state then
+				if Toggles.CustomRenderDistance and Toggles.CustomRenderDistance.Value then
+					Toggles.CustomRenderDistance:SetValue(false)
+				end
 				lighting.FogEnd = 100000
 				lighting.FogStart = 0
 				lighting.FogColor = Color3.new(1, 1, 1)
@@ -5064,6 +5068,98 @@ VisualFPS:AddToggle("NoFog", {
 		end)
 	end,
 })
+
+do
+	local originalFog = {
+		FogEnd = game:GetService("Lighting").FogEnd,
+		FogStart = game:GetService("Lighting").FogStart,
+		FogColor = game:GetService("Lighting").FogColor,
+	}
+
+	local function applyRenderDistance()
+		if not (Toggles.CustomRenderDistance and Toggles.CustomRenderDistance.Value) then return end
+		local dist = (Options.RenderDistance and Options.RenderDistance.Value) or 300
+		pcall(function()
+			local lighting = game:GetService("Lighting")
+			lighting.FogEnd = dist
+			lighting.FogStart = math.max(0, math.floor(dist * 0.4))
+		end)
+	end
+
+	local function restoreRenderDistance()
+		pcall(function()
+			local lighting = game:GetService("Lighting")
+			if Toggles.NoFog and Toggles.NoFog.Value then
+				lighting.FogEnd = 100000
+				lighting.FogStart = 0
+				lighting.FogColor = Color3.new(1, 1, 1)
+			else
+				lighting.FogEnd = originalFog.FogEnd or 1000
+				lighting.FogStart = originalFog.FogStart or 50
+				lighting.FogColor = originalFog.FogColor or Color3.new(0.5, 0.6, 0.7)
+			end
+		end)
+	end
+
+	VisualFPS:AddToggle("CustomRenderDistance", {
+		Text = "Limit Render Distance",
+		Default = false,
+		Callback = function(state)
+			disconnect("RenderDistance_Prop")
+			if updateRenderDistanceVisibility then
+				updateRenderDistanceVisibility()
+			end
+			if state then
+				if Toggles.NoFog and Toggles.NoFog.Value then
+					Toggles.NoFog:SetValue(false)
+				end
+				applyRenderDistance()
+				track("RenderDistance_Prop", game:GetService("Lighting"):GetPropertyChangedSignal("FogEnd"):Connect(function()
+					if Toggles.CustomRenderDistance and Toggles.CustomRenderDistance.Value then
+						applyRenderDistance()
+					end
+				end))
+				Library:Notify({ Title = "Render Distance", Description = "Custom limit enabled (" .. tostring((Options.RenderDistance and Options.RenderDistance.Value) or 300) .. " studs)", Time = 2 })
+			else
+				restoreRenderDistance()
+				Library:Notify({ Title = "Render Distance", Description = "Restored to default", Time = 2 })
+			end
+		end,
+	})
+
+	VisualFPS:AddSlider("RenderDistance", {
+		Text = "Render Distance",
+		Default = 300,
+		Min = 50,
+		Max = 2000,
+		Rounding = 10,
+		Compact = true,
+		Callback = function(val)
+			if Toggles.CustomRenderDistance and Toggles.CustomRenderDistance.Value then
+				applyRenderDistance()
+			end
+		end,
+	})
+
+	updateRenderDistanceVisibility = function()
+		local isCustom = (Toggles.CustomRenderDistance and Toggles.CustomRenderDistance.Value) or false
+		if Options.RenderDistance then
+			Options.RenderDistance.Visible = isCustom
+			if Options.RenderDistance.Holder then
+				Options.RenderDistance.Holder.Visible = isCustom
+			end
+		end
+		VisualFPS:Resize()
+	end
+
+	updateRenderDistanceVisibility()
+	task.spawn(function()
+		task.wait(0.05)
+		if updateRenderDistanceVisibility then
+			updateRenderDistanceVisibility()
+		end
+	end)
+end
 
 VisualFPS:AddToggle("LowTextures", {
 	Text = "Low Textures",
@@ -7448,6 +7544,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.NoDropDetail and Toggles.NoDropDetail.Value then
 		Toggles.NoDropDetail:SetValue(false)
+	end
+	if Toggles.CustomRenderDistance and Toggles.CustomRenderDistance.Value then
+		Toggles.CustomRenderDistance:SetValue(false)
 	end
 
 	pcall(function()
