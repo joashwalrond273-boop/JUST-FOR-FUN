@@ -5650,34 +5650,6 @@ VisualEnv:AddSlider("ControlTheHours", {
 local espObjects = {}
 local espFolder = nil
 
--- Pre-cached colors and hex strings (updated via OnChanged to eliminate per-frame conversion overhead)
-local cachedPColorHex = "ffffff"
-local cachedDColorHex = "ffffff"
-local cachedPColor = Color3.new(1, 1, 1)
-local cachedDColor = Color3.new(1, 1, 1)
-local cachedOColor = Color3.new(1, 1, 1)
-local cachedCColor = Color3.new(1, 1, 1)
-local cachedArrColor = Color3.new(1, 1, 1)
-local cachedTColor = Color3.new(1, 1, 1)
-local cachedBColor = Color3.new(1, 1, 1)
-local cachedLdColor = Color3.new(1, 1, 1)
-local cachedHtColor = Color3.new(1, 1, 1)
-
-local function updateCachedESPColors()
-	cachedPColor = (Options and Options.PlayerESPColor and Options.PlayerESPColor.Value) or Color3.new(1, 1, 1)
-	cachedDColor = (Options and Options.ShowDistanceColor and Options.ShowDistanceColor.Value) or Color3.new(1, 1, 1)
-	cachedOColor = (Options and Options.OutlineESPColor and Options.OutlineESPColor.Value) or Color3.new(1, 1, 1)
-	cachedCColor = (Options and Options.PlayerChamsColor and Options.PlayerChamsColor.Value) or Color3.new(1, 1, 1)
-	cachedArrColor = (Options and Options.PlayerArrowsColor and Options.PlayerArrowsColor.Value) or Color3.new(1, 1, 1)
-	cachedTColor = (Options and Options.PlayerTracersColor and Options.PlayerTracersColor.Value) or Color3.new(1, 1, 1)
-	cachedBColor = (Options and Options.PlayerBoxesColor and Options.PlayerBoxesColor.Value) or Color3.new(1, 1, 1)
-	cachedLdColor = (Options and Options.PlayerLookDirectionColor and Options.PlayerLookDirectionColor.Value) or Color3.new(1, 1, 1)
-	cachedHtColor = (Options and Options.PlayerHealthTextColor and Options.PlayerHealthTextColor.Value) or Color3.new(1, 1, 1)
-
-	cachedPColorHex = cachedPColor:ToHex()
-	cachedDColorHex = cachedDColor:ToHex()
-end
-
 local function getESPFolder()
 	if espFolder and espFolder.Parent then
 		return espFolder
@@ -5696,112 +5668,6 @@ local function getESPFolder()
 		espFolder.Parent = safeParent
 	end)
 	return espFolder or workspace
-end
-
-local function hidePlayerESP(entry)
-	if not entry then return end
-	if entry.billboard and entry.billboard.Enabled then entry.billboard.Enabled = false end
-	if entry.highlight and entry.highlight.Enabled then entry.highlight.Enabled = false end
-	if entry.arrow and entry.arrow.Visible then entry.arrow.Visible = false end
-	if entry.tracer and entry.tracer.Visible then entry.tracer.Visible = false end
-	if entry.box and entry.box.Visible then entry.box.Visible = false end
-	if entry.healthBarOutline and entry.healthBarOutline.Visible then entry.healthBarOutline.Visible = false end
-	if entry.healthBar and entry.healthBar.Visible then entry.healthBar.Visible = false end
-	if entry.lookLine and entry.lookLine.Visible then entry.lookLine.Visible = false end
-	if entry.healthText and entry.healthText.Visible then entry.healthText.Visible = false end
-end
-
-local function ensureArrow(entry)
-	if entry.arrow or typeof(Drawing) == "nil" then return entry.arrow end
-	pcall(function()
-		local arrow = Drawing.new("Triangle")
-		arrow.Thickness = 1
-		arrow.Filled = true
-		arrow.Color = cachedArrColor
-		arrow.Transparency = 1
-		arrow.Visible = false
-		entry.arrow = arrow
-	end)
-	return entry.arrow
-end
-
-local function ensureTracer(entry)
-	if entry.tracer or typeof(Drawing) == "nil" then return entry.tracer end
-	pcall(function()
-		local tracer = Drawing.new("Line")
-		tracer.Thickness = 1.5
-		tracer.Color = cachedTColor
-		tracer.Transparency = 1
-		tracer.Visible = false
-		entry.tracer = tracer
-	end)
-	return entry.tracer
-end
-
-local function ensureBox(entry)
-	if entry.box or typeof(Drawing) == "nil" then return entry.box end
-	pcall(function()
-		local box = Drawing.new("Square")
-		box.Thickness = 1.5
-		box.Color = cachedBColor
-		box.Filled = false
-		box.Transparency = 1
-		box.Visible = false
-		entry.box = box
-	end)
-	return entry.box
-end
-
-local function ensureLookLine(entry)
-	if entry.lookLine or typeof(Drawing) == "nil" then return entry.lookLine end
-	pcall(function()
-		local lookLine = Drawing.new("Line")
-		lookLine.Thickness = 1.5
-		lookLine.Color = cachedLdColor
-		lookLine.Transparency = 1
-		lookLine.Visible = false
-		entry.lookLine = lookLine
-	end)
-	return entry.lookLine
-end
-
-local function ensureHealthBar(entry)
-	if (entry.healthBar and entry.healthBarOutline) or typeof(Drawing) == "nil" then
-		return entry.healthBar, entry.healthBarOutline
-	end
-	pcall(function()
-		local outline = Drawing.new("Line")
-		outline.Thickness = 3
-		outline.Color = Color3.fromRGB(0, 0, 0)
-		outline.Transparency = 1
-		outline.Visible = false
-
-		local bar = Drawing.new("Line")
-		bar.Thickness = 1.5
-		bar.Color = Color3.fromRGB(0, 255, 0)
-		bar.Transparency = 1
-		bar.Visible = false
-
-		entry.healthBarOutline = outline
-		entry.healthBar = bar
-	end)
-	return entry.healthBar, entry.healthBarOutline
-end
-
-local function ensureHealthText(entry)
-	if entry.healthText or typeof(Drawing) == "nil" then return entry.healthText end
-	pcall(function()
-		local text = Drawing.new("Text")
-		text.Size = 13
-		text.Center = false
-		text.Outline = true
-		text.OutlineColor = Color3.fromRGB(0, 0, 0)
-		text.Color = cachedHtColor
-		text.Transparency = 1
-		text.Visible = false
-		entry.healthText = text
-	end)
-	return entry.healthText
 end
 
 local function removePlayerESP(player)
@@ -5836,18 +5702,50 @@ local function getOrCreateESP(player)
 	local entry = espObjects[player]
 	local character = player.Character
 	if not character then
-		hidePlayerESP(entry)
+		if entry then
+			if entry.billboard then entry.billboard.Enabled = false end
+			if entry.highlight then entry.highlight.Enabled = false end
+			if entry.arrow then entry.arrow.Visible = false end
+			if entry.tracer then entry.tracer.Visible = false end
+			if entry.box then entry.box.Visible = false end
+			if entry.healthBarOutline then entry.healthBarOutline.Visible = false end
+			if entry.healthBar then entry.healthBar.Visible = false end
+			if entry.lookLine then entry.lookLine.Visible = false end
+			if entry.healthText then entry.healthText.Visible = false end
+		end
 		return nil
 	end
 
 	local root = character:FindFirstChild("HumanoidRootPart")
 	local hum = character:FindFirstChildOfClass("Humanoid")
 	if not root or not hum or hum.Health <= 0 then
-		hidePlayerESP(entry)
+		if entry then
+			if entry.billboard then entry.billboard.Enabled = false end
+			if entry.highlight then entry.highlight.Enabled = false end
+			if entry.arrow then entry.arrow.Visible = false end
+			if entry.tracer then entry.tracer.Visible = false end
+			if entry.box then entry.box.Visible = false end
+			if entry.healthBarOutline then entry.healthBarOutline.Visible = false end
+			if entry.healthBar then entry.healthBar.Visible = false end
+			if entry.lookLine then entry.lookLine.Visible = false end
+			if entry.healthText then entry.healthText.Visible = false end
+		end
 		return nil
 	end
 
-	if not entry then
+	if not entry or entry.character ~= character then
+		if entry then
+			if entry.billboard then pcall(function() entry.billboard:Destroy() end) end
+			if entry.highlight then pcall(function() entry.highlight:Destroy() end) end
+			if entry.arrow then pcall(function() entry.arrow:Remove() end) end
+			if entry.tracer then pcall(function() entry.tracer:Remove() end) end
+			if entry.box then pcall(function() entry.box:Remove() end) end
+			if entry.healthBarOutline then pcall(function() entry.healthBarOutline:Remove() end) end
+			if entry.healthBar then pcall(function() entry.healthBar:Remove() end) end
+			if entry.lookLine then pcall(function() entry.lookLine:Remove() end) end
+			if entry.healthText then pcall(function() entry.healthText:Remove() end) end
+		end
+
 		local billboard = Instance.new("BillboardGui")
 		billboard.Size = UDim2.fromOffset(140, 36)
 		billboard.AlwaysOnTop = true
@@ -5859,7 +5757,7 @@ local function getOrCreateESP(player)
 		local label = Instance.new("TextLabel")
 		label.Size = UDim2.fromScale(1, 1)
 		label.BackgroundTransparency = 1
-		label.TextColor3 = cachedPColor
+		label.TextColor3 = (Options and Options.PlayerESPColor and Options.PlayerESPColor.Value) or Color3.new(1, 1, 1)
 		label.TextStrokeTransparency = 0.4
 		label.Font = Enum.Font.Jura
 		label.TextSize = 14
@@ -5867,14 +5765,78 @@ local function getOrCreateESP(player)
 		label.Parent = billboard
 
 		local highlight = Instance.new("Highlight")
-		highlight.FillColor = cachedCColor
-		highlight.OutlineColor = cachedOColor
+		highlight.FillColor = (Options and Options.PlayerChamsColor and Options.PlayerChamsColor.Value) or Color3.fromRGB(255, 255, 255)
+		highlight.OutlineColor = (Options and Options.OutlineESPColor and Options.OutlineESPColor.Value) or Color3.fromRGB(255, 255, 255)
 		highlight.FillTransparency = ((Toggles and Toggles.PlayerChams and Toggles.PlayerChams.Value) and 0.4) or 1
 		highlight.OutlineTransparency = ((Toggles and Toggles.OutlineESP and Toggles.OutlineESP.Value) and 0) or 1
 		highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
 		highlight.Adornee = character
 		highlight.Enabled = false
 		highlight.Parent = getESPFolder()
+
+		local arrow = nil
+		local tracer = nil
+		local box = nil
+		local healthBarOutline = nil
+		local healthBar = nil
+		local lookLine = nil
+		local healthText = nil
+		if typeof(Drawing) ~= "nil" then
+			pcall(function()
+				arrow = Drawing.new("Triangle")
+				arrow.Thickness = 1
+				arrow.Filled = true
+				arrow.Color = (Options and Options.PlayerArrowsColor and Options.PlayerArrowsColor.Value) or Color3.fromRGB(255, 255, 255)
+				arrow.Transparency = 1
+				arrow.Visible = false
+			end)
+			pcall(function()
+				tracer = Drawing.new("Line")
+				tracer.Thickness = 1.5
+				tracer.Color = (Options and Options.PlayerTracersColor and Options.PlayerTracersColor.Value) or Color3.fromRGB(255, 255, 255)
+				tracer.Transparency = 1
+				tracer.Visible = false
+			end)
+			pcall(function()
+				box = Drawing.new("Square")
+				box.Thickness = 1.5
+				box.Color = (Options and Options.PlayerBoxesColor and Options.PlayerBoxesColor.Value) or Color3.fromRGB(255, 255, 255)
+				box.Filled = false
+				box.Transparency = 1
+				box.Visible = false
+			end)
+			pcall(function()
+				healthBarOutline = Drawing.new("Line")
+				healthBarOutline.Thickness = 3
+				healthBarOutline.Color = Color3.fromRGB(0, 0, 0)
+				healthBarOutline.Transparency = 1
+				healthBarOutline.Visible = false
+			end)
+			pcall(function()
+				healthBar = Drawing.new("Line")
+				healthBar.Thickness = 1.5
+				healthBar.Color = Color3.fromRGB(0, 255, 0)
+				healthBar.Transparency = 1
+				healthBar.Visible = false
+			end)
+			pcall(function()
+				lookLine = Drawing.new("Line")
+				lookLine.Thickness = 1.5
+				lookLine.Color = (Options and Options.PlayerLookDirectionColor and Options.PlayerLookDirectionColor.Value) or Color3.fromRGB(255, 255, 255)
+				lookLine.Transparency = 1
+				lookLine.Visible = false
+			end)
+			pcall(function()
+				healthText = Drawing.new("Text")
+				healthText.Size = 13
+				healthText.Center = false
+				healthText.Outline = true
+				healthText.OutlineColor = Color3.fromRGB(0, 0, 0)
+				healthText.Color = (Options and Options.PlayerHealthTextColor and Options.PlayerHealthTextColor.Value) or Color3.fromRGB(255, 255, 255)
+				healthText.Transparency = 1
+				healthText.Visible = false
+			end)
+		end
 
 		entry = {
 			player = player,
@@ -5884,35 +5846,93 @@ local function getOrCreateESP(player)
 			billboard = billboard,
 			label = label,
 			highlight = highlight,
-			arrow = nil,
-			tracer = nil,
-			box = nil,
-			healthBarOutline = nil,
-			healthBar = nil,
-			lookLine = nil,
-			healthText = nil,
+			arrow = arrow,
+			tracer = tracer,
+			box = box,
+			healthBarOutline = healthBarOutline,
+			healthBar = healthBar,
+			lookLine = lookLine,
+			healthText = healthText,
 			lastDist = -1,
 			lastShowDist = nil,
+			lastText = "",
 		}
 		espObjects[player] = entry
 	else
-		entry.character = character
 		entry.root = root
 		entry.hum = hum
-		if entry.billboard and entry.billboard.Adornee ~= root then
-			entry.billboard.Adornee = root
+		if not entry.arrow and typeof(Drawing) ~= "nil" then
+			pcall(function()
+				entry.arrow = Drawing.new("Triangle")
+				entry.arrow.Thickness = 1
+				entry.arrow.Filled = true
+				entry.arrow.Color = (Options and Options.PlayerArrowsColor and Options.PlayerArrowsColor.Value) or Color3.fromRGB(255, 255, 255)
+				entry.arrow.Transparency = 1
+				entry.arrow.Visible = false
+			end)
 		end
-		if entry.highlight and entry.highlight.Adornee ~= character then
-			entry.highlight.Adornee = character
+		if not entry.tracer and typeof(Drawing) ~= "nil" then
+			pcall(function()
+				entry.tracer = Drawing.new("Line")
+				entry.tracer.Thickness = 1.5
+				entry.tracer.Color = (Options and Options.PlayerTracersColor and Options.PlayerTracersColor.Value) or Color3.fromRGB(255, 255, 255)
+				entry.tracer.Transparency = 1
+				entry.tracer.Visible = false
+			end)
+		end
+		if not entry.box and typeof(Drawing) ~= "nil" then
+			pcall(function()
+				entry.box = Drawing.new("Square")
+				entry.box.Thickness = 1.5
+				entry.box.Color = (Options and Options.PlayerBoxesColor and Options.PlayerBoxesColor.Value) or Color3.fromRGB(255, 255, 255)
+				entry.box.Filled = false
+				entry.box.Transparency = 1
+				entry.box.Visible = false
+			end)
+		end
+		if not entry.healthBarOutline and typeof(Drawing) ~= "nil" then
+			pcall(function()
+				entry.healthBarOutline = Drawing.new("Line")
+				entry.healthBarOutline.Thickness = 3
+				entry.healthBarOutline.Color = Color3.fromRGB(0, 0, 0)
+				entry.healthBarOutline.Transparency = 1
+				entry.healthBarOutline.Visible = false
+			end)
+		end
+		if not entry.healthBar and typeof(Drawing) ~= "nil" then
+			pcall(function()
+				entry.healthBar = Drawing.new("Line")
+				entry.healthBar.Thickness = 1.5
+				entry.healthBar.Color = Color3.fromRGB(0, 255, 0)
+				entry.healthBar.Transparency = 1
+				entry.healthBar.Visible = false
+			end)
+		end
+		if not entry.lookLine and typeof(Drawing) ~= "nil" then
+			pcall(function()
+				entry.lookLine = Drawing.new("Line")
+				entry.lookLine.Thickness = 1.5
+				entry.lookLine.Color = (Options and Options.PlayerLookDirectionColor and Options.PlayerLookDirectionColor.Value) or Color3.fromRGB(255, 255, 255)
+				entry.lookLine.Transparency = 1
+				entry.lookLine.Visible = false
+			end)
+		end
+		if not entry.healthText and typeof(Drawing) ~= "nil" then
+			pcall(function()
+				entry.healthText = Drawing.new("Text")
+				entry.healthText.Size = 13
+				entry.healthText.Center = false
+				entry.healthText.Outline = true
+				entry.healthText.OutlineColor = Color3.fromRGB(0, 0, 0)
+				entry.healthText.Color = (Options and Options.PlayerHealthTextColor and Options.PlayerHealthTextColor.Value) or Color3.fromRGB(255, 255, 255)
+				entry.healthText.Transparency = 1
+				entry.healthText.Visible = false
+			end)
 		end
 	end
 
 	return entry
 end
-
--- Reusable candidate pool to avoid table allocation & GC thrashing during sorting
-local candidatePool = {}
-local candidateCount = 0
 
 local function updateAllESP()
 	if not Toggles.PlayerESP or not Toggles.PlayerESP.Value then return end
@@ -5920,7 +5940,15 @@ local function updateAllESP()
 	local myRoot = getRootPart()
 	if not myRoot then
 		for _, entry in pairs(espObjects) do
-			hidePlayerESP(entry)
+			if entry.billboard and entry.billboard.Enabled then entry.billboard.Enabled = false end
+			if entry.highlight and entry.highlight.Enabled then entry.highlight.Enabled = false end
+			if entry.arrow and entry.arrow.Visible then entry.arrow.Visible = false end
+			if entry.tracer and entry.tracer.Visible then entry.tracer.Visible = false end
+			if entry.box and entry.box.Visible then entry.box.Visible = false end
+			if entry.healthBarOutline and entry.healthBarOutline.Visible then entry.healthBarOutline.Visible = false end
+			if entry.healthBar and entry.healthBar.Visible then entry.healthBar.Visible = false end
+			if entry.lookLine and entry.lookLine.Visible then entry.lookLine.Visible = false end
+			if entry.healthText and entry.healthText.Visible then entry.healthText.Visible = false end
 		end
 		return
 	end
@@ -5935,63 +5963,60 @@ local function updateAllESP()
 	local lookDirEnabled = (Toggles.PlayerLookDirection and Toggles.PlayerLookDirection.Value) or false
 	local healthTextEnabled = (Toggles.PlayerHealthText and Toggles.PlayerHealthText.Value) or false
 	local healthBarEnabled = (Toggles.PlayerHealthBar and Toggles.PlayerHealthBar.Value) or false
-
 	local myPos = myRoot.Position
+
+	local pColor = (Options and Options.PlayerESPColor and Options.PlayerESPColor.Value) or Color3.new(1, 1, 1)
+	local dColor = (Options and Options.ShowDistanceColor and Options.ShowDistanceColor.Value) or Color3.new(1, 1, 1)
+	local oColor = (Options and Options.OutlineESPColor and Options.OutlineESPColor.Value) or Color3.new(1, 1, 1)
+	local cColor = (Options and Options.PlayerChamsColor and Options.PlayerChamsColor.Value) or Color3.new(1, 1, 1)
+	local arrColor = (Options and Options.PlayerArrowsColor and Options.PlayerArrowsColor.Value) or Color3.new(1, 1, 1)
+	local tColor = (Options and Options.PlayerTracersColor and Options.PlayerTracersColor.Value) or Color3.new(1, 1, 1)
+	local bColor = (Options and Options.PlayerBoxesColor and Options.PlayerBoxesColor.Value) or Color3.new(1, 1, 1)
+	local ldColor = (Options and Options.PlayerLookDirectionColor and Options.PlayerLookDirectionColor.Value) or Color3.new(1, 1, 1)
+	local htColor = (Options and Options.PlayerHealthTextColor and Options.PlayerHealthTextColor.Value) or Color3.new(1, 1, 1)
+
+	local pColorHex = pColor:ToHex()
+	local dColorHex = dColor:ToHex()
+
 	local camera = workspace.CurrentCamera
 	local tracerOrigin = nil
-	local viewportSize = nil
-	local screenCenter = nil
-	local arrowRadius = 0
-
 	if camera then
-		viewportSize = camera.ViewportSize
-		tracerOrigin = Vector2.new(viewportSize.X * 0.5, viewportSize.Y)
-		screenCenter = Vector2.new(viewportSize.X * 0.5, viewportSize.Y * 0.5)
-		arrowRadius = math.min(viewportSize.X, viewportSize.Y) * 0.38
+		local viewportSize = camera.ViewportSize
+		tracerOrigin = Vector2.new(viewportSize.X / 2, viewportSize.Y)
 	end
 
-	candidateCount = 0
-	local playerList = Players:GetPlayers()
+	local activeCandidates = {}
 
-	for i = 1, #playerList do
-		local player = playerList[i]
+	for _, player in ipairs(Players:GetPlayers()) do
 		if player ~= LocalPlayer then
 			local entry = getOrCreateESP(player)
 			if entry and entry.root and entry.hum and entry.hum.Health > 0 and entry.character.Parent then
 				local dist = (entry.root.Position - myPos).Magnitude
 				if dist <= maxDist then
-					candidateCount = candidateCount + 1
-					local slot = candidatePool[candidateCount]
-					if not slot then
-						slot = { entry = entry, dist = dist }
-						candidatePool[candidateCount] = slot
-					else
-						slot.entry = entry
-						slot.dist = dist
-					end
+					table.insert(activeCandidates, { entry = entry, dist = dist })
 				else
-					hidePlayerESP(entry)
+					if entry.billboard.Enabled then entry.billboard.Enabled = false end
+					if entry.highlight.Enabled then entry.highlight.Enabled = false end
+					if entry.arrow and entry.arrow.Visible then entry.arrow.Visible = false end
+					if entry.tracer and entry.tracer.Visible then entry.tracer.Visible = false end
+					if entry.box and entry.box.Visible then entry.box.Visible = false end
+					if entry.healthBarOutline and entry.healthBarOutline.Visible then entry.healthBarOutline.Visible = false end
+					if entry.healthBar and entry.healthBar.Visible then entry.healthBar.Visible = false end
+					if entry.lookLine and entry.lookLine.Visible then entry.lookLine.Visible = false end
+					if entry.healthText and entry.healthText.Visible then entry.healthText.Visible = false end
 				end
 			end
 		end
 	end
 
-	if candidateCount > 1 then
-		table.sort(candidatePool, function(a, b)
-			if not a or not b then return false end
-			return a.dist < b.dist
-		end)
+	if #activeCandidates > 1 then
+		table.sort(activeCandidates, function(a, b) return a.dist < b.dist end)
 	end
 
-	local targetOutlineTrans = outlineEnabled and 0 or 1
-	local targetFillTrans = chamsEnabled and 0.4 or 1
-
-	for i = 1, candidateCount do
-		local cand = candidatePool[i]
+	for i, cand in ipairs(activeCandidates) do
 		local entry = cand.entry
 		local dist = cand.dist
 
-		-- 1. Billboard Name / Distance
 		if not entry.billboard.Enabled then
 			entry.billboard.Enabled = true
 		end
@@ -6003,242 +6028,228 @@ local function updateAllESP()
 		if entry.lastDist ~= roundedDist or entry.lastShowDist ~= showDist then
 			entry.lastDist = roundedDist
 			entry.lastShowDist = showDist
+			local text = '<font color="#' .. pColorHex .. '">' .. entry.player.Name .. '</font>'
 			if showDist then
-				entry.label.Text = '<font color="#' .. cachedPColorHex .. '">' .. entry.player.Name .. '</font>\n<font color="#' .. cachedDColorHex .. '">' .. roundedDist .. 'm</font>'
-			else
-				entry.label.Text = '<font color="#' .. cachedPColorHex .. '">' .. entry.player.Name .. '</font>'
+				text = text .. '\n<font color="#' .. dColorHex .. '">' .. roundedDist .. 'm</font>'
 			end
+			entry.label.Text = text
 		end
 
-		-- 2. Highlights / Chams (capped at nearest 15 players for performance)
-		if entry.highlight then
-			local shouldHighlight = (outlineEnabled or chamsEnabled) and (i <= 15)
-			if shouldHighlight then
-				if entry.highlight.Adornee ~= entry.character then
-					entry.highlight.Adornee = entry.character
-				end
-				if entry.highlight.OutlineColor ~= cachedOColor then
-					entry.highlight.OutlineColor = cachedOColor
-				end
-				if entry.highlight.FillColor ~= cachedCColor then
-					entry.highlight.FillColor = cachedCColor
-				end
-				if entry.highlight.OutlineTransparency ~= targetOutlineTrans then
-					entry.highlight.OutlineTransparency = targetOutlineTrans
-				end
-				if entry.highlight.FillTransparency ~= targetFillTrans then
-					entry.highlight.FillTransparency = targetFillTrans
-				end
-			end
-			if entry.highlight.Enabled ~= shouldHighlight then
-				entry.highlight.Enabled = shouldHighlight
-			end
+		local shouldHighlight = (outlineEnabled or chamsEnabled) and (i <= 20)
+		if entry.highlight.Adornee ~= entry.character then
+			entry.highlight.Adornee = entry.character
+		end
+		if entry.highlight.OutlineColor ~= oColor then
+			entry.highlight.OutlineColor = oColor
+		end
+		if entry.highlight.FillColor ~= cColor then
+			entry.highlight.FillColor = cColor
+		end
+		local targetOutlineTrans = outlineEnabled and 0 or 1
+		if entry.highlight.OutlineTransparency ~= targetOutlineTrans then
+			entry.highlight.OutlineTransparency = targetOutlineTrans
+		end
+		local targetFillTrans = chamsEnabled and 0.4 or 1
+		if entry.highlight.FillTransparency ~= targetFillTrans then
+			entry.highlight.FillTransparency = targetFillTrans
+		end
+		if entry.highlight.Enabled ~= shouldHighlight then
+			entry.highlight.Enabled = shouldHighlight
 		end
 
-		-- 3. Visuals requiring camera
-		if camera then
-			local rootPos = entry.root.Position
-			local rootScreen, rootOnScreen = camera:WorldToViewportPoint(rootPos)
-			local isBehind = rootScreen.Z <= 0
-			local isOffScreen = (not rootOnScreen) or isBehind or (rootScreen.X < 0) or (rootScreen.X > viewportSize.X) or (rootScreen.Y < 0) or (rootScreen.Y > viewportSize.Y)
-
-			-- Arrows
-			if arrowsEnabled then
-				local arrow = ensureArrow(entry)
-				if arrow then
-					if isOffScreen then
-						local rel = camera.CFrame:PointToObjectSpace(rootPos)
-						local angle = math.atan2(-rel.Y, rel.X)
-						local dirX = math.cos(angle)
-						local dirY = math.sin(angle)
-						local arrowTipX = screenCenter.X + (dirX * arrowRadius)
-						local arrowTipY = screenCenter.Y + (dirY * arrowRadius)
-						local baseCenterX = arrowTipX - (dirX * 18)
-						local baseCenterY = arrowTipY - (dirY * 18)
-						local perpX = -dirY * 7
-						local perpY = dirX * 7
-
-						arrow.PointA = Vector2.new(arrowTipX, arrowTipY)
-						arrow.PointB = Vector2.new(baseCenterX + perpX, baseCenterY + perpY)
-						arrow.PointC = Vector2.new(baseCenterX - perpX, baseCenterY - perpY)
-						if arrow.Color ~= cachedArrColor then
-							arrow.Color = cachedArrColor
-						end
-						if not arrow.Visible then
-							arrow.Visible = true
-						end
-					else
-						if arrow.Visible then
-							arrow.Visible = false
-						end
+		if entry.arrow then
+			if arrowsEnabled and camera then
+				local screenPos, onScreen = camera:WorldToViewportPoint(entry.root.Position)
+				local viewportSize = camera.ViewportSize
+				local isOffScreen = (not onScreen) or (screenPos.Z <= 0) or (screenPos.X < 0) or (screenPos.X > viewportSize.X) or (screenPos.Y < 0) or (screenPos.Y > viewportSize.Y)
+				if isOffScreen then
+					local rel = camera.CFrame:PointToObjectSpace(entry.root.Position)
+					local angle = math.atan2(-rel.Y, rel.X)
+					local screenCenter = Vector2.new(viewportSize.X / 2, viewportSize.Y / 2)
+					local radius = math.min(viewportSize.X, viewportSize.Y) * 0.38
+					local dir = Vector2.new(math.cos(angle), math.sin(angle))
+					local perp = Vector2.new(-math.sin(angle), math.cos(angle))
+					local arrowTip = screenCenter + (dir * radius)
+					local baseCenter = arrowTip - (dir * 18)
+					entry.arrow.PointA = arrowTip
+					entry.arrow.PointB = baseCenter + (perp * 7)
+					entry.arrow.PointC = baseCenter - (perp * 7)
+					if entry.arrow.Color ~= arrColor then
+						entry.arrow.Color = arrColor
 					end
-				end
-			elseif entry.arrow and entry.arrow.Visible then
-				entry.arrow.Visible = false
-			end
-
-			-- Tracers
-			if tracersEnabled then
-				local tracer = ensureTracer(entry)
-				if tracer then
-					if not isOffScreen then
-						tracer.From = tracerOrigin
-						tracer.To = Vector2.new(rootScreen.X, rootScreen.Y)
-						if tracer.Color ~= cachedTColor then
-							tracer.Color = cachedTColor
-						end
-						if not tracer.Visible then
-							tracer.Visible = true
-						end
-					else
-						if tracer.Visible then
-							tracer.Visible = false
-						end
-					end
-				end
-			elseif entry.tracer and entry.tracer.Visible then
-				entry.tracer.Visible = false
-			end
-
-			-- 2D Boxes, Health Bars, Health Text
-			local need2D = boxesEnabled or healthBarEnabled or healthTextEnabled
-			if need2D and not isOffScreen then
-				local head = entry.character:FindFirstChild("Head")
-				local topPos = (head and (head.Position + Vector3.new(0, 0.6, 0))) or (rootPos + Vector3.new(0, 2.8, 0))
-				local botPos = rootPos - Vector3.new(0, 3.2, 0)
-
-				local topScreen, topVis = camera:WorldToViewportPoint(topPos)
-				local botScreen, botVis = camera:WorldToViewportPoint(botPos)
-
-				if (topVis or botVis) and topScreen.Z > 0 and botScreen.Z > 0 then
-					local height = math.abs(botScreen.Y - topScreen.Y)
-					local width = math.max(height * 0.65, 4)
-					local topY = math.min(topScreen.Y, botScreen.Y)
-					local botY = math.max(topScreen.Y, botScreen.Y)
-					local leftX = math.floor(topScreen.X - width * 0.5)
-
-					-- 2D Box
-					if boxesEnabled then
-						local box = ensureBox(entry)
-						if box then
-							box.Position = Vector2.new(leftX, math.floor(topY))
-							box.Size = Vector2.new(math.floor(width), math.floor(height))
-							if box.Color ~= cachedBColor then
-								box.Color = cachedBColor
-							end
-							if not box.Visible then
-								box.Visible = true
-							end
-						end
-					elseif entry.box and entry.box.Visible then
-						entry.box.Visible = false
-					end
-
-					-- Health Bar
-					if healthBarEnabled then
-						local healthBar, healthBarOutline = ensureHealthBar(entry)
-						if healthBar and healthBarOutline then
-							local health = (entry.hum and entry.hum.Health) or 0
-							local maxHealth = (entry.hum and entry.hum.MaxHealth) or 100
-							if maxHealth <= 0 then maxHealth = 100 end
-							local healthPct = math.clamp(health / maxHealth, 0, 1)
-							local healthColor = Color3.fromHSV(healthPct * 0.33, 1, 1)
-
-							local barX = leftX - 4
-							local fillY = botY - (botY - topY) * healthPct
-
-							healthBarOutline.From = Vector2.new(barX, botY)
-							healthBarOutline.To = Vector2.new(barX, topY)
-							if not healthBarOutline.Visible then
-								healthBarOutline.Visible = true
-							end
-
-							healthBar.From = Vector2.new(barX, botY)
-							healthBar.To = Vector2.new(barX, fillY)
-							healthBar.Color = healthColor
-							if not healthBar.Visible then
-								healthBar.Visible = true
-							end
-						end
-					else
-						if entry.healthBarOutline and entry.healthBarOutline.Visible then
-							entry.healthBarOutline.Visible = false
-						end
-						if entry.healthBar and entry.healthBar.Visible then
-							entry.healthBar.Visible = false
-						end
-					end
-
-					-- Health Text
-					if healthTextEnabled then
-						local healthText = ensureHealthText(entry)
-						if healthText then
-							local health = (entry.hum and entry.hum.Health) or 0
-							local roundedHealth = math.floor(health)
-							healthText.Text = tostring(roundedHealth) .. " HP"
-							if healthText.Color ~= cachedHtColor then
-								healthText.Color = cachedHtColor
-							end
-
-							local textWidth = (healthText.TextBounds and healthText.TextBounds.X) or 34
-							local barOffset = healthBarEnabled and 8 or 4
-							local posX = leftX - barOffset - textWidth
-							local posY = math.floor(topY)
-
-							healthText.Position = Vector2.new(posX, posY)
-							if not healthText.Visible then
-								healthText.Visible = true
-							end
-						end
-					elseif entry.healthText and entry.healthText.Visible then
-						entry.healthText.Visible = false
+					if not entry.arrow.Visible then
+						entry.arrow.Visible = true
 					end
 				else
-					if entry.box and entry.box.Visible then entry.box.Visible = false end
-					if entry.healthBarOutline and entry.healthBarOutline.Visible then entry.healthBarOutline.Visible = false end
-					if entry.healthBar and entry.healthBar.Visible then entry.healthBar.Visible = false end
-					if entry.healthText and entry.healthText.Visible then entry.healthText.Visible = false end
+					if entry.arrow.Visible then
+						entry.arrow.Visible = false
+					end
 				end
 			else
-				if entry.box and entry.box.Visible then entry.box.Visible = false end
-				if entry.healthBarOutline and entry.healthBarOutline.Visible then entry.healthBarOutline.Visible = false end
-				if entry.healthBar and entry.healthBar.Visible then entry.healthBar.Visible = false end
-				if entry.healthText and entry.healthText.Visible then entry.healthText.Visible = false end
+				if entry.arrow.Visible then
+					entry.arrow.Visible = false
+				end
 			end
+		end
 
-			-- Look Direction
-			if lookDirEnabled and not isOffScreen then
+		if entry.tracer then
+			if tracersEnabled and camera and tracerOrigin then
+				local screenPos, onScreen = camera:WorldToViewportPoint(entry.root.Position)
+				if onScreen and screenPos.Z > 0 then
+					entry.tracer.From = tracerOrigin
+					entry.tracer.To = Vector2.new(screenPos.X, screenPos.Y)
+					if entry.tracer.Color ~= tColor then
+						entry.tracer.Color = tColor
+					end
+					if not entry.tracer.Visible then
+						entry.tracer.Visible = true
+					end
+				else
+					if entry.tracer.Visible then
+						entry.tracer.Visible = false
+					end
+				end
+			else
+				if entry.tracer.Visible then
+					entry.tracer.Visible = false
+				end
+			end
+		end
+
+		local onScreen2D = false
+		local height, width, leftX, topY, botY = 0, 0, 0, 0, 0
+
+		if camera and (boxesEnabled or healthBarEnabled or healthTextEnabled) then
+			local rootPos = entry.root.Position
+			local head = entry.character:FindFirstChild("Head")
+			local topPos = (head and (head.Position + Vector3.new(0, 0.6, 0))) or (rootPos + Vector3.new(0, 2.8, 0))
+			local botPos = rootPos - Vector3.new(0, 3.2, 0)
+
+			local topScreen, topVisible = camera:WorldToViewportPoint(topPos)
+			local botScreen, botVisible = camera:WorldToViewportPoint(botPos)
+
+			if (topVisible or botVisible) and topScreen.Z > 0 and botScreen.Z > 0 then
+				onScreen2D = true
+				height = math.abs(botScreen.Y - topScreen.Y)
+				width = math.max(height * 0.65, 4)
+				topY = math.min(topScreen.Y, botScreen.Y)
+				botY = math.max(topScreen.Y, botScreen.Y)
+				leftX = math.floor(topScreen.X - width * 0.5)
+			end
+		end
+
+		if entry.box then
+			if boxesEnabled and onScreen2D then
+				local boxPos = Vector2.new(leftX, math.floor(topY))
+				local boxSize = Vector2.new(math.floor(width), math.floor(height))
+
+				entry.box.Position = boxPos
+				entry.box.Size = boxSize
+				if entry.box.Color ~= bColor then
+					entry.box.Color = bColor
+				end
+				if not entry.box.Visible then
+					entry.box.Visible = true
+				end
+			else
+				if entry.box.Visible then
+					entry.box.Visible = false
+				end
+			end
+		end
+
+		if entry.lookLine then
+			if lookDirEnabled and camera then
 				local head = entry.character:FindFirstChild("Head") or entry.root
 				if head then
-					local lookLine = ensureLookLine(entry)
-					if lookLine then
-						local from3D = head.Position
-						local lookVector = head.CFrame.LookVector
-						local to3D = from3D + (lookVector * 7)
+					local from3D = head.Position
+					local lookVector = head.CFrame.LookVector
+					local to3D = from3D + (lookVector * 7)
 
-						local fromScreen, fromVis = camera:WorldToViewportPoint(from3D)
-						local toScreen, toVis = camera:WorldToViewportPoint(to3D)
+					local fromScreen, fromVisible = camera:WorldToViewportPoint(from3D)
+					local toScreen, toVisible = camera:WorldToViewportPoint(to3D)
 
-						if (fromVis or toVis) and fromScreen.Z > 0 and toScreen.Z > 0 then
-							lookLine.From = Vector2.new(fromScreen.X, fromScreen.Y)
-							lookLine.To = Vector2.new(toScreen.X, toScreen.Y)
-							if lookLine.Color ~= cachedLdColor then
-								lookLine.Color = cachedLdColor
-							end
-							if not lookLine.Visible then
-								lookLine.Visible = true
-							end
-						else
-							if lookLine.Visible then
-								lookLine.Visible = false
-							end
+					if (fromVisible or toVisible) and fromScreen.Z > 0 and toScreen.Z > 0 then
+						entry.lookLine.From = Vector2.new(fromScreen.X, fromScreen.Y)
+						entry.lookLine.To = Vector2.new(toScreen.X, toScreen.Y)
+						if entry.lookLine.Color ~= ldColor then
+							entry.lookLine.Color = ldColor
+						end
+						if not entry.lookLine.Visible then
+							entry.lookLine.Visible = true
+						end
+					else
+						if entry.lookLine.Visible then
+							entry.lookLine.Visible = false
 						end
 					end
-				elseif entry.lookLine and entry.lookLine.Visible then
+				else
+					if entry.lookLine.Visible then
+						entry.lookLine.Visible = false
+					end
+				end
+			else
+				if entry.lookLine.Visible then
 					entry.lookLine.Visible = false
 				end
-			elseif entry.lookLine and entry.lookLine.Visible then
-				entry.lookLine.Visible = false
+			end
+		end
+
+		if entry.healthBar and entry.healthBarOutline then
+			if healthBarEnabled and onScreen2D then
+				local health = (entry.hum and entry.hum.Health) or 0
+				local maxHealth = (entry.hum and entry.hum.MaxHealth) or 100
+				if maxHealth <= 0 then maxHealth = 100 end
+				local healthPct = math.clamp(health / maxHealth, 0, 1)
+				local healthColor = Color3.fromHSV(healthPct * 0.33, 1, 1)
+
+				local barX = leftX - 4
+				local fillY = botY - (botY - topY) * healthPct
+
+				entry.healthBarOutline.From = Vector2.new(barX, botY)
+				entry.healthBarOutline.To = Vector2.new(barX, topY)
+				if not entry.healthBarOutline.Visible then
+					entry.healthBarOutline.Visible = true
+				end
+
+				entry.healthBar.From = Vector2.new(barX, botY)
+				entry.healthBar.To = Vector2.new(barX, fillY)
+				entry.healthBar.Color = healthColor
+				if not entry.healthBar.Visible then
+					entry.healthBar.Visible = true
+				end
+			else
+				if entry.healthBarOutline.Visible then
+					entry.healthBarOutline.Visible = false
+				end
+				if entry.healthBar.Visible then
+					entry.healthBar.Visible = false
+				end
+			end
+		end
+
+		if entry.healthText then
+			if healthTextEnabled and onScreen2D then
+				local health = (entry.hum and entry.hum.Health) or 0
+				local roundedHealth = math.floor(health)
+				entry.healthText.Text = tostring(roundedHealth) .. " HP"
+				if entry.healthText.Color ~= htColor then
+					entry.healthText.Color = htColor
+				end
+
+				local textWidth = (entry.healthText.TextBounds and entry.healthText.TextBounds.X) or 34
+				local barOffset = healthBarEnabled and 8 or 4
+				local posX = leftX - barOffset - textWidth
+				local posY = math.floor(topY)
+
+				entry.healthText.Position = Vector2.new(posX, posY)
+				if not entry.healthText.Visible then
+					entry.healthText.Visible = true
+				end
+			else
+				if entry.healthText.Visible then
+					entry.healthText.Visible = false
+				end
 			end
 		end
 	end
@@ -6256,7 +6267,6 @@ Toggles.PlayerESP:OnChanged(function()
 		return
 	end
 
-	updateCachedESPColors()
 	track("ESP_Loop", RunService.RenderStepped:Connect(updateAllESP))
 
 	for _, player in ipairs(Players:GetPlayers()) do
@@ -6289,7 +6299,6 @@ Toggles.PlayerESP:OnChanged(function()
 end)
 
 Toggles.OutlineESP:OnChanged(function()
-	updateCachedESPColors()
 	if not Toggles.OutlineESP.Value and not (Toggles.PlayerChams and Toggles.PlayerChams.Value) then
 		for _, entry in pairs(espObjects) do
 			if entry.highlight and entry.highlight.Enabled then
@@ -6302,7 +6311,6 @@ Toggles.OutlineESP:OnChanged(function()
 end)
 
 Toggles.PlayerChams:OnChanged(function()
-	updateCachedESPColors()
 	if not Toggles.PlayerChams.Value and not (Toggles.OutlineESP and Toggles.OutlineESP.Value) then
 		for _, entry in pairs(espObjects) do
 			if entry.highlight and entry.highlight.Enabled then
@@ -6397,70 +6405,69 @@ Toggles.ShowDistance:OnChanged(function()
 end)
 
 Options.OutlineESPColor:OnChanged(function()
-	updateCachedESPColors()
+	local color = Options.OutlineESPColor.Value
 	for _, entry in pairs(espObjects) do
 		if entry.highlight then
-			entry.highlight.OutlineColor = cachedOColor
+			entry.highlight.OutlineColor = color
 		end
 	end
 end)
 
 Options.PlayerChamsColor:OnChanged(function()
-	updateCachedESPColors()
+	local color = Options.PlayerChamsColor.Value
 	for _, entry in pairs(espObjects) do
 		if entry.highlight then
-			entry.highlight.FillColor = cachedCColor
+			entry.highlight.FillColor = color
 		end
 	end
 end)
 
 Options.PlayerArrowsColor:OnChanged(function()
-	updateCachedESPColors()
+	local color = Options.PlayerArrowsColor.Value
 	for _, entry in pairs(espObjects) do
 		if entry.arrow then
-			entry.arrow.Color = cachedArrColor
+			entry.arrow.Color = color
 		end
 	end
 end)
 
 Options.PlayerTracersColor:OnChanged(function()
-	updateCachedESPColors()
+	local color = Options.PlayerTracersColor.Value
 	for _, entry in pairs(espObjects) do
 		if entry.tracer then
-			entry.tracer.Color = cachedTColor
+			entry.tracer.Color = color
 		end
 	end
 end)
 
 Options.PlayerBoxesColor:OnChanged(function()
-	updateCachedESPColors()
+	local color = Options.PlayerBoxesColor.Value
 	for _, entry in pairs(espObjects) do
 		if entry.box then
-			entry.box.Color = cachedBColor
+			entry.box.Color = color
 		end
 	end
 end)
 
 Options.PlayerLookDirectionColor:OnChanged(function()
-	updateCachedESPColors()
+	local color = Options.PlayerLookDirectionColor.Value
 	for _, entry in pairs(espObjects) do
 		if entry.lookLine then
-			entry.lookLine.Color = cachedLdColor
+			entry.lookLine.Color = color
 		end
 	end
 end)
 
 Options.PlayerHealthTextColor:OnChanged(function()
-	updateCachedESPColors()
+	local color = Options.PlayerHealthTextColor.Value
 	for _, entry in pairs(espObjects) do
 		if entry.healthText then
-			entry.healthText.Color = cachedHtColor
+			entry.healthText.Color = color
 		end
 	end
 end)
 
 Options.PlayerESPColor:OnChanged(function()
-	updateCachedESPColors()
 	for _, entry in pairs(espObjects) do
 		entry.lastDist = -1
 	end
@@ -6468,7 +6475,6 @@ Options.PlayerESPColor:OnChanged(function()
 end)
 
 Options.ShowDistanceColor:OnChanged(function()
-	updateCachedESPColors()
 	for _, entry in pairs(espObjects) do
 		entry.lastDist = -1
 	end
