@@ -331,6 +331,169 @@ local Tabs = {
 	["UI Settings"] = Window:AddTab("UI Settings", "settings"),
 }
 
+-- Slider Value Visibility Hook (only show values when interacting, leave slider names on sliders)
+do
+	local groupboxMeta = getmetatable(Tabs.Main)
+	if groupboxMeta and groupboxMeta.__index then
+		local Funcs = groupboxMeta.__index
+		local originalAddSlider = Funcs.AddSlider
+
+		Funcs.AddSlider = function(self, Idx, Info)
+			local Slider = originalAddSlider(self, Idx, Info)
+			if not Slider or not Slider.Holder then
+				return Slider
+			end
+
+			local Holder = Slider.Holder
+			local Bar = Holder:FindFirstChildOfClass("TextButton")
+			if not Bar then
+				return Slider
+			end
+
+			local DisplayLabel = Bar:FindFirstChildOfClass("TextLabel")
+			if not DisplayLabel then
+				return Slider
+			end
+
+			local Fill = Bar:FindFirstChildOfClass("Frame")
+			local InputTextBox = Bar:FindFirstChildOfClass("TextBox")
+			local SliderLabel = Holder:FindFirstChildOfClass("TextLabel")
+
+			local isHovered = false
+			local isDragging = false
+			local isFocused = false
+
+			local function updateDisplay()
+				if Library.Unloaded or Slider.Destroyed then
+					return
+				end
+
+				local inUse = isHovered or isDragging or isFocused
+
+				local CustomDisplayText = nil
+				if Info and Info.FormatDisplayValue then
+					pcall(function()
+						CustomDisplayText = Info.FormatDisplayValue(Slider, Slider.Value)
+					end)
+				end
+
+				if (Info and Info.Compact) or not SliderLabel then
+					if inUse then
+						if CustomDisplayText then
+							DisplayLabel.Text = string.format("%s: %s", Slider.Text, tostring(CustomDisplayText))
+						else
+							DisplayLabel.Text = string.format(
+								"%s: %s%s%s",
+								Slider.Text,
+								Slider.Prefix or "",
+								Slider.Value,
+								Slider.Suffix or ""
+							)
+						end
+					else
+						DisplayLabel.Text = tostring(Slider.Text)
+					end
+				else
+					if inUse then
+						if CustomDisplayText then
+							DisplayLabel.Text = tostring(CustomDisplayText)
+						elseif Info and Info.HideMax then
+							DisplayLabel.Text = string.format("%s%s%s", Slider.Prefix or "", Slider.Value, Slider.Suffix or "")
+						else
+							DisplayLabel.Text = string.format(
+								"%s%s%s/%s%s%s",
+								Slider.Prefix or "",
+								Slider.Value,
+								Slider.Suffix or "",
+								Slider.Prefix or "",
+								Slider.Max,
+								Slider.Suffix or ""
+							)
+						end
+					else
+						DisplayLabel.Text = ""
+					end
+				end
+
+				if Fill and Slider.Min and Slider.Max then
+					local range = Slider.Max - Slider.Min
+					local X = (range == 0) and 0 or ((Slider.Value - Slider.Min) / range)
+					Fill.Size = UDim2.fromScale(math.clamp(X, 0, 1), 1)
+				end
+			end
+
+			Slider.Display = updateDisplay
+
+			-- Mouse Hover detection
+			table.insert(
+				Slider.Connections,
+				Bar.MouseEnter:Connect(function()
+					isHovered = true
+					updateDisplay()
+				end)
+			)
+
+			table.insert(
+				Slider.Connections,
+				Bar.MouseLeave:Connect(function()
+					isHovered = false
+					updateDisplay()
+				end)
+			)
+
+			-- Dragging / Touch detection
+			table.insert(
+				Slider.Connections,
+				Bar.InputBegan:Connect(function(input)
+					if
+						input.UserInputType == Enum.UserInputType.MouseButton1
+						or input.UserInputType == Enum.UserInputType.Touch
+					then
+						isDragging = true
+						updateDisplay()
+
+						local endConnection
+						endConnection = UserInputService.InputEnded:Connect(function(endedInput)
+							if endedInput == input or endedInput.UserInputType == input.UserInputType then
+								isDragging = false
+								if endConnection then
+									endConnection:Disconnect()
+									endConnection = nil
+								end
+								updateDisplay()
+							end
+						end)
+					end
+				end)
+			)
+
+			-- Textbox focus detection for direct input
+			if InputTextBox then
+				table.insert(
+					Slider.Connections,
+					InputTextBox.Focused:Connect(function()
+						isFocused = true
+						updateDisplay()
+					end)
+				)
+
+				table.insert(
+					Slider.Connections,
+					InputTextBox.FocusLost:Connect(function()
+						isFocused = false
+						updateDisplay()
+					end)
+				)
+			end
+
+			-- Initial display update to show only the slider name
+			updateDisplay()
+
+			return Slider
+		end
+	end
+end
+
 -- Connections (clean up on unload)
 local Connections = {}
 
