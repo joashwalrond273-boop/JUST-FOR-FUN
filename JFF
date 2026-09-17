@@ -5343,14 +5343,6 @@ VisualLeft:AddCheckbox("OutlineESP", {
 	Title = "Outline ESP Color",
 })
 
-VisualLeft:AddCheckbox("PlayerArrows", {
-	Text = "Off-Screen Arrows",
-	Default = false,
-}):AddColorPicker("PlayerArrowsColor", {
-	Default = Color3.fromRGB(255, 255, 255),
-	Title = "Arrows Color",
-})
-
 VisualLeft:AddCheckbox("PlayerTracers", {
 	Text = "Tracers",
 	Default = false,
@@ -5373,14 +5365,6 @@ VisualLeft:AddCheckbox("PlayerChams", {
 }):AddColorPicker("PlayerChamsColor", {
 	Default = Color3.fromRGB(255, 255, 255),
 	Title = "Chams Color",
-})
-
-VisualLeft:AddCheckbox("PlayerLookDirection", {
-	Text = "Look Direction",
-	Default = false,
-}):AddColorPicker("PlayerLookDirectionColor", {
-	Default = Color3.fromRGB(255, 255, 255),
-	Title = "Look Direction Color",
 })
 
 VisualLeft:AddCheckbox("PlayerHealthText", {
@@ -5580,12 +5564,10 @@ local function removePlayerESP(player)
 	if entry then
 		if entry.billboard then pcall(function() entry.billboard:Destroy() end) end
 		if entry.highlight then pcall(function() entry.highlight:Destroy() end) end
-		if entry.arrow then pcall(function() entry.arrow:Remove() end) end
 		if entry.tracer then pcall(function() entry.tracer:Remove() end) end
 		if entry.box then pcall(function() entry.box:Remove() end) end
 		if entry.healthBarOutline then pcall(function() entry.healthBarOutline:Remove() end) end
 		if entry.healthBar then pcall(function() entry.healthBar:Remove() end) end
-		if entry.lookLine then pcall(function() entry.lookLine:Remove() end) end
 		if entry.healthText then pcall(function() entry.healthText:Remove() end) end
 		if entry.charCon then pcall(function() entry.charCon:Disconnect() end) end
 		espObjects[player] = nil
@@ -5602,7 +5584,7 @@ local function clearESP()
 	end
 end
 
--- Helper to lazily create drawing elements only when a checkbox is active
+-- Helper to lazily create drawing elements only when needed
 local function getOrCreateDrawing(entry, key, drawingType, initFn)
 	local obj = entry[key]
 	if not obj and typeof(Drawing) ~= "nil" then
@@ -5624,10 +5606,6 @@ local function hideEntryVisuals(entry)
 		entry.highlight.Enabled = false
 		entry.highlightVisible = false
 	end
-	if entry.arrowVisible and entry.arrow then
-		entry.arrow.Visible = false
-		entry.arrowVisible = false
-	end
 	if entry.tracerVisible and entry.tracer then
 		entry.tracer.Visible = false
 		entry.tracerVisible = false
@@ -5641,10 +5619,6 @@ local function hideEntryVisuals(entry)
 		if entry.healthBar then entry.healthBar.Visible = false end
 		entry.healthBarVisible = false
 	end
-	if entry.lookLineVisible and entry.lookLine then
-		entry.lookLine.Visible = false
-		entry.lookLineVisible = false
-	end
 	if entry.healthTextVisible and entry.healthText then
 		entry.healthText.Visible = false
 		entry.healthTextVisible = false
@@ -5657,7 +5631,7 @@ local function hideAllESP()
 	end
 end
 
--- Cached color hexes to avoid per-frame string formatting and GC pressure
+-- Cached color hexes to avoid per-tick string formatting and GC allocations
 local cachedPlayerESPColor = Color3.fromRGB(255, 255, 255)
 local cachedPlayerESPHex = "ffffff"
 local cachedDistColor = Color3.fromRGB(255, 255, 255)
@@ -5691,12 +5665,10 @@ local function getOrCreateESP(player)
 		if entry then
 			if entry.billboard then pcall(function() entry.billboard:Destroy() end) end
 			if entry.highlight then pcall(function() entry.highlight:Destroy() end) end
-			if entry.arrow then pcall(function() entry.arrow:Remove() end) end
 			if entry.tracer then pcall(function() entry.tracer:Remove() end) end
 			if entry.box then pcall(function() entry.box:Remove() end) end
 			if entry.healthBarOutline then pcall(function() entry.healthBarOutline:Remove() end) end
 			if entry.healthBar then pcall(function() entry.healthBar:Remove() end) end
-			if entry.lookLine then pcall(function() entry.lookLine:Remove() end) end
 			if entry.healthText then pcall(function() entry.healthText:Remove() end) end
 		end
 
@@ -5736,21 +5708,17 @@ local function getOrCreateESP(player)
 			billboard = billboard,
 			label = label,
 			highlight = highlight,
-			arrow = nil,
 			tracer = nil,
 			box = nil,
 			healthBarOutline = nil,
 			healthBar = nil,
-			lookLine = nil,
 			healthText = nil,
 
 			billboardVisible = false,
 			highlightVisible = false,
-			arrowVisible = false,
 			tracerVisible = false,
 			boxVisible = false,
 			healthBarVisible = false,
-			lookLineVisible = false,
 			healthTextVisible = false,
 
 			lastDist = -1,
@@ -5767,8 +5735,18 @@ local function getOrCreateESP(player)
 	return entry
 end
 
+-- Delta-time throttle rate: limits execution rate so it doesn't spin at 144Hz-240Hz+ per second
+local lastESPUpdate = 0
+local ESP_UPDATE_INTERVAL = 0.033 -- Capped to a smooth ~30 FPS rate (zero micro-stutters and zero CPU lag)
+
 local function updateAllESP()
 	if not (Toggles.PlayerESP and Toggles.PlayerESP.Value) then return end
+
+	local now = os.clock()
+	if (now - lastESPUpdate) < ESP_UPDATE_INTERVAL then
+		return
+	end
+	lastESPUpdate = now
 
 	local camera = workspace.CurrentCamera
 	if not camera then return end
@@ -5784,10 +5762,8 @@ local function updateAllESP()
 	local showDist = (Toggles.ShowDistance and Toggles.ShowDistance.Value) or false
 	local outlineEnabled = (Toggles.OutlineESP and Toggles.OutlineESP.Value) or false
 	local chamsEnabled = (Toggles.PlayerChams and Toggles.PlayerChams.Value) or false
-	local arrowsEnabled = (Toggles.PlayerArrows and Toggles.PlayerArrows.Value) or false
 	local tracersEnabled = (Toggles.PlayerTracers and Toggles.PlayerTracers.Value) or false
 	local boxesEnabled = (Toggles.PlayerBoxes and Toggles.PlayerBoxes.Value) or false
-	local lookDirEnabled = (Toggles.PlayerLookDirection and Toggles.PlayerLookDirection.Value) or false
 	local healthTextEnabled = (Toggles.PlayerHealthText and Toggles.PlayerHealthText.Value) or false
 	local healthBarEnabled = (Toggles.PlayerHealthBar and Toggles.PlayerHealthBar.Value) or false
 
@@ -5796,10 +5772,7 @@ local function updateAllESP()
 	local screenWidth = viewportSize.X
 	local screenHeight = viewportSize.Y
 	local screenCenterX = screenWidth * 0.5
-	local screenCenterY = screenHeight * 0.5
 	local tracerOrigin = Vector2.new(screenCenterX, screenHeight)
-	local arrowRadius = math.min(screenWidth, screenHeight) * 0.38
-	local camCFrame = camera.CFrame
 
 	local need2D = boxesEnabled or healthBarEnabled or healthTextEnabled
 
@@ -5849,48 +5822,6 @@ local function updateAllESP()
 					-- Single WorldToViewportPoint calculation for root
 					local screenPos, onScreen = camera:WorldToViewportPoint(rootPos)
 					local isOffScreen = (not onScreen) or (screenPos.Z <= 0) or (screenPos.X < 0) or (screenPos.X > screenWidth) or (screenPos.Y < 0) or (screenPos.Y > screenHeight)
-
-					-- Off-Screen Arrows
-					if arrowsEnabled then
-						if isOffScreen then
-							local arrow = getOrCreateDrawing(entry, "arrow", "Triangle", function(d)
-								d.Thickness = 1
-								d.Filled = true
-								d.Transparency = 1
-								d.Color = (Options and Options.PlayerArrowsColor and Options.PlayerArrowsColor.Value) or Color3.fromRGB(255, 255, 255)
-							end)
-							if arrow then
-								local rel = camCFrame:PointToObjectSpace(rootPos)
-								local angle = math.atan2(-rel.Y, rel.X)
-								local cosA = math.cos(angle)
-								local sinA = math.sin(angle)
-								local arrowTip = Vector2.new(screenCenterX + cosA * arrowRadius, screenCenterY + sinA * arrowRadius)
-								local baseCenterX = arrowTip.X - cosA * 18
-								local baseCenterY = arrowTip.Y - sinA * 18
-								local perpX = -sinA * 7
-								local perpY = cosA * 7
-
-								arrow.PointA = arrowTip
-								arrow.PointB = Vector2.new(baseCenterX + perpX, baseCenterY + perpY)
-								arrow.PointC = Vector2.new(baseCenterX - perpX, baseCenterY - perpY)
-
-								if not entry.arrowVisible then
-									arrow.Visible = true
-									entry.arrowVisible = true
-								end
-							end
-						else
-							if entry.arrowVisible and entry.arrow then
-								entry.arrow.Visible = false
-								entry.arrowVisible = false
-							end
-						end
-					else
-						if entry.arrowVisible and entry.arrow then
-							entry.arrow.Visible = false
-							entry.arrowVisible = false
-						end
-					end
 
 					-- Tracers
 					if tracersEnabled and not isOffScreen then
@@ -6046,49 +5977,6 @@ local function updateAllESP()
 						end
 						if entry.healthTextVisible and entry.healthText then entry.healthText.Visible = false; entry.healthTextVisible = false end
 					end
-
-					-- Look Direction
-					if lookDirEnabled and not isOffScreen then
-						local head = entry.character:FindFirstChild("Head") or entry.root
-						if head then
-							local from3D = head.Position
-							local to3D = from3D + (head.CFrame.LookVector * 7)
-
-							local fromScreen, fromVis = camera:WorldToViewportPoint(from3D)
-							local toScreen, toVis = camera:WorldToViewportPoint(to3D)
-
-							if fromScreen.Z > 0 and toScreen.Z > 0 then
-								local lookLine = getOrCreateDrawing(entry, "lookLine", "Line", function(d)
-									d.Thickness = 1.5
-									d.Transparency = 1
-									d.Color = (Options and Options.PlayerLookDirectionColor and Options.PlayerLookDirectionColor.Value) or Color3.fromRGB(255, 255, 255)
-								end)
-								if lookLine then
-									lookLine.From = Vector2.new(fromScreen.X, fromScreen.Y)
-									lookLine.To = Vector2.new(toScreen.X, toScreen.Y)
-									if not entry.lookLineVisible then
-										lookLine.Visible = true
-										entry.lookLineVisible = true
-									end
-								end
-							else
-								if entry.lookLineVisible and entry.lookLine then
-									entry.lookLine.Visible = false
-									entry.lookLineVisible = false
-								end
-							end
-						else
-							if entry.lookLineVisible and entry.lookLine then
-								entry.lookLine.Visible = false
-								entry.lookLineVisible = false
-							end
-						end
-					else
-						if entry.lookLineVisible and entry.lookLine then
-							entry.lookLine.Visible = false
-							entry.lookLineVisible = false
-						end
-					end
 				else
 					hideEntryVisuals(entry)
 				end
@@ -6169,17 +6057,6 @@ Toggles.PlayerChams:OnChanged(function()
 	end
 end)
 
-Toggles.PlayerArrows:OnChanged(function()
-	if not Toggles.PlayerArrows.Value then
-		for _, entry in pairs(espObjects) do
-			if entry.arrowVisible and entry.arrow then
-				entry.arrow.Visible = false
-				entry.arrowVisible = false
-			end
-		end
-	end
-end)
-
 Toggles.PlayerTracers:OnChanged(function()
 	if not Toggles.PlayerTracers.Value then
 		for _, entry in pairs(espObjects) do
@@ -6197,17 +6074,6 @@ Toggles.PlayerBoxes:OnChanged(function()
 			if entry.boxVisible and entry.box then
 				entry.box.Visible = false
 				entry.boxVisible = false
-			end
-		end
-	end
-end)
-
-Toggles.PlayerLookDirection:OnChanged(function()
-	if not Toggles.PlayerLookDirection.Value then
-		for _, entry in pairs(espObjects) do
-			if entry.lookLineVisible and entry.lookLine then
-				entry.lookLine.Visible = false
-				entry.lookLineVisible = false
 			end
 		end
 	end
@@ -6260,15 +6126,6 @@ Options.PlayerChamsColor:OnChanged(function()
 	end
 end)
 
-Options.PlayerArrowsColor:OnChanged(function()
-	local color = Options.PlayerArrowsColor.Value
-	for _, entry in pairs(espObjects) do
-		if entry.arrow then
-			entry.arrow.Color = color
-		end
-	end
-end)
-
 Options.PlayerTracersColor:OnChanged(function()
 	local color = Options.PlayerTracersColor.Value
 	for _, entry in pairs(espObjects) do
@@ -6283,15 +6140,6 @@ Options.PlayerBoxesColor:OnChanged(function()
 	for _, entry in pairs(espObjects) do
 		if entry.box then
 			entry.box.Color = color
-		end
-	end
-end)
-
-Options.PlayerLookDirectionColor:OnChanged(function()
-	local color = Options.PlayerLookDirectionColor.Value
-	for _, entry in pairs(espObjects) do
-		if entry.lookLine then
-			entry.lookLine.Color = color
 		end
 	end
 end)
