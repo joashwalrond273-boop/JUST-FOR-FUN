@@ -4881,51 +4881,23 @@ VisualFPS:AddToggle("DisableShadows", {
 	end,
 })
 
-VisualFPS:AddToggle("NoWaterColor", {
-	Text = "No Water Color",
-	Default = false,
-	Callback = function(state)
-		disconnect("NoWaterColor_ChildAdded")
-		disconnect("NoWaterColor_Changed")
-		local water = game:GetService("Lighting"):FindFirstChild("water")
-		if state then
-			local function disableWaterColor(child)
-				if child and child.Name == "water" then
-					pcall(function() child.Enabled = false end)
-					disconnect("NoWaterColor_Changed")
-					track("NoWaterColor_Changed", child:GetPropertyChangedSignal("Enabled"):Connect(function()
-						if Toggles.NoWaterColor and Toggles.NoWaterColor.Value and child.Enabled then
-							pcall(function() child.Enabled = false end)
-						end
-					end))
-				end
-			end
-
-			if water then
-				disableWaterColor(water)
-			end
-			track("NoWaterColor_ChildAdded", game:GetService("Lighting").ChildAdded:Connect(disableWaterColor))
-		else
-			if water then
-				pcall(function() water.Enabled = true end)
-			end
-		end
-	end,
-})
-
 VisualFPS:AddToggle("NoWaterBlur", {
 	Text = "No Water Blur",
 	Default = false,
 	Callback = function(state)
 		disconnect("NoWaterBlur_ChildAdded")
-		disconnect("NoWaterBlur_Changed")
-		local waterBlur = game:GetService("Lighting"):FindFirstChild("waterBlur")
+		disconnect("NoWaterBlur_WaterChanged")
+		disconnect("NoWaterBlur_BlurChanged")
+		local lighting = game:GetService("Lighting")
+		local water = lighting:FindFirstChild("water")
+		local waterBlur = lighting:FindFirstChild("waterBlur")
+
 		if state then
-			local function disableBlur(child)
-				if child and child.Name == "waterBlur" then
+			local function disableWater(child)
+				if child and child.Name == "water" then
 					pcall(function() child.Enabled = false end)
-					disconnect("NoWaterBlur_Changed")
-					track("NoWaterBlur_Changed", child:GetPropertyChangedSignal("Enabled"):Connect(function()
+					disconnect("NoWaterBlur_WaterChanged")
+					track("NoWaterBlur_WaterChanged", child:GetPropertyChangedSignal("Enabled"):Connect(function()
 						if Toggles.NoWaterBlur and Toggles.NoWaterBlur.Value and child.Enabled then
 							pcall(function() child.Enabled = false end)
 						end
@@ -4933,11 +4905,33 @@ VisualFPS:AddToggle("NoWaterBlur", {
 				end
 			end
 
+			local function disableBlur(child)
+				if child and child.Name == "waterBlur" then
+					pcall(function() child.Enabled = false end)
+					disconnect("NoWaterBlur_BlurChanged")
+					track("NoWaterBlur_BlurChanged", child:GetPropertyChangedSignal("Enabled"):Connect(function()
+						if Toggles.NoWaterBlur and Toggles.NoWaterBlur.Value and child.Enabled then
+							pcall(function() child.Enabled = false end)
+						end
+					end))
+				end
+			end
+
+			if water then
+				disableWater(water)
+			end
 			if waterBlur then
 				disableBlur(waterBlur)
 			end
-			track("NoWaterBlur_ChildAdded", game:GetService("Lighting").ChildAdded:Connect(disableBlur))
+
+			track("NoWaterBlur_ChildAdded", lighting.ChildAdded:Connect(function(child)
+				disableWater(child)
+				disableBlur(child)
+			end))
 		else
+			if water then
+				pcall(function() water.Enabled = true end)
+			end
 			if waterBlur then
 				pcall(function() waterBlur.Enabled = true end)
 			end
@@ -5560,7 +5554,6 @@ local function removePlayerESP(player)
 		if entry.box then pcall(function() entry.box:Remove() end) end
 		if entry.healthBarOutline then pcall(function() entry.healthBarOutline:Remove() end) end
 		if entry.healthBar then pcall(function() entry.healthBar:Remove() end) end
-		if entry.healthText then pcall(function() entry.healthText:Remove() end) end
 		if entry.charCon then pcall(function() entry.charCon:Disconnect() end) end
 		espObjects[player] = nil
 	end
@@ -5588,7 +5581,6 @@ local function getOrCreateESP(player)
 			if entry.box then entry.box.Visible = false end
 			if entry.healthBarOutline then entry.healthBarOutline.Visible = false end
 			if entry.healthBar then entry.healthBar.Visible = false end
-			if entry.healthText then entry.healthText.Visible = false end
 		end
 		return nil
 	end
@@ -5603,7 +5595,6 @@ local function getOrCreateESP(player)
 			if entry.box then entry.box.Visible = false end
 			if entry.healthBarOutline then entry.healthBarOutline.Visible = false end
 			if entry.healthBar then entry.healthBar.Visible = false end
-			if entry.healthText then entry.healthText.Visible = false end
 		end
 		return nil
 	end
@@ -5616,7 +5607,6 @@ local function getOrCreateESP(player)
 			if entry.box then pcall(function() entry.box:Remove() end) end
 			if entry.healthBarOutline then pcall(function() entry.healthBarOutline:Remove() end) end
 			if entry.healthBar then pcall(function() entry.healthBar:Remove() end) end
-			if entry.healthText then pcall(function() entry.healthText:Remove() end) end
 		end
 
 		local billboard = Instance.new("BillboardGui")
@@ -5651,7 +5641,6 @@ local function getOrCreateESP(player)
 		local box = nil
 		local healthBarOutline = nil
 		local healthBar = nil
-		local healthText = nil
 		if typeof(Drawing) ~= "nil" then
 			pcall(function()
 				tracer = Drawing.new("Line")
@@ -5682,16 +5671,6 @@ local function getOrCreateESP(player)
 				healthBar.Transparency = 1
 				healthBar.Visible = false
 			end)
-			pcall(function()
-				healthText = Drawing.new("Text")
-				healthText.Size = 13
-				healthText.Center = false
-				healthText.Outline = true
-				healthText.OutlineColor = Color3.fromRGB(0, 0, 0)
-				healthText.Color = Color3.fromRGB(255, 255, 255)
-				healthText.Transparency = 1
-				healthText.Visible = false
-			end)
 		end
 
 		entry = {
@@ -5706,7 +5685,6 @@ local function getOrCreateESP(player)
 			box = box,
 			healthBarOutline = healthBarOutline,
 			healthBar = healthBar,
-			healthText = healthText,
 			lastDist = -1,
 			lastShowDist = nil,
 			lastText = "",
@@ -5752,18 +5730,6 @@ local function getOrCreateESP(player)
 				entry.healthBar.Visible = false
 			end)
 		end
-		if not entry.healthText and typeof(Drawing) ~= "nil" then
-			pcall(function()
-				entry.healthText = Drawing.new("Text")
-				entry.healthText.Size = 13
-				entry.healthText.Center = false
-				entry.healthText.Outline = true
-				entry.healthText.OutlineColor = Color3.fromRGB(0, 0, 0)
-				entry.healthText.Color = Color3.fromRGB(255, 255, 255)
-				entry.healthText.Transparency = 1
-				entry.healthText.Visible = false
-			end)
-		end
 	end
 
 	return entry
@@ -5781,7 +5747,6 @@ local function updateAllESP()
 			if entry.box and entry.box.Visible then entry.box.Visible = false end
 			if entry.healthBarOutline and entry.healthBarOutline.Visible then entry.healthBarOutline.Visible = false end
 			if entry.healthBar and entry.healthBar.Visible then entry.healthBar.Visible = false end
-			if entry.healthText and entry.healthText.Visible then entry.healthText.Visible = false end
 		end
 		return
 	end
@@ -5828,7 +5793,6 @@ local function updateAllESP()
 					if entry.box and entry.box.Visible then entry.box.Visible = false end
 					if entry.healthBarOutline and entry.healthBarOutline.Visible then entry.healthBarOutline.Visible = false end
 					if entry.healthBar and entry.healthBar.Visible then entry.healthBar.Visible = false end
-					if entry.healthText and entry.healthText.Visible then entry.healthText.Visible = false end
 				end
 			end
 		end
@@ -5971,30 +5935,12 @@ local function updateAllESP()
 				if not entry.healthBar.Visible then
 					entry.healthBar.Visible = true
 				end
-
-				if entry.healthText then
-					local roundedHealth = math.floor(health)
-					entry.healthText.Text = tostring(roundedHealth) .. " HP"
-					entry.healthText.Color = healthColor
-
-					local textWidth = (entry.healthText.TextBounds and entry.healthText.TextBounds.X) or 34
-					local posX = barX - 4 - textWidth
-					local posY = math.floor(topY)
-
-					entry.healthText.Position = Vector2.new(posX, posY)
-					if not entry.healthText.Visible then
-						entry.healthText.Visible = true
-					end
-				end
 			else
 				if entry.healthBarOutline.Visible then
 					entry.healthBarOutline.Visible = false
 				end
 				if entry.healthBar.Visible then
 					entry.healthBar.Visible = false
-				end
-				if entry.healthText and entry.healthText.Visible then
-					entry.healthText.Visible = false
 				end
 			end
 		end
@@ -6100,9 +6046,6 @@ Toggles.PlayerHealthBar:OnChanged(function()
 			end
 			if entry.healthBar and entry.healthBar.Visible then
 				entry.healthBar.Visible = false
-			end
-			if entry.healthText and entry.healthText.Visible then
-				entry.healthText.Visible = false
 			end
 		end
 	else
@@ -6873,9 +6816,6 @@ Library:OnUnload(function()
 		Toggles.InfiniteBackpack:SetValue(false)
 	end
 
-	if Toggles.NoWaterColor and Toggles.NoWaterColor.Value then
-		Toggles.NoWaterColor:SetValue(false)
-	end
 	if Toggles.NoWaterBlur and Toggles.NoWaterBlur.Value then
 		Toggles.NoWaterBlur:SetValue(false)
 	end
