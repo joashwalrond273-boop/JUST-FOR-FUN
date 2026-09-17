@@ -4112,9 +4112,6 @@ Toggles.AutoMine:OnChanged(function()
 	end
 end)
 
--- ==========================================
--- Ore Farm (Teleport & Mine from workspace.worldResources.mineable)
--- ==========================================
 local isOreFarmRunning = false
 local currentFarmOre = nil
 local currentFarmOreStartTime = 0
