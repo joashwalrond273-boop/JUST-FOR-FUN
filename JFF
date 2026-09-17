@@ -5367,14 +5367,6 @@ VisualLeft:AddCheckbox("PlayerChams", {
 	Title = "Chams Color",
 })
 
-VisualLeft:AddCheckbox("PlayerHealthText", {
-	Text = "Health Text",
-	Default = false,
-}):AddColorPicker("PlayerHealthTextColor", {
-	Default = Color3.fromRGB(255, 255, 255),
-	Title = "Health Text Color",
-})
-
 VisualLeft:AddCheckbox("PlayerHealthBar", {
 	Text = "Health Bar",
 	Default = false,
@@ -5696,7 +5688,7 @@ local function getOrCreateESP(player)
 				healthText.Center = false
 				healthText.Outline = true
 				healthText.OutlineColor = Color3.fromRGB(0, 0, 0)
-				healthText.Color = (Options and Options.PlayerHealthTextColor and Options.PlayerHealthTextColor.Value) or Color3.fromRGB(255, 255, 255)
+				healthText.Color = Color3.fromRGB(255, 255, 255)
 				healthText.Transparency = 1
 				healthText.Visible = false
 			end)
@@ -5767,7 +5759,7 @@ local function getOrCreateESP(player)
 				entry.healthText.Center = false
 				entry.healthText.Outline = true
 				entry.healthText.OutlineColor = Color3.fromRGB(0, 0, 0)
-				entry.healthText.Color = (Options and Options.PlayerHealthTextColor and Options.PlayerHealthTextColor.Value) or Color3.fromRGB(255, 255, 255)
+				entry.healthText.Color = Color3.fromRGB(255, 255, 255)
 				entry.healthText.Transparency = 1
 				entry.healthText.Visible = false
 			end)
@@ -5800,7 +5792,6 @@ local function updateAllESP()
 	local chamsEnabled = (Toggles.PlayerChams and Toggles.PlayerChams.Value) or false
 	local tracersEnabled = (Toggles.PlayerTracers and Toggles.PlayerTracers.Value) or false
 	local boxesEnabled = (Toggles.PlayerBoxes and Toggles.PlayerBoxes.Value) or false
-	local healthTextEnabled = (Toggles.PlayerHealthText and Toggles.PlayerHealthText.Value) or false
 	local healthBarEnabled = (Toggles.PlayerHealthBar and Toggles.PlayerHealthBar.Value) or false
 	local myPos = myRoot.Position
 
@@ -5810,7 +5801,6 @@ local function updateAllESP()
 	local cColor = (Options and Options.PlayerChamsColor and Options.PlayerChamsColor.Value) or Color3.new(1, 1, 1)
 	local tColor = (Options and Options.PlayerTracersColor and Options.PlayerTracersColor.Value) or Color3.new(1, 1, 1)
 	local bColor = (Options and Options.PlayerBoxesColor and Options.PlayerBoxesColor.Value) or Color3.new(1, 1, 1)
-	local htColor = (Options and Options.PlayerHealthTextColor and Options.PlayerHealthTextColor.Value) or Color3.new(1, 1, 1)
 
 	local pColorHex = pColor:ToHex()
 	local dColorHex = dColor:ToHex()
@@ -5919,7 +5909,7 @@ local function updateAllESP()
 		local onScreen2D = false
 		local height, width, leftX, topY, botY = 0, 0, 0, 0, 0
 
-		if camera and (boxesEnabled or healthBarEnabled or healthTextEnabled) then
+		if camera and (boxesEnabled or healthBarEnabled) then
 			local rootPos = entry.root.Position
 			local head = entry.character:FindFirstChild("Head")
 			local topPos = (head and (head.Position + Vector3.new(0, 0.6, 0))) or (rootPos + Vector3.new(0, 2.8, 0))
@@ -5981,6 +5971,21 @@ local function updateAllESP()
 				if not entry.healthBar.Visible then
 					entry.healthBar.Visible = true
 				end
+
+				if entry.healthText then
+					local roundedHealth = math.floor(health)
+					entry.healthText.Text = tostring(roundedHealth) .. " HP"
+					entry.healthText.Color = healthColor
+
+					local textWidth = (entry.healthText.TextBounds and entry.healthText.TextBounds.X) or 34
+					local posX = barX - 4 - textWidth
+					local posY = math.floor(topY)
+
+					entry.healthText.Position = Vector2.new(posX, posY)
+					if not entry.healthText.Visible then
+						entry.healthText.Visible = true
+					end
+				end
 			else
 				if entry.healthBarOutline.Visible then
 					entry.healthBarOutline.Visible = false
@@ -5988,29 +5993,7 @@ local function updateAllESP()
 				if entry.healthBar.Visible then
 					entry.healthBar.Visible = false
 				end
-			end
-		end
-
-		if entry.healthText then
-			if healthTextEnabled and onScreen2D then
-				local health = (entry.hum and entry.hum.Health) or 0
-				local roundedHealth = math.floor(health)
-				entry.healthText.Text = tostring(roundedHealth) .. " HP"
-				if entry.healthText.Color ~= htColor then
-					entry.healthText.Color = htColor
-				end
-
-				local textWidth = (entry.healthText.TextBounds and entry.healthText.TextBounds.X) or 34
-				local barOffset = healthBarEnabled and 8 or 4
-				local posX = leftX - barOffset - textWidth
-				local posY = math.floor(topY)
-
-				entry.healthText.Position = Vector2.new(posX, posY)
-				if not entry.healthText.Visible then
-					entry.healthText.Visible = true
-				end
-			else
-				if entry.healthText.Visible then
+				if entry.healthText and entry.healthText.Visible then
 					entry.healthText.Visible = false
 				end
 			end
@@ -6109,18 +6092,6 @@ Toggles.PlayerBoxes:OnChanged(function()
 	end
 end)
 
-Toggles.PlayerHealthText:OnChanged(function()
-	if not Toggles.PlayerHealthText.Value then
-		for _, entry in pairs(espObjects) do
-			if entry.healthText and entry.healthText.Visible then
-				entry.healthText.Visible = false
-			end
-		end
-	else
-		updateAllESP()
-	end
-end)
-
 Toggles.PlayerHealthBar:OnChanged(function()
 	if not Toggles.PlayerHealthBar.Value then
 		for _, entry in pairs(espObjects) do
@@ -6129,6 +6100,9 @@ Toggles.PlayerHealthBar:OnChanged(function()
 			end
 			if entry.healthBar and entry.healthBar.Visible then
 				entry.healthBar.Visible = false
+			end
+			if entry.healthText and entry.healthText.Visible then
+				entry.healthText.Visible = false
 			end
 		end
 	else
@@ -6175,15 +6149,6 @@ Options.PlayerBoxesColor:OnChanged(function()
 	for _, entry in pairs(espObjects) do
 		if entry.box then
 			entry.box.Color = color
-		end
-	end
-end)
-
-Options.PlayerHealthTextColor:OnChanged(function()
-	local color = Options.PlayerHealthTextColor.Value
-	for _, entry in pairs(espObjects) do
-		if entry.healthText then
-			entry.healthText.Color = color
 		end
 	end
 end)
