@@ -5633,49 +5633,37 @@ local function clearESP()
 	end
 end
 
+local function hideESP(entry)
+	if not entry then return end
+	if entry.billboard and entry.billboard.Enabled then entry.billboard.Enabled = false end
+	if entry.highlight and entry.highlight.Enabled then entry.highlight.Enabled = false end
+	if entry.arrow and entry.arrow.Visible then entry.arrow.Visible = false end
+	if entry.tracer and entry.tracer.Visible then entry.tracer.Visible = false end
+	if entry.box and entry.box.Visible then entry.box.Visible = false end
+	if entry.healthBarOutline and entry.healthBarOutline.Visible then entry.healthBarOutline.Visible = false end
+	if entry.healthBar and entry.healthBar.Visible then entry.healthBar.Visible = false end
+	if entry.cornerLines then
+		for _, line in ipairs(entry.cornerLines) do
+			if line.Visible then line.Visible = false end
+		end
+	end
+	if entry.lookLine and entry.lookLine.Visible then entry.lookLine.Visible = false end
+	if entry.healthText and entry.healthText.Visible then entry.healthText.Visible = false end
+end
+
 local function getOrCreateESP(player)
 	if player == LocalPlayer then return nil end
 	local entry = espObjects[player]
 	local character = player.Character
 	if not character then
-		if entry then
-			if entry.billboard then entry.billboard.Enabled = false end
-			if entry.highlight then entry.highlight.Enabled = false end
-			if entry.arrow then entry.arrow.Visible = false end
-			if entry.tracer then entry.tracer.Visible = false end
-			if entry.box then entry.box.Visible = false end
-			if entry.healthBarOutline then entry.healthBarOutline.Visible = false end
-			if entry.healthBar then entry.healthBar.Visible = false end
-			if entry.cornerLines then
-				for _, line in ipairs(entry.cornerLines) do
-					line.Visible = false
-				end
-			end
-			if entry.lookLine then entry.lookLine.Visible = false end
-			if entry.healthText then entry.healthText.Visible = false end
-		end
+		hideESP(entry)
 		return nil
 	end
 
 	local root = character:FindFirstChild("HumanoidRootPart")
 	local hum = character:FindFirstChildOfClass("Humanoid")
 	if not root or not hum or hum.Health <= 0 then
-		if entry then
-			if entry.billboard then entry.billboard.Enabled = false end
-			if entry.highlight then entry.highlight.Enabled = false end
-			if entry.arrow then entry.arrow.Visible = false end
-			if entry.tracer then entry.tracer.Visible = false end
-			if entry.box then entry.box.Visible = false end
-			if entry.healthBarOutline then entry.healthBarOutline.Visible = false end
-			if entry.healthBar then entry.healthBar.Visible = false end
-			if entry.cornerLines then
-				for _, line in ipairs(entry.cornerLines) do
-					line.Visible = false
-				end
-			end
-			if entry.lookLine then entry.lookLine.Visible = false end
-			if entry.healthText then entry.healthText.Visible = false end
-		end
+		hideESP(entry)
 		return nil
 	end
 
@@ -5808,6 +5796,7 @@ local function getOrCreateESP(player)
 			healthText = healthText,
 			lastDist = -1,
 			lastShowDist = nil,
+			lastColorHex = nil,
 			lastText = "",
 		}
 		espObjects[player] = entry
@@ -5890,26 +5879,19 @@ local function getOrCreateESP(player)
 	return entry
 end
 
+local candidatePool = {}
+local activeCandidates = {}
+local function sortCandidates(a, b)
+	return a.dist < b.dist
+end
+
 local function updateAllESP()
 	if not Toggles.PlayerESP or not Toggles.PlayerESP.Value then return end
 
 	local myRoot = getRootPart()
 	if not myRoot then
 		for _, entry in pairs(espObjects) do
-			if entry.billboard and entry.billboard.Enabled then entry.billboard.Enabled = false end
-			if entry.highlight and entry.highlight.Enabled then entry.highlight.Enabled = false end
-			if entry.arrow and entry.arrow.Visible then entry.arrow.Visible = false end
-			if entry.tracer and entry.tracer.Visible then entry.tracer.Visible = false end
-			if entry.box and entry.box.Visible then entry.box.Visible = false end
-			if entry.healthBarOutline and entry.healthBarOutline.Visible then entry.healthBarOutline.Visible = false end
-			if entry.healthBar and entry.healthBar.Visible then entry.healthBar.Visible = false end
-			if entry.cornerLines then
-				for _, line in ipairs(entry.cornerLines) do
-					if line.Visible then line.Visible = false end
-				end
-			end
-			if entry.lookLine and entry.lookLine.Visible then entry.lookLine.Visible = false end
-			if entry.healthText and entry.healthText.Visible then entry.healthText.Visible = false end
+			hideESP(entry)
 		end
 		return
 	end
@@ -5925,6 +5907,7 @@ local function updateAllESP()
 	local lookDirEnabled = (Toggles.PlayerLookDirection and Toggles.PlayerLookDirection.Value) or false
 	local healthTextEnabled = (Toggles.PlayerHealthText and Toggles.PlayerHealthText.Value) or false
 	local healthBarEnabled = (Toggles.PlayerHealthBar and Toggles.PlayerHealthBar.Value) or false
+	local anyBoxOrHealth = boxesEnabled or cornerBoxesEnabled or healthBarEnabled or healthTextEnabled
 	local myPos = myRoot.Position
 
 	local pColor = (Options and Options.PlayerESPColor and Options.PlayerESPColor.Value) or Color3.new(1, 1, 1)
@@ -5940,45 +5923,50 @@ local function updateAllESP()
 
 	local pColorHex = pColor:ToHex()
 	local dColorHex = dColor:ToHex()
+	local targetOutlineTrans = outlineEnabled and 0 or 1
+	local targetFillTrans = chamsEnabled and 0.4 or 1
 
 	local camera = workspace.CurrentCamera
-	local tracerOrigin = nil
-	if camera then
-		local viewportSize = camera.ViewportSize
-		tracerOrigin = Vector2.new(viewportSize.X / 2, viewportSize.Y)
-	end
+	if not camera then return end
+	local viewportSize = camera.ViewportSize
+	local viewX, viewY = viewportSize.X, viewportSize.Y
+	local screenCenterX, screenCenterY = viewX * 0.5, viewY * 0.5
+	local tracerOrigin = Vector2.new(screenCenterX, viewY)
+	local screenCenter = Vector2.new(screenCenterX, screenCenterY)
+	local radius = math.min(viewX, viewY) * 0.38
 
-	local activeCandidates = {}
+	table.clear(activeCandidates)
 
 	for _, player in ipairs(Players:GetPlayers()) do
 		if player ~= LocalPlayer then
-			local entry = getOrCreateESP(player)
+			local entry = espObjects[player]
+			if not entry or entry.character ~= player.Character then
+				entry = getOrCreateESP(player)
+			end
 			if entry and entry.root and entry.hum and entry.hum.Health > 0 and entry.character.Parent then
 				local dist = (entry.root.Position - myPos).Magnitude
 				if dist <= maxDist then
-					table.insert(activeCandidates, { entry = entry, dist = dist })
-				else
-					if entry.billboard.Enabled then entry.billboard.Enabled = false end
-					if entry.highlight.Enabled then entry.highlight.Enabled = false end
-					if entry.arrow and entry.arrow.Visible then entry.arrow.Visible = false end
-					if entry.tracer and entry.tracer.Visible then entry.tracer.Visible = false end
-					if entry.box and entry.box.Visible then entry.box.Visible = false end
-					if entry.healthBarOutline and entry.healthBarOutline.Visible then entry.healthBarOutline.Visible = false end
-					if entry.healthBar and entry.healthBar.Visible then entry.healthBar.Visible = false end
-					if entry.cornerLines then
-						for _, line in ipairs(entry.cornerLines) do
-							if line.Visible then line.Visible = false end
-						end
+					local idx = #activeCandidates + 1
+					local cand = candidatePool[idx]
+					if not cand then
+						cand = { entry = entry, dist = dist }
+						candidatePool[idx] = cand
+					else
+						cand.entry = entry
+						cand.dist = dist
 					end
-					if entry.lookLine and entry.lookLine.Visible then entry.lookLine.Visible = false end
-					if entry.healthText and entry.healthText.Visible then entry.healthText.Visible = false end
+					activeCandidates[idx] = cand
+				else
+					hideESP(entry)
 				end
+			else
+				hideESP(entry)
 			end
 		end
 	end
 
 	if #activeCandidates > 1 then
-		table.sort(activeCandidates, function(a, b) return a.dist < b.dist end)
+		table.sort(activeCandidates, sortCandidates)
 	end
 
 	for i, cand in ipairs(activeCandidates) do
@@ -5993,9 +5981,10 @@ local function updateAllESP()
 		end
 
 		local roundedDist = math.floor(dist)
-		if entry.lastDist ~= roundedDist or entry.lastShowDist ~= showDist then
+		if entry.lastDist ~= roundedDist or entry.lastShowDist ~= showDist or entry.lastColorHex ~= pColorHex then
 			entry.lastDist = roundedDist
 			entry.lastShowDist = showDist
+			entry.lastColorHex = pColorHex
 			local text = '<font color="#' .. pColorHex .. '">' .. entry.player.Name .. '</font>'
 			if showDist then
 				text = text .. '\n<font color="#' .. dColorHex .. '">' .. roundedDist .. 'm</font>'
@@ -6003,55 +5992,53 @@ local function updateAllESP()
 			entry.label.Text = text
 		end
 
-		local shouldHighlight = (outlineEnabled or chamsEnabled) and (i <= 20)
-		if entry.highlight.Adornee ~= entry.character then
-			entry.highlight.Adornee = entry.character
-		end
-		if entry.highlight.OutlineColor ~= oColor then
-			entry.highlight.OutlineColor = oColor
-		end
-		if entry.highlight.FillColor ~= cColor then
-			entry.highlight.FillColor = cColor
-		end
-		local targetOutlineTrans = outlineEnabled and 0 or 1
-		if entry.highlight.OutlineTransparency ~= targetOutlineTrans then
-			entry.highlight.OutlineTransparency = targetOutlineTrans
-		end
-		local targetFillTrans = chamsEnabled and 0.4 or 1
-		if entry.highlight.FillTransparency ~= targetFillTrans then
-			entry.highlight.FillTransparency = targetFillTrans
-		end
-		if entry.highlight.Enabled ~= shouldHighlight then
-			entry.highlight.Enabled = shouldHighlight
+		local shouldHighlight = (outlineEnabled or chamsEnabled) and (i <= 15)
+		if shouldHighlight then
+			if entry.highlight.Adornee ~= entry.character then
+				entry.highlight.Adornee = entry.character
+			end
+			if entry.highlight.OutlineColor ~= oColor then
+				entry.highlight.OutlineColor = oColor
+			end
+			if entry.highlight.FillColor ~= cColor then
+				entry.highlight.FillColor = cColor
+			end
+			if entry.highlight.OutlineTransparency ~= targetOutlineTrans then
+				entry.highlight.OutlineTransparency = targetOutlineTrans
+			end
+			if entry.highlight.FillTransparency ~= targetFillTrans then
+				entry.highlight.FillTransparency = targetFillTrans
+			end
+			if not entry.highlight.Enabled then
+				entry.highlight.Enabled = true
+			end
+		else
+			if entry.highlight.Enabled then
+				entry.highlight.Enabled = false
+			end
 		end
 
+		local rootPos = entry.root.Position
+		local rootScreen, onScreen = camera:WorldToViewportPoint(rootPos)
+		local isRootInFront = rootScreen.Z > 0
+		local isFullyOnScreen = onScreen and isRootInFront and rootScreen.X >= 0 and rootScreen.X <= viewX and rootScreen.Y >= 0 and rootScreen.Y <= viewY
+
 		if entry.arrow then
-			if arrowsEnabled and camera then
-				local screenPos, onScreen = camera:WorldToViewportPoint(entry.root.Position)
-				local viewportSize = camera.ViewportSize
-				local isOffScreen = (not onScreen) or (screenPos.Z <= 0) or (screenPos.X < 0) or (screenPos.X > viewportSize.X) or (screenPos.Y < 0) or (screenPos.Y > viewportSize.Y)
-				if isOffScreen then
-					local rel = camera.CFrame:PointToObjectSpace(entry.root.Position)
-					local angle = math.atan2(-rel.Y, rel.X)
-					local screenCenter = Vector2.new(viewportSize.X / 2, viewportSize.Y / 2)
-					local radius = math.min(viewportSize.X, viewportSize.Y) * 0.38
-					local dir = Vector2.new(math.cos(angle), math.sin(angle))
-					local perp = Vector2.new(-math.sin(angle), math.cos(angle))
-					local arrowTip = screenCenter + (dir * radius)
-					local baseCenter = arrowTip - (dir * 18)
-					entry.arrow.PointA = arrowTip
-					entry.arrow.PointB = baseCenter + (perp * 7)
-					entry.arrow.PointC = baseCenter - (perp * 7)
-					if entry.arrow.Color ~= arrColor then
-						entry.arrow.Color = arrColor
-					end
-					if not entry.arrow.Visible then
-						entry.arrow.Visible = true
-					end
-				else
-					if entry.arrow.Visible then
-						entry.arrow.Visible = false
-					end
+			if arrowsEnabled and not isFullyOnScreen then
+				local rel = camera.CFrame:PointToObjectSpace(rootPos)
+				local angle = math.atan2(-rel.Y, rel.X)
+				local dir = Vector2.new(math.cos(angle), math.sin(angle))
+				local perp = Vector2.new(-math.sin(angle), math.cos(angle))
+				local arrowTip = screenCenter + (dir * radius)
+				local baseCenter = arrowTip - (dir * 18)
+				entry.arrow.PointA = arrowTip
+				entry.arrow.PointB = baseCenter + (perp * 7)
+				entry.arrow.PointC = baseCenter - (perp * 7)
+				if entry.arrow.Color ~= arrColor then
+					entry.arrow.Color = arrColor
+				end
+				if not entry.arrow.Visible then
+					entry.arrow.Visible = true
 				end
 			else
 				if entry.arrow.Visible then
@@ -6061,21 +6048,14 @@ local function updateAllESP()
 		end
 
 		if entry.tracer then
-			if tracersEnabled and camera and tracerOrigin then
-				local screenPos, onScreen = camera:WorldToViewportPoint(entry.root.Position)
-				if onScreen and screenPos.Z > 0 then
-					entry.tracer.From = tracerOrigin
-					entry.tracer.To = Vector2.new(screenPos.X, screenPos.Y)
-					if entry.tracer.Color ~= tColor then
-						entry.tracer.Color = tColor
-					end
-					if not entry.tracer.Visible then
-						entry.tracer.Visible = true
-					end
-				else
-					if entry.tracer.Visible then
-						entry.tracer.Visible = false
-					end
+			if tracersEnabled and isFullyOnScreen then
+				entry.tracer.From = tracerOrigin
+				entry.tracer.To = Vector2.new(rootScreen.X, rootScreen.Y)
+				if entry.tracer.Color ~= tColor then
+					entry.tracer.Color = tColor
+				end
+				if not entry.tracer.Visible then
+					entry.tracer.Visible = true
 				end
 			else
 				if entry.tracer.Visible then
@@ -6084,114 +6064,157 @@ local function updateAllESP()
 			end
 		end
 
-		local onScreen2D = false
-		local height, width, leftX, topY, botY = 0, 0, 0, 0, 0
+		if anyBoxOrHealth then
+			local onScreen2D = false
+			local height, width, leftX, topY, botY = 0, 0, 0, 0, 0
 
-		if camera and (boxesEnabled or cornerBoxesEnabled or healthBarEnabled or healthTextEnabled) then
-			local rootPos = entry.root.Position
-			local head = entry.character:FindFirstChild("Head")
-			local topPos = (head and (head.Position + Vector3.new(0, 0.6, 0))) or (rootPos + Vector3.new(0, 2.8, 0))
-			local botPos = rootPos - Vector3.new(0, 3.2, 0)
+			if isRootInFront then
+				local head = entry.character:FindFirstChild("Head")
+				local topPos = (head and (head.Position + Vector3.new(0, 0.6, 0))) or (rootPos + Vector3.new(0, 2.8, 0))
+				local botPos = rootPos - Vector3.new(0, 3.2, 0)
 
-			local topScreen, topVisible = camera:WorldToViewportPoint(topPos)
-			local botScreen, botVisible = camera:WorldToViewportPoint(botPos)
+				local topScreen, topVisible = camera:WorldToViewportPoint(topPos)
+				local botScreen, botVisible = camera:WorldToViewportPoint(botPos)
 
-			if (topVisible or botVisible) and topScreen.Z > 0 and botScreen.Z > 0 then
-				onScreen2D = true
-				height = math.abs(botScreen.Y - topScreen.Y)
-				width = math.max(height * 0.65, 4)
-				topY = math.min(topScreen.Y, botScreen.Y)
-				botY = math.max(topScreen.Y, botScreen.Y)
-				leftX = math.floor(topScreen.X - width * 0.5)
-			end
-		end
-
-		if entry.box then
-			if boxesEnabled and onScreen2D then
-				local boxPos = Vector2.new(leftX, math.floor(topY))
-				local boxSize = Vector2.new(math.floor(width), math.floor(height))
-
-				entry.box.Position = boxPos
-				entry.box.Size = boxSize
-				if entry.box.Color ~= bColor then
-					entry.box.Color = bColor
-				end
-				if not entry.box.Visible then
-					entry.box.Visible = true
-				end
-			else
-				if entry.box.Visible then
-					entry.box.Visible = false
+				if (topVisible or botVisible) and topScreen.Z > 0 and botScreen.Z > 0 then
+					onScreen2D = true
+					height = math.abs(botScreen.Y - topScreen.Y)
+					width = math.max(height * 0.65, 4)
+					topY = math.min(topScreen.Y, botScreen.Y)
+					botY = math.max(topScreen.Y, botScreen.Y)
+					leftX = math.floor(topScreen.X - width * 0.5)
 				end
 			end
-		end
 
-		if entry.cornerLines then
-			if cornerBoxesEnabled and onScreen2D and #entry.cornerLines == 8 then
-				local rightX = leftX + math.floor(width)
-				local floorTopY = math.floor(topY)
-				local floorBotY = math.floor(botY)
-				local cornerLength = math.clamp(math.floor(width / 4), 3, 14)
+			if entry.box then
+				if boxesEnabled and onScreen2D then
+					entry.box.Position = Vector2.new(leftX, math.floor(topY))
+					entry.box.Size = Vector2.new(math.floor(width), math.floor(height))
+					if entry.box.Color ~= bColor then
+						entry.box.Color = bColor
+					end
+					if not entry.box.Visible then
+						entry.box.Visible = true
+					end
+				else
+					if entry.box.Visible then
+						entry.box.Visible = false
+					end
+				end
+			end
 
-				-- 1: Top-Left Horizontal
-				local l1 = entry.cornerLines[1]
-				l1.From = Vector2.new(leftX, floorTopY)
-				l1.To = Vector2.new(leftX + cornerLength, floorTopY)
+			if entry.cornerLines then
+				if cornerBoxesEnabled and onScreen2D and #entry.cornerLines == 8 then
+					local rightX = leftX + math.floor(width)
+					local floorTopY = math.floor(topY)
+					local floorBotY = math.floor(botY)
+					local cornerLength = math.clamp(math.floor(width / 4), 3, 14)
 
-				-- 2: Top-Left Vertical
-				local l2 = entry.cornerLines[2]
-				l2.From = Vector2.new(leftX, floorTopY)
-				l2.To = Vector2.new(leftX, floorTopY + cornerLength)
+					entry.cornerLines[1].From = Vector2.new(leftX, floorTopY)
+					entry.cornerLines[1].To = Vector2.new(leftX + cornerLength, floorTopY)
+					entry.cornerLines[2].From = Vector2.new(leftX, floorTopY)
+					entry.cornerLines[2].To = Vector2.new(leftX, floorTopY + cornerLength)
+					entry.cornerLines[3].From = Vector2.new(rightX, floorTopY)
+					entry.cornerLines[3].To = Vector2.new(rightX - cornerLength, floorTopY)
+					entry.cornerLines[4].From = Vector2.new(rightX, floorTopY)
+					entry.cornerLines[4].To = Vector2.new(rightX, floorTopY + cornerLength)
+					entry.cornerLines[5].From = Vector2.new(leftX, floorBotY)
+					entry.cornerLines[5].To = Vector2.new(leftX + cornerLength, floorBotY)
+					entry.cornerLines[6].From = Vector2.new(leftX, floorBotY)
+					entry.cornerLines[6].To = Vector2.new(leftX, floorBotY - cornerLength)
+					entry.cornerLines[7].From = Vector2.new(rightX, floorBotY)
+					entry.cornerLines[7].To = Vector2.new(rightX - cornerLength, floorBotY)
+					entry.cornerLines[8].From = Vector2.new(rightX, floorBotY)
+					entry.cornerLines[8].To = Vector2.new(rightX, floorBotY - cornerLength)
 
-				-- 3: Top-Right Horizontal
-				local l3 = entry.cornerLines[3]
-				l3.From = Vector2.new(rightX, floorTopY)
-				l3.To = Vector2.new(rightX - cornerLength, floorTopY)
+					for _, line in ipairs(entry.cornerLines) do
+						if line.Color ~= cbColor then
+							line.Color = cbColor
+						end
+						if not line.Visible then
+							line.Visible = true
+						end
+					end
+				else
+					for _, line in ipairs(entry.cornerLines) do
+						if line.Visible then
+							line.Visible = false
+						end
+					end
+				end
+			end
 
-				-- 4: Top-Right Vertical
-				local l4 = entry.cornerLines[4]
-				l4.From = Vector2.new(rightX, floorTopY)
-				l4.To = Vector2.new(rightX, floorTopY + cornerLength)
+			if entry.healthBar and entry.healthBarOutline then
+				if healthBarEnabled and onScreen2D then
+					local health = (entry.hum and entry.hum.Health) or 0
+					local maxHealth = (entry.hum and entry.hum.MaxHealth) or 100
+					if maxHealth <= 0 then maxHealth = 100 end
+					local healthPct = math.clamp(health / maxHealth, 0, 1)
+					local healthColor = Color3.fromHSV(healthPct * 0.33, 1, 1)
 
-				-- 5: Bottom-Left Horizontal
-				local l5 = entry.cornerLines[5]
-				l5.From = Vector2.new(leftX, floorBotY)
-				l5.To = Vector2.new(leftX + cornerLength, floorBotY)
+					local barX = leftX - 4
+					local fillY = botY - (botY - topY) * healthPct
 
-				-- 6: Bottom-Left Vertical
-				local l6 = entry.cornerLines[6]
-				l6.From = Vector2.new(leftX, floorBotY)
-				l6.To = Vector2.new(leftX, floorBotY - cornerLength)
+					entry.healthBarOutline.From = Vector2.new(barX, botY)
+					entry.healthBarOutline.To = Vector2.new(barX, topY)
+					if not entry.healthBarOutline.Visible then
+						entry.healthBarOutline.Visible = true
+					end
 
-				-- 7: Bottom-Right Horizontal
-				local l7 = entry.cornerLines[7]
-				l7.From = Vector2.new(rightX, floorBotY)
-				l7.To = Vector2.new(rightX - cornerLength, floorBotY)
+					entry.healthBar.From = Vector2.new(barX, botY)
+					entry.healthBar.To = Vector2.new(barX, fillY)
+					entry.healthBar.Color = healthColor
+					if not entry.healthBar.Visible then
+						entry.healthBar.Visible = true
+					end
+				else
+					if entry.healthBarOutline.Visible then
+						entry.healthBarOutline.Visible = false
+					end
+					if entry.healthBar.Visible then
+						entry.healthBar.Visible = false
+					end
+				end
+			end
 
-				-- 8: Bottom-Right Vertical
-				local l8 = entry.cornerLines[8]
-				l8.From = Vector2.new(rightX, floorBotY)
-				l8.To = Vector2.new(rightX, floorBotY - cornerLength)
+			if entry.healthText then
+				if healthTextEnabled and onScreen2D then
+					local health = (entry.hum and entry.hum.Health) or 0
+					local roundedHealth = math.floor(health)
+					entry.healthText.Text = tostring(roundedHealth) .. " HP"
+					if entry.healthText.Color ~= htColor then
+						entry.healthText.Color = htColor
+					end
 
+					local textWidth = (entry.healthText.TextBounds and entry.healthText.TextBounds.X) or 34
+					local barOffset = healthBarEnabled and 8 or 4
+					local posX = leftX - barOffset - textWidth
+					local posY = math.floor(topY)
+
+					entry.healthText.Position = Vector2.new(posX, posY)
+					if not entry.healthText.Visible then
+						entry.healthText.Visible = true
+					end
+				else
+					if entry.healthText.Visible then
+						entry.healthText.Visible = false
+					end
+				end
+			end
+		else
+			if entry.box and entry.box.Visible then entry.box.Visible = false end
+			if entry.cornerLines then
 				for _, line in ipairs(entry.cornerLines) do
-					if line.Color ~= cbColor then
-						line.Color = cbColor
-					end
-					if not line.Visible then
-						line.Visible = true
-					end
-				end
-			else
-				for _, line in ipairs(entry.cornerLines) do
-					if line.Visible then
-						line.Visible = false
-					end
+					if line.Visible then line.Visible = false end
 				end
 			end
+			if entry.healthBarOutline and entry.healthBarOutline.Visible then entry.healthBarOutline.Visible = false end
+			if entry.healthBar and entry.healthBar.Visible then entry.healthBar.Visible = false end
+			if entry.healthText and entry.healthText.Visible then entry.healthText.Visible = false end
 		end
 
 		if entry.lookLine then
-			if lookDirEnabled and camera then
+			if lookDirEnabled and isRootInFront then
 				local head = entry.character:FindFirstChild("Head") or entry.root
 				if head then
 					local from3D = head.Position
@@ -6223,64 +6246,6 @@ local function updateAllESP()
 			else
 				if entry.lookLine.Visible then
 					entry.lookLine.Visible = false
-				end
-			end
-		end
-
-		if entry.healthBar and entry.healthBarOutline then
-			if healthBarEnabled and onScreen2D then
-				local health = (entry.hum and entry.hum.Health) or 0
-				local maxHealth = (entry.hum and entry.hum.MaxHealth) or 100
-				if maxHealth <= 0 then maxHealth = 100 end
-				local healthPct = math.clamp(health / maxHealth, 0, 1)
-				local healthColor = Color3.fromHSV(healthPct * 0.33, 1, 1)
-
-				local barX = leftX - 4
-				local fillY = botY - (botY - topY) * healthPct
-
-				entry.healthBarOutline.From = Vector2.new(barX, botY)
-				entry.healthBarOutline.To = Vector2.new(barX, topY)
-				if not entry.healthBarOutline.Visible then
-					entry.healthBarOutline.Visible = true
-				end
-
-				entry.healthBar.From = Vector2.new(barX, botY)
-				entry.healthBar.To = Vector2.new(barX, fillY)
-				entry.healthBar.Color = healthColor
-				if not entry.healthBar.Visible then
-					entry.healthBar.Visible = true
-				end
-			else
-				if entry.healthBarOutline.Visible then
-					entry.healthBarOutline.Visible = false
-				end
-				if entry.healthBar.Visible then
-					entry.healthBar.Visible = false
-				end
-			end
-		end
-
-		if entry.healthText then
-			if healthTextEnabled and onScreen2D then
-				local health = (entry.hum and entry.hum.Health) or 0
-				local roundedHealth = math.floor(health)
-				entry.healthText.Text = tostring(roundedHealth) .. " HP"
-				if entry.healthText.Color ~= htColor then
-					entry.healthText.Color = htColor
-				end
-
-				local textWidth = (entry.healthText.TextBounds and entry.healthText.TextBounds.X) or 34
-				local barOffset = healthBarEnabled and 8 or 4
-				local posX = leftX - barOffset - textWidth
-				local posY = math.floor(topY)
-
-				entry.healthText.Position = Vector2.new(posX, posY)
-				if not entry.healthText.Visible then
-					entry.healthText.Visible = true
-				end
-			else
-				if entry.healthText.Visible then
-					entry.healthText.Visible = false
 				end
 			end
 		end
