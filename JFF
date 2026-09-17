@@ -653,11 +653,6 @@ MainLeft:AddToggle("FastPickup", {
 	Default = false,
 })
 
-MainLeft:AddCheckbox("OptimizeDrops", {
-	Text = "+ Optimize Item Drops",
-	Default = false,
-})
-
 MainLeft:AddSlider("AutoPickupRange", {
 	Text = "Pickup Range",
 	Default = 20,
@@ -673,12 +668,6 @@ updateAutoPickupVisibility = function()
 		Options.AutoPickupRange.Visible = isPickup
 		if Options.AutoPickupRange.Holder then
 			Options.AutoPickupRange.Holder.Visible = isPickup
-		end
-	end
-	if Toggles.OptimizeDrops then
-		Toggles.OptimizeDrops.Visible = isPickup
-		if Toggles.OptimizeDrops.Holder then
-			Toggles.OptimizeDrops.Holder.Visible = isPickup
 		end
 	end
 	MainLeft:Resize()
@@ -1139,17 +1128,6 @@ local function trackDroppedItem(item)
 		droppedItemSpawnTimes[item] = nil
 	end)
 
-	if Toggles and Toggles.OptimizeDrops and Toggles.OptimizeDrops.Value then
-		pcall(function()
-			item.CanCollide = false
-			item.CastShadow = false
-		end)
-	elseif Toggles and Toggles.NoDropDetail and Toggles.NoDropDetail.Value then
-		pcall(function()
-			item.CastShadow = false
-		end)
-	end
-
 	-- Instant vacuum pickup if in range
 	if Toggles and Toggles.FastPickup and Toggles.FastPickup.Value and isAlive() and TSG.PickupRemote then
 		local root = getRootPart()
@@ -1234,41 +1212,6 @@ Toggles.FastPickup:OnChanged(function()
 		Library:Notify({ Title = "Auto Pickup", Description = "Enabled", Time = 2 })
 	else
 		Library:Notify({ Title = "Auto Pickup", Description = "Disabled", Time = 2 })
-	end
-end)
-
-Toggles.OptimizeDrops:OnChanged(function()
-	disconnect("OptimizeDrops")
-	if Toggles.OptimizeDrops.Value then
-		local function optimizeDrop(item)
-			if item:IsA("BasePart") then
-				pcall(function()
-					item.CanCollide = false
-					item.CastShadow = false
-				end)
-			end
-		end
-
-		for _, item in ipairs(CollectionService:GetTagged("DROPPED_ITEM")) do
-			optimizeDrop(item)
-		end
-
-		track("OptimizeDrops", CollectionService:GetInstanceAddedSignal("DROPPED_ITEM"):Connect(function(item)
-			if Toggles.OptimizeDrops and Toggles.OptimizeDrops.Value then
-				optimizeDrop(item)
-			end
-		end))
-	else
-		for _, item in ipairs(CollectionService:GetTagged("DROPPED_ITEM")) do
-			if item:IsA("BasePart") then
-				pcall(function()
-					item.CanCollide = true
-					if not (Toggles.NoDropDetail and Toggles.NoDropDetail.Value) then
-						item.CastShadow = true
-					end
-				end)
-			end
-		end
 	end
 end)
 
@@ -5282,44 +5225,6 @@ do
 	})
 end
 
-VisualFPS:AddToggle("NoDropDetail", {
-	Text = "No Drop Detail",
-	Default = false,
-	Callback = function(state)
-		disconnect("NoDropDetail")
-		if state then
-			local function removeDetail(item)
-				if item:IsA("BasePart") then
-					pcall(function()
-						item.CastShadow = false
-					end)
-				end
-			end
-
-			for _, item in ipairs(CollectionService:GetTagged("DROPPED_ITEM")) do
-				removeDetail(item)
-			end
-
-			track("NoDropDetail", CollectionService:GetInstanceAddedSignal("DROPPED_ITEM"):Connect(function(item)
-				if Toggles.NoDropDetail and Toggles.NoDropDetail.Value then
-					removeDetail(item)
-				end
-			end))
-
-			Library:Notify({ Title = "No Drop Detail", Description = "Enabled", Time = 2 })
-		else
-			for _, item in ipairs(CollectionService:GetTagged("DROPPED_ITEM")) do
-				if item:IsA("BasePart") then
-					pcall(function()
-						item.CastShadow = true
-					end)
-				end
-			end
-			Library:Notify({ Title = "No Drop Detail", Description = "Disabled", Time = 2 })
-		end
-	end,
-})
-
 VisualFPS:AddToggle("UncapFPS", {
 	Text = "Uncap FPS",
 	Default = false,
@@ -7442,12 +7347,6 @@ Library:OnUnload(function()
 	end
 	if Toggles.FastPickup and Toggles.FastPickup.Value then
 		Toggles.FastPickup:SetValue(false)
-	end
-	if Toggles.OptimizeDrops and Toggles.OptimizeDrops.Value then
-		Toggles.OptimizeDrops:SetValue(false)
-	end
-	if Toggles.NoDropDetail and Toggles.NoDropDetail.Value then
-		Toggles.NoDropDetail:SetValue(false)
 	end
 
 	pcall(function()
