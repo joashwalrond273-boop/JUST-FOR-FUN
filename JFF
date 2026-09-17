@@ -23,12 +23,6 @@ local Library = loadstring(game:HttpGet(repo .. "Library.lua"))()
 local ThemeManager = loadstring(game:HttpGet(repo .. "addons/ThemeManager.lua"))()
 local SaveManager = loadstring(game:HttpGet(repo .. "addons/SaveManager.lua"))()
 
-Library.Scheme.OutlineColor = Color3.fromRGB(68, 18, 28)
-Library.Scheme.FontColor = Color3.fromRGB(255, 255, 255)
-Library.Scheme.MainColor = Color3.fromRGB(22, 11, 16)
-Library.Scheme.BackgroundColor = Color3.fromRGB(12, 6, 8)
-Library.Scheme.AccentColor = Color3.fromRGB(255, 0, 0)
-
 -- Ensure Lucide Icons are properly loaded for tabs & groupboxes
 pcall(function()
 	local lucideModule = nil
@@ -49,7 +43,6 @@ local Options = Library.Options
 local Toggles = Library.Toggles
 local lastDeathPosition = nil
 local shouldTeleportBack = false
-local pendingTeleportName = nil
 local updateAutoSwingSliderVisibility
 local updatePVPModulesVisibility
 local updateTouchFlingVisibility
@@ -573,6 +566,7 @@ task.spawn(function()
 	end
 end)
 
+
 local TeleportGroup = Tabs.Main:AddRightGroupbox("TELEPORT", "map-pin")
 
 TeleportGroup:AddDropdown("TeleportPlayerList", {
@@ -630,7 +624,7 @@ TeleportGroup:AddButton({
 })
 
 MainLeft:AddToggle("InfiniteBackpack", {
-	Text = "pack",
+	Text = "Infinite Backpack",
 	Default = false,
 })
 
@@ -886,6 +880,10 @@ MainRight:AddButton({
 	end,
 })
 
+
+
+
+
 local function isAdmin(player)
 	local success, rank = pcall(function()
 		return player:GetRankInGroup(7312028)
@@ -1085,20 +1083,15 @@ joinLowPingServer = function()
 	end)
 end
 
-track("CharacterModuleRespawn", LocalPlayer.CharacterAdded:Connect(function(newChar)
+track("CharacterModuleRespawn", LocalPlayer.CharacterAdded:Connect(function()
 	task.wait(1.5)
 	applyCharacterModuleToggles()
 	if shouldTeleportBack and lastDeathPosition then
 		shouldTeleportBack = false
-		local targetPos = lastDeathPosition
-		local destName = pendingTeleportName or "destination"
 		local root = getRootPart()
-		if not root and newChar then
-			root = newChar:WaitForChild("HumanoidRootPart", 5)
-		end
 		if root then
-			root.CFrame = CFrame.new(targetPos + Vector3.new(0, 3, 0))
-			Library:Notify({ Title = "Reset & Teleport", Description = "Teleported to " .. destName .. "!", Time = 2 })
+			root.CFrame = CFrame.new(lastDeathPosition + Vector3.new(0, 3, 0))
+			Library:Notify({ Title = "Reset & Teleport", Description = "Teleported back to last location!", Time = 2 })
 		end
 	end
 end))
@@ -3391,6 +3384,7 @@ Options.LowGravityHeight:OnChanged(function()
         end
 end)
 
+
 local noclipCorePartNames = {
 	["HumanoidRootPart"] = true,
 	["Head"] = true,
@@ -3439,6 +3433,9 @@ Toggles.Noclip:OnChanged(function()
 		end
 	end
 end)
+
+
+
 
 Toggles.SpeedHack:OnChanged(function()
 	disconnect("SpeedHack")
@@ -4720,32 +4717,6 @@ end)
 -- ==========================================
 -- TELEPORT
 -- ==========================================
-local function resetAndTeleport(targetPosition, destinationName)
-	if not targetPosition then return end
-	lastDeathPosition = targetPosition
-	shouldTeleportBack = true
-	pendingTeleportName = destinationName or "destination"
-
-	local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
-	if remoteInterface then
-		local characterFolder = remoteInterface:FindFirstChild("character")
-		if characterFolder then
-			local resetRemote = characterFolder:FindFirstChild("reset")
-			if resetRemote then
-				pcall(function()
-					resetRemote:InvokeServer()
-				end)
-			end
-		end
-	end
-
-	Library:Notify({
-		Title = "Reset & Teleport",
-		Description = "Resetting... Teleporting to " .. (destinationName or "location") .. " on spawn!",
-		Time = 2.5,
-	})
-end
-
 local TeleportLeft = Tabs.Teleport:AddLeftGroupbox("Boss Locations", "map-pin")
 
 local bossTeleports = {
@@ -4762,7 +4733,13 @@ for _, boss in ipairs(bossTeleports) do
 	TeleportLeft:AddButton({
 		Text = boss.name,
 		Func = function()
-			resetAndTeleport(boss.pos, boss.name)
+			local root = getRootPart()
+			if root then
+				root.CFrame = CFrame.new(boss.pos)
+				Library:Notify({ Title = "Teleport", Description = "Teleported to " .. boss.name, Time = 1.5 })
+			else
+				Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
+			end
 		end,
 	})
 end
@@ -4792,7 +4769,13 @@ for _, loc in ipairs(extraLocations) do
 	TeleportExtra:AddButton({
 		Text = loc.name,
 		Func = function()
-			resetAndTeleport(loc.pos, loc.name)
+			local root = getRootPart()
+			if root then
+				root.CFrame = CFrame.new(loc.pos)
+				Library:Notify({ Title = "Teleport", Description = "Teleported to " .. loc.name, Time = 1.5 })
+			else
+				Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
+			end
 		end,
 	})
 end
@@ -4803,7 +4786,13 @@ local Area51Group = Tabs.Teleport:AddLeftGroupbox("Area 51", "map-pin")
 Area51Group:AddButton({
 	Text = "Hacker Platform",
 	Func = function()
-		resetAndTeleport(Vector3.new(3811.73, 1546.83, -977.48), "Hacker Platform")
+		local root = getRootPart()
+		if root then
+			root.CFrame = CFrame.new(Vector3.new(3811.73, 1546.83, -977.48))
+			Library:Notify({ Title = "Teleport", Description = "Teleported to Hacker Platform", Time = 1.5 })
+		else
+			Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
+		end
 	end,
 })
 
@@ -4832,9 +4821,22 @@ ResetTeleportGroup:AddToggle("ResetCharacter", {
 Toggles.ResetCharacter:OnChanged(function()
 	if Toggles.ResetCharacter.Value then
 		local root = getRootPart()
-		local currentPos = root and root.Position or lastDeathPosition
-		if currentPos then
-			resetAndTeleport(currentPos, "last position")
+		if root then
+			lastDeathPosition = root.Position
+			shouldTeleportBack = true
+		end
+
+		local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
+		if remoteInterface then
+			local characterFolder = remoteInterface:FindFirstChild("character")
+			if characterFolder then
+				local resetRemote = characterFolder:FindFirstChild("reset")
+				if resetRemote then
+					pcall(function()
+						resetRemote:InvokeServer()
+					end)
+				end
+			end
 		end
 
 		task.spawn(function()
@@ -4860,7 +4862,13 @@ for _, merchant in ipairs(merchantTeleports) do
 	MerchantsGroup:AddButton({
 		Text = merchant.name,
 		Func = function()
-			resetAndTeleport(merchant.pos, merchant.name)
+			local root = getRootPart()
+			if root then
+				root.CFrame = CFrame.new(merchant.pos)
+				Library:Notify({ Title = "Teleport", Description = "Teleported to " .. merchant.name, Time = 1.5 })
+			else
+				Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
+			end
 		end,
 	})
 end
@@ -7302,12 +7310,9 @@ end)
 Library.ToggleKeybind = Options.MenuKeybind
 
 ThemeManager:SetLibrary(Library)
+-- Set default accent color to red
 ThemeManager:SetDefaultTheme({
-	OutlineColor = "501423",
-	FontColor = "ffffff",
-	MainColor = "190c11",
-	BackgroundColor = "0e070a",
-	AccentColor = "ff0000",
+	AccentColor = "ff0000" -- Red
 })
 SaveManager:SetLibrary(Library)
 SaveManager:IgnoreThemeSettings()
