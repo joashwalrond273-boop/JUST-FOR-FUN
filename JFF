@@ -23,6 +23,49 @@ local Library = loadstring(game:HttpGet(repo .. "Library.lua"))()
 local ThemeManager = loadstring(game:HttpGet(repo .. "addons/ThemeManager.lua"))()
 local SaveManager = loadstring(game:HttpGet(repo .. "addons/SaveManager.lua"))()
 
+-- Initialize Rich Obsidian & Crimson Theme
+Library.Scheme = {
+	BackgroundColor = Color3.fromRGB(12, 6, 8),
+	MainColor = Color3.fromRGB(22, 11, 16),
+	AccentColor = Color3.fromRGB(255, 26, 62),
+	OutlineColor = Color3.fromRGB(68, 18, 28),
+	FontColor = Color3.fromRGB(255, 255, 255),
+	Font = Font.fromEnum(Enum.Font.Jura),
+
+	RedColor = Color3.fromRGB(255, 40, 65),
+	DestructiveColor = Color3.fromRGB(230, 20, 45),
+	DarkColor = Color3.fromRGB(5, 2, 3),
+	WhiteColor = Color3.fromRGB(255, 255, 255),
+
+	BackgroundImage = ""
+}
+
+-- Custom Red Theme Presets
+ThemeManager.BuiltInThemes["Blood Moon (Default)"] = {
+	1,
+	{ FontColor = "ffffff", MainColor = "160c10", AccentColor = "ff1c40", BackgroundColor = "0c0608", OutlineColor = "44121c", BackgroundImage = "" }
+}
+ThemeManager.BuiltInThemes["Crimson Cyber"] = {
+	2,
+	{ FontColor = "ffffff", MainColor = "1d0d14", AccentColor = "ff003c", BackgroundColor = "100609", OutlineColor = "5e1424", BackgroundImage = "" }
+}
+ThemeManager.BuiltInThemes["Ruby Hellfire"] = {
+	3,
+	{ FontColor = "ffffff", MainColor = "18080c", AccentColor = "ff2e4c", BackgroundColor = "080305", OutlineColor = "52141f", BackgroundImage = "" }
+}
+ThemeManager.BuiltInThemes["Vampiric Noir"] = {
+	4,
+	{ FontColor = "edf2f4", MainColor = "150a0e", AccentColor = "d90429", BackgroundColor = "0a0507", OutlineColor = "3d0c14", BackgroundImage = "" }
+}
+ThemeManager.BuiltInThemes["Scarlet Abyss"] = {
+	5,
+	{ FontColor = "ffffff", MainColor = "1a0a10", AccentColor = "ff3366", BackgroundColor = "0e0508", OutlineColor = "4f101e", BackgroundImage = "" }
+}
+ThemeManager.BuiltInThemes["Red Matrix"] = {
+	6,
+	{ FontColor = "ffffff", MainColor = "110b0d", AccentColor = "ff0d38", BackgroundColor = "050505", OutlineColor = "550d1a", BackgroundImage = "" }
+}
+
 -- Ensure Lucide Icons are properly loaded for tabs & groupboxes
 pcall(function()
 	local lucideModule = nil
@@ -305,19 +348,19 @@ pcall(function()
 end)
 
 Library.Font = Enum.Font.Jura
-Library.CornerRadius = 15
+Library.CornerRadius = 14
 
 -- Window
 local Window = Library:CreateWindow({
-	Title = "♠ URIEL",
-	Footer = "♠ URIEL",
+	Title = "♠ URIEL  ·  RED BLOOD EDITION",
+	Footer = "♠ URIEL  ·  THE SURVIVAL GAME",
 	Icon = nil,
 	Center = true,
 	AutoShow = true,
 	Resizable = true,
 	NotifySide = "Right",
 	ShowCustomCursor = true,
-	CornerRadius = 15,
+	CornerRadius = 14,
 })
 
 local Tabs = {
@@ -344,6 +387,400 @@ local function disconnect(name)
 		Connections[name] = nil
 	end
 end
+
+-- ============================================================================
+-- URIEL VISUAL FX & SICK BACKGROUND ENGINE
+-- ============================================================================
+local UrielVisualFX = {}
+local fxContainer = nil
+local auraStroke = nil
+local watermarkGui = nil
+local watermarkText = nil
+local embersList = {}
+local hookedSliders = {}
+local hookedGroupboxes = {}
+
+local fxSettings = {
+	AuraPulse = true,
+	EmbersEnabled = true,
+	EmberCount = 28,
+	EmberSpeed = 1.0,
+	CyberScanline = true,
+	SliderGlow = true,
+	WatermarkEnabled = true,
+	WatermarkStats = true,
+}
+
+local function getWindowFrame()
+	if Window and Window.MainFrame and Window.MainFrame:IsA("GuiObject") then
+		return Window.MainFrame
+	end
+	if Library.ScreenGui then
+		for _, child in ipairs(Library.ScreenGui:GetChildren()) do
+			if child:IsA("Frame") and child.Name ~= "Floats" and child.Name ~= "Overlay" and child.Size.X.Offset > 200 then
+				return child
+			end
+		end
+	end
+	return nil
+end
+
+local function setupWindowEffects()
+	local winFrame = getWindowFrame()
+	if not winFrame then return end
+
+	-- 1. Outer Glowing Crimson Aura
+	local outerGlow = winFrame:FindFirstChild("UrielAuraStroke")
+	if not outerGlow then
+		outerGlow = Instance.new("UIStroke")
+		outerGlow.Name = "UrielAuraStroke"
+		outerGlow.Thickness = 2
+		outerGlow.Transparency = 0.35
+		outerGlow.Color = Color3.fromRGB(255, 26, 62)
+		outerGlow.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+		outerGlow.Parent = winFrame
+	end
+	auraStroke = outerGlow
+
+	-- 2. Sick Ambient Background Canvas
+	if not winFrame:FindFirstChild("UrielBackgroundCanvas") then
+		local canvas = Instance.new("Frame")
+		canvas.Name = "UrielBackgroundCanvas"
+		canvas.Size = UDim2.new(1, 0, 1, 0)
+		canvas.Position = UDim2.new(0, 0, 0, 0)
+		canvas.BackgroundTransparency = 1
+		canvas.ClipsDescendants = true
+		canvas.ZIndex = 0
+		canvas.Parent = winFrame
+
+		-- Ambient Deep Crimson Radial Vignette
+		local vignette = Instance.new("Frame")
+		vignette.Name = "Vignette"
+		vignette.Size = UDim2.new(1, 0, 1, 0)
+		vignette.BackgroundColor3 = Color3.fromRGB(255, 18, 52)
+		vignette.BackgroundTransparency = 0.93
+		vignette.BorderSizePixel = 0
+		vignette.ZIndex = 0
+		vignette.Parent = canvas
+
+		local vigGrad = Instance.new("UIGradient")
+		vigGrad.Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 0.4),
+			NumberSequenceKeypoint.new(0.5, 0.75),
+			NumberSequenceKeypoint.new(1, 1)
+		})
+		vigGrad.Rotation = 45
+		vigGrad.Parent = vignette
+
+		-- Cyber Scanline Sheen
+		local scanline = Instance.new("Frame")
+		scanline.Name = "Scanline"
+		scanline.Size = UDim2.new(1, 0, 0, 3)
+		scanline.Position = UDim2.new(0, 0, 0, 0)
+		scanline.BackgroundColor3 = Color3.fromRGB(255, 60, 95)
+		scanline.BackgroundTransparency = 0.55
+		scanline.BorderSizePixel = 0
+		scanline.ZIndex = 1
+		scanline.Parent = canvas
+
+		local scanGrad = Instance.new("UIGradient")
+		scanGrad.Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 1),
+			NumberSequenceKeypoint.new(0.5, 0),
+			NumberSequenceKeypoint.new(1, 1)
+		})
+		scanGrad.Parent = scanline
+
+		-- Embers Container
+		local embersFolder = Instance.new("Folder")
+		embersFolder.Name = "Embers"
+		embersFolder.Parent = canvas
+
+		-- Floating Crimson Embers
+		for i = 1, 50 do
+			local ember = Instance.new("Frame")
+			local size = math.random(2, 5)
+			ember.Size = UDim2.fromOffset(size, size)
+			ember.AnchorPoint = Vector2.new(0.5, 0.5)
+			local alpha = math.random(25, 75) / 100
+			ember.BackgroundTransparency = alpha
+			ember.BorderSizePixel = 0
+			ember.ZIndex = 1
+
+			local corner = Instance.new("UICorner")
+			corner.CornerRadius = UDim.new(1, 0)
+			corner.Parent = ember
+
+			local colors = {
+				Color3.fromRGB(255, 30, 65),
+				Color3.fromRGB(255, 70, 100),
+				Color3.fromRGB(210, 15, 45),
+				Color3.fromRGB(255, 120, 145),
+				Color3.fromRGB(255, 0, 50),
+			}
+			ember.BackgroundColor3 = colors[math.random(1, #colors)]
+			ember.Position = UDim2.new(math.random(2, 98) / 100, 0, math.random(5, 98) / 100, 0)
+			ember.Parent = embersFolder
+
+			table.insert(embersList, {
+				Gui = ember,
+				BaseX = ember.Position.X.Scale,
+				CurrentY = ember.Position.Y.Scale,
+				Speed = (math.random(15, 45) / 1000) * 0.45,
+				SwayFreq = math.random(10, 30) / 10,
+				SwayAmp = math.random(6, 20) / 1000,
+				Phase = math.random(0, 100) / 10,
+				BaseAlpha = alpha,
+				Size = size,
+				Active = i <= fxSettings.EmberCount,
+			})
+		end
+
+		fxContainer = canvas
+	end
+end
+
+-- Enhanced Sliders with Crimson Gradients & Glowing Knobs
+local function enhanceSliderInstance(sliderFrame)
+	if hookedSliders[sliderFrame] then return end
+	hookedSliders[sliderFrame] = true
+
+	pcall(function()
+		for _, descendant in ipairs(sliderFrame:GetDescendants()) do
+			if descendant:IsA("Frame") and (descendant.Name:lower():find("fill") or (descendant.Parent and descendant.Parent:IsA("Frame") and descendant.Size.Y.Scale == 1 and descendant.Size.X.Scale > 0)) then
+				if not descendant:FindFirstChild("UrielSliderGrad") then
+					local grad = Instance.new("UIGradient")
+					grad.Name = "UrielSliderGrad"
+					grad.Color = ColorSequence.new({
+						ColorSequenceKeypoint.new(0, Color3.fromRGB(160, 10, 32)),
+						ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 26, 62)),
+						ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 90, 120))
+					})
+					grad.Parent = descendant
+				end
+
+				if not descendant:FindFirstChild("UrielSliderKnob") then
+					local knob = Instance.new("Frame")
+					knob.Name = "UrielSliderKnob"
+					knob.Size = UDim2.fromOffset(8, 13)
+					knob.AnchorPoint = Vector2.new(0.5, 0.5)
+					knob.Position = UDim2.new(1, 0, 0.5, 0)
+					knob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+					knob.BorderSizePixel = 0
+					knob.ZIndex = (descendant.ZIndex or 1) + 2
+
+					local knobCorner = Instance.new("UICorner")
+					knobCorner.CornerRadius = UDim.new(0, 4)
+					knobCorner.Parent = knob
+
+					local knobStroke = Instance.new("UIStroke")
+					knobStroke.Color = Color3.fromRGB(255, 26, 62)
+					knobStroke.Thickness = 1.5
+					knobStroke.Parent = knob
+
+					knob.Parent = descendant
+				end
+			end
+
+			if descendant:IsA("Frame") and descendant.Name:lower():find("track") then
+				if not descendant:FindFirstChild("UrielTrackStroke") then
+					local stroke = Instance.new("UIStroke")
+					stroke.Name = "UrielTrackStroke"
+					stroke.Color = Color3.fromRGB(75, 20, 32)
+					stroke.Thickness = 1
+					stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+					stroke.Parent = descendant
+				end
+			end
+		end
+	end)
+end
+
+local function scanAndEnhanceSliders()
+	if not fxSettings.SliderGlow or not Library.ScreenGui then return end
+	pcall(function()
+		for _, desc in ipairs(Library.ScreenGui:GetDescendants()) do
+			if desc:IsA("Frame") and (desc.Name:lower():find("slider") or (desc.Parent and desc.Parent.Name:lower():find("slider"))) then
+				enhanceSliderInstance(desc)
+			end
+		end
+	end)
+end
+
+-- Enhanced Groupboxes with Crimson Top Accent Line
+local function scanAndEnhanceGroupboxes()
+	if not Library.ScreenGui then return end
+	pcall(function()
+		for _, desc in ipairs(Library.ScreenGui:GetDescendants()) do
+			if desc:IsA("Frame") and desc.Name:lower():find("groupbox") and not hookedGroupboxes[desc] then
+				hookedGroupboxes[desc] = true
+				if not desc:FindFirstChild("UrielTopAccent") then
+					local line = Instance.new("Frame")
+					line.Name = "UrielTopAccent"
+					line.Size = UDim2.new(1, -4, 0, 1.5)
+					line.Position = UDim2.new(0, 2, 0, 0)
+					line.BackgroundColor3 = Color3.fromRGB(255, 28, 64)
+					line.BorderSizePixel = 0
+					line.ZIndex = desc.ZIndex + 1
+
+					local lineGrad = Instance.new("UIGradient")
+					lineGrad.Transparency = NumberSequence.new({
+						NumberSequenceKeypoint.new(0, 0.9),
+						NumberSequenceKeypoint.new(0.2, 0.1),
+						NumberSequenceKeypoint.new(0.5, 0),
+						NumberSequenceKeypoint.new(0.8, 0.1),
+						NumberSequenceKeypoint.new(1, 0.9)
+					})
+					lineGrad.Parent = line
+					line.Parent = desc
+				end
+			end
+		end
+	end)
+end
+
+-- Live Watermark HUD
+local function setupWatermark()
+	if watermarkGui or not Library.ScreenGui then return end
+
+	watermarkGui = Instance.new("Frame")
+	watermarkGui.Name = "UrielWatermark"
+	watermarkGui.Size = UDim2.fromOffset(320, 28)
+	watermarkGui.Position = UDim2.new(0, 16, 0, 16)
+	watermarkGui.BackgroundColor3 = Color3.fromRGB(14, 7, 10)
+	watermarkGui.BackgroundTransparency = 0.15
+	watermarkGui.BorderSizePixel = 0
+	watermarkGui.ZIndex = 5000
+	watermarkGui.Visible = fxSettings.WatermarkEnabled
+
+	local wmCorner = Instance.new("UICorner")
+	wmCorner.CornerRadius = UDim.new(0, 7)
+	wmCorner.Parent = watermarkGui
+
+	local wmStroke = Instance.new("UIStroke")
+	wmStroke.Color = Color3.fromRGB(255, 26, 62)
+	wmStroke.Thickness = 1.2
+	wmStroke.Transparency = 0.3
+	wmStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	wmStroke.Parent = watermarkGui
+
+	local wmGrad = Instance.new("UIGradient")
+	wmGrad.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 45, 75)),
+		ColorSequenceKeypoint.new(1, Color3.fromRGB(130, 15, 32))
+	})
+	wmGrad.Parent = wmStroke
+
+	watermarkText = Instance.new("TextLabel")
+	watermarkText.Size = UDim2.new(1, -14, 1, 0)
+	watermarkText.Position = UDim2.new(0, 8, 0, 0)
+	watermarkText.BackgroundTransparency = 1
+	watermarkText.Font = Enum.Font.Jura
+	watermarkText.TextSize = 13
+	watermarkText.TextColor3 = Color3.fromRGB(255, 255, 255)
+	watermarkText.TextXAlignment = Enum.TextXAlignment.Left
+	watermarkText.RichText = true
+	watermarkText.Text = "<font color='#FF1C40'><b>♠ URIEL</b></font> | TSG | <font color='#FF5070'>RED EDITION</font>"
+	watermarkText.Parent = watermarkGui
+
+	Library:MakeDraggable(watermarkGui, watermarkGui)
+	watermarkGui.Parent = Library.ScreenGui
+end
+
+-- Render loop for breathing aura, ember particles, scanlines & watermark
+local lastScanlineY = 0
+local fpsSamples = {}
+local lastTime = tick()
+
+local function onRenderStep()
+	local now = tick()
+	local dt = math.clamp(now - lastTime, 0.001, 0.1)
+	lastTime = now
+
+	table.insert(fpsSamples, 1 / dt)
+	if #fpsSamples > 30 then table.remove(fpsSamples, 1) end
+	local avgFps = 60
+	if #fpsSamples > 0 then
+		local sum = 0
+		for _, f in ipairs(fpsSamples) do sum = sum + f end
+		avgFps = math.floor(sum / #fpsSamples)
+	end
+
+	local ping = 0
+	pcall(function()
+		ping = math.floor(LocalPlayer:GetNetworkPing() * 1000)
+	end)
+
+	if auraStroke and auraStroke.Parent and fxSettings.AuraPulse then
+		local pulse = (math.sin(now * 2.8) + 1) / 2
+		auraStroke.Transparency = 0.25 + (pulse * 0.45)
+		auraStroke.Thickness = 1.5 + (pulse * 1.0)
+	end
+
+	if fxContainer and fxContainer.Parent and fxSettings.EmbersEnabled then
+		for idx, ember in ipairs(embersList) do
+			if ember.Active and ember.Gui and ember.Gui.Parent then
+				ember.CurrentY = ember.CurrentY - (ember.Speed * fxSettings.EmberSpeed * dt * 60)
+				local sway = math.sin((now * ember.SwayFreq) + ember.Phase) * ember.SwayAmp
+				local newX = math.clamp(ember.BaseX + sway, 0.01, 0.99)
+
+				if ember.CurrentY < -0.05 then
+					ember.CurrentY = 1.05
+					ember.BaseX = math.random(2, 98) / 100
+					ember.Phase = math.random(0, 100) / 10
+				end
+
+				ember.Gui.Position = UDim2.new(newX, 0, ember.CurrentY, 0)
+				local edgeFade = 1
+				if ember.CurrentY < 0.2 then
+					edgeFade = math.clamp(ember.CurrentY / 0.2, 0, 1)
+				elseif ember.CurrentY > 0.85 then
+					edgeFade = math.clamp((1.05 - ember.CurrentY) / 0.2, 0, 1)
+				end
+				ember.Gui.BackgroundTransparency = 1 - ((1 - ember.BaseAlpha) * edgeFade)
+			end
+		end
+	end
+
+	if fxContainer and fxContainer.Parent and fxSettings.CyberScanline then
+		local scanline = fxContainer:FindFirstChild("Scanline")
+		if scanline then
+			lastScanlineY = (lastScanlineY + (dt * 0.22)) % 1.2
+			scanline.Position = UDim2.new(0, 0, lastScanlineY, 0)
+		end
+	end
+
+	if watermarkGui and watermarkText and fxSettings.WatermarkEnabled then
+		if fxSettings.WatermarkStats then
+			watermarkText.Text = string.format(
+				"<font color='#FF1C40'><b>♠ URIEL</b></font> | TSG | <font color='#FF6B85'>%d FPS</font> | <font color='#FF3355'>%d ms</font> | <font color='#FF1C40'>RED</font>",
+				avgFps, ping
+			)
+		else
+			watermarkText.Text = "<font color='#FF1C40'><b>♠ URIEL</b></font> | TSG | <font color='#FF1C40'>RED BLOOD EDITION</font>"
+		end
+	end
+end
+
+-- Initialize Visual FX
+task.spawn(function()
+	task.wait(0.2)
+	setupWindowEffects()
+	setupWatermark()
+	scanAndEnhanceSliders()
+	scanAndEnhanceGroupboxes()
+end)
+
+track("UrielFXRender", RunService.RenderStepped:Connect(onRenderStep))
+track("UrielFXPeriodicScan", task.spawn(function()
+	while task.wait(1.5) do
+		if not fxContainer or not fxContainer.Parent then
+			setupWindowEffects()
+		end
+		scanAndEnhanceSliders()
+		scanAndEnhanceGroupboxes()
+	end
+end))
 
 local ToiletBedGroup = Tabs.Player:AddLeftGroupbox("Toilet/Bed", "bed")
 
@@ -624,7 +1061,7 @@ TeleportGroup:AddButton({
 })
 
 MainLeft:AddToggle("InfiniteBackpack", {
-	Text = "Infinite Backpack",
+	Text = "pack",
 	Default = false,
 })
 
@@ -7309,10 +7746,120 @@ end)
 
 Library.ToggleKeybind = Options.MenuKeybind
 
+local VisualsFXGroup = Tabs["UI Settings"]:AddRightGroupbox("Visuals & Red FX", "palette")
+
+VisualsFXGroup:AddDropdown("ThemePresetSelect", {
+	Text = "Theme Preset",
+	Values = {
+		"Blood Moon (Default)",
+		"Crimson Cyber",
+		"Ruby Hellfire",
+		"Vampiric Noir",
+		"Scarlet Abyss",
+		"Red Matrix"
+	},
+	Default = "Blood Moon (Default)",
+	Callback = function(themeName)
+		if ThemeManager.BuiltInThemes[themeName] then
+			ThemeManager:ApplyTheme(ThemeManager.BuiltInThemes[themeName][2])
+		end
+	end,
+})
+
+VisualsFXGroup:AddToggle("FXAuraPulse", {
+	Text = "Window Aura Pulse",
+	Default = fxSettings.AuraPulse,
+	Callback = function(val)
+		fxSettings.AuraPulse = val
+		if auraStroke then auraStroke.Visible = val end
+	end,
+})
+
+VisualsFXGroup:AddToggle("FXEmbers", {
+	Text = "Floating Embers",
+	Default = fxSettings.EmbersEnabled,
+	Callback = function(val)
+		fxSettings.EmbersEnabled = val
+		if fxContainer and fxContainer:FindFirstChild("Embers") then
+			fxContainer.Embers.Visible = val
+		end
+	end,
+})
+
+VisualsFXGroup:AddSlider("FXEmberCount", {
+	Text = "Ember Density",
+	Default = fxSettings.EmberCount,
+	Min = 10,
+	Max = 50,
+	Rounding = 0,
+	Compact = true,
+	Callback = function(val)
+		fxSettings.EmberCount = val
+		for idx, ember in ipairs(embersList) do
+			ember.Active = idx <= val
+			if ember.Gui then ember.Gui.Visible = ember.Active and fxSettings.EmbersEnabled end
+		end
+	end,
+})
+
+VisualsFXGroup:AddSlider("FXEmberSpeed", {
+	Text = "Ember Float Speed",
+	Default = 1.0,
+	Min = 0.5,
+	Max = 3.0,
+	Rounding = 1,
+	Compact = true,
+	Callback = function(val)
+		fxSettings.EmberSpeed = val
+	end,
+})
+
+VisualsFXGroup:AddToggle("FXScanline", {
+	Text = "Cyber Scanline Sheen",
+	Default = fxSettings.CyberScanline,
+	Callback = function(val)
+		fxSettings.CyberScanline = val
+		if fxContainer and fxContainer:FindFirstChild("Scanline") then
+			fxContainer.Scanline.Visible = val
+		end
+	end,
+})
+
+VisualsFXGroup:AddToggle("FXSliderGlow", {
+	Text = "Enhanced Glowing Sliders",
+	Default = fxSettings.SliderGlow,
+	Callback = function(val)
+		fxSettings.SliderGlow = val
+		if val then scanAndEnhanceSliders() end
+	end,
+})
+
+VisualsFXGroup:AddToggle("FXWatermark", {
+	Text = "Status Watermark HUD",
+	Default = fxSettings.WatermarkEnabled,
+	Callback = function(val)
+		fxSettings.WatermarkEnabled = val
+		if watermarkGui then watermarkGui.Visible = val end
+	end,
+})
+
+VisualsFXGroup:AddToggle("FXWatermarkStats", {
+	Text = "Watermark FPS / Ping",
+	Default = fxSettings.WatermarkStats,
+	Callback = function(val)
+		fxSettings.WatermarkStats = val
+	end,
+})
+
 ThemeManager:SetLibrary(Library)
--- Set default accent color to red
+-- Set default theme to Blood Moon
 ThemeManager:SetDefaultTheme({
-	AccentColor = "ff0000" -- Red
+	FontColor = "ffffff",
+	MainColor = "160c10",
+	AccentColor = "ff1c40",
+	BackgroundColor = "0c0608",
+	OutlineColor = "44121c",
+	BackgroundImage = ""
 })
 SaveManager:SetLibrary(Library)
 SaveManager:IgnoreThemeSettings()
@@ -7325,6 +7872,11 @@ ThemeManager:ApplyToTab(Tabs["UI Settings"])
 SaveManager:LoadAutoloadConfig()
 
 Library:OnUnload(function()
+	pcall(function()
+		if watermarkGui then watermarkGui:Destroy() end
+		if fxContainer then fxContainer:Destroy() end
+		if auraStroke then auraStroke:Destroy() end
+	end)
 	if Toggles.ImmortalMode and Toggles.ImmortalMode.Value then
 		Toggles.ImmortalMode:SetValue(false)
 	end
@@ -7476,7 +8028,7 @@ Library:OnUnload(function()
 end)
 
 Library:Notify({
-	Title = "♠ URIEL",
-	Description = "Script loaded successfully!",
-	Time = 2,
+	Title = "♠ URIEL · RED EDITION",
+	Description = "Crimson Blood Theme & Sick Visual FX Loaded!",
+	Time = 3,
 })
