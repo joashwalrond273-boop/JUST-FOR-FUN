@@ -3939,6 +3939,11 @@ OreESPGroup:AddToggle("OreESPToggle", {
 	Default = false,
 })
 
+OreESPGroup:AddToggle("AutoOreTeleportMine", {
+	Text = "Ore Farm",
+	Default = false,
+})
+
 OreESPGroup:AddCheckbox("OreESPRemoveNames", {
 	Text = "+ Remove Names",
 	Default = false,
@@ -3987,170 +3992,6 @@ FarmAI:AddCheckbox("HighlightAI", {
 })
 
 -- ==========================================
-local OreFarm = Tabs.Farming:AddRightGroupbox("Ore Farm", "gem")
-
-OreFarm:AddToggle("AutoOreTeleportMine", {
-	Text = "Auto Teleport Mine",
-	Default = false,
-})
-
-OreFarm:AddDropdown("OreTPTargetType", {
-	Text = "Target Ore",
-	Values = { "All", "Gold", "Iron", "Coal", "Copper", "Bluesteel", "Stone", "Ice", "Coral" },
-	Default = "All",
-})
-
-OreFarm:AddDropdown("OreTPSlot", {
-	Text = "Tool Slot",
-	Values = {"1","2","3","4","5","6","7","8","9","10"},
-	Default = "1",
-})
-
-OreFarm:AddSlider("OreTPHeightOffset", {
-	Text = "Height Offset",
-	Default = 3,
-	Min = 0,
-	Max = 10,
-	Rounding = 1,
-	Compact = true,
-})
-
-OreFarm:AddSlider("OreTPHitDelay", {
-	Text = "Hit Delay (s)",
-	Default = 0.15,
-	Min = 0.05,
-	Max = 1,
-	Rounding = 2,
-	Compact = true,
-})
-
-OreFarm:AddCheckbox("OreTPFreezeVelocity", {
-	Text = "Freeze Velocity / Float",
-	Default = true,
-})
-
-OreFarm:AddCheckbox("OreTPHighlight", {
-	Text = "Highlight Target Ore",
-	Default = true,
-})
-
-OreFarm:AddDivider()
-
-OreFarm:AddButton({
-	Text = "Reset Character",
-	Func = function()
-		local root = getRootPart()
-		if root then
-			lastDeathPosition = root.Position
-		end
-
-		local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
-		if remoteInterface then
-			local characterFolder = remoteInterface:FindFirstChild("character")
-			if characterFolder then
-				local resetRemote = characterFolder:FindFirstChild("reset")
-				if resetRemote then
-					pcall(function()
-						resetRemote:InvokeServer()
-					end)
-				end
-			end
-		end
-	end,
-})
-
-local goldLocations = {
-	{ name = "Gold 1",  pos = Vector3.new(1732.94, 113.13, 2295.19) },
-	{ name = "Gold 2",  pos = Vector3.new(1447.98, 39.83,  2400.27) },
-	{ name = "Gold 3",  pos = Vector3.new(1837.06, 29.36,  2471.74) },
-	{ name = "Gold 4",  pos = Vector3.new(1177.61, 29.01,  -609.47) },
-	{ name = "Gold 5",  pos = Vector3.new(1188.42, 20.58,  -563.03) },
-	{ name = "Gold 6",  pos = Vector3.new(-651.84, 226.09, 654.28)  },
-	{ name = "Gold 7",  pos = Vector3.new(-540.20, 76.40,  297.97)  },
-	{ name = "Gold 8",  pos = Vector3.new(-2202.22, 51.01, 22.08)   },
-	{ name = "Gold 9",  pos = Vector3.new(-1182.86, 54.42, 6608.34) },
-	{ name = "Gold 10", pos = Vector3.new(-2015.67, 30.73, -39.95)  },
-	{ name = "Gold 11", pos = Vector3.new(-912.17, 125.72, -408.72) },
-	{ name = "Gold 12", pos = Vector3.new(-264.65, 47.32,  1427.81) },
-    { name = "Gold 13", pos = Vector3.new(245.51,  45.00,  460.77)  },
-	{ name = "Gold 14", pos = Vector3.new(-1261.77, 43.72, 6281.94) },
-	{ name = "Gold 15", pos = Vector3.new(-1765.08, 95.91, 7158.15) },
-	{ name = "Gold 16", pos = Vector3.new(1686.60, 41.64, -917.39)  },
-	{ name = "Gold 17", pos = Vector3.new(1566.16, 23.19, -946.35)  },
-	{ name = "Gold 18", pos = Vector3.new(252.14, 22.06, 811.69)    },
-	{ name = "Gold 19", pos = Vector3.new(50.11, 125.73, -1040.40)  },
-	{ name = "Gold 20", pos = Vector3.new(462.81, 100.69, -455.26)  },
-	{ name = "Coal 1",  pos = Vector3.new(1130.93, 24.94, -601.55)  },
-	{ name = "Coal 2",  pos = Vector3.new(1319.54, 25.26, -1129.08) },
-	{ name = "Coal 3",  pos = Vector3.new(-681.19, 173.56, 657.90)  },
-	{ name = "Coal 4",  pos = Vector3.new(-886.51, 75.31, 192.70)   },
-	{ name = "Coal 5",  pos = Vector3.new(-1351.22, 31.18, -167.99) },
-	{ name = "Coal 6",  pos = Vector3.new(-1872.79, 30.78, 194.66)  },
-	{ name = "Coal 7",  pos = Vector3.new(-2255.10, 29.20, 964.32)  },
-	{ name = "Coal 8",  pos = Vector3.new(331.57, 47.36, 492.03)    },
-	{ name = "Coal 9",  pos = Vector3.new(264.71, 27.19, 267.24)    },
-	{ name = "Coal 10", pos = Vector3.new(-680.98, 26.07, 254.45)   },
-	{ name = "Coal 11", pos = Vector3.new(182.10, 25.26, -934.94)   },
-	{ name = "Coal 12", pos = Vector3.new(11.22, 36.86, -1008.32)   },
-}
-
-local function filterLocations(prefix)
-	local names = {}
-	for _, loc in ipairs(goldLocations) do
-		if loc.name:sub(1, #prefix) == prefix then
-			table.insert(names, loc.name)
-		end
-	end
-	return names
-end
-
-OreFarm:AddDropdown("SelectOreDropdown", {
-	Text = "Select Ore",
-	Values = { "Gold", "Coal" },
-	Default = "Gold",
-})
-
-OreFarm:AddDropdown("GoldLocationsDropdown", {
-	Text = "Select Ore Location",
-	Values = filterLocations("Gold"),
-	Default = "Gold 1",
-})
-
-Options.SelectOreDropdown:OnChanged(function()
-	local value = Options.SelectOreDropdown.Value
-	local filtered = filterLocations(value)
-	Options.GoldLocationsDropdown:SetValues(filtered)
-	if value == "Gold" then
-		Options.GoldLocationsDropdown:SetValue("Gold 1")
-	elseif value == "Coal" then
-		Options.GoldLocationsDropdown:SetValue("Coal 1")
-	end
-end)
-
-OreFarm:AddButton({
-	Text = "Teleport to Selected",
-	Func = function()
-           local selected = Options.GoldLocationsDropdown.Value
-           local targetPos = nil
-           for _, loc in ipairs(goldLocations) do
-                   if loc.name == selected then
-                           targetPos = loc.pos
-                           break
-                   end
-           end
-           if targetPos then
-                   local root = getRootPart()
-                   if root then
-                           root.CFrame = CFrame.new(targetPos)
-                           Library:Notify({ Title = "Teleport", Description = "Teleported to " .. selected, Time = 1.5 })
-                   else
-                           Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
-                   end
-           end
-   end,
-})
-
--- ==========================================
 -- In Obsidian, AddColorPicker is chained off a Label or Toggle
 FarmRight:AddLabel("Fill Color"):AddColorPicker("AuraFillColor", {
 	Default = Color3.fromRGB(255, 200, 0),
@@ -4172,7 +4013,6 @@ FarmRight:AddLabel("Outline Color"):AddColorPicker("AuraOutlineColor", {
 local hlMine = makeAuraHighlight()
 local hlChop = makeAuraHighlight()
 local hlAI   = makeAuraHighlight()
-local hlOreTP = makeAuraHighlight()
 
 -- Sync color picker -> all highlights
 Options.AuraFillColor:OnChanged(function()
@@ -4180,14 +4020,12 @@ Options.AuraFillColor:OnChanged(function()
 	hlMine.FillColor  = auraHighlightColor
 	hlChop.FillColor  = auraHighlightColor
 	hlAI.FillColor    = auraHighlightColor
-	hlOreTP.FillColor = auraHighlightColor
 end)
 Options.AuraOutlineColor:OnChanged(function()
 	auraOutlineColor = Options.AuraOutlineColor.Value
 	hlMine.OutlineColor  = auraOutlineColor
 	hlChop.OutlineColor  = auraOutlineColor
 	hlAI.OutlineColor    = auraOutlineColor
-	hlOreTP.OutlineColor = auraOutlineColor
 end)
 
 Toggles.HighlightMine:OnChanged(function()
@@ -4205,13 +4043,6 @@ Toggles.HighlightAI:OnChanged(function()
 		updateHighlight(hlAI, nil, false)
 	end
 end)
-if Toggles.OreTPHighlight then
-	Toggles.OreTPHighlight:OnChanged(function()
-		if not Toggles.OreTPHighlight.Value then
-			updateHighlight(hlOreTP, nil, false)
-		end
-	end)
-end
 
 -- ==========================================
 local isAutoMineRunning = false
@@ -4282,21 +4113,21 @@ Toggles.AutoMine:OnChanged(function()
 end)
 
 -- ==========================================
--- Auto Ore Teleport & Mine
+-- Ore Farm (Teleport & Mine from workspace.worldResources.mineable)
 -- ==========================================
-local isOreTPRunning = false
-local currentTPOre = nil
-local currentTPOreStartTime = 0
-local lastOreTPHit = 0
+local isOreFarmRunning = false
+local currentFarmOre = nil
+local currentFarmOreStartTime = 0
+local lastOreFarmHit = 0
 
-local function getAvailableOres(targetType)
+local function getClosestMineableOre()
 	local folder = workspace:FindFirstChild("worldResources") and workspace.worldResources:FindFirstChild("mineable")
-	if not folder then return {} end
+	if not folder then return nil end
 
 	local root = getRootPart()
 	local rootPos = root and root.Position or Vector3.zero
 
-	local list = {}
+	local closest, closestDist = nil, math.huge
 	for _, chunkFolder in ipairs(folder:GetChildren()) do
 		if not chunkFolder:IsA("Folder") then continue end
 		for _, obj in ipairs(chunkFolder:GetChildren()) do
@@ -4304,115 +4135,78 @@ local function getAvailableOres(targetType)
 			local primary = obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
 			if not primary then continue end
 
-			local oreName = obj.Name or "Unknown"
-			if targetType and targetType ~= "All" and oreName:lower() ~= targetType:lower() then
-				continue
-			end
-
 			local dist = (primary.Position - rootPos).Magnitude
-			table.insert(list, {
-				obj = obj,
-				part = primary,
-				name = oreName,
-				dist = dist,
-				pos = primary.Position,
-			})
+			if dist < closestDist then
+				closestDist = dist
+				closest = obj
+			end
 		end
 	end
 
-	table.sort(list, function(a, b) return a.dist < b.dist end)
-	return list
+	return closest
 end
 
-local function autoOreTPLoop()
-	if not isAlive() or not isOreTPRunning then return end
+local function oreFarmLoop()
+	if not isAlive() or not isOreFarmRunning then return end
 
 	local root = getRootPart()
 	if not root then return end
 
-	local slot = tonumber(Options.OreTPSlot and Options.OreTPSlot.Value) or 1
-	local hitDelay = (Options.OreTPHitDelay and Options.OreTPHitDelay.Value) or 0.15
-	local heightOffset = (Options.OreTPHeightOffset and Options.OreTPHeightOffset.Value) or 3
-	local targetType = (Options.OreTPTargetType and Options.OreTPTargetType.Value) or "All"
-	local freezeVelocity = not Toggles.OreTPFreezeVelocity or Toggles.OreTPFreezeVelocity.Value
+	local slot = (Options.AutoMineSlot and tonumber(Options.AutoMineSlot.Value)) or 1
 
-	-- Check if current target is still valid (alive and in workspace)
-	local valid = currentTPOre and currentTPOre.obj and currentTPOre.obj.Parent and currentTPOre.obj:IsDescendantOf(workspace)
-
-	-- Timeout protection: If hitting same ore for > 8 seconds, skip it
-	if valid and (tick() - currentTPOreStartTime > 8) then
+	-- Check if current target is still valid
+	local valid = currentFarmOre and currentFarmOre.Parent and currentFarmOre:IsDescendantOf(workspace)
+	if valid and (tick() - currentFarmOreStartTime > 8) then
 		valid = false
-		currentTPOre = nil
+		currentFarmOre = nil
 	end
 
 	if not valid then
-		currentTPOre = nil
-		updateHighlight(hlOreTP, nil, false)
-		local list = getAvailableOres(targetType)
-		if #list > 0 then
-			currentTPOre = list[1]
-			currentTPOreStartTime = tick()
-		else
-			return
-		end
+		currentFarmOre = getClosestMineableOre()
+		currentFarmOreStartTime = tick()
+		if not currentFarmOre then return end
 	end
 
-	if currentTPOre and currentTPOre.obj and currentTPOre.obj.Parent then
-		local targetPart = currentTPOre.obj.PrimaryPart or currentTPOre.obj:FindFirstChildWhichIsA("BasePart") or currentTPOre.part
-		if not targetPart or not targetPart.Parent then
-			currentTPOre = nil
-			return
-		end
+	local targetPart = currentFarmOre.PrimaryPart or currentFarmOre:FindFirstChildWhichIsA("BasePart")
+	if not targetPart or not targetPart.Parent then
+		currentFarmOre = nil
+		return
+	end
 
-		local targetPos = targetPart.Position
-		local desiredCFrame = CFrame.new(targetPos + Vector3.new(0, heightOffset, 0))
+	local targetPos = targetPart.Position
+	local desiredPos = targetPos + Vector3.new(0, 3, 0)
 
-		-- Teleport player if further than 4 studs
-		if (root.Position - desiredCFrame.Position).Magnitude > 4 then
-			root.CFrame = desiredCFrame
-		end
+	if (root.Position - desiredPos).Magnitude > 4 then
+		root.CFrame = CFrame.new(desiredPos)
+	end
+	root.Velocity = Vector3.zero
 
-		if freezeVelocity then
-			root.Velocity = Vector3.zero
-		end
-
-		-- Target highlight
-		if Toggles.OreTPHighlight and Toggles.OreTPHighlight.Value then
-			updateHighlight(hlOreTP, currentTPOre.obj, true)
-		else
-			updateHighlight(hlOreTP, nil, false)
-		end
-
-		-- Mine hit
-		if tick() - lastOreTPHit >= hitDelay then
-			lastOreTPHit = tick()
-			pcall(function()
-				TSG.MineRemote:FireServer(slot, currentTPOre.obj, CFrame.new(targetPos))
-			end)
-		end
+	if tick() - lastOreFarmHit >= 0.15 then
+		lastOreFarmHit = tick()
+		pcall(function()
+			TSG.MineRemote:FireServer(slot, currentFarmOre, CFrame.new(targetPos))
+		end)
 	end
 end
 
 Toggles.AutoOreTeleportMine:OnChanged(function()
-	disconnect("AutoOreTPMine")
-	updateHighlight(hlOreTP, nil, false)
-	currentTPOre = nil
+	disconnect("AutoOreTPFarm")
+	currentFarmOre = nil
 	if Toggles.AutoOreTeleportMine.Value then
 		if not TSG.MineRemote then
-			Library:Notify({ Title = "Auto Ore Miner", Description = "Mine remote not found.", Time = 4 })
+			Library:Notify({ Title = "Ore Farm", Description = "Mine remote not found.", Time = 4 })
 			Toggles.AutoOreTeleportMine:SetValue(false)
 			return
 		end
-		isOreTPRunning = true
-		track("AutoOreTPMine", RunService.Heartbeat:Connect(function()
-			if not isAlive() or not isOreTPRunning then return end
-			autoOreTPLoop()
+		isOreFarmRunning = true
+		track("AutoOreTPFarm", RunService.Heartbeat:Connect(function()
+			if not isAlive() or not isOreFarmRunning then return end
+			oreFarmLoop()
 		end))
-		Library:Notify({ Title = "Auto Ore Miner", Description = "Teleport Mining Enabled", Time = 2 })
+		Library:Notify({ Title = "Ore Farm", Description = "Enabled", Time = 2 })
 	else
-		isOreTPRunning = false
-		updateHighlight(hlOreTP, nil, false)
-		Library:Notify({ Title = "Auto Ore Miner", Description = "Disabled", Time = 2 })
+		isOreFarmRunning = false
+		Library:Notify({ Title = "Ore Farm", Description = "Disabled", Time = 2 })
 	end
 end)
 
@@ -4777,21 +4571,6 @@ local function scanOreTypesAndBuildUI()
 	for n in pairs(found) do table.insert(names, n) end
 	table.sort(names)
 	if #names == 0 then return end
-
-	-- Update target ore dropdown values for Auto Ore Teleport Mine
-	pcall(function()
-		if Options and Options.OreTPTargetType then
-			local currentVal = Options.OreTPTargetType.Value
-			local oreOptions = { "All" }
-			for _, n in ipairs(names) do
-				table.insert(oreOptions, n)
-			end
-			Options.OreTPTargetType:SetValues(oreOptions)
-			if table.find(oreOptions, currentVal) then
-				Options.OreTPTargetType:SetValue(currentVal)
-			end
-		end
-	end)
 
 	local anyAdded = false
 	for i, oreName in ipairs(names) do
