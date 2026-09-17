@@ -331,169 +331,6 @@ local Tabs = {
 	["UI Settings"] = Window:AddTab("UI Settings", "settings"),
 }
 
--- Slider Value Visibility Hook (only show values when interacting, leave slider names on sliders)
-do
-	local groupboxMeta = getmetatable(Tabs.Main)
-	if groupboxMeta and groupboxMeta.__index then
-		local Funcs = groupboxMeta.__index
-		local originalAddSlider = Funcs.AddSlider
-
-		Funcs.AddSlider = function(self, Idx, Info)
-			local Slider = originalAddSlider(self, Idx, Info)
-			if not Slider or not Slider.Holder then
-				return Slider
-			end
-
-			local Holder = Slider.Holder
-			local Bar = Holder:FindFirstChildOfClass("TextButton")
-			if not Bar then
-				return Slider
-			end
-
-			local DisplayLabel = Bar:FindFirstChildOfClass("TextLabel")
-			if not DisplayLabel then
-				return Slider
-			end
-
-			local Fill = Bar:FindFirstChildOfClass("Frame")
-			local InputTextBox = Bar:FindFirstChildOfClass("TextBox")
-			local SliderLabel = Holder:FindFirstChildOfClass("TextLabel")
-
-			local isHovered = false
-			local isDragging = false
-			local isFocused = false
-
-			local function updateDisplay()
-				if Library.Unloaded or Slider.Destroyed then
-					return
-				end
-
-				local inUse = isHovered or isDragging or isFocused
-
-				local CustomDisplayText = nil
-				if Info and Info.FormatDisplayValue then
-					pcall(function()
-						CustomDisplayText = Info.FormatDisplayValue(Slider, Slider.Value)
-					end)
-				end
-
-				if (Info and Info.Compact) or not SliderLabel then
-					if inUse then
-						if CustomDisplayText then
-							DisplayLabel.Text = string.format("%s: %s", Slider.Text, tostring(CustomDisplayText))
-						else
-							DisplayLabel.Text = string.format(
-								"%s: %s%s%s",
-								Slider.Text,
-								Slider.Prefix or "",
-								Slider.Value,
-								Slider.Suffix or ""
-							)
-						end
-					else
-						DisplayLabel.Text = tostring(Slider.Text)
-					end
-				else
-					if inUse then
-						if CustomDisplayText then
-							DisplayLabel.Text = tostring(CustomDisplayText)
-						elseif Info and Info.HideMax then
-							DisplayLabel.Text = string.format("%s%s%s", Slider.Prefix or "", Slider.Value, Slider.Suffix or "")
-						else
-							DisplayLabel.Text = string.format(
-								"%s%s%s/%s%s%s",
-								Slider.Prefix or "",
-								Slider.Value,
-								Slider.Suffix or "",
-								Slider.Prefix or "",
-								Slider.Max,
-								Slider.Suffix or ""
-							)
-						end
-					else
-						DisplayLabel.Text = ""
-					end
-				end
-
-				if Fill and Slider.Min and Slider.Max then
-					local range = Slider.Max - Slider.Min
-					local X = (range == 0) and 0 or ((Slider.Value - Slider.Min) / range)
-					Fill.Size = UDim2.fromScale(math.clamp(X, 0, 1), 1)
-				end
-			end
-
-			Slider.Display = updateDisplay
-
-			-- Mouse Hover detection
-			table.insert(
-				Slider.Connections,
-				Bar.MouseEnter:Connect(function()
-					isHovered = true
-					updateDisplay()
-				end)
-			)
-
-			table.insert(
-				Slider.Connections,
-				Bar.MouseLeave:Connect(function()
-					isHovered = false
-					updateDisplay()
-				end)
-			)
-
-			-- Dragging / Touch detection
-			table.insert(
-				Slider.Connections,
-				Bar.InputBegan:Connect(function(input)
-					if
-						input.UserInputType == Enum.UserInputType.MouseButton1
-						or input.UserInputType == Enum.UserInputType.Touch
-					then
-						isDragging = true
-						updateDisplay()
-
-						local endConnection
-						endConnection = UserInputService.InputEnded:Connect(function(endedInput)
-							if endedInput == input or endedInput.UserInputType == input.UserInputType then
-								isDragging = false
-								if endConnection then
-									endConnection:Disconnect()
-									endConnection = nil
-								end
-								updateDisplay()
-							end
-						end)
-					end
-				end)
-			)
-
-			-- Textbox focus detection for direct input
-			if InputTextBox then
-				table.insert(
-					Slider.Connections,
-					InputTextBox.Focused:Connect(function()
-						isFocused = true
-						updateDisplay()
-					end)
-				)
-
-				table.insert(
-					Slider.Connections,
-					InputTextBox.FocusLost:Connect(function()
-						isFocused = false
-						updateDisplay()
-					end)
-				)
-			end
-
-			-- Initial display update to show only the slider name
-			updateDisplay()
-
-			return Slider
-		end
-	end
-end
-
 -- Connections (clean up on unload)
 local Connections = {}
 
@@ -4152,6 +3989,53 @@ FarmAI:AddCheckbox("HighlightAI", {
 -- ==========================================
 local OreFarm = Tabs.Farming:AddRightGroupbox("Ore Farm", "gem")
 
+OreFarm:AddToggle("AutoOreTeleportMine", {
+	Text = "Auto Teleport Mine",
+	Default = false,
+})
+
+OreFarm:AddDropdown("OreTPTargetType", {
+	Text = "Target Ore",
+	Values = { "All", "Gold", "Iron", "Coal", "Copper", "Bluesteel", "Stone", "Ice", "Coral" },
+	Default = "All",
+})
+
+OreFarm:AddDropdown("OreTPSlot", {
+	Text = "Tool Slot",
+	Values = {"1","2","3","4","5","6","7","8","9","10"},
+	Default = "1",
+})
+
+OreFarm:AddSlider("OreTPHeightOffset", {
+	Text = "Height Offset",
+	Default = 3,
+	Min = 0,
+	Max = 10,
+	Rounding = 1,
+	Compact = true,
+})
+
+OreFarm:AddSlider("OreTPHitDelay", {
+	Text = "Hit Delay (s)",
+	Default = 0.15,
+	Min = 0.05,
+	Max = 1,
+	Rounding = 2,
+	Compact = true,
+})
+
+OreFarm:AddCheckbox("OreTPFreezeVelocity", {
+	Text = "Freeze Velocity / Float",
+	Default = true,
+})
+
+OreFarm:AddCheckbox("OreTPHighlight", {
+	Text = "Highlight Target Ore",
+	Default = true,
+})
+
+OreFarm:AddDivider()
+
 OreFarm:AddButton({
 	Text = "Reset Character",
 	Func = function()
@@ -4288,6 +4172,7 @@ FarmRight:AddLabel("Outline Color"):AddColorPicker("AuraOutlineColor", {
 local hlMine = makeAuraHighlight()
 local hlChop = makeAuraHighlight()
 local hlAI   = makeAuraHighlight()
+local hlOreTP = makeAuraHighlight()
 
 -- Sync color picker -> all highlights
 Options.AuraFillColor:OnChanged(function()
@@ -4295,12 +4180,14 @@ Options.AuraFillColor:OnChanged(function()
 	hlMine.FillColor  = auraHighlightColor
 	hlChop.FillColor  = auraHighlightColor
 	hlAI.FillColor    = auraHighlightColor
+	hlOreTP.FillColor = auraHighlightColor
 end)
 Options.AuraOutlineColor:OnChanged(function()
 	auraOutlineColor = Options.AuraOutlineColor.Value
 	hlMine.OutlineColor  = auraOutlineColor
 	hlChop.OutlineColor  = auraOutlineColor
 	hlAI.OutlineColor    = auraOutlineColor
+	hlOreTP.OutlineColor = auraOutlineColor
 end)
 
 Toggles.HighlightMine:OnChanged(function()
@@ -4318,6 +4205,13 @@ Toggles.HighlightAI:OnChanged(function()
 		updateHighlight(hlAI, nil, false)
 	end
 end)
+if Toggles.OreTPHighlight then
+	Toggles.OreTPHighlight:OnChanged(function()
+		if not Toggles.OreTPHighlight.Value then
+			updateHighlight(hlOreTP, nil, false)
+		end
+	end)
+end
 
 -- ==========================================
 local isAutoMineRunning = false
@@ -4384,6 +4278,141 @@ Toggles.AutoMine:OnChanged(function()
 	else
 		isAutoMineRunning = false
 		updateHighlight(hlMine, nil, false)
+	end
+end)
+
+-- ==========================================
+-- Auto Ore Teleport & Mine
+-- ==========================================
+local isOreTPRunning = false
+local currentTPOre = nil
+local currentTPOreStartTime = 0
+local lastOreTPHit = 0
+
+local function getAvailableOres(targetType)
+	local folder = workspace:FindFirstChild("worldResources") and workspace.worldResources:FindFirstChild("mineable")
+	if not folder then return {} end
+
+	local root = getRootPart()
+	local rootPos = root and root.Position or Vector3.zero
+
+	local list = {}
+	for _, chunkFolder in ipairs(folder:GetChildren()) do
+		if not chunkFolder:IsA("Folder") then continue end
+		for _, obj in ipairs(chunkFolder:GetChildren()) do
+			if not obj or not obj.Parent then continue end
+			local primary = obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
+			if not primary then continue end
+
+			local oreName = obj.Name or "Unknown"
+			if targetType and targetType ~= "All" and oreName:lower() ~= targetType:lower() then
+				continue
+			end
+
+			local dist = (primary.Position - rootPos).Magnitude
+			table.insert(list, {
+				obj = obj,
+				part = primary,
+				name = oreName,
+				dist = dist,
+				pos = primary.Position,
+			})
+		end
+	end
+
+	table.sort(list, function(a, b) return a.dist < b.dist end)
+	return list
+end
+
+local function autoOreTPLoop()
+	if not isAlive() or not isOreTPRunning then return end
+
+	local root = getRootPart()
+	if not root then return end
+
+	local slot = tonumber(Options.OreTPSlot and Options.OreTPSlot.Value) or 1
+	local hitDelay = (Options.OreTPHitDelay and Options.OreTPHitDelay.Value) or 0.15
+	local heightOffset = (Options.OreTPHeightOffset and Options.OreTPHeightOffset.Value) or 3
+	local targetType = (Options.OreTPTargetType and Options.OreTPTargetType.Value) or "All"
+	local freezeVelocity = not Toggles.OreTPFreezeVelocity or Toggles.OreTPFreezeVelocity.Value
+
+	-- Check if current target is still valid (alive and in workspace)
+	local valid = currentTPOre and currentTPOre.obj and currentTPOre.obj.Parent and currentTPOre.obj:IsDescendantOf(workspace)
+
+	-- Timeout protection: If hitting same ore for > 8 seconds, skip it
+	if valid and (tick() - currentTPOreStartTime > 8) then
+		valid = false
+		currentTPOre = nil
+	end
+
+	if not valid then
+		currentTPOre = nil
+		updateHighlight(hlOreTP, nil, false)
+		local list = getAvailableOres(targetType)
+		if #list > 0 then
+			currentTPOre = list[1]
+			currentTPOreStartTime = tick()
+		else
+			return
+		end
+	end
+
+	if currentTPOre and currentTPOre.obj and currentTPOre.obj.Parent then
+		local targetPart = currentTPOre.obj.PrimaryPart or currentTPOre.obj:FindFirstChildWhichIsA("BasePart") or currentTPOre.part
+		if not targetPart or not targetPart.Parent then
+			currentTPOre = nil
+			return
+		end
+
+		local targetPos = targetPart.Position
+		local desiredCFrame = CFrame.new(targetPos + Vector3.new(0, heightOffset, 0))
+
+		-- Teleport player if further than 4 studs
+		if (root.Position - desiredCFrame.Position).Magnitude > 4 then
+			root.CFrame = desiredCFrame
+		end
+
+		if freezeVelocity then
+			root.Velocity = Vector3.zero
+		end
+
+		-- Target highlight
+		if Toggles.OreTPHighlight and Toggles.OreTPHighlight.Value then
+			updateHighlight(hlOreTP, currentTPOre.obj, true)
+		else
+			updateHighlight(hlOreTP, nil, false)
+		end
+
+		-- Mine hit
+		if tick() - lastOreTPHit >= hitDelay then
+			lastOreTPHit = tick()
+			pcall(function()
+				TSG.MineRemote:FireServer(slot, currentTPOre.obj, CFrame.new(targetPos))
+			end)
+		end
+	end
+end
+
+Toggles.AutoOreTeleportMine:OnChanged(function()
+	disconnect("AutoOreTPMine")
+	updateHighlight(hlOreTP, nil, false)
+	currentTPOre = nil
+	if Toggles.AutoOreTeleportMine.Value then
+		if not TSG.MineRemote then
+			Library:Notify({ Title = "Auto Ore Miner", Description = "Mine remote not found.", Time = 4 })
+			Toggles.AutoOreTeleportMine:SetValue(false)
+			return
+		end
+		isOreTPRunning = true
+		track("AutoOreTPMine", RunService.Heartbeat:Connect(function()
+			if not isAlive() or not isOreTPRunning then return end
+			autoOreTPLoop()
+		end))
+		Library:Notify({ Title = "Auto Ore Miner", Description = "Teleport Mining Enabled", Time = 2 })
+	else
+		isOreTPRunning = false
+		updateHighlight(hlOreTP, nil, false)
+		Library:Notify({ Title = "Auto Ore Miner", Description = "Disabled", Time = 2 })
 	end
 end)
 
@@ -4748,6 +4777,21 @@ local function scanOreTypesAndBuildUI()
 	for n in pairs(found) do table.insert(names, n) end
 	table.sort(names)
 	if #names == 0 then return end
+
+	-- Update target ore dropdown values for Auto Ore Teleport Mine
+	pcall(function()
+		if Options and Options.OreTPTargetType then
+			local currentVal = Options.OreTPTargetType.Value
+			local oreOptions = { "All" }
+			for _, n in ipairs(names) do
+				table.insert(oreOptions, n)
+			end
+			Options.OreTPTargetType:SetValues(oreOptions)
+			if table.find(oreOptions, currentVal) then
+				Options.OreTPTargetType:SetValue(currentVal)
+			end
+		end
+	end)
 
 	local anyAdded = false
 	for i, oreName in ipairs(names) do
@@ -7598,6 +7642,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.OreESPToggle and Toggles.OreESPToggle.Value then
 		Toggles.OreESPToggle:SetValue(false)
+	end
+	if Toggles.AutoOreTeleportMine and Toggles.AutoOreTeleportMine.Value then
+		Toggles.AutoOreTeleportMine:SetValue(false)
 	end
 
 	if Toggles.NoGliderCooldown and Toggles.NoGliderCooldown.Value then
