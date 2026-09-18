@@ -1478,11 +1478,6 @@ CombatAutoPVP:AddCheckbox("AutoShiftlock", {
 	Default = false,
 })
 
-CombatAutoPVP:AddCheckbox("ShieldAlert", {
-	Text = "+ Shield Alert",
-	Default = false,
-})
-
 CombatAutoPVP:AddCheckbox("AutoHop", {
 	Text = "+ Auto Hop",
 	Default = false,
@@ -2548,89 +2543,6 @@ Toggles.AutoShiftlock:OnChanged(function()
 			hum.AutoRotate = true
 			hum.CameraOffset = autoShiftlockVars.origCameraOffset or Vector3.zero
 		end
-	end
-end)
-
-local function isPlayerShielding(player)
-	if not player or player == LocalPlayer or not player.Character then return false end
-	local char = player.Character
-	local hum = char:FindFirstChildOfClass("Humanoid")
-	if not hum or hum.Health <= 0 then return false end
-
-	if char:GetAttribute("shield") == true or char:GetAttribute("blocking") == true or
-	   char:GetAttribute("isShielding") == true or char:GetAttribute("isBlocking") == true or
-	   char:GetAttribute("shielding") == true or char:GetAttribute("block") == true or
-	   hum:GetAttribute("shield") == true or hum:GetAttribute("blocking") == true or
-	   hum:GetAttribute("isShielding") == true or hum:GetAttribute("isBlocking") == true then
-		return true
-	end
-
-	if char:FindFirstChild("ShieldActive") or char:FindFirstChild("IsBlocking") or
-	   char:FindFirstChild("Blocking") or char:FindFirstChild("ShieldModel") or
-	   char:FindFirstChild("Shield") or char:FindFirstChild("shield") then
-		return true
-	end
-
-	local animator = hum:FindFirstChildOfClass("Animator") or hum:FindFirstChild("Animator")
-	if animator then
-		for _, trackObj in ipairs(animator:GetPlayingAnimationTracks()) do
-			if trackObj.IsPlaying or (trackObj.WeightCurrent and trackObj.WeightCurrent > 0) then
-				local anim = trackObj.Animation
-				if anim then
-					local name = (anim.Name or ""):lower()
-					local id = tostring(anim.AnimationId or ""):lower()
-					if name:find("shield") or name:find("block") or name:find("guard") or
-					   id:find("shield") or id:find("block") or id:find("guard") then
-						return true
-					end
-				end
-			end
-		end
-	end
-
-	return false
-end
-
-local lastShieldAlerts = {}
-local function shieldAlertLoop()
-	if not isAlive() or not (Toggles.ShieldAlert and Toggles.ShieldAlert.Value) then return end
-	local root = getRootPart()
-	if not root then return end
-
-	local now = tick()
-	for _, player in ipairs(Players:GetPlayers()) do
-		if player ~= LocalPlayer and player.Character then
-			local targetRoot = player.Character:FindFirstChild("HumanoidRootPart")
-			local hum = player.Character:FindFirstChildOfClass("Humanoid")
-			if targetRoot and hum and hum.Health > 0 then
-				local dist = (targetRoot.Position - root.Position).Magnitude
-				if dist <= 20 then
-					if isPlayerShielding(player) then
-						local lastAlert = lastShieldAlerts[player.UserId] or 0
-						if now - lastAlert > 3 then
-							lastShieldAlerts[player.UserId] = now
-							local nameStr = player.DisplayName or player.Name
-							Library:Notify({
-								Title = "Shield Alert!",
-								Description = nameStr .. " has shield UP! (" .. math.floor(dist) .. " studs)",
-								Time = 2.5,
-							})
-						end
-					end
-				end
-			end
-		end
-	end
-end
-
-Toggles.ShieldAlert:OnChanged(function()
-	disconnect("ShieldAlert")
-	table.clear(lastShieldAlerts)
-	if Toggles.ShieldAlert.Value then
-		track("ShieldAlert", RunService.Heartbeat:Connect(shieldAlertLoop))
-		Library:Notify({ Title = "Shield Alert", Description = "Enabled (Within 20 Studs)", Time = 2 })
-	else
-		Library:Notify({ Title = "Shield Alert", Description = "Disabled", Time = 2 })
 	end
 end)
 
@@ -7012,9 +6924,6 @@ Library:OnUnload(function()
 	end
 	if Toggles.AutoShiftlock and Toggles.AutoShiftlock.Value then
 		Toggles.AutoShiftlock:SetValue(false)
-	end
-	if Toggles.ShieldAlert and Toggles.ShieldAlert.Value then
-		Toggles.ShieldAlert:SetValue(false)
 	end
 	if Toggles.Camlock and Toggles.Camlock.Value then
 		Toggles.Camlock:SetValue(false)
