@@ -664,6 +664,11 @@ MainLeft:AddSlider("AutoPickupRange", {
 	Compact = true,
 })
 
+MainLeft:AddCheckbox("Noclip", {
+	Text = "Noclip",
+	Default = false,
+})
+
 updateAutoPickupVisibility = function()
 	local isPickup = (Toggles.FastPickup and Toggles.FastPickup.Value) or false
 	if Options.AutoPickupRange then
@@ -1230,7 +1235,7 @@ local FoodIdMap = {
 
 local lastEatCustom = 0
 local function tryEatCustom()
-	if tick() - lastEatCustom < 1 then
+	if tick() - lastEatCustom < 0.3 then
 		return
 	end
 	local humanoid = getHumanoid()
@@ -1616,6 +1621,15 @@ CombatAutoBlock:AddToggle("ImmortalMode", {
 	Default = false,
 })
 
+CombatAutoBlock:AddSlider("ImmortalModeStuds", {
+	Text = "Block Distance",
+	Default = 18,
+	Min = 5,
+	Max = 50,
+	Rounding = 0,
+	Compact = true,
+})
+
 CombatAutoBlock:AddCheckbox("BypassShield", {
 	Text = "Bypass Shield",
 	Default = false,
@@ -1642,6 +1656,14 @@ CombatAutoBlock:AddSlider("QuickVanishThreshold", {
 
 updateImmortalModeVisibility = function()
 	local isImmortal = (Toggles.ImmortalMode and Toggles.ImmortalMode.Value) or false
+	if Options.ImmortalModeStuds then
+		if Options.ImmortalModeStuds.Visible ~= nil then
+			Options.ImmortalModeStuds.Visible = isImmortal
+		end
+		if Options.ImmortalModeStuds.Holder then
+			Options.ImmortalModeStuds.Holder.Visible = isImmortal
+		end
+	end
 	if Toggles.BypassShield then
 		if Toggles.BypassShield.Visible ~= nil then
 			Toggles.BypassShield.Visible = isImmortal
@@ -1692,6 +1714,7 @@ end
 
 local isShielding = false
 local lastShieldFire = 0
+local multiSnapIndex = 1
 local function updateImmortalMode()
 	if not isAlive() or not Toggles.ImmortalMode.Value then
 		if isShielding then
@@ -1707,10 +1730,10 @@ local function updateImmortalMode()
 	if not root then return end
 
 	local shouldShield = false
-	local checkDistance = 18
+	local checkDistance = (Options.ImmortalModeStuds and Options.ImmortalModeStuds.Value) or 18
 	local nearestEnemy = nil
 	local nearestDist = math.huge
-	local activeAttacker = nil
+	local activeAttackers = {}
 
 	for _, player in ipairs(Players:GetPlayers()) do
 		if player ~= LocalPlayer and player.Character then
@@ -1729,7 +1752,7 @@ local function updateImmortalMode()
 					if animator then
 						for _, trackObj in ipairs(animator:GetPlayingAnimationTracks()) do
 							if trackObj.Speed > 0 and isSwingAnimation(trackObj) then
-								activeAttacker = targetRoot
+								table.insert(activeAttackers, { root = targetRoot, dist = dist })
 								break
 							end
 						end
@@ -1740,8 +1763,19 @@ local function updateImmortalMode()
 	end
 
 	if shouldShield then
-		-- 360 protection: automatically orient shield towards swinging attacker or closest enemy
-		local targetToFace = activeAttacker or nearestEnemy
+		local targetToFace = nil
+		if #activeAttackers > 0 then
+			table.sort(activeAttackers, function(a, b) return a.dist < b.dist end)
+			if #activeAttackers == 1 then
+				targetToFace = activeAttackers[1].root
+			else
+				multiSnapIndex = (multiSnapIndex % #activeAttackers) + 1
+				targetToFace = activeAttackers[multiSnapIndex].root
+			end
+		else
+			targetToFace = nearestEnemy
+		end
+
 		if targetToFace then
 			local targetPos = targetToFace.Position
 			root.CFrame = CFrame.lookAt(root.Position, Vector3.new(targetPos.X, root.Position.Y, targetPos.Z))
@@ -3355,12 +3389,7 @@ MoveMountAura:AddSlider("MountFlySpeed", {
 	Compact = true,
 })
 
-local MoveFaze = Tabs.Movement:AddRightGroupbox("FAZE", "zap")
 
-MoveFaze:AddToggle("Noclip", {
-	Text = "Noclip",
-	Default = false,
-})
 
 Toggles.LowGravity:OnChanged(function()
 	if updatePVPModulesVisibility then
