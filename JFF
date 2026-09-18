@@ -381,8 +381,8 @@ ToiletBedGroup:AddButton({
 -- MAIN
 -- ==========================================
 local PlayerTabBox = Tabs.Player:AddLeftTabbox()
-local MainLeft = PlayerTabBox:AddTab("Player")
-local ImmuneTab = PlayerTabBox:AddTab("Immune")
+local MainLeft = PlayerTabBox:AddTab("Player", "user")
+local ImmuneTab = PlayerTabBox:AddTab("Immune", "shield")
 
 local AdvanceHealGroup = Tabs.Player:AddRightGroupbox("Advance Heal", "heart")
 
@@ -625,32 +625,32 @@ TeleportGroup:AddButton({
 	end,
 })
 
-MainLeft:AddToggle("InfiniteBackpack", {
+MainLeft:AddCheckbox("InfiniteBackpack", {
 	Text = "Infinite Backpack",
 	Default = false,
 })
 
-MainLeft:AddToggle("InfiniteStamina", {
+MainLeft:AddCheckbox("InfiniteStamina", {
 	Text = "Infinite Stamina",
 	Default = false,
 })
 
-MainLeft:AddToggle("InfiniteJump", {
+MainLeft:AddCheckbox("InfiniteJump", {
 	Text = "Infinite Jump",
 	Default = false,
 })
 
-MainLeft:AddToggle("NoGliderCooldown", {
+MainLeft:AddCheckbox("NoGliderCooldown", {
 	Text = "No Glider Cooldown",
 	Default = false,
 })
 
-MainLeft:AddToggle("WalkOnWater", {
+MainLeft:AddCheckbox("WalkOnWater", {
 	Text = "Walk On Water",
 	Default = false,
 })
 
-MainLeft:AddToggle("FastPickup", {
+MainLeft:AddCheckbox("FastPickup", {
 	Text = "Auto Pickup",
 	Default = false,
 })
@@ -688,27 +688,27 @@ task.spawn(function()
 	end
 end)
 
-ImmuneTab:AddToggle("NoBossDamage", {
+ImmuneTab:AddCheckbox("NoBossDamage", {
 	Text = "No Boss damage",
 	Default = false,
 })
 
-ImmuneTab:AddToggle("NoFallDamage", {
+ImmuneTab:AddCheckbox("NoFallDamage", {
 	Text = "No Fall Damage",
 	Default = false,
 })
 
-ImmuneTab:AddToggle("NoBearTrapDMG", {
+ImmuneTab:AddCheckbox("NoBearTrapDMG", {
 	Text = "No Bear Trap DMG",
 	Default = false,
 })
 
-ImmuneTab:AddToggle("AntiLava", {
+ImmuneTab:AddCheckbox("AntiLava", {
 	Text = "Anti Fire / Lava",
 	Default = false,
 })
 
-ImmuneTab:AddToggle("AutoAirBubbles", {
+ImmuneTab:AddCheckbox("AutoAirBubbles", {
 	Text = "Auto Air Bubbles",
 	Default = false,
 })
