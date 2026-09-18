@@ -4591,67 +4591,173 @@ Toggles.OreESPToggle:OnChanged(function()
 	Library:Notify({ Title = "Ore ESP", Description = "Enabled", Time = 2 })
 end)
 
+local bossAuraHovering = false
+local bossAuraGyro = nil
+local bossAuraVelocity = nil
+
+local function stopBossAuraHover()
+	bossAuraHovering = false
+	disconnect("BossAuraHover")
+	if bossAuraGyro then
+		pcall(function() bossAuraGyro:Destroy() end)
+		bossAuraGyro = nil
+	end
+	if bossAuraVelocity then
+		pcall(function() bossAuraVelocity:Destroy() end)
+		bossAuraVelocity = nil
+	end
+	local hum = getHumanoid()
+	if hum then
+		pcall(function() hum.PlatformStand = false end)
+	end
+end
+
+local function startBossAuraHover()
+	local root = getRootPart()
+	local hum = getHumanoid()
+	if not root or not hum then return end
+
+	if bossAuraHovering then
+		if bossAuraGyro then
+			bossAuraGyro.CFrame = root.CFrame
+		end
+		return
+	end
+
+	bossAuraHovering = true
+	pcall(function() hum.PlatformStand = true end)
+
+	if bossAuraGyro then pcall(function() bossAuraGyro:Destroy() end) end
+	if bossAuraVelocity then pcall(function() bossAuraVelocity:Destroy() end) end
+
+	bossAuraGyro = Instance.new("BodyGyro")
+	bossAuraGyro.Name = "BossAuraGyro"
+	bossAuraGyro.MaxTorque = Vector3.new(400000, 400000, 400000)
+	bossAuraGyro.P = 5000
+	bossAuraGyro.CFrame = root.CFrame
+	bossAuraGyro.Parent = root
+
+	bossAuraVelocity = Instance.new("BodyVelocity")
+	bossAuraVelocity.Name = "BossAuraVelocity"
+	bossAuraVelocity.MaxForce = Vector3.new(400000, 400000, 400000)
+	bossAuraVelocity.Velocity = Vector3.new(0, 0.1, 0)
+	bossAuraVelocity.Parent = root
+
+	disconnect("BossAuraHover")
+	track("BossAuraHover", RunService.RenderStepped:Connect(function()
+		if bossAuraHovering and root and root.Parent then
+			if bossAuraVelocity then
+				bossAuraVelocity.Velocity = Vector3.new(0, 0.1, 0)
+			end
+			if bossAuraGyro then
+				bossAuraGyro.CFrame = root.CFrame
+			end
+		else
+			stopBossAuraHover()
+		end
+	end))
+end
+
+local function isAnyBossAuraActive()
+	return (Toggles.TitanAura and Toggles.TitanAura.Value)
+		or (Toggles.SamuraiAura and Toggles.SamuraiAura.Value)
+		or (Toggles.JuggernautAura and Toggles.JuggernautAura.Value)
+end
+
 Toggles.TitanAura:OnChanged(function()
-	disconnect("TitanAuraFloat")
 	if Toggles.TitanAura.Value then
-		track("TitanAuraFloat", RunService.Heartbeat:Connect(function()
-			if not isAlive() then return end
-			local root = getRootPart()
-			if not root then return end
-			root.Velocity = Vector3.new(root.Velocity.X, 0, root.Velocity.Z)
-			root.CFrame = CFrame.new(root.Position.X, 35, root.Position.Z) * root.CFrame.Rotation
-		end))
+		if Toggles.SamuraiAura and Toggles.SamuraiAura.Value then
+			Toggles.SamuraiAura:SetValue(false)
+		end
+		if Toggles.JuggernautAura and Toggles.JuggernautAura.Value then
+			Toggles.JuggernautAura:SetValue(false)
+		end
+
+		local root = getRootPart()
+		if root then
+			root.Velocity = Vector3.zero
+			root.RotVelocity = Vector3.zero
+			root.CFrame = CFrame.new(1654.57, 35, 2312.14)
+		end
+
+		startBossAuraHover()
+
 		if Toggles.AiAura and not Toggles.AiAura.Value then
 			Toggles.AiAura:SetValue(true)
 		end
-		Library:Notify({ Title = "Titan Aura", Description = "Enabled", Time = 2 })
+		Library:Notify({ Title = "Titan Aura", Description = "Teleported & Hovering", Time = 2 })
 	else
-		if Toggles.AiAura and Toggles.AiAura.Value then
-			Toggles.AiAura:SetValue(false)
+		if not isAnyBossAuraActive() then
+			stopBossAuraHover()
+			if Toggles.AiAura and Toggles.AiAura.Value then
+				Toggles.AiAura:SetValue(false)
+			end
 		end
 		Library:Notify({ Title = "Titan Aura", Description = "Disabled", Time = 2 })
 	end
 end)
 
 Toggles.SamuraiAura:OnChanged(function()
-	disconnect("SamuraiAuraFloat")
 	if Toggles.SamuraiAura.Value then
-		track("SamuraiAuraFloat", RunService.Heartbeat:Connect(function()
-			if not isAlive() then return end
-			local root = getRootPart()
-			if not root then return end
-			root.Velocity = Vector3.new(root.Velocity.X, 0, root.Velocity.Z)
-			root.CFrame = CFrame.new(root.Position.X, 528, root.Position.Z) * root.CFrame.Rotation
-		end))
+		if Toggles.TitanAura and Toggles.TitanAura.Value then
+			Toggles.TitanAura:SetValue(false)
+		end
+		if Toggles.JuggernautAura and Toggles.JuggernautAura.Value then
+			Toggles.JuggernautAura:SetValue(false)
+		end
+
+		local root = getRootPart()
+		if root then
+			root.Velocity = Vector3.zero
+			root.RotVelocity = Vector3.zero
+			root.CFrame = CFrame.new(-1727.48, 528, 7305.50)
+		end
+
+		startBossAuraHover()
+
 		if Toggles.AiAura and not Toggles.AiAura.Value then
 			Toggles.AiAura:SetValue(true)
 		end
-		Library:Notify({ Title = "Samurai Aura", Description = "Enabled", Time = 2 })
+		Library:Notify({ Title = "Samurai Aura", Description = "Teleported & Hovering", Time = 2 })
 	else
-		if Toggles.AiAura and Toggles.AiAura.Value then
-			Toggles.AiAura:SetValue(false)
+		if not isAnyBossAuraActive() then
+			stopBossAuraHover()
+			if Toggles.AiAura and Toggles.AiAura.Value then
+				Toggles.AiAura:SetValue(false)
+			end
 		end
 		Library:Notify({ Title = "Samurai Aura", Description = "Disabled", Time = 2 })
 	end
 end)
 
 Toggles.JuggernautAura:OnChanged(function()
-	disconnect("JuggernautAuraFloat")
 	if Toggles.JuggernautAura.Value then
-		track("JuggernautAuraFloat", RunService.Heartbeat:Connect(function()
-			if not isAlive() then return end
-			local root = getRootPart()
-			if not root then return end
-			root.Velocity = Vector3.new(root.Velocity.X, 0, root.Velocity.Z)
-			root.CFrame = CFrame.new(root.Position.X, 118, root.Position.Z) * root.CFrame.Rotation
-		end))
+		if Toggles.TitanAura and Toggles.TitanAura.Value then
+			Toggles.TitanAura:SetValue(false)
+		end
+		if Toggles.SamuraiAura and Toggles.SamuraiAura.Value then
+			Toggles.SamuraiAura:SetValue(false)
+		end
+
+		local root = getRootPart()
+		if root then
+			root.Velocity = Vector3.zero
+			root.RotVelocity = Vector3.zero
+			root.CFrame = CFrame.new(-1601.49, 118, -2890.59)
+		end
+
+		startBossAuraHover()
+
 		if Toggles.AiAura and not Toggles.AiAura.Value then
 			Toggles.AiAura:SetValue(true)
 		end
-		Library:Notify({ Title = "Juggernaut Aura", Description = "Enabled", Time = 2 })
+		Library:Notify({ Title = "Juggernaut Aura", Description = "Teleported & Hovering", Time = 2 })
 	else
-		if Toggles.AiAura and Toggles.AiAura.Value then
-			Toggles.AiAura:SetValue(false)
+		if not isAnyBossAuraActive() then
+			stopBossAuraHover()
+			if Toggles.AiAura and Toggles.AiAura.Value then
+				Toggles.AiAura:SetValue(false)
+			end
 		end
 		Library:Notify({ Title = "Juggernaut Aura", Description = "Disabled", Time = 2 })
 	end
@@ -6832,6 +6938,7 @@ Library:OnUnload(function()
 		Toggles.NoGrass:SetValue(false)
 	end
 
+	pcall(function() stopBossAuraHover() end)
 	if Toggles.TitanAura and Toggles.TitanAura.Value then
 		Toggles.TitanAura:SetValue(false)
 	end
