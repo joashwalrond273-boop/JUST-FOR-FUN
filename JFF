@@ -2799,6 +2799,9 @@ end
 Toggles.PhantomMode:OnChanged(function()
 	disconnect("PhantomMode")
 	if Toggles.PhantomMode.Value then
+		if Toggles.KillAura and not Toggles.KillAura.Value then
+			Toggles.KillAura:SetValue(true)
+		end
 		track("PhantomMode", RunService.Heartbeat:Connect(phantomModeLoop))
 		Library:Notify({ Title = "Phantom Mode", Description = "Enabled", Time = 2 })
 	else
@@ -2807,6 +2810,9 @@ Toggles.PhantomMode:OnChanged(function()
 		local myHum = getHumanoid()
 		if myHum then
 			workspace.CurrentCamera.CameraSubject = myHum
+		end
+		if Toggles.KillAura and Toggles.KillAura.Value then
+			Toggles.KillAura:SetValue(false)
 		end
 		Library:Notify({ Title = "Phantom Mode", Description = "Disabled", Time = 2 })
 	end
