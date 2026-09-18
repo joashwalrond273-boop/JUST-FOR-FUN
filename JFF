@@ -2617,13 +2617,33 @@ Toggles.SwordBot:OnChanged(function()
 			local hum = getHumanoid()
 			if not root or not hum then return end
 
-			local targetName = Options.ChooseVictim.Value
-			local targetPlayer = Players:FindFirstChild(targetName)
+			local targetName = Options.ChooseVictim and Options.ChooseVictim.Value
+			local targetPlayer = targetName and Players:FindFirstChild(targetName)
+			if not targetPlayer or not targetPlayer.Character or not targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
+				local closest, cDist = nil, math.huge
+				for _, p in ipairs(Players:GetPlayers()) do
+					if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+						local phum = p.Character:FindFirstChildOfClass("Humanoid")
+						if phum and phum.Health > 0 then
+							local d = (p.Character.HumanoidRootPart.Position - root.Position).Magnitude
+							if d < cDist then
+								cDist = d
+								closest = p
+							end
+						end
+					end
+				end
+				targetPlayer = closest
+			end
+
 			local targetChar = targetPlayer and targetPlayer.Character
 			local targetRoot = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
 			local targetHum = targetChar and targetChar:FindFirstChildOfClass("Humanoid")
 
 			if not targetRoot or not targetHum or targetHum.Health <= 0 then
+				UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+				UserInputService.MouseIconEnabled = true
+				hum.AutoRotate = true
 				return
 			end
 
@@ -2631,8 +2651,24 @@ Toggles.SwordBot:OnChanged(function()
 			local myPos = root.Position
 			local dist = (targetPos - myPos).Magnitude
 
-			-- Force camera/body lock-on facing target on Y axis
-			root.CFrame = CFrame.lookAt(root.Position, Vector3.new(targetPos.X, root.Position.Y, targetPos.Z))
+			-- Camlock functionality when within 10 studs
+			if dist <= 10 then
+				UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
+				UserInputService.MouseIconEnabled = false
+				hum.AutoRotate = false
+
+				local lookDir = Vector3.new(targetPos.X - myPos.X, 0, targetPos.Z - myPos.Z).Unit
+				if lookDir.Magnitude > 0 then
+					root.CFrame = CFrame.new(myPos, myPos + lookDir)
+				end
+			else
+				UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+				UserInputService.MouseIconEnabled = true
+				hum.AutoRotate = true
+
+				-- Force camera/body lock-on facing target on Y axis
+				root.CFrame = CFrame.lookAt(root.Position, Vector3.new(targetPos.X, root.Position.Y, targetPos.Z))
+			end
 
 			-- Determine movement position (prevent getting closer than 20 studs)
 			local movePos
@@ -2677,10 +2713,15 @@ Toggles.SwordBot:OnChanged(function()
 			end
 		end))
 	else
+		UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+		UserInputService.MouseIconEnabled = true
 		local hum = getHumanoid()
 		local root = getRootPart()
-		if hum and root then
-			hum:MoveTo(root.Position)
+		if hum then
+			hum.AutoRotate = true
+			if root then
+				hum:MoveTo(root.Position)
+			end
 		end
 	end
 end)
