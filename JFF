@@ -1621,6 +1621,11 @@ CombatAutoBlock:AddToggle("ImmortalMode", {
 	Default = false,
 })
 
+CombatAutoBlock:AddCheckbox("BypassShield", {
+	Text = "Bypass Shield",
+	Default = false,
+})
+
 CombatAutoBlock:AddSlider("ImmortalModeStuds", {
 	Text = "Block Distance",
 	Default = 18,
@@ -1628,11 +1633,6 @@ CombatAutoBlock:AddSlider("ImmortalModeStuds", {
 	Max = 50,
 	Rounding = 0,
 	Compact = true,
-})
-
-CombatAutoBlock:AddCheckbox("BypassShield", {
-	Text = "Bypass Shield",
-	Default = false,
 })
 
 CombatAutoBlock:AddToggle("DodgeAura", {
