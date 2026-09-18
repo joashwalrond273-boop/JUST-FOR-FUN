@@ -380,7 +380,9 @@ ToiletBedGroup:AddButton({
 -- ==========================================
 -- MAIN
 -- ==========================================
-local MainLeft = Tabs.Player:AddLeftGroupbox("Player", "user")
+local PlayerTabBox = Tabs.Player:AddLeftTabbox()
+local MainLeft = PlayerTabBox:AddTab("Player")
+local ImmuneTab = PlayerTabBox:AddTab("Immune")
 
 local AdvanceHealGroup = Tabs.Player:AddRightGroupbox("Advance Heal", "heart")
 
@@ -670,7 +672,12 @@ updateAutoPickupVisibility = function()
 			Options.AutoPickupRange.Holder.Visible = isPickup
 		end
 	end
-	MainLeft:Resize()
+	if MainLeft.Resize then
+		pcall(function() MainLeft:Resize() end)
+	end
+	if PlayerTabBox and PlayerTabBox.Resize then
+		pcall(function() PlayerTabBox:Resize() end)
+	end
 end
 
 updateAutoPickupVisibility()
@@ -681,29 +688,27 @@ task.spawn(function()
 	end
 end)
 
-local ImmunityGroup = Tabs.Player:AddLeftGroupbox("Immunity", "shield")
-
-ImmunityGroup:AddToggle("NoBossDamage", {
+ImmuneTab:AddToggle("NoBossDamage", {
 	Text = "No Boss damage",
 	Default = false,
 })
 
-ImmunityGroup:AddToggle("NoFallDamage", {
+ImmuneTab:AddToggle("NoFallDamage", {
 	Text = "No Fall Damage",
 	Default = false,
 })
 
-ImmunityGroup:AddToggle("NoBearTrapDMG", {
+ImmuneTab:AddToggle("NoBearTrapDMG", {
 	Text = "No Bear Trap DMG",
 	Default = false,
 })
 
-ImmunityGroup:AddToggle("AntiLava", {
+ImmuneTab:AddToggle("AntiLava", {
 	Text = "Anti Fire / Lava",
 	Default = false,
 })
 
-ImmunityGroup:AddToggle("AutoAirBubbles", {
+ImmuneTab:AddToggle("AutoAirBubbles", {
 	Text = "Auto Air Bubbles",
 	Default = false,
 })
@@ -1742,7 +1747,7 @@ local function updateImmortalMode()
 			root.CFrame = CFrame.lookAt(root.Position, Vector3.new(targetPos.X, root.Position.Y, targetPos.Z))
 		end
 
-		if tick() - lastShieldFire > 0.5 then
+		if tick() - lastShieldFire > 0.03 then
 			lastShieldFire = tick()
 			pcall(function()
 				game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(true)
