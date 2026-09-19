@@ -698,11 +698,6 @@ ImmuneTab:AddCheckbox("NoBossDamage", {
 	Default = false,
 })
 
-ImmuneTab:AddCheckbox("NoAiDamage", {
-	Text = "No Ai Damage",
-	Default = false,
-})
-
 ImmuneTab:AddCheckbox("NoFallDamage", {
 	Text = "No Fall Damage",
 	Default = false,
@@ -1151,7 +1146,7 @@ track("CharacterModuleRespawn", LocalPlayer.CharacterAdded:Connect(function()
 	end
 end))
 
--- No Boss & AI Damage Hook Setup
+-- No Boss Damage Hook Setup
 local BossDamageEvent = resolvePath(ReplicatedStorage, "remoteInterface", "character", "hurtByAIAttack")
 local originalNamecall
 if BossDamageEvent then
@@ -1160,7 +1155,7 @@ if BossDamageEvent then
 		local method = getnamecallmethod()
 
 		if rawequal(self, BossDamageEvent) and method == "FireServer" then
-			if (Toggles.NoBossDamage and Toggles.NoBossDamage.Value) or (Toggles.NoAiDamage and Toggles.NoAiDamage.Value) then
+			if Toggles.NoBossDamage and Toggles.NoBossDamage.Value then
 				return -- Block the attack to prevent damage
 			end
 		end
@@ -1177,16 +1172,7 @@ local function noBossDamageToggle(state)
 	end
 end
 
-local function noAiDamageToggle(state)
-	if state then
-		Library:Notify({ Title = "No Ai Damage", Description = "Enabled", Time = 2 })
-	else
-		Library:Notify({ Title = "No Ai Damage", Description = "Disabled", Time = 2 })
-	end
-end
-
 Toggles.NoBossDamage:OnChanged(noBossDamageToggle)
-Toggles.NoAiDamage:OnChanged(noAiDamageToggle)
 
  -- Auto pickup (CollectionService tag DROPPED_ITEM -> inventory.pickupItem)
 local droppedItemSpawnTimes = {}
