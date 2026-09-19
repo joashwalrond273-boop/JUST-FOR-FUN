@@ -3085,6 +3085,17 @@ MoveSwimBoost:AddToggle("SwimBoost", {
 	Default = false,
 })
 
+MoveSwimBoost:AddSlider("SwimBoostValue", {
+	Text = "Swim Speed Value",
+	Default = 30,
+	Min = 16,
+	Max = 100,
+	Rounding = 1,
+	Compact = true,
+})
+
+MoveSwimBoost:AddDivider()
+
 MoveSwimBoost:AddCheckbox("SinkFastPVP", {
 	Text = "+ Sink Fast PVP",
 	Default = false,
@@ -3093,15 +3104,6 @@ MoveSwimBoost:AddCheckbox("SinkFastPVP", {
 MoveSwimBoost:AddCheckbox("RiseFastPVP", {
 	Text = "+ Rise Fast PVP",
 	Default = false,
-})
-
-MoveSwimBoost:AddSlider("SwimBoostValue", {
-	Text = "Swim Speed Value",
-	Default = 30,
-	Min = 16,
-	Max = 100,
-	Rounding = 1,
-	Compact = true,
 })
 
 local MoveBoatSpeed = Tabs.Movement:AddLeftGroupbox("Boat Speed", "anchor")
