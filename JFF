@@ -630,6 +630,11 @@ MainLeft:AddCheckbox("InfiniteBackpack", {
 	Default = false,
 })
 
+MainLeft:AddCheckbox("Infinity", {
+	Text = "Infinity",
+	Default = false,
+})
+
 MainLeft:AddCheckbox("InfiniteStamina", {
 	Text = "Infinite Stamina",
 	Default = false,
@@ -988,6 +993,124 @@ Toggles.InfiniteBackpack:OnChanged(function()
 		Library:Notify({ Title = "Infinite Backpack", Description = "Enabled (No Weight Slowdown)", Time = 2 })
 	else
 		Library:Notify({ Title = "Infinite Backpack", Description = "Disabled", Time = 2 })
+	end
+end)
+
+local infinityGuiConns = {}
+local infinityOriginalTexts = {}
+
+local function applyInfinityToLabel(label)
+	if not label or not label:IsA("TextLabel") then return end
+	if not Toggles.Infinity or not Toggles.Infinity.Value then return end
+
+	local currentText = label.Text
+	if currentText == "∞" or currentText == "∞/∞" or currentText:find("∞") then
+		return
+	end
+
+	-- Modify labels that display item amounts, quantities, weights, or capacity numbers
+	if currentText:match("%d") then
+		if not infinityOriginalTexts[label] then
+			infinityOriginalTexts[label] = currentText
+		end
+
+		local newText = currentText
+		if newText:match("%d+%s*/%s*%d+") then
+			newText = newText:gsub("%d+%s*/%s*%d+", "∞/∞")
+		else
+			newText = newText:gsub("%d+", "∞")
+		end
+
+		label.Text = newText
+	end
+end
+
+local function scanAndApplyInfinity()
+	local playerGui = LocalPlayer:FindFirstChildOfClass("PlayerGui") or LocalPlayer:FindFirstChild("PlayerGui")
+	if not playerGui then return end
+
+	local invGui = playerGui:FindFirstChild("Inventory")
+	if not invGui then return end
+
+	local targetContainer = resolvePath(invGui, "nonHotbar", "menuContainer", "inventory", "frame", "content", "inventory")
+		or resolvePath(invGui, "nonHotbar", "menuContainer", "inventory", "frame", "content")
+		or resolvePath(invGui, "nonHotbar", "menuContainer", "inventory", "frame")
+
+	if targetContainer then
+		for _, desc in ipairs(targetContainer:GetDescendants()) do
+			if desc:IsA("TextLabel") then
+				applyInfinityToLabel(desc)
+
+				if not infinityGuiConns[desc] then
+					infinityGuiConns[desc] = desc:GetPropertyChangedSignal("Text"):Connect(function()
+						if Toggles.Infinity and Toggles.Infinity.Value then
+							applyInfinityToLabel(desc)
+						end
+					end)
+				end
+			end
+		end
+
+		if not infinityGuiConns[targetContainer] then
+			infinityGuiConns[targetContainer] = targetContainer.DescendantAdded:Connect(function(desc)
+				if desc:IsA("TextLabel") and Toggles.Infinity and Toggles.Infinity.Value then
+					task.wait()
+					applyInfinityToLabel(desc)
+					if not infinityGuiConns[desc] then
+						infinityGuiConns[desc] = desc:GetPropertyChangedSignal("Text"):Connect(function()
+							if Toggles.Infinity and Toggles.Infinity.Value then
+								applyInfinityToLabel(desc)
+							end
+						end)
+					end
+				end
+			end)
+		end
+	end
+end
+
+local function clearInfinityGui()
+	for obj, conn in pairs(infinityGuiConns) do
+		pcall(function() conn:Disconnect() end)
+	end
+	table.clear(infinityGuiConns)
+
+	for label, orig in pairs(infinityOriginalTexts) do
+		pcall(function()
+			if label and label.Parent then
+				label.Text = orig
+			end
+		end)
+	end
+	table.clear(infinityOriginalTexts)
+end
+
+Toggles.Infinity:OnChanged(function()
+	disconnect("InfinityLoop")
+	disconnect("Infinity_GuiAdded")
+	clearInfinityGui()
+
+	if Toggles.Infinity.Value then
+		scanAndApplyInfinity()
+		track("InfinityLoop", RunService.Heartbeat:Connect(function()
+			if Toggles.Infinity.Value then
+				scanAndApplyInfinity()
+			end
+		end))
+
+		local playerGui = LocalPlayer:FindFirstChildOfClass("PlayerGui") or LocalPlayer:FindFirstChild("PlayerGui")
+		if playerGui then
+			track("Infinity_GuiAdded", playerGui.DescendantAdded:Connect(function(desc)
+				if Toggles.Infinity and Toggles.Infinity.Value and desc:IsA("TextLabel") then
+					task.wait()
+					applyInfinityToLabel(desc)
+				end
+			end))
+		end
+
+		Library:Notify({ Title = "Infinity", Description = "Enabled (Infinity Inventory GUI)", Time = 2 })
+	else
+		Library:Notify({ Title = "Infinity", Description = "Disabled", Time = 2 })
 	end
 end)
 
@@ -7072,6 +7195,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.InfiniteBackpack and Toggles.InfiniteBackpack.Value then
 		Toggles.InfiniteBackpack:SetValue(false)
+	end
+	if Toggles.Infinity and Toggles.Infinity.Value then
+		Toggles.Infinity:SetValue(false)
 	end
 
 	if Toggles.NoWaterBlur and Toggles.NoWaterBlur.Value then
