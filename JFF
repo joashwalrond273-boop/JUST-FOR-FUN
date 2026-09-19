@@ -50,6 +50,7 @@ local updateHelicopterVisibility
 local updateAutoPickupVisibility
 local updatePlayerESPVisibility
 local updateFlightVisibility
+local updateImmortalModeVisibility
 local isTeammate = nil
 
 Library.ShowToggleFrameInKeybinds = true
@@ -662,11 +663,6 @@ MainLeft:AddSlider("AutoPickupRange", {
 	Max = 50,
 	Rounding = 1,
 	Compact = true,
-})
-
-MainLeft:AddCheckbox("Noclip", {
-	Text = "Noclip",
-	Default = false,
 })
 
 updateAutoPickupVisibility = function()
@@ -1671,7 +1667,26 @@ CombatReach:AddSlider("ReachRange", {
 	Compact = true,
 })
 
-local CombatAutoBlock = Tabs.Combat:AddRightGroupbox("Auto Block", "shield")
+local CombatAutoBlock = Tabs.Combat:AddRightGroupbox("Immortal Mode", "shield")
+
+CombatAutoBlock:AddToggle("ImmortalMode", {
+	Text = "Immortal Mode",
+	Default = false,
+})
+
+CombatAutoBlock:AddCheckbox("BypassShield", {
+	Text = "Bypass Shield",
+	Default = false,
+})
+
+CombatAutoBlock:AddSlider("ImmortalModeStuds", {
+	Text = "Block Distance",
+	Default = 18,
+	Min = 5,
+	Max = 50,
+	Rounding = 0,
+	Compact = true,
+})
 
 CombatAutoBlock:AddToggle("DodgeAura", {
 	Text = "Dodge Aura",
@@ -1691,6 +1706,38 @@ CombatAutoBlock:AddSlider("QuickVanishThreshold", {
 	Rounding = 0,
 	Compact = true,
 })
+
+updateImmortalModeVisibility = function()
+	local isImmortal = (Toggles.ImmortalMode and Toggles.ImmortalMode.Value) or false
+	if Options.ImmortalModeStuds then
+		if Options.ImmortalModeStuds.Visible ~= nil then
+			Options.ImmortalModeStuds.Visible = isImmortal
+		end
+		if Options.ImmortalModeStuds.Holder then
+			Options.ImmortalModeStuds.Holder.Visible = isImmortal
+		end
+	end
+	if Toggles.BypassShield then
+		if Toggles.BypassShield.Visible ~= nil then
+			Toggles.BypassShield.Visible = isImmortal
+		end
+		if Toggles.BypassShield.Holder then
+			Toggles.BypassShield.Holder.Visible = isImmortal
+		end
+	end
+	if not isImmortal and Toggles.BypassShield and Toggles.BypassShield.Value then
+		Toggles.BypassShield:SetValue(false)
+	end
+	CombatAutoBlock:Resize()
+end
+
+updateImmortalModeVisibility()
+task.spawn(function()
+	task.wait(0.05)
+	if updateImmortalModeVisibility then
+		updateImmortalModeVisibility()
+	end
+end)
 
 local function isSwingAnimation(trackObj)
 	local anim = trackObj.Animation
@@ -1718,8 +1765,78 @@ local function isSwingAnimation(trackObj)
 	return true
 end
 
-pcall(function()
-	game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(false)
+local isShielding = false
+local lastShieldFire = 0
+local function updateImmortalMode()
+	if not isAlive() or not (Toggles.ImmortalMode and Toggles.ImmortalMode.Value) then
+		if isShielding then
+			isShielding = false
+			pcall(function()
+				game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(false)
+			end)
+		end
+		return
+	end
+
+	local root = getRootPart()
+	if not root then return end
+
+	local shouldShield = false
+	local checkDistance = (Options.ImmortalModeStuds and Options.ImmortalModeStuds.Value) or 18
+
+	for _, player in ipairs(Players:GetPlayers()) do
+		if player ~= LocalPlayer and player.Character and (not isTeammate or not isTeammate(player)) then
+			local targetRoot = player.Character:FindFirstChild("HumanoidRootPart")
+			local hum = player.Character:FindFirstChildOfClass("Humanoid")
+			if targetRoot and hum and hum.Health > 0 then
+				local dist = (targetRoot.Position - root.Position).Magnitude
+				if dist <= checkDistance then
+					shouldShield = true
+					break
+				end
+			end
+		end
+	end
+
+	if shouldShield then
+		if tick() - lastShieldFire > 0.1 then
+			lastShieldFire = tick()
+			pcall(function()
+				game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(true)
+			end)
+		end
+		isShielding = true
+	else
+		if isShielding then
+			isShielding = false
+			pcall(function()
+				game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(false)
+			end)
+		end
+	end
+end
+
+Toggles.ImmortalMode:OnChanged(function()
+	if updateImmortalModeVisibility then
+		updateImmortalModeVisibility()
+	end
+	disconnect("ImmortalMode")
+	if Toggles.ImmortalMode.Value then
+		track("ImmortalMode", RunService.Heartbeat:Connect(updateImmortalMode))
+	else
+		if isShielding then
+			isShielding = false
+			pcall(function()
+				game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(false)
+			end)
+		end
+	end
+end)
+
+Toggles.BypassShield:OnChanged(function()
+	if Toggles.KillAura then
+		Toggles.KillAura:SetValue(Toggles.BypassShield.Value)
+	end
 end)
 
 local lastDodgeTime = 0
@@ -3369,28 +3486,7 @@ if LocalPlayer.Character then
 	updateNoclipParts(LocalPlayer.Character)
 end
 
-Toggles.Noclip:OnChanged(function()
-	disconnect("Noclip")
-	if Toggles.Noclip.Value then
-		updateNoclipParts(getCharacter())
-		track("Noclip", RunService.Stepped:Connect(function()
-			for _, part in ipairs(noclipCoreParts) do
-				if part and part.CanCollide then
-					part.CanCollide = false
-				end
-			end
-		end))
-	else
-		local character = getCharacter()
-		if character then
-			for _, part in ipairs(noclipCoreParts) do
-				if part and part.Parent and part.Name ~= "HumanoidRootPart" then
-					part.CanCollide = true
-				end
-			end
-		end
-	end
-end)
+
 
 
 
