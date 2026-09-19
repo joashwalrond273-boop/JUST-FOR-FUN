@@ -698,6 +698,11 @@ ImmuneTab:AddCheckbox("NoBossDamage", {
 	Default = false,
 })
 
+ImmuneTab:AddCheckbox("NoAiDamage", {
+	Text = "No Ai Damage",
+	Default = false,
+})
+
 ImmuneTab:AddCheckbox("NoFallDamage", {
 	Text = "No Fall Damage",
 	Default = false,
@@ -1146,7 +1151,7 @@ track("CharacterModuleRespawn", LocalPlayer.CharacterAdded:Connect(function()
 	end
 end))
 
--- No Boss Damage Hook Setup
+-- No Boss & AI Damage Hook Setup
 local BossDamageEvent = resolvePath(ReplicatedStorage, "remoteInterface", "character", "hurtByAIAttack")
 local originalNamecall
 if BossDamageEvent then
@@ -1155,7 +1160,7 @@ if BossDamageEvent then
 		local method = getnamecallmethod()
 
 		if rawequal(self, BossDamageEvent) and method == "FireServer" then
-			if Toggles.NoBossDamage and Toggles.NoBossDamage.Value then
+			if (Toggles.NoBossDamage and Toggles.NoBossDamage.Value) or (Toggles.NoAiDamage and Toggles.NoAiDamage.Value) then
 				return -- Block the attack to prevent damage
 			end
 		end
@@ -1172,7 +1177,16 @@ local function noBossDamageToggle(state)
 	end
 end
 
+local function noAiDamageToggle(state)
+	if state then
+		Library:Notify({ Title = "No Ai Damage", Description = "Enabled", Time = 2 })
+	else
+		Library:Notify({ Title = "No Ai Damage", Description = "Disabled", Time = 2 })
+	end
+end
+
 Toggles.NoBossDamage:OnChanged(noBossDamageToggle)
+Toggles.NoAiDamage:OnChanged(noAiDamageToggle)
 
  -- Auto pickup (CollectionService tag DROPPED_ITEM -> inventory.pickupItem)
 local droppedItemSpawnTimes = {}
@@ -5287,14 +5301,14 @@ VisualFPS:AddToggle("LowTextures", {
 	end,
 })
 
-VisualFPS:AddToggle("SmoothnessAA", {
-	Text = "Smoothness (Anti-Aliasing)",
+VisualFPS:AddToggle("Smoothness", {
+	Text = "Smoothness",
 	Default = false,
 	Callback = function(state)
 		local lighting = game:GetService("Lighting")
-		local blurTag = "Smoothness_BlurAA"
-		local bloomTag = "Smoothness_BloomAA"
-		local ccTag = "Smoothness_ColorAA"
+		local blurTag = "Smoothness_Blur"
+		local bloomTag = "Smoothness_Bloom"
+		local ccTag = "Smoothness_Color"
 
 		local existingBlur = lighting:FindFirstChild(blurTag)
 		local existingBloom = lighting:FindFirstChild(bloomTag)
@@ -5305,31 +5319,37 @@ VisualFPS:AddToggle("SmoothnessAA", {
 				if not existingBlur then
 					local blur = Instance.new("BlurEffect")
 					blur.Name = blurTag
-					blur.Size = 2
+					blur.Size = 1
 					blur.Parent = lighting
 				else
+					existingBlur.Size = 1
 					existingBlur.Enabled = true
 				end
 
 				if not existingBloom then
 					local bloom = Instance.new("BloomEffect")
 					bloom.Name = bloomTag
-					bloom.Intensity = 0.2
-					bloom.Size = 8
-					bloom.Threshold = 0.95
+					bloom.Intensity = 0.1
+					bloom.Size = 4
+					bloom.Threshold = 0.98
 					bloom.Parent = lighting
 				else
+					existingBloom.Intensity = 0.1
+					existingBloom.Size = 4
+					existingBloom.Threshold = 0.98
 					existingBloom.Enabled = true
 				end
 
 				if not existingCC then
 					local cc = Instance.new("ColorCorrectionEffect")
 					cc.Name = ccTag
-					cc.Contrast = 0.04
-					cc.Saturation = 0.05
+					cc.Contrast = 0.02
+					cc.Saturation = 0.03
 					cc.Brightness = 0
 					cc.Parent = lighting
 				else
+					existingCC.Contrast = 0.02
+					existingCC.Saturation = 0.03
 					existingCC.Enabled = true
 				end
 			end)
