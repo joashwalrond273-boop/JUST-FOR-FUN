@@ -753,7 +753,6 @@ MainRight:AddButton({
             local root = getRootPart()
             if root then
                     lastDeathPosition = root.Position
-                    shouldTeleportBack = true
             end
 
             local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
@@ -1086,46 +1085,15 @@ end
 track("CharacterModuleRespawn", LocalPlayer.CharacterAdded:Connect(function()
 	task.wait(1.5)
 	applyCharacterModuleToggles()
-	if (shouldTeleportBack or (Toggles.ResetCharacter and Toggles.ResetCharacter.Value)) and lastDeathPosition then
+	if shouldTeleportBack and lastDeathPosition then
 		shouldTeleportBack = false
 		local root = getRootPart()
 		if root then
 			root.CFrame = CFrame.new(lastDeathPosition + Vector3.new(0, 3, 0))
-			Library:Notify({ Title = "Death Spawn", Description = "Teleported back to last location!", Time = 2 })
+			Library:Notify({ Title = "Reset & Teleport", Description = "Teleported back to last location!", Time = 2 })
 		end
 	end
 end))
-
--- Death Spawn Position Tracker (records continuous safe position before death)
-local function setupDeathTracking(char)
-	if not char then return end
-	local humanoid = char:WaitForChild("Humanoid", 10)
-	local root = char:WaitForChild("HumanoidRootPart", 10)
-	if humanoid and root then
-		humanoid.Died:Connect(function()
-			if root and root.Position.Y > -100 then
-				lastDeathPosition = root.Position
-			end
-		end)
-	end
-end
-
-if LocalPlayer.Character then
-	task.spawn(setupDeathTracking, LocalPlayer.Character)
-end
-track("DeathTracker_CharAdded", LocalPlayer.CharacterAdded:Connect(setupDeathTracking))
-
-task.spawn(function()
-	while true do
-		task.wait(0.2)
-		if isAlive() then
-			local root = getRootPart()
-			if root and root.Position.Y > -100 then
-				lastDeathPosition = root.Position
-			end
-		end
-	end
-end)
 
 -- No Boss Damage Hook Setup
 local BossDamageEvent = resolvePath(ReplicatedStorage, "remoteInterface", "character", "hurtByAIAttack")
@@ -3100,6 +3068,11 @@ MoveSwimBoost:AddCheckbox("SinkFastPVP", {
 	Default = false,
 })
 
+MoveSwimBoost:AddCheckbox("RiseFastPVP", {
+	Text = "+ Rise Fast PVP",
+	Default = false,
+})
+
 MoveSwimBoost:AddSlider("SwimBoostValue", {
 	Text = "Swim Speed Value",
 	Default = 30,
@@ -3699,6 +3672,34 @@ Toggles.SinkFastPVP:OnChanged(function()
 	end
 end)
 
+Toggles.RiseFastPVP:OnChanged(function()
+	disconnect("RiseFastPVP")
+	if Toggles.RiseFastPVP.Value then
+		track("RiseFastPVP", RunService.Heartbeat:Connect(function()
+			local character = getCharacter()
+			local root = character and character:FindFirstChild("HumanoidRootPart")
+			local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+			if root and humanoid then
+				local isSwimming = humanoid:GetState() == Enum.HumanoidStateType.Swimming or character:GetAttribute("inWater")
+				if isSwimming then
+					local cam = workspace.CurrentCamera
+					local lookY = cam and cam.CFrame.LookVector.Y or 0
+					if lookY >= 0.85 then
+						root.AssemblyLinearVelocity = Vector3.new(
+							root.AssemblyLinearVelocity.X,
+							60,
+							root.AssemblyLinearVelocity.Z
+						)
+					end
+				end
+			end
+		end))
+		Library:Notify({ Title = "+ Rise Fast PVP", Description = "Enabled", Time = 2 })
+	else
+		Library:Notify({ Title = "+ Rise Fast PVP", Description = "Disabled", Time = 2 })
+	end
+end)
+
 local flyKeys = { W = false, A = false, S = false, D = false, Space = false, LeftControl = false, LeftShift = false }
 local flyInputBegan = UserInputService.InputBegan:Connect(function(input, processed)
 	if processed then
@@ -4051,7 +4052,6 @@ OreFarm:AddButton({
 		local root = getRootPart()
 		if root then
 			lastDeathPosition = root.Position
-			shouldTeleportBack = true
 		end
 
 		local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
@@ -4896,19 +4896,6 @@ ResetTeleportGroup:AddToggle("ResetCharacter", {
 Toggles.ResetCharacter:OnChanged(function()
 	if Toggles.ResetCharacter.Value then
 		local root = getRootPart()
-		if root and root.Position.Y > -100 then
-			lastDeathPosition = root.Position
-		end
-		Library:Notify({ Title = "Death Spawn", Description = "Enabled - Will respawn at death location", Time = 2 })
-	else
-		Library:Notify({ Title = "Death Spawn", Description = "Disabled", Time = 2 })
-	end
-end)
-
-ResetTeleportGroup:AddButton({
-	Text = "Reset Character",
-	Func = function()
-		local root = getRootPart()
 		if root then
 			lastDeathPosition = root.Position
 			shouldTeleportBack = true
@@ -4926,8 +4913,13 @@ ResetTeleportGroup:AddButton({
 				end
 			end
 		end
-	end,
-})
+
+		task.spawn(function()
+			task.wait(0.5)
+			Toggles.ResetCharacter:SetValue(false)
+		end)
+	end
+end)
 
 -- Merchants Groupbox
 local MerchantsGroup = Tabs.Teleport:AddRightGroupbox("Merchants", "map-pin")
