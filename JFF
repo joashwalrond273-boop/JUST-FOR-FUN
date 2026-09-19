@@ -3483,48 +3483,66 @@ Options.LowGravityHeight:OnChanged(function()
 end)
 
 
-local noclipCorePartNames = {
-	["HumanoidRootPart"] = true,
-	["Head"] = true,
-	["Torso"] = true,
-	["UpperTorso"] = true,
-	["LowerTorso"] = true,
-}
 local noclipCoreParts = {}
 
 local function updateNoclipParts(character)
 	table.clear(noclipCoreParts)
 	if not character then return end
-	for _, child in ipairs(character:GetChildren()) do
-		if child:IsA("BasePart") then
-			table.insert(noclipCoreParts, child)
+	for _, desc in ipairs(character:GetDescendants()) do
+		if desc:IsA("BasePart") then
+			table.insert(noclipCoreParts, desc)
 		end
 	end
 end
 
 LocalPlayer.CharacterAdded:Connect(function(char)
 	updateNoclipParts(char)
+	char.DescendantAdded:Connect(function(desc)
+		if desc:IsA("BasePart") and not table.find(noclipCoreParts, desc) then
+			table.insert(noclipCoreParts, desc)
+		end
+	end)
 end)
 if LocalPlayer.Character then
 	updateNoclipParts(LocalPlayer.Character)
+	LocalPlayer.Character.DescendantAdded:Connect(function(desc)
+		if desc:IsA("BasePart") and not table.find(noclipCoreParts, desc) then
+			table.insert(noclipCoreParts, desc)
+		end
+	end)
 end
 
 Toggles.Noclip:OnChanged(function()
 	disconnect("Noclip")
+	local hum = getHumanoid()
 	if Toggles.Noclip.Value then
 		updateNoclipParts(getCharacter())
+		if hum then
+			pcall(function()
+				hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+				hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
+			end)
+		end
 		track("Noclip", RunService.Stepped:Connect(function()
+			local char = getCharacter()
+			if not char then return end
 			for _, part in ipairs(noclipCoreParts) do
-				if part and part.CanCollide then
+				if part and part.Parent and part.CanCollide then
 					part.CanCollide = false
 				end
 			end
 		end))
 	else
+		if hum then
+			pcall(function()
+				hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, true)
+				hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, true)
+			end)
+		end
 		local character = getCharacter()
 		if character then
-			for _, part in ipairs(noclipCoreParts) do
-				if part and part.Parent and part.Name ~= "HumanoidRootPart" then
+			for _, part in ipairs(character:GetChildren()) do
+				if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
 					part.CanCollide = true
 				end
 			end
