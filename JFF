@@ -655,11 +655,16 @@ MainLeft:AddCheckbox("FastPickup", {
 	Default = false,
 })
 
+MainLeft:AddCheckbox("VacuumPickup", {
+	Text = "Vacuum (Far Reach)",
+	Default = false,
+})
+
 MainLeft:AddSlider("AutoPickupRange", {
 	Text = "Pickup Range",
 	Default = 20,
 	Min = 5,
-	Max = 50,
+	Max = 300,
 	Rounding = 1,
 	Compact = true,
 })
@@ -675,6 +680,12 @@ updateAutoPickupVisibility = function()
 		Options.AutoPickupRange.Visible = isPickup
 		if Options.AutoPickupRange.Holder then
 			Options.AutoPickupRange.Holder.Visible = isPickup
+		end
+	end
+	if Toggles.VacuumPickup then
+		Toggles.VacuumPickup.Visible = isPickup
+		if Toggles.VacuumPickup.Holder then
+			Toggles.VacuumPickup.Holder.Visible = isPickup
 		end
 	end
 	if MainLeft.Resize then
@@ -1180,6 +1191,24 @@ local lastAutoPickup = 0
 local AUTO_PICKUP_RANGE = 20
 local AUTO_PICKUP_COOLDOWN = 0
 
+local function canAutoPickup(item, isVacuum)
+	if not item:IsA("BasePart") or not item:GetAttribute("itemId") then
+		return false
+	end
+	if not isVacuum then
+		local owner = item:GetAttribute("owner")
+		if owner and owner ~= LocalPlayer.UserId then
+			return false
+		end
+	end
+	local from = item:GetAttribute("from")
+	local spawnTime = droppedItemSpawnTimes[item] or 0
+	if from == LocalPlayer.UserId and time() - spawnTime < 0.5 then
+		return false
+	end
+	return true
+end
+
 local function trackDroppedItem(item)
 	if not item:IsA("BasePart") then
 		return
@@ -1193,11 +1222,18 @@ local function trackDroppedItem(item)
 	if Toggles and Toggles.FastPickup and Toggles.FastPickup.Value and isAlive() and TSG.PickupRemote then
 		local root = getRootPart()
 		if root then
+			local isVacuum = (Toggles.VacuumPickup and Toggles.VacuumPickup.Value) or false
 			local maxRange = (Options and Options.AutoPickupRange and Options.AutoPickupRange.Value) or AUTO_PICKUP_RANGE
+			if isVacuum and maxRange < 100 then
+				maxRange = 100
+			end
 			task.defer(function()
-				if item and item.Parent and canAutoPickup(item) then
+				if item and item.Parent and canAutoPickup(item, isVacuum) then
 					local dist = (item.Position - root.Position).Magnitude
 					if dist <= maxRange then
+						if isVacuum then
+							pcall(function() item.CFrame = root.CFrame end)
+						end
 						pcall(TSG.PickupRemote.FireServer, TSG.PickupRemote, item)
 					end
 				end
@@ -1211,24 +1247,8 @@ for _, item in ipairs(CollectionService:GetTagged("DROPPED_ITEM")) do
 	trackDroppedItem(item)
 end
 
-local function canAutoPickup(item)
-	if not item:IsA("BasePart") or not item:GetAttribute("itemId") then
-		return false
-	end
-	local owner = item:GetAttribute("owner")
-	if owner and owner ~= LocalPlayer.UserId then
-		return false
-	end
-	local from = item:GetAttribute("from")
-	local spawnTime = droppedItemSpawnTimes[item] or 0
-	if from == LocalPlayer.UserId and time() - spawnTime < 1 then
-		return false
-	end
-	return true
-end
-
 local function tryAutoPickup()
-	if time() - lastAutoPickup < 0.05 then
+	if time() - lastAutoPickup < 0.03 then
 		return
 	end
 	if not isAlive() or not TSG.PickupRemote then
@@ -1239,20 +1259,47 @@ local function tryAutoPickup()
 		return
 	end
 
+	local isVacuum = (Toggles.VacuumPickup and Toggles.VacuumPickup.Value) or false
 	local maxRange = (Options.AutoPickupRange and Options.AutoPickupRange.Value) or AUTO_PICKUP_RANGE
-	local pickedCount = 0
+	if isVacuum and maxRange < 100 then
+		maxRange = 100
+	end
+
+	local rootPos = root.Position
+	local candidateItems = {}
+
 	for _, item in ipairs(CollectionService:GetTagged("DROPPED_ITEM")) do
-		if canAutoPickup(item) then
-			local dist = (item.Position - root.Position).Magnitude
+		if canAutoPickup(item, isVacuum) then
+			local dist = (item.Position - rootPos).Magnitude
 			if dist <= maxRange then
-				pickedCount += 1
-				pcall(TSG.PickupRemote.FireServer, TSG.PickupRemote, item)
-				if pickedCount >= 5 then
-					break
-				end
+				table.insert(candidateItems, { item = item, dist = dist })
 			end
 		end
 	end
+
+	-- Sort closest first
+	table.sort(candidateItems, function(a, b)
+		return a.dist < b.dist
+	end)
+
+	local pickedCount = 0
+	local maxBatch = isVacuum and 25 or 8
+	for _, entry in ipairs(candidateItems) do
+		local item = entry.item
+		if item and item.Parent then
+			pickedCount += 1
+			if isVacuum then
+				pcall(function()
+					item.CFrame = root.CFrame
+				end)
+			end
+			pcall(TSG.PickupRemote.FireServer, TSG.PickupRemote, item)
+			if pickedCount >= maxBatch then
+				break
+			end
+		end
+	end
+
 	if pickedCount > 0 then
 		lastAutoPickup = time()
 	end
