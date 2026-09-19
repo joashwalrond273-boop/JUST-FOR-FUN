@@ -1187,18 +1187,12 @@ Toggles.NoBossDamage:OnChanged(noBossDamageToggle)
 
  -- Auto pickup (CollectionService tag DROPPED_ITEM -> inventory.pickupItem)
 local droppedItemSpawnTimes = {}
-local failedItemAttempts = {}
-local failedItemCooldowns = {}
 local lastAutoPickup = 0
 local AUTO_PICKUP_RANGE = 20
 local AUTO_PICKUP_COOLDOWN = 0
 
 local function canAutoPickup(item, isVacuum)
 	if not item:IsA("BasePart") or not item:GetAttribute("itemId") then
-		return false
-	end
-	local cd = failedItemCooldowns[item]
-	if cd and time() < cd then
 		return false
 	end
 	if not isVacuum then
@@ -1222,8 +1216,6 @@ local function trackDroppedItem(item)
 	droppedItemSpawnTimes[item] = time()
 	item.Destroying:Once(function()
 		droppedItemSpawnTimes[item] = nil
-		failedItemAttempts[item] = nil
-		failedItemCooldowns[item] = nil
 	end)
 
 	-- Instant vacuum pickup if in range
@@ -1256,7 +1248,7 @@ for _, item in ipairs(CollectionService:GetTagged("DROPPED_ITEM")) do
 end
 
 local function tryAutoPickup()
-	if time() - lastAutoPickup < 0.05 then
+	if time() - lastAutoPickup < 0.03 then
 		return
 	end
 	if not isAlive() or not TSG.PickupRemote then
@@ -1269,6 +1261,9 @@ local function tryAutoPickup()
 
 	local isVacuum = (Toggles.VacuumPickup and Toggles.VacuumPickup.Value) or false
 	local maxRange = (Options.AutoPickupRange and Options.AutoPickupRange.Value) or AUTO_PICKUP_RANGE
+	if isVacuum and maxRange < 100 then
+		maxRange = 100
+	end
 
 	local rootPos = root.Position
 	local candidateItems = {}
@@ -1288,18 +1283,11 @@ local function tryAutoPickup()
 	end)
 
 	local pickedCount = 0
-	local maxBatch = isVacuum and 10 or 6
+	local maxBatch = isVacuum and 25 or 8
 	for _, entry in ipairs(candidateItems) do
 		local item = entry.item
 		if item and item.Parent then
 			pickedCount += 1
-			local attempts = (failedItemAttempts[item] or 0) + 1
-			failedItemAttempts[item] = attempts
-			if attempts >= 3 then
-				failedItemCooldowns[item] = time() + 3
-				failedItemAttempts[item] = 0
-			end
-
 			if isVacuum then
 				pcall(function()
 					item.CFrame = root.CFrame
