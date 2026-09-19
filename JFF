@@ -3432,20 +3432,36 @@ MoveMountAura:AddSlider("MountFlySpeed", {
 
 
 Toggles.LowGravity:OnChanged(function()
+	disconnect("LowGravity")
 	if updatePVPModulesVisibility then
 		updatePVPModulesVisibility()
 	end
 	if Toggles.LowGravity.Value then
-		workspace.Gravity = math.max(0, 196.2 - Options.LowGravityHeight.Value)
+		Library:Notify({ Title = "Low Gravity", Description = "Enabled (Stable on Ground, Floats in Air)", Time = 2 })
+		track("LowGravity", RunService.Heartbeat:Connect(function()
+			if not isAlive() then return end
+			local humanoid = getHumanoid()
+			if not humanoid then return end
+
+			local reduction = (Options.LowGravityHeight and Options.LowGravityHeight.Value) or 100
+			local targetGravity = math.clamp(196.2 - reduction, 25, 196.2)
+
+			if humanoid.FloorMaterial == Enum.Material.Air then
+				workspace.Gravity = targetGravity
+			else
+				workspace.Gravity = 196.2
+			end
+		end))
 	else
 		workspace.Gravity = 196.2
+		Library:Notify({ Title = "Low Gravity", Description = "Disabled", Time = 2 })
 	end
 end)
 
 Options.LowGravityHeight:OnChanged(function()
-        if Toggles.LowGravity.Value then
-           workspace.Gravity = math.max(0, 196.2 - Options.LowGravityHeight.Value)
-        end
+	if not Toggles.LowGravity.Value then
+		workspace.Gravity = 196.2
+	end
 end)
 
 
