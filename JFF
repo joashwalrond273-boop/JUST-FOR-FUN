@@ -665,6 +665,11 @@ MainLeft:AddSlider("AutoPickupRange", {
 	Compact = true,
 })
 
+MainLeft:AddCheckbox("Noclip", {
+	Text = "Noclip",
+	Default = false,
+})
+
 updateAutoPickupVisibility = function()
 	local isPickup = (Toggles.FastPickup and Toggles.FastPickup.Value) or false
 	if Options.AutoPickupRange then
@@ -2371,22 +2376,11 @@ Toggles.AutoHop:OnChanged(function()
 			local hum = getHumanoid()
 			if not root or not hum then return end
 
-			if not hum:GetAttribute("JumpAdjusted") then
-				hum:SetAttribute("JumpAdjusted", true)
-				hum:SetAttribute("OrigJumpPower", hum.JumpPower)
-				hum:SetAttribute("OrigJumpHeight", hum.JumpHeight)
-				if hum.UseJumpPower then
-					hum.JumpPower = math.max(0, hum.JumpPower - 2)
-				else
-					hum.JumpHeight = math.max(0, hum.JumpHeight - 2)
-				end
-			end
-
 			local maxDist = Options.AutoHopStuds and Options.AutoHopStuds.Value or 20
 			local pos = root.Position
 			local playerNearby = false
 			for _, otherPlayer in ipairs(Players:GetPlayers()) do
-				if otherPlayer ~= LocalPlayer and otherPlayer.Character then
+				if otherPlayer ~= LocalPlayer and otherPlayer.Character and (not isTeammate or not isTeammate(otherPlayer)) then
 					local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
 					local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
 					if otherRoot and otherHum and otherHum.Health > 0 then
@@ -2400,21 +2394,11 @@ Toggles.AutoHop:OnChanged(function()
 			end
 
 			if playerNearby then
-				if hum.FloorMaterial ~= Enum.Material.Air then
+				if hum.FloorMaterial ~= Enum.Material.Air and hum:GetState() ~= Enum.HumanoidStateType.Jumping and hum:GetState() ~= Enum.HumanoidStateType.Freefall then
 					hum.Jump = true
-					pcall(function()
-						hum:ChangeState(Enum.HumanoidStateType.Jumping)
-					end)
 				end
 			end
 		end))
-	else
-		local hum = getHumanoid()
-		if hum and hum:GetAttribute("JumpAdjusted") then
-			hum.JumpPower = hum:GetAttribute("OrigJumpPower") or hum.JumpPower
-			hum.JumpHeight = hum:GetAttribute("OrigJumpHeight") or hum.JumpHeight
-			hum:SetAttribute("JumpAdjusted", nil)
-		end
 	end
 end)
 
@@ -2604,7 +2588,7 @@ Toggles.Camlock:OnChanged(function()
 		updatePVPModulesVisibility()
 	end
 	if Toggles.Camlock.Value then
-		track("Camlock", RunService.Heartbeat:Connect(function()
+		track("Camlock", RunService.RenderStepped:Connect(function()
 			if not isAlive() then return end
 			local root = getRootPart()
 			local hum = getHumanoid()
@@ -2616,7 +2600,7 @@ Toggles.Camlock:OnChanged(function()
 			local closestDist = math.huge
 
 			for _, otherPlayer in ipairs(Players:GetPlayers()) do
-				if otherPlayer ~= LocalPlayer and otherPlayer.Character then
+				if otherPlayer ~= LocalPlayer and otherPlayer.Character and (not isTeammate or not isTeammate(otherPlayer)) then
 					local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
 					local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
 					if otherRoot and otherHum and otherHum.Health > 0 then
@@ -2629,32 +2613,16 @@ Toggles.Camlock:OnChanged(function()
 				end
 			end
 
-			if closestPlayer then
-				UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
-				UserInputService.MouseIconEnabled = false
-
-				local targetRoot = closestPlayer.Character:FindFirstChild("HumanoidRootPart")
-				if targetRoot then
-					local targetPos = targetRoot.Position
-					local lookDir = Vector3.new(targetPos.X - myPos.X, 0, targetPos.Z - myPos.Z).Unit
-					if lookDir.Magnitude > 0 then
-						hum.AutoRotate = false
-						root.CFrame = CFrame.new(myPos, myPos + lookDir)
+			if closestPlayer and closestPlayer.Character then
+				local targetHead = closestPlayer.Character:FindFirstChild("Head") or closestPlayer.Character:FindFirstChild("HumanoidRootPart")
+				if targetHead then
+					local cam = workspace.CurrentCamera
+					if cam then
+						cam.CFrame = CFrame.lookAt(cam.CFrame.Position, targetHead.Position)
 					end
 				end
-			else
-				UserInputService.MouseBehavior = Enum.MouseBehavior.Default
-				UserInputService.MouseIconEnabled = true
-				hum.AutoRotate = true
 			end
 		end))
-	else
-		UserInputService.MouseBehavior = Enum.MouseBehavior.Default
-		UserInputService.MouseIconEnabled = true
-		local hum = getHumanoid()
-		if hum then
-			hum.AutoRotate = true
-		end
 	end
 end)
 
@@ -3274,15 +3242,19 @@ do
 		track("WalkOnWater", RunService.Heartbeat:Connect(function()
 			local character = getCharacter()
 			local hrp = character and character:FindFirstChild("HumanoidRootPart")
-			if not hrp or not waterPlatform then return end
+			local hum = character and character:FindFirstChildOfClass("Humanoid")
+			if not hrp or not hum or not waterPlatform then return end
 			local pos = hrp.Position
 			local ok, waterHeight = pcall(function()
 				return HeightLookup.Lookup(pos, "PRECISE", false)
 			end)
 			if ok and typeof(waterHeight) == "number" then
-				if pos.Y < waterHeight + 5 then
+				local isSwimming = hum:GetState() == Enum.HumanoidStateType.Swimming or character:GetAttribute("inWater")
+				if (pos.Y < waterHeight + 2 and pos.Y > waterHeight - 10) or isSwimming then
+					waterPlatform.CanCollide = true
 					waterPlatform.CFrame = CFrame.new(pos.X, waterHeight + 0.5, pos.Z)
 				else
+					waterPlatform.CanCollide = false
 					waterPlatform.Position = Vector3.new(0, -500, 0)
 				end
 			end
@@ -3460,36 +3432,74 @@ Options.LowGravityHeight:OnChanged(function()
 end)
 
 
-local noclipCorePartNames = {
-	["HumanoidRootPart"] = true,
-	["Head"] = true,
-	["Torso"] = true,
-	["UpperTorso"] = true,
-	["LowerTorso"] = true,
-}
 local noclipCoreParts = {}
 
 local function updateNoclipParts(character)
 	table.clear(noclipCoreParts)
 	if not character then return end
-	for _, child in ipairs(character:GetChildren()) do
-		if child:IsA("BasePart") then
-			table.insert(noclipCoreParts, child)
+	for _, desc in ipairs(character:GetDescendants()) do
+		if desc:IsA("BasePart") then
+			table.insert(noclipCoreParts, desc)
 		end
 	end
 end
 
 LocalPlayer.CharacterAdded:Connect(function(char)
 	updateNoclipParts(char)
+	char.DescendantAdded:Connect(function(desc)
+		if desc:IsA("BasePart") and not table.find(noclipCoreParts, desc) then
+			table.insert(noclipCoreParts, desc)
+		end
+	end)
 end)
 if LocalPlayer.Character then
 	updateNoclipParts(LocalPlayer.Character)
+	LocalPlayer.Character.DescendantAdded:Connect(function(desc)
+		if desc:IsA("BasePart") and not table.find(noclipCoreParts, desc) then
+			table.insert(noclipCoreParts, desc)
+		end
+	end)
 end
 
-
-
-
-
+Toggles.Noclip:OnChanged(function()
+	disconnect("Noclip")
+	local hum = getHumanoid()
+	if Toggles.Noclip.Value then
+		updateNoclipParts(getCharacter())
+		if hum then
+			pcall(function()
+				hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+				hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
+			end)
+		end
+		track("Noclip", RunService.Stepped:Connect(function()
+			local char = getCharacter()
+			if not char then return end
+			for _, part in ipairs(noclipCoreParts) do
+				if part and part.Parent and part.CanCollide then
+					part.CanCollide = false
+				end
+			end
+		end))
+		Library:Notify({ Title = "Noclip", Description = "Enabled (Clean collisions)", Time = 2 })
+	else
+		if hum then
+			pcall(function()
+				hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, true)
+				hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, true)
+			end)
+		end
+		local character = getCharacter()
+		if character then
+			for _, part in ipairs(character:GetChildren()) do
+				if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+					part.CanCollide = true
+				end
+			end
+		end
+		Library:Notify({ Title = "Noclip", Description = "Disabled", Time = 2 })
+	end
+end)
 
 Toggles.SpeedHack:OnChanged(function()
 	disconnect("SpeedHack")
@@ -3502,13 +3512,17 @@ Toggles.SpeedHack:OnChanged(function()
 			if not humanoid or not root then return end
 			local isSwimming = humanoid:GetState() == Enum.HumanoidStateType.Swimming or (LocalPlayer.Character and LocalPlayer.Character:GetAttribute("inWater"))
 			if not isSwimming then
-				local factor = Options.SpeedValue.Value - humanoid.WalkSpeed
-				if factor > 0 and humanoid.MoveDirection.Magnitude > 0 then
-					LocalPlayer.Character:TranslateBy(humanoid.MoveDirection * dt * factor)
+				local targetSpeed = Options.SpeedValue and Options.SpeedValue.Value or 24
+				if humanoid.WalkSpeed ~= targetSpeed then
+					humanoid.WalkSpeed = targetSpeed
 				end
 			end
 		end))
 	else
+		local humanoid = getHumanoid()
+		if humanoid then
+			humanoid.WalkSpeed = 16
+		end
 		Library:Notify({ Title = "Speed", Description = "Disabled", Time = 2 })
 	end
 end)
@@ -3644,14 +3658,21 @@ Toggles.PlusSpeedBoost:OnChanged(function()
 				local selectedSlot = Options.SpeedBoostSlot and Options.SpeedBoostSlot.Value or "1"
 				if isHoldingSelectedSlot(selectedSlot) then
 					local targetSpeed = Options.SpeedBoostValue and Options.SpeedBoostValue.Value or 16
-					local factor = targetSpeed - humanoid.WalkSpeed
-					if factor > 0 and humanoid.MoveDirection.Magnitude > 0 then
-						LocalPlayer.Character:TranslateBy(humanoid.MoveDirection * dt * factor)
+					if humanoid.WalkSpeed ~= targetSpeed then
+						humanoid.WalkSpeed = targetSpeed
+					end
+				else
+					if humanoid.WalkSpeed > 16 and (not Toggles.SpeedHack or not Toggles.SpeedHack.Value) then
+						humanoid.WalkSpeed = 16
 					end
 				end
 			end
 		end))
 	else
+		local humanoid = getHumanoid()
+		if humanoid and (not Toggles.SpeedHack or not Toggles.SpeedHack.Value) then
+			humanoid.WalkSpeed = 16
+		end
 		Library:Notify({ Title = "+ Speed Boost", Description = "Disabled", Time = 2 })
 	end
 end)
