@@ -664,7 +664,7 @@ MainLeft:AddSlider("AutoPickupRange", {
 	Text = "Pickup Range",
 	Default = 20,
 	Min = 5,
-	Max = 300,
+	Max = 2000,
 	Rounding = 1,
 	Compact = true,
 })
@@ -4108,7 +4108,7 @@ FarmMine:AddSlider("AutoMineRange", {
 	Text = "Range",
 	Default = 30,
 	Min = 5,
-	Max = 60,
+	Max = 500,
 	Rounding = 1,
 	Compact = true,
 })
@@ -4384,19 +4384,33 @@ local isAiAuraRunning   = false
 local lastAutoMineHit   = 0
 local lastAutoChopHit   = 0
 
+local function getMineTargetPart(obj)
+	if not obj then return nil end
+	if obj.PrimaryPart and obj.PrimaryPart:IsA("BasePart") then
+		return obj.PrimaryPart
+	end
+	local part = obj:FindFirstChildWhichIsA("BasePart")
+	if part then return part end
+	for _, desc in ipairs(obj:GetDescendants()) do
+		if desc:IsA("BasePart") then return desc end
+	end
+	return nil
+end
+
 local function mineObject(obj)
 	local slot = tonumber(Options.AutoMineSlot.Value) or 1
-	if obj and obj.PrimaryPart then
+	local part = getMineTargetPart(obj)
+	if obj and part then
 		updateHighlight(hlMine, obj, Toggles.HighlightMine.Value)
 		pcall(function()
-			TSG.MineRemote:FireServer(slot, obj, CFrame.new(obj.PrimaryPart.Position))
+			TSG.MineRemote:FireServer(slot, obj, part.CFrame)
 		end)
 	end
 end
 
 local function autoMine()
 	if not isAlive() or not isAutoMineRunning then return end
-	if tick() - lastAutoMineHit < 0.2 then return end
+	if tick() - lastAutoMineHit < 0.15 then return end
 
 	local root = getRootPart()
 	if not root then return end
@@ -4407,8 +4421,9 @@ local function autoMine()
 	for _, subfolder in ipairs(folder:GetChildren()) do
 		if subfolder:IsA("Folder") then
 			for _, obj in ipairs(subfolder:GetChildren()) do
-				if obj.PrimaryPart then
-					local d = (root.Position - obj.PrimaryPart.Position).Magnitude
+				local part = getMineTargetPart(obj)
+				if part then
+					local d = (root.Position - part.Position).Magnitude
 					if d < dist then
 						closest, dist = obj, d
 					end
