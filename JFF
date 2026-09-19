@@ -1599,6 +1599,12 @@ CombatReach:AddToggle("Reach", {
 	Default = false,
 })
 
+CombatReach:AddDropdown("ReachTarget", {
+	Text = "Target Player",
+	Values = {"All"},
+	Default = "All",
+})
+
 CombatReach:AddDropdown("AdvancePreset", {
 	Text = "Advance PRESET",
 	Values = { "Sword", "Spear" },
@@ -2932,56 +2938,61 @@ local function connectReachTool(tool)
 				local forward = Vector3.new(root.CFrame.LookVector.X, 0, root.CFrame.LookVector.Z).Unit
 				local nearestTarget = nil
 				local nearestDist = range
+				local reachTargetSetting = (Options.ReachTarget and Options.ReachTarget.Value) or "All"
 
 				-- Scan Players
 				for _, otherPlayer in ipairs(Players:GetPlayers()) do
 					if otherPlayer ~= LocalPlayer and otherPlayer.Character then
-						local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
-						local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
-						if otherHum and otherHum.Health > 0 and otherRoot then
-							local d = (otherRoot.Position - pos).Magnitude
-							if d < nearestDist then
-								local dir = Vector3.new(otherRoot.Position.X - pos.X, 0, otherRoot.Position.Z - pos.Z).Unit
-								if dir.Magnitude > 0 and forward:Dot(dir) >= 0.5 then
-									nearestDist = d
-									nearestTarget = otherPlayer.Character
+						if reachTargetSetting == "All" or otherPlayer.Name == reachTargetSetting then
+							local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
+							local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
+							if otherHum and otherHum.Health > 0 and otherRoot then
+								local d = (otherRoot.Position - pos).Magnitude
+								if d < nearestDist then
+									local dir = Vector3.new(otherRoot.Position.X - pos.X, 0, otherRoot.Position.Z - pos.Z).Unit
+									if dir.Magnitude > 0 and forward:Dot(dir) >= 0.5 then
+										nearestDist = d
+										nearestTarget = otherPlayer.Character
+									end
 								end
 							end
 						end
 					end
 				end
 
-				-- Scan NPC AI Models
-				local aiClient = workspace:FindFirstChild("AI_Client")
-				if aiClient then
-					for _, npc in ipairs(aiClient:GetChildren()) do
-						local npcHum = npc:FindFirstChildOfClass("Humanoid")
-						local npcRoot = npc:FindFirstChild("HumanoidRootPart") or npc.PrimaryPart
-						if npcHum and npcHum.Health > 0 and npcRoot then
-							local d = (npcRoot.Position - pos).Magnitude
-							if d < nearestDist then
-								local dir = Vector3.new(npcRoot.Position.X - pos.X, 0, npcRoot.Position.Z - pos.Z).Unit
-								if dir.Magnitude > 0 and forward:Dot(dir) >= 0.5 then
-									nearestDist = d
-									nearestTarget = npc
+				-- Scan NPC AI Models (when Target is "All")
+				if reachTargetSetting == "All" then
+					local aiClient = workspace:FindFirstChild("AI_Client")
+					if aiClient then
+						for _, npc in ipairs(aiClient:GetChildren()) do
+							local npcHum = npc:FindFirstChildOfClass("Humanoid")
+							local npcRoot = npc:FindFirstChild("HumanoidRootPart") or npc.PrimaryPart
+							if npcHum and npcHum.Health > 0 and npcRoot then
+								local d = (npcRoot.Position - pos).Magnitude
+								if d < nearestDist then
+									local dir = Vector3.new(npcRoot.Position.X - pos.X, 0, npcRoot.Position.Z - pos.Z).Unit
+									if dir.Magnitude > 0 and forward:Dot(dir) >= 0.5 then
+										nearestDist = d
+										nearestTarget = npc
+									end
 								end
 							end
 						end
 					end
-				end
 
-				local aiServer = workspace:FindFirstChild("AI_Server")
-				if aiServer then
-					for _, npc in ipairs(aiServer:GetChildren()) do
-						local npcHum = npc:FindFirstChildOfClass("Humanoid")
-						local npcRoot = npc:FindFirstChild("HumanoidRootPart") or npc.PrimaryPart
-						if (not npcHum or npcHum.Health > 0) and npcRoot then
-							local d = (npcRoot.Position - pos).Magnitude
-							if d < nearestDist then
-								local dir = Vector3.new(npcRoot.Position.X - pos.X, 0, npcRoot.Position.Z - pos.Z).Unit
-								if dir.Magnitude > 0 and forward:Dot(dir) >= 0.5 then
-									nearestDist = d
-									nearestTarget = npc
+					local aiServer = workspace:FindFirstChild("AI_Server")
+					if aiServer then
+						for _, npc in ipairs(aiServer:GetChildren()) do
+							local npcHum = npc:FindFirstChildOfClass("Humanoid")
+							local npcRoot = npc:FindFirstChild("HumanoidRootPart") or npc.PrimaryPart
+							if (not npcHum or npcHum.Health > 0) and npcRoot then
+								local d = (npcRoot.Position - pos).Magnitude
+								if d < nearestDist then
+									local dir = Vector3.new(npcRoot.Position.X - pos.X, 0, npcRoot.Position.Z - pos.Z).Unit
+									if dir.Magnitude > 0 and forward:Dot(dir) >= 0.5 then
+										nearestDist = d
+										nearestTarget = npc
+									end
 								end
 							end
 						end
@@ -6473,6 +6484,17 @@ local function updateAttachPlayerList()
 				Options.PhantomAuraTarget:SetValue(current)
 			else
 				Options.PhantomAuraTarget:SetValue("All")
+			end
+		end
+	end)
+	pcall(function()
+		if Options.ReachTarget then
+			local current = Options.ReachTarget.Value
+			Options.ReachTarget:SetValues(kaList)
+			if table.find(kaList, current) then
+				Options.ReachTarget:SetValue(current)
+			else
+				Options.ReachTarget:SetValue("All")
 			end
 		end
 	end)
