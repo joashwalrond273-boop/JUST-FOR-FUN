@@ -926,24 +926,67 @@ local function applyCharacterModuleToggles()
 			setBehaviorDisabled(char:FindFirstChild("worldHazards"), true)
 		end
 	end
-	if Toggles.NoSlowdown and Toggles.NoSlowdown.Value then
+	if (Toggles.NoSlowdown and Toggles.NoSlowdown.Value) or (Toggles.InfiniteBackpack and Toggles.InfiniteBackpack.Value) then
 		local hum = getHumanoid()
 		if hum and hum.WalkSpeed < 16 then
 			hum.WalkSpeed = 16
+		end
+		local charFolder = getCharacterFolder()
+		if charFolder then
+			for _, name in ipairs({"weight", "overweight", "backpack", "slowdown", "combatSlow", "actionSlow", "speedModifier"}) do
+				local b = charFolder:FindFirstChild(name)
+				if b then
+					setBehaviorDisabled(b, true)
+				end
+			end
 		end
 	end
 end
 
 Toggles.InfiniteBackpack:OnChanged(function()
 	disconnect("InfiniteBackpack")
+	disconnect("InfiniteBackpack_WS")
+	disconnect("InfiniteBackpack_CharAdded")
 	if Toggles.InfiniteBackpack.Value then
-		pcall(function()
-			loadstring(game:HttpGet("https://goathub.lat/api/scripts/infbag"))()
-			getgenv().InfiniteBagEnabled = true
-		end)
-		Library:Notify({ Title = "Infinite Backpack", Description = "Enabled", Time = 2 })
+		local function enforceBackpackSpeed()
+			if not isAlive() then return end
+			local humanoid = getHumanoid()
+			if humanoid and humanoid.WalkSpeed < 16 then
+				humanoid.WalkSpeed = 16
+			end
+			local charFolder = getCharacterFolder()
+			if charFolder then
+				for _, name in ipairs({"weight", "overweight", "backpack", "slowdown", "speedModifier"}) do
+					local b = charFolder:FindFirstChild(name)
+					if b then
+						setBehaviorDisabled(b, true)
+					end
+				end
+			end
+		end
+
+		track("InfiniteBackpack", RunService.Heartbeat:Connect(enforceBackpackSpeed))
+
+		local function setupHumanoid(char)
+			if not char then return end
+			local hum = char:WaitForChild("Humanoid", 10)
+			if hum then
+				disconnect("InfiniteBackpack_WS")
+				track("InfiniteBackpack_WS", hum:GetPropertyChangedSignal("WalkSpeed"):Connect(function()
+					if Toggles.InfiniteBackpack and Toggles.InfiniteBackpack.Value and hum.WalkSpeed < 16 then
+						hum.WalkSpeed = 16
+					end
+				end))
+			end
+		end
+
+		if LocalPlayer.Character then
+			setupHumanoid(LocalPlayer.Character)
+		end
+		track("InfiniteBackpack_CharAdded", LocalPlayer.CharacterAdded:Connect(setupHumanoid))
+
+		Library:Notify({ Title = "Infinite Backpack", Description = "Enabled (No Weight Slowdown)", Time = 2 })
 	else
-		getgenv().InfiniteBagEnabled = false
 		Library:Notify({ Title = "Infinite Backpack", Description = "Disabled", Time = 2 })
 	end
 end)
