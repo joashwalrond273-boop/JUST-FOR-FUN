@@ -926,6 +926,12 @@ local function applyCharacterModuleToggles()
 			setBehaviorDisabled(char:FindFirstChild("worldHazards"), true)
 		end
 	end
+	if Toggles.NoSlowdown and Toggles.NoSlowdown.Value then
+		local hum = getHumanoid()
+		if hum and hum.WalkSpeed < 16 then
+			hum.WalkSpeed = 16
+		end
+	end
 end
 
 Toggles.InfiniteBackpack:OnChanged(function()
@@ -3058,6 +3064,11 @@ MoveLeft:AddToggle("SpeedHack", {
 	Default = false,
 })
 
+MoveLeft:AddCheckbox("NoSlowdown", {
+	Text = "No Slowdown",
+	Default = false,
+})
+
 MoveLeft:AddSlider("SpeedValue", {
 	Text = "Speed Value",
 	Default = 24,
@@ -3496,6 +3507,54 @@ Toggles.SpeedHack:OnChanged(function()
 		end))
 	else
 		Library:Notify({ Title = "Speed", Description = "Disabled", Time = 2 })
+	end
+end)
+
+Toggles.NoSlowdown:OnChanged(function()
+	disconnect("NoSlowdown")
+	disconnect("NoSlowdown_WS")
+	disconnect("NoSlowdown_CharAdded")
+	if Toggles.NoSlowdown.Value then
+		local function enforceSpeed()
+			if not isAlive() then return end
+			local humanoid = getHumanoid()
+			if humanoid and humanoid.WalkSpeed < 16 then
+				humanoid.WalkSpeed = 16
+			end
+			local charFolder = getCharacterFolder()
+			if charFolder then
+				for _, name in ipairs({"slowdown", "combatSlow", "actionSlow", "speedModifier"}) do
+					local b = charFolder:FindFirstChild(name)
+					if b then
+						setBehaviorDisabled(b, true)
+					end
+				end
+			end
+		end
+
+		track("NoSlowdown", RunService.Heartbeat:Connect(enforceSpeed))
+
+		local function setupHumanoid(char)
+			if not char then return end
+			local hum = char:WaitForChild("Humanoid", 10)
+			if hum then
+				disconnect("NoSlowdown_WS")
+				track("NoSlowdown_WS", hum:GetPropertyChangedSignal("WalkSpeed"):Connect(function()
+					if Toggles.NoSlowdown and Toggles.NoSlowdown.Value and hum.WalkSpeed < 16 then
+						hum.WalkSpeed = 16
+					end
+				end))
+			end
+		end
+
+		if LocalPlayer.Character then
+			setupHumanoid(LocalPlayer.Character)
+		end
+		track("NoSlowdown_CharAdded", LocalPlayer.CharacterAdded:Connect(setupHumanoid))
+
+		Library:Notify({ Title = "No Slowdown", Description = "Enabled (Unhindered Actions)", Time = 2 })
+	else
+		Library:Notify({ Title = "No Slowdown", Description = "Disabled", Time = 2 })
 	end
 end)
 
