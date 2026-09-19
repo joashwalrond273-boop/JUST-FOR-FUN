@@ -753,6 +753,7 @@ MainRight:AddButton({
             local root = getRootPart()
             if root then
                     lastDeathPosition = root.Position
+                    shouldTeleportBack = true
             end
 
             local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
@@ -1085,15 +1086,46 @@ end
 track("CharacterModuleRespawn", LocalPlayer.CharacterAdded:Connect(function()
 	task.wait(1.5)
 	applyCharacterModuleToggles()
-	if shouldTeleportBack and lastDeathPosition then
+	if (shouldTeleportBack or (Toggles.ResetCharacter and Toggles.ResetCharacter.Value)) and lastDeathPosition then
 		shouldTeleportBack = false
 		local root = getRootPart()
 		if root then
 			root.CFrame = CFrame.new(lastDeathPosition + Vector3.new(0, 3, 0))
-			Library:Notify({ Title = "Reset & Teleport", Description = "Teleported back to last location!", Time = 2 })
+			Library:Notify({ Title = "Death Spawn", Description = "Teleported back to last location!", Time = 2 })
 		end
 	end
 end))
+
+-- Death Spawn Position Tracker (records continuous safe position before death)
+local function setupDeathTracking(char)
+	if not char then return end
+	local humanoid = char:WaitForChild("Humanoid", 10)
+	local root = char:WaitForChild("HumanoidRootPart", 10)
+	if humanoid and root then
+		humanoid.Died:Connect(function()
+			if root and root.Position.Y > -100 then
+				lastDeathPosition = root.Position
+			end
+		end)
+	end
+end
+
+if LocalPlayer.Character then
+	task.spawn(setupDeathTracking, LocalPlayer.Character)
+end
+track("DeathTracker_CharAdded", LocalPlayer.CharacterAdded:Connect(setupDeathTracking))
+
+task.spawn(function()
+	while true do
+		task.wait(0.2)
+		if isAlive() then
+			local root = getRootPart()
+			if root and root.Position.Y > -100 then
+				lastDeathPosition = root.Position
+			end
+		end
+	end
+end)
 
 -- No Boss Damage Hook Setup
 local BossDamageEvent = resolvePath(ReplicatedStorage, "remoteInterface", "character", "hurtByAIAttack")
@@ -1964,7 +1996,7 @@ end
 local highlightTarget = Instance.new("Highlight")
 highlightTarget.FillColor = (Options.HighlightTargetColor and Options.HighlightTargetColor.Value) or Color3.fromRGB(255, 60, 60)
 highlightTarget.OutlineColor = Color3.fromRGB(255, 255, 255)
-highlightTarget.FillTransparency = 0.3
+highlightTarget.FillTransparency = 0.65
 highlightTarget.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
 highlightTarget.Enabled = false
 highlightTarget.Parent = workspace
@@ -3872,7 +3904,7 @@ local function makeAuraHighlight()
 	local h = Instance.new("Highlight")
 	h.FillColor = auraHighlightColor
 	h.OutlineColor = auraOutlineColor
-	h.FillTransparency = 0.3
+	h.FillTransparency = 0.65
 	h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
 	h.Enabled = false
 	h.Parent = workspace
@@ -4019,6 +4051,7 @@ OreFarm:AddButton({
 		local root = getRootPart()
 		if root then
 			lastDeathPosition = root.Position
+			shouldTeleportBack = true
 		end
 
 		local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
@@ -4565,7 +4598,7 @@ local function oreESPLoop()
 				local hl = Instance.new("Highlight")
 				hl.FillColor = item.color
 				hl.OutlineColor = Color3.fromRGB(255, 255, 255)
-				hl.FillTransparency = 0.25
+				hl.FillTransparency = 0.65
 				hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
 				hl.Adornee = item.obj
 				hl.Enabled = true
@@ -4863,6 +4896,19 @@ ResetTeleportGroup:AddToggle("ResetCharacter", {
 Toggles.ResetCharacter:OnChanged(function()
 	if Toggles.ResetCharacter.Value then
 		local root = getRootPart()
+		if root and root.Position.Y > -100 then
+			lastDeathPosition = root.Position
+		end
+		Library:Notify({ Title = "Death Spawn", Description = "Enabled - Will respawn at death location", Time = 2 })
+	else
+		Library:Notify({ Title = "Death Spawn", Description = "Disabled", Time = 2 })
+	end
+end)
+
+ResetTeleportGroup:AddButton({
+	Text = "Reset Character",
+	Func = function()
+		local root = getRootPart()
 		if root then
 			lastDeathPosition = root.Position
 			shouldTeleportBack = true
@@ -4880,13 +4926,8 @@ Toggles.ResetCharacter:OnChanged(function()
 				end
 			end
 		end
-
-		task.spawn(function()
-			task.wait(0.5)
-			Toggles.ResetCharacter:SetValue(false)
-		end)
-	end
-end)
+	end,
+})
 
 -- Merchants Groupbox
 local MerchantsGroup = Tabs.Teleport:AddRightGroupbox("Merchants", "map-pin")
@@ -5484,7 +5525,7 @@ do
 		hl.Adornee = merchantModel
 		hl.FillColor = Color3.fromRGB(255, 200, 0)
 		hl.OutlineColor = Color3.fromRGB(255, 255, 255)
-		hl.FillTransparency = 0.4
+		hl.FillTransparency = 0.65
 		hl.OutlineTransparency = 0
 		hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
 		hl.Parent = merchantModel
@@ -5650,10 +5691,7 @@ local function removePlayerESP(player)
 		if entry.billboard then pcall(function() entry.billboard:Destroy() end) end
 		if entry.highlight then pcall(function() entry.highlight:Destroy() end) end
 		if entry.tracer then pcall(function() entry.tracer:Remove() end) end
-		if entry.boxOutline then pcall(function() entry.boxOutline:Remove() end) end
 		if entry.box then pcall(function() entry.box:Remove() end) end
-		if entry.boxInner then pcall(function() entry.boxInner:Remove() end) end
-		if entry.boxInnerOutline then pcall(function() entry.boxInnerOutline:Remove() end) end
 		if entry.healthBarOutline then pcall(function() entry.healthBarOutline:Remove() end) end
 		if entry.healthBar then pcall(function() entry.healthBar:Remove() end) end
 		if entry.charCon then pcall(function() entry.charCon:Disconnect() end) end
@@ -5680,10 +5718,7 @@ local function getOrCreateESP(player)
 			if entry.billboard then entry.billboard.Enabled = false end
 			if entry.highlight then entry.highlight.Enabled = false end
 			if entry.tracer then entry.tracer.Visible = false end
-			if entry.boxOutline then entry.boxOutline.Visible = false end
 			if entry.box then entry.box.Visible = false end
-			if entry.boxInner then entry.boxInner.Visible = false end
-			if entry.boxInnerOutline then entry.boxInnerOutline.Visible = false end
 			if entry.healthBarOutline then entry.healthBarOutline.Visible = false end
 			if entry.healthBar then entry.healthBar.Visible = false end
 		end
@@ -5697,10 +5732,7 @@ local function getOrCreateESP(player)
 			if entry.billboard then entry.billboard.Enabled = false end
 			if entry.highlight then entry.highlight.Enabled = false end
 			if entry.tracer then entry.tracer.Visible = false end
-			if entry.boxOutline then entry.boxOutline.Visible = false end
 			if entry.box then entry.box.Visible = false end
-			if entry.boxInner then entry.boxInner.Visible = false end
-			if entry.boxInnerOutline then entry.boxInnerOutline.Visible = false end
 			if entry.healthBarOutline then entry.healthBarOutline.Visible = false end
 			if entry.healthBar then entry.healthBar.Visible = false end
 		end
@@ -5712,10 +5744,7 @@ local function getOrCreateESP(player)
 			if entry.billboard then pcall(function() entry.billboard:Destroy() end) end
 			if entry.highlight then pcall(function() entry.highlight:Destroy() end) end
 			if entry.tracer then pcall(function() entry.tracer:Remove() end) end
-			if entry.boxOutline then pcall(function() entry.boxOutline:Remove() end) end
 			if entry.box then pcall(function() entry.box:Remove() end) end
-			if entry.boxInner then pcall(function() entry.boxInner:Remove() end) end
-			if entry.boxInnerOutline then pcall(function() entry.boxInnerOutline:Remove() end) end
 			if entry.healthBarOutline then pcall(function() entry.healthBarOutline:Remove() end) end
 			if entry.healthBar then pcall(function() entry.healthBar:Remove() end) end
 		end
@@ -5741,7 +5770,7 @@ local function getOrCreateESP(player)
 		local highlight = Instance.new("Highlight")
 		highlight.FillColor = (Options and Options.PlayerChamsColor and Options.PlayerChamsColor.Value) or Color3.fromRGB(255, 255, 255)
 		highlight.OutlineColor = (Options and Options.OutlineESPColor and Options.OutlineESPColor.Value) or Color3.fromRGB(255, 255, 255)
-		highlight.FillTransparency = ((Toggles and Toggles.PlayerChams and Toggles.PlayerChams.Value) and 0.4) or 1
+		highlight.FillTransparency = ((Toggles and Toggles.PlayerChams and Toggles.PlayerChams.Value) and 0.65) or 1
 		highlight.OutlineTransparency = ((Toggles and Toggles.OutlineESP and Toggles.OutlineESP.Value) and 0) or 1
 		highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
 		highlight.Adornee = character
@@ -5749,10 +5778,7 @@ local function getOrCreateESP(player)
 		highlight.Parent = getESPFolder()
 
 		local tracer = nil
-		local boxOutline = nil
 		local box = nil
-		local boxInner = nil
-		local boxInnerOutline = nil
 		local healthBarOutline = nil
 		local healthBar = nil
 		if typeof(Drawing) ~= "nil" then
@@ -5764,36 +5790,12 @@ local function getOrCreateESP(player)
 				tracer.Visible = false
 			end)
 			pcall(function()
-				boxOutline = Drawing.new("Square")
-				boxOutline.Thickness = 1
-				boxOutline.Color = Color3.fromRGB(0, 0, 0)
-				boxOutline.Filled = false
-				boxOutline.Transparency = 1
-				boxOutline.Visible = false
-			end)
-			pcall(function()
 				box = Drawing.new("Square")
-				box.Thickness = 1
+				box.Thickness = 1.5
 				box.Color = (Options and Options.PlayerBoxesColor and Options.PlayerBoxesColor.Value) or Color3.fromRGB(255, 255, 255)
 				box.Filled = false
 				box.Transparency = 1
 				box.Visible = false
-			end)
-			pcall(function()
-				boxInner = Drawing.new("Square")
-				boxInner.Thickness = 1
-				boxInner.Color = (Options and Options.PlayerBoxesColor and Options.PlayerBoxesColor.Value) or Color3.fromRGB(255, 255, 255)
-				boxInner.Filled = false
-				boxInner.Transparency = 1
-				boxInner.Visible = false
-			end)
-			pcall(function()
-				boxInnerOutline = Drawing.new("Square")
-				boxInnerOutline.Thickness = 1
-				boxInnerOutline.Color = Color3.fromRGB(0, 0, 0)
-				boxInnerOutline.Filled = false
-				boxInnerOutline.Transparency = 1
-				boxInnerOutline.Visible = false
 			end)
 			pcall(function()
 				healthBarOutline = Drawing.new("Line")
@@ -5820,10 +5822,7 @@ local function getOrCreateESP(player)
 			label = label,
 			highlight = highlight,
 			tracer = tracer,
-			boxOutline = boxOutline,
 			box = box,
-			boxInner = boxInner,
-			boxInnerOutline = boxInnerOutline,
 			healthBarOutline = healthBarOutline,
 			healthBar = healthBar,
 			lastDist = -1,
@@ -5843,44 +5842,14 @@ local function getOrCreateESP(player)
 				entry.tracer.Visible = false
 			end)
 		end
-		if not entry.boxOutline and typeof(Drawing) ~= "nil" then
-			pcall(function()
-				entry.boxOutline = Drawing.new("Square")
-				entry.boxOutline.Thickness = 1
-				entry.boxOutline.Color = Color3.fromRGB(0, 0, 0)
-				entry.boxOutline.Filled = false
-				entry.boxOutline.Transparency = 1
-				entry.boxOutline.Visible = false
-			end)
-		end
 		if not entry.box and typeof(Drawing) ~= "nil" then
 			pcall(function()
 				entry.box = Drawing.new("Square")
-				entry.box.Thickness = 1
+				entry.box.Thickness = 1.5
 				entry.box.Color = (Options and Options.PlayerBoxesColor and Options.PlayerBoxesColor.Value) or Color3.fromRGB(255, 255, 255)
 				entry.box.Filled = false
 				entry.box.Transparency = 1
 				entry.box.Visible = false
-			end)
-		end
-		if not entry.boxInner and typeof(Drawing) ~= "nil" then
-			pcall(function()
-				entry.boxInner = Drawing.new("Square")
-				entry.boxInner.Thickness = 1
-				entry.boxInner.Color = (Options and Options.PlayerBoxesColor and Options.PlayerBoxesColor.Value) or Color3.fromRGB(255, 255, 255)
-				entry.boxInner.Filled = false
-				entry.boxInner.Transparency = 1
-				entry.boxInner.Visible = false
-			end)
-		end
-		if not entry.boxInnerOutline and typeof(Drawing) ~= "nil" then
-			pcall(function()
-				entry.boxInnerOutline = Drawing.new("Square")
-				entry.boxInnerOutline.Thickness = 1
-				entry.boxInnerOutline.Color = Color3.fromRGB(0, 0, 0)
-				entry.boxInnerOutline.Filled = false
-				entry.boxInnerOutline.Transparency = 1
-				entry.boxInnerOutline.Visible = false
 			end)
 		end
 		if not entry.healthBarOutline and typeof(Drawing) ~= "nil" then
@@ -5915,10 +5884,7 @@ local function updateAllESP()
 			if entry.billboard and entry.billboard.Enabled then entry.billboard.Enabled = false end
 			if entry.highlight and entry.highlight.Enabled then entry.highlight.Enabled = false end
 			if entry.tracer and entry.tracer.Visible then entry.tracer.Visible = false end
-			if entry.boxOutline and entry.boxOutline.Visible then entry.boxOutline.Visible = false end
 			if entry.box and entry.box.Visible then entry.box.Visible = false end
-			if entry.boxInner and entry.boxInner.Visible then entry.boxInner.Visible = false end
-			if entry.boxInnerOutline and entry.boxInnerOutline.Visible then entry.boxInnerOutline.Visible = false end
 			if entry.healthBarOutline and entry.healthBarOutline.Visible then entry.healthBarOutline.Visible = false end
 			if entry.healthBar and entry.healthBar.Visible then entry.healthBar.Visible = false end
 		end
@@ -5964,10 +5930,7 @@ local function updateAllESP()
 					if entry.billboard.Enabled then entry.billboard.Enabled = false end
 					if entry.highlight.Enabled then entry.highlight.Enabled = false end
 					if entry.tracer and entry.tracer.Visible then entry.tracer.Visible = false end
-					if entry.boxOutline and entry.boxOutline.Visible then entry.boxOutline.Visible = false end
 					if entry.box and entry.box.Visible then entry.box.Visible = false end
-					if entry.boxInner and entry.boxInner.Visible then entry.boxInner.Visible = false end
-					if entry.boxInnerOutline and entry.boxInnerOutline.Visible then entry.boxInnerOutline.Visible = false end
 					if entry.healthBarOutline and entry.healthBarOutline.Visible then entry.healthBarOutline.Visible = false end
 					if entry.healthBar and entry.healthBar.Visible then entry.healthBar.Visible = false end
 				end
@@ -6015,7 +5978,7 @@ local function updateAllESP()
 		if entry.highlight.OutlineTransparency ~= targetOutlineTrans then
 			entry.highlight.OutlineTransparency = targetOutlineTrans
 		end
-		local targetFillTrans = chamsEnabled and 0.4 or 1
+		local targetFillTrans = chamsEnabled and 0.65 or 1
 		if entry.highlight.FillTransparency ~= targetFillTrans then
 			entry.highlight.FillTransparency = targetFillTrans
 		end
@@ -6074,16 +6037,6 @@ local function updateAllESP()
 				local boxPos = Vector2.new(leftX, math.floor(topY))
 				local boxSize = Vector2.new(math.floor(width), math.floor(height))
 
-				-- Outer Black Outline
-				if entry.boxOutline then
-					entry.boxOutline.Position = boxPos - Vector2.new(1, 1)
-					entry.boxOutline.Size = boxSize + Vector2.new(2, 2)
-					if not entry.boxOutline.Visible then
-						entry.boxOutline.Visible = true
-					end
-				end
-
-				-- Outer Colored Line
 				entry.box.Position = boxPos
 				entry.box.Size = boxSize
 				if entry.box.Color ~= bColor then
@@ -6092,39 +6045,9 @@ local function updateAllESP()
 				if not entry.box.Visible then
 					entry.box.Visible = true
 				end
-
-				-- Inner Colored Line (Double Line effect)
-				if entry.boxInner then
-					entry.boxInner.Position = boxPos + Vector2.new(2, 2)
-					entry.boxInner.Size = Vector2.new(math.max(1, boxSize.X - 4), math.max(1, boxSize.Y - 4))
-					if entry.boxInner.Color ~= bColor then
-						entry.boxInner.Color = bColor
-					end
-					if not entry.boxInner.Visible then
-						entry.boxInner.Visible = true
-					end
-				end
-
-				-- Inner Black Outline
-				if entry.boxInnerOutline then
-					entry.boxInnerOutline.Position = boxPos + Vector2.new(3, 3)
-					entry.boxInnerOutline.Size = Vector2.new(math.max(1, boxSize.X - 6), math.max(1, boxSize.Y - 6))
-					if not entry.boxInnerOutline.Visible then
-						entry.boxInnerOutline.Visible = true
-					end
-				end
 			else
-				if entry.boxOutline and entry.boxOutline.Visible then
-					entry.boxOutline.Visible = false
-				end
 				if entry.box.Visible then
 					entry.box.Visible = false
-				end
-				if entry.boxInner and entry.boxInner.Visible then
-					entry.boxInner.Visible = false
-				end
-				if entry.boxInnerOutline and entry.boxInnerOutline.Visible then
-					entry.boxInnerOutline.Visible = false
 				end
 			end
 		end
@@ -6246,17 +6169,8 @@ end)
 Toggles.PlayerBoxes:OnChanged(function()
 	if not Toggles.PlayerBoxes.Value then
 		for _, entry in pairs(espObjects) do
-			if entry.boxOutline and entry.boxOutline.Visible then
-				entry.boxOutline.Visible = false
-			end
 			if entry.box and entry.box.Visible then
 				entry.box.Visible = false
-			end
-			if entry.boxInner and entry.boxInner.Visible then
-				entry.boxInner.Visible = false
-			end
-			if entry.boxInnerOutline and entry.boxInnerOutline.Visible then
-				entry.boxInnerOutline.Visible = false
 			end
 		end
 	else
@@ -6318,9 +6232,6 @@ Options.PlayerBoxesColor:OnChanged(function()
 	for _, entry in pairs(espObjects) do
 		if entry.box then
 			entry.box.Color = color
-		end
-		if entry.boxInner then
-			entry.boxInner.Color = color
 		end
 	end
 end)
@@ -6766,7 +6677,7 @@ local function onInvisibleFlyToggle(state)
 			local hl = Instance.new("Highlight")
 			hl.FillColor = Options.InvisibleFlyFillColor.Value
 			hl.OutlineColor = Options.InvisibleFlyOutlineColor.Value
-			hl.FillTransparency = 0.3
+			hl.FillTransparency = 0.65
 			hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
 			hl.Adornee = invisibleFlyVars.playerClone
 			hl.Enabled = true
