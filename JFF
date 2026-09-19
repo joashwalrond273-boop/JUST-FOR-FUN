@@ -51,6 +51,7 @@ local updateAutoPickupVisibility
 local updatePlayerESPVisibility
 local updateFlightVisibility
 local updateImmortalModeVisibility
+local isTeammate = nil
 
 Library.ShowToggleFrameInKeybinds = true
 
@@ -1771,9 +1772,8 @@ end
 
 local isShielding = false
 local lastShieldFire = 0
-local multiSnapIndex = 1
 local function updateImmortalMode()
-	if not isAlive() or not Toggles.ImmortalMode.Value then
+	if not isAlive() or not (Toggles.ImmortalMode and Toggles.ImmortalMode.Value) then
 		if isShielding then
 			isShielding = false
 			pcall(function()
@@ -1788,56 +1788,22 @@ local function updateImmortalMode()
 
 	local shouldShield = false
 	local checkDistance = (Options.ImmortalModeStuds and Options.ImmortalModeStuds.Value) or 18
-	local nearestEnemy = nil
-	local nearestDist = math.huge
-	local activeAttackers = {}
 
 	for _, player in ipairs(Players:GetPlayers()) do
-		if player ~= LocalPlayer and player.Character then
+		if player ~= LocalPlayer and player.Character and (not isTeammate or not isTeammate(player)) then
 			local targetRoot = player.Character:FindFirstChild("HumanoidRootPart")
 			local hum = player.Character:FindFirstChildOfClass("Humanoid")
 			if targetRoot and hum and hum.Health > 0 then
 				local dist = (targetRoot.Position - root.Position).Magnitude
 				if dist <= checkDistance then
 					shouldShield = true
-					if dist < nearestDist then
-						nearestDist = dist
-						nearestEnemy = targetRoot
-					end
-
-					local animator = hum:FindFirstChild("Animator")
-					if animator then
-						for _, trackObj in ipairs(animator:GetPlayingAnimationTracks()) do
-							if trackObj.Speed > 0 and isSwingAnimation(trackObj) then
-								table.insert(activeAttackers, { root = targetRoot, dist = dist })
-								break
-							end
-						end
-					end
+					break
 				end
 			end
 		end
 	end
 
 	if shouldShield then
-		local targetToFace = nil
-		if #activeAttackers > 0 then
-			table.sort(activeAttackers, function(a, b) return a.dist < b.dist end)
-			if #activeAttackers == 1 then
-				targetToFace = activeAttackers[1].root
-			else
-				multiSnapIndex = (multiSnapIndex % #activeAttackers) + 1
-				targetToFace = activeAttackers[multiSnapIndex].root
-			end
-		else
-			targetToFace = nearestEnemy
-		end
-
-		if targetToFace then
-			local targetPos = targetToFace.Position
-			root.CFrame = CFrame.lookAt(root.Position, Vector3.new(targetPos.X, root.Position.Y, targetPos.Z))
-		end
-
 		if tick() - lastShieldFire > 0.1 then
 			lastShieldFire = tick()
 			pcall(function()
@@ -2307,7 +2273,7 @@ Toggles.AutoSwing:OnChanged(function()
 	end
 end)
 
-local function isTeammate(otherPlayer)
+isTeammate = function(otherPlayer)
 	if not otherPlayer or otherPlayer == LocalPlayer then
 		return true
 	end
@@ -3483,66 +3449,48 @@ Options.LowGravityHeight:OnChanged(function()
 end)
 
 
+local noclipCorePartNames = {
+	["HumanoidRootPart"] = true,
+	["Head"] = true,
+	["Torso"] = true,
+	["UpperTorso"] = true,
+	["LowerTorso"] = true,
+}
 local noclipCoreParts = {}
 
 local function updateNoclipParts(character)
 	table.clear(noclipCoreParts)
 	if not character then return end
-	for _, desc in ipairs(character:GetDescendants()) do
-		if desc:IsA("BasePart") then
-			table.insert(noclipCoreParts, desc)
+	for _, child in ipairs(character:GetChildren()) do
+		if child:IsA("BasePart") then
+			table.insert(noclipCoreParts, child)
 		end
 	end
 end
 
 LocalPlayer.CharacterAdded:Connect(function(char)
 	updateNoclipParts(char)
-	char.DescendantAdded:Connect(function(desc)
-		if desc:IsA("BasePart") and not table.find(noclipCoreParts, desc) then
-			table.insert(noclipCoreParts, desc)
-		end
-	end)
 end)
 if LocalPlayer.Character then
 	updateNoclipParts(LocalPlayer.Character)
-	LocalPlayer.Character.DescendantAdded:Connect(function(desc)
-		if desc:IsA("BasePart") and not table.find(noclipCoreParts, desc) then
-			table.insert(noclipCoreParts, desc)
-		end
-	end)
 end
 
 Toggles.Noclip:OnChanged(function()
 	disconnect("Noclip")
-	local hum = getHumanoid()
 	if Toggles.Noclip.Value then
 		updateNoclipParts(getCharacter())
-		if hum then
-			pcall(function()
-				hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
-				hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
-			end)
-		end
 		track("Noclip", RunService.Stepped:Connect(function()
-			local char = getCharacter()
-			if not char then return end
 			for _, part in ipairs(noclipCoreParts) do
-				if part and part.Parent and part.CanCollide then
+				if part and part.CanCollide then
 					part.CanCollide = false
 				end
 			end
 		end))
 	else
-		if hum then
-			pcall(function()
-				hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, true)
-				hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, true)
-			end)
-		end
 		local character = getCharacter()
 		if character then
-			for _, part in ipairs(character:GetChildren()) do
-				if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+			for _, part in ipairs(noclipCoreParts) do
+				if part and part.Parent and part.Name ~= "HumanoidRootPart" then
 					part.CanCollide = true
 				end
 			end
