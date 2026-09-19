@@ -5287,118 +5287,64 @@ VisualFPS:AddToggle("LowTextures", {
 	end,
 })
 
-VisualFPS:AddToggle("NoRagdoll", {
-	Text = "No Ragdoll",
+VisualFPS:AddToggle("SmoothnessAA", {
+	Text = "Smoothness (Anti-Aliasing)",
 	Default = false,
 	Callback = function(state)
-		disconnect("NoRagdoll")
-		disconnect("NoRagdoll_Char")
-		disconnect("NoRagdoll_State")
+		local lighting = game:GetService("Lighting")
+		local blurTag = "Smoothness_BlurAA"
+		local bloomTag = "Smoothness_BloomAA"
+		local ccTag = "Smoothness_ColorAA"
 
-		local function enforceNoRagdoll(char)
-			if not char then return end
-			local hum = char:FindFirstChildOfClass("Humanoid")
-			if not hum then return end
-
-			pcall(function()
-				hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
-				hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
-				hum:SetStateEnabled(Enum.HumanoidStateType.Physics, false)
-				hum:SetStateEnabled(Enum.HumanoidStateType.GettingUp, true)
-
-				local currentState = hum:GetState()
-				if currentState == Enum.HumanoidStateType.Ragdoll
-					or currentState == Enum.HumanoidStateType.FallingDown
-					or currentState == Enum.HumanoidStateType.Physics then
-					hum:ChangeState(Enum.HumanoidStateType.GettingUp)
-				end
-
-				if hum.PlatformStand then
-					hum.PlatformStand = false
-				end
-
-				if hum.Sit and not hum.SeatPart then
-					hum.Sit = false
-				end
-			end)
-
-			for _, desc in ipairs(char:GetDescendants()) do
-				if desc:IsA("Motor6D") then
-					if not desc.Enabled then
-						pcall(function() desc.Enabled = true end)
-					end
-				elseif desc:IsA("BallSocketConstraint") or desc:IsA("HingeConstraint") then
-					if desc.Attachment0 and desc.Attachment1
-						and desc.Attachment0:IsDescendantOf(char)
-						and desc.Attachment1:IsDescendantOf(char) then
-						pcall(function() desc:Destroy() end)
-					end
-				end
-			end
-
-			local ragVal = char:FindFirstChild("Ragdoll") or char:FindFirstChild("Ragdolled") or char:FindFirstChild("IsRagdoll") or char:FindFirstChild("Fallen")
-			if ragVal and ragVal:IsA("ValueBase") and ragVal.Value == true then
-				pcall(function() ragVal.Value = false end)
-			end
-		end
+		local existingBlur = lighting:FindFirstChild(blurTag)
+		local existingBloom = lighting:FindFirstChild(bloomTag)
+		local existingCC = lighting:FindFirstChild(ccTag)
 
 		if state then
-			local char = LocalPlayer.Character
-			if char then
-				enforceNoRagdoll(char)
-				local hum = char:FindFirstChildOfClass("Humanoid")
-				if hum then
-					track("NoRagdoll_State", hum.StateChanged:Connect(function(_, newState)
-						if not (Toggles.NoRagdoll and Toggles.NoRagdoll.Value) then return end
-						if newState == Enum.HumanoidStateType.Ragdoll
-							or newState == Enum.HumanoidStateType.FallingDown
-							or newState == Enum.HumanoidStateType.Physics then
-							pcall(function()
-								hum:ChangeState(Enum.HumanoidStateType.GettingUp)
-								hum.PlatformStand = false
-							end)
-						end
-					end))
+			pcall(function()
+				if not existingBlur then
+					local blur = Instance.new("BlurEffect")
+					blur.Name = blurTag
+					blur.Size = 2
+					blur.Parent = lighting
+				else
+					existingBlur.Enabled = true
 				end
-			end
 
-			track("NoRagdoll_Char", LocalPlayer.CharacterAdded:Connect(function(newChar)
-				if not (Toggles.NoRagdoll and Toggles.NoRagdoll.Value) then return end
-				local hum = newChar:WaitForChild("Humanoid", 5)
-				if hum then
-					disconnect("NoRagdoll_State")
-					track("NoRagdoll_State", hum.StateChanged:Connect(function(_, newState)
-						if not (Toggles.NoRagdoll and Toggles.NoRagdoll.Value) then return end
-						if newState == Enum.HumanoidStateType.Ragdoll
-							or newState == Enum.HumanoidStateType.FallingDown
-							or newState == Enum.HumanoidStateType.Physics then
-							pcall(function()
-								hum:ChangeState(Enum.HumanoidStateType.GettingUp)
-								hum.PlatformStand = false
-							end)
-						end
-					end))
+				if not existingBloom then
+					local bloom = Instance.new("BloomEffect")
+					bloom.Name = bloomTag
+					bloom.Intensity = 0.2
+					bloom.Size = 8
+					bloom.Threshold = 0.95
+					bloom.Parent = lighting
+				else
+					existingBloom.Enabled = true
 				end
-				enforceNoRagdoll(newChar)
-			end))
 
-			track("NoRagdoll", RunService.Stepped:Connect(function()
-				if not (Toggles.NoRagdoll and Toggles.NoRagdoll.Value) then return end
-				local currentCharacter = LocalPlayer.Character
-				if currentCharacter then
-					enforceNoRagdoll(currentCharacter)
+				if not existingCC then
+					local cc = Instance.new("ColorCorrectionEffect")
+					cc.Name = ccTag
+					cc.Contrast = 0.04
+					cc.Saturation = 0.05
+					cc.Brightness = 0
+					cc.Parent = lighting
+				else
+					existingCC.Enabled = true
 				end
-			end))
+			end)
 		else
-			local char = LocalPlayer.Character
-			local hum = char and char:FindFirstChildOfClass("Humanoid")
-			if hum then
-				pcall(function()
-					hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, true)
-					hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, true)
-					hum:SetStateEnabled(Enum.HumanoidStateType.Physics, true)
-				end)
-			end
+			pcall(function()
+				if existingBlur then
+					existingBlur:Destroy()
+				end
+				if existingBloom then
+					existingBloom:Destroy()
+				end
+				if existingCC then
+					existingCC:Destroy()
+				end
+			end)
 		end
 	end,
 })
