@@ -423,6 +423,11 @@ KillswitchGroup:AddCheckbox("AntiAFK", {
 	Default = false,
 })
 
+KillswitchGroup:AddCheckbox("PingSpoofer", {
+	Text = "Ping Spoofer",
+	Default = false,
+})
+
 Toggles.KillswitchToggle:OnChanged(function()
 	if Toggles.KillswitchToggle.Value then
 		local humanoid = getHumanoid()
@@ -838,43 +843,6 @@ MainRight:AddButton({
 	end,
 })
 
-MainRight:AddButton({
-	Text = "Ping Spoofer",
-	Func = function()
-		if getgenv().PingSpoofer then
-			getgenv().PingSpoofer.SpoofPing = true
-			Library:Notify({ Title = "Ping Spoofer", Description = "Ping spoofing activated!", Time = 2 })
-			return
-		end
-
-		getgenv().PingSpoofer = {
-			SpoofPing = true,
-			StartOfPingSpoofer = 31,
-			EndOfPingSpoofer = 69
-		}
-
-		local Memory
-		pcall(function()
-			for __, v in pairs(game.CoreGui.RobloxGui.PerformanceStats:GetChildren()) do
-				if v.Name == 'PS_Button' and v.StatsMiniTextPanelClass.TitleLabel.Text == 'Ping' then
-					Memory = v.StatsMiniTextPanelClass.ValueLabel
-				end
-			end
-		end)
-
-		if Memory then
-			Memory:GetPropertyChangedSignal('Text'):Connect(function()
-				if getgenv().PingSpoofer and getgenv().PingSpoofer.SpoofPing then
-					local Random = math.random(getgenv().PingSpoofer.StartOfPingSpoofer, getgenv().PingSpoofer.EndOfPingSpoofer)
-					Random = Random * 1.23
-					Memory.Text = Random .. ' ms'
-				end
-			end)
-		end
-
-		Library:Notify({ Title = "Ping Spoofer", Description = "Ping spoofing activated!", Time = 2 })
-	end,
-})
 
 MainRight:AddButton({
 	Text = "Rejoin Server",
@@ -4095,6 +4063,47 @@ Toggles.AntiAFK:OnChanged(function()
 	end
 end)
 
+local pingSpooferConn = nil
+local pingSpooferMemory = nil
+
+Toggles.PingSpoofer:OnChanged(function()
+	if getgenv().PingSpoofer == nil then
+		getgenv().PingSpoofer = {
+			SpoofPing = false,
+			StartOfPingSpoofer = 31,
+			EndOfPingSpoofer = 69
+		}
+	end
+
+	getgenv().PingSpoofer.SpoofPing = Toggles.PingSpoofer.Value
+
+	if Toggles.PingSpoofer.Value then
+		if not pingSpooferMemory then
+			pcall(function()
+				for __, v in pairs(game.CoreGui.RobloxGui.PerformanceStats:GetChildren()) do
+					if v.Name == 'PS_Button' and v.StatsMiniTextPanelClass.TitleLabel.Text == 'Ping' then
+						pingSpooferMemory = v.StatsMiniTextPanelClass.ValueLabel
+					end
+				end
+			end)
+		end
+
+		if pingSpooferMemory and not pingSpooferConn then
+			pingSpooferConn = pingSpooferMemory:GetPropertyChangedSignal('Text'):Connect(function()
+				if getgenv().PingSpoofer and getgenv().PingSpoofer.SpoofPing then
+					local Random = math.random(getgenv().PingSpoofer.StartOfPingSpoofer, getgenv().PingSpoofer.EndOfPingSpoofer)
+					Random = Random * 1.23
+					pingSpooferMemory.Text = string.format("%.1f ms", Random)
+				end
+			end)
+		end
+
+		Library:Notify({ Title = "Ping Spoofer", Description = "Ping spoofing enabled!", Time = 2 })
+	else
+		Library:Notify({ Title = "Ping Spoofer", Description = "Ping spoofing disabled!", Time = 2 })
+	end
+end)
+
 Toggles.SwingSpeedToggle:OnChanged(function()
 	if Toggles.SwingSpeedToggle.Value then
 		Library:Notify({ Title = "Swing Speed", Description = "Enabled", Time = 2 })
@@ -5833,6 +5842,21 @@ VisualLeft:AddCheckbox("PlayerHealthBar", {
 	Default = false,
 })
 
+VisualLeft:AddInput("EnterVictim", {
+	Text = "Enter Victim",
+	Default = "",
+	Numeric = false,
+	Finished = false,
+	ClearTextOnFocus = false,
+	Placeholder = "Enter new name...",
+})
+
+VisualLeft:AddDropdown("VictimNameDropdown", {
+	Text = "Select Victim",
+	Values = {},
+	Default = "",
+})
+
 VisualLeft:AddDivider()
 
 VisualLeft:AddCheckbox("MerchantESP", {
@@ -6284,7 +6308,8 @@ local function updateAllESP()
 		if entry.lastDist ~= roundedDist or entry.lastShowDist ~= showDist then
 			entry.lastDist = roundedDist
 			entry.lastShowDist = showDist
-			local text = '<font color="#' .. pColorHex .. '">' .. entry.player.Name .. '</font>'
+			local displayName = (customVictimNames and customVictimNames[entry.player.Name]) or entry.player.Name
+			local text = '<font color="#' .. pColorHex .. '">' .. displayName .. '</font>'
 			if showDist then
 				text = text .. '\n<font color="#' .. dColorHex .. '">' .. roundedDist .. 'm</font>'
 			end
@@ -6577,6 +6602,100 @@ Options.ShowDistanceColor:OnChanged(function()
 	updateAllESP()
 end)
 
+-- ============================================================================
+-- ENTER VICTIM (PLAYER NAME CHANGER)
+-- ============================================================================
+local customVictimNames = {}
+
+local function applyCustomNameToPlayer(player, customName)
+	if not player then return end
+	local nameToUse = (customName and customName:match("%S") and customName) or player.Name
+
+	local char = player.Character
+	if char then
+		pcall(function()
+			char.Name = nameToUse
+		end)
+		local hum = char:FindFirstChildOfClass("Humanoid")
+		if hum then
+			pcall(function()
+				hum.DisplayName = nameToUse
+			end)
+		end
+		pcall(function()
+			for _, desc in ipairs(char:GetDescendants()) do
+				if desc:IsA("TextLabel") or desc:IsA("TextButton") then
+					if desc.Text == player.Name or desc.Text == player.DisplayName or (customName and desc.Text == (customVictimNames[player.Name] or "")) then
+						desc.Text = nameToUse
+					end
+				end
+			end
+		end)
+	end
+
+	if espObjects and espObjects[player] then
+		espObjects[player].lastDist = -1
+		updateAllESP()
+	end
+end
+
+local function setupPlayerNameTracking(player)
+	track("VictimNameChar_" .. player.Name, player.CharacterAdded:Connect(function(char)
+		task.wait(0.2)
+		local custom = customVictimNames[player.Name]
+		if custom and custom:match("%S") then
+			applyCustomNameToPlayer(player, custom)
+		end
+	end))
+end
+
+for _, p in ipairs(Players:GetPlayers()) do
+	if p ~= LocalPlayer then
+		setupPlayerNameTracking(p)
+	end
+end
+
+track("VictimNamePlayerAdded", Players.PlayerAdded:Connect(function(p)
+	if p ~= LocalPlayer then
+		setupPlayerNameTracking(p)
+	end
+end))
+
+track("VictimNamePlayerRemoving", Players.PlayerRemoving:Connect(function(p)
+	disconnect("VictimNameChar_" .. p.Name)
+	customVictimNames[p.Name] = nil
+end))
+
+Options.VictimNameDropdown:OnChanged(function()
+	local selectedName = Options.VictimNameDropdown.Value
+	if selectedName and selectedName ~= "" then
+		local currentCustom = customVictimNames[selectedName] or ""
+		if Options.EnterVictim and Options.EnterVictim.Value ~= currentCustom then
+			Options.EnterVictim:SetValue(currentCustom)
+		end
+	end
+end)
+
+Options.EnterVictim:OnChanged(function()
+	local selectedName = Options.VictimNameDropdown and Options.VictimNameDropdown.Value
+	if not selectedName or selectedName == "" then return end
+
+	local targetPlayer = Players:FindFirstChild(selectedName)
+	local val = Options.EnterVictim.Value
+
+	if val and val:match("%S") then
+		customVictimNames[selectedName] = val
+		if targetPlayer then
+			applyCustomNameToPlayer(targetPlayer, val)
+		end
+	else
+		customVictimNames[selectedName] = nil
+		if targetPlayer then
+			applyCustomNameToPlayer(targetPlayer, targetPlayer.Name)
+		end
+	end
+end)
+
 local targetClockTime = nil
 local lightingService = game:GetService("Lighting")
 
@@ -6819,6 +6938,19 @@ local function updateAttachPlayerList()
 				Options.ReachTarget:SetValue(current)
 			else
 				Options.ReachTarget:SetValue("All")
+			end
+		end
+	end)
+	pcall(function()
+		if Options.VictimNameDropdown then
+			local current = Options.VictimNameDropdown.Value
+			Options.VictimNameDropdown:SetValues(list)
+			if #list > 0 then
+				if not table.find(list, current) then
+					Options.VictimNameDropdown:SetValue(list[1])
+				end
+			else
+				Options.VictimNameDropdown:SetValue("")
 			end
 		end
 	end)
@@ -7328,6 +7460,20 @@ Library:OnUnload(function()
 	if Toggles.AntiAFK and Toggles.AntiAFK.Value then
 		Toggles.AntiAFK:SetValue(false)
 	end
+	if Toggles.PingSpoofer and Toggles.PingSpoofer.Value then
+		Toggles.PingSpoofer:SetValue(false)
+	end
+	pcall(function()
+		if customVictimNames then
+			for origName, _ in pairs(customVictimNames) do
+				local p = Players:FindFirstChild(origName)
+				if p then
+					applyCustomNameToPlayer(p, p.Name)
+				end
+			end
+			customVictimNames = {}
+		end
+	end)
 	if Toggles.AimbotLockOn and Toggles.AimbotLockOn.Value then
 		Toggles.AimbotLockOn:SetValue(false)
 	end
