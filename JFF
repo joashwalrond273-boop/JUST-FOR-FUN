@@ -1748,15 +1748,6 @@ CombatReach:AddSlider("ReachRange", {
 	Compact = true,
 })
 
-CombatReach:AddSlider("ReachAngle", {
-	Text = "Max Angle",
-	Default = 90,
-	Min = 15,
-	Max = 180,
-	Rounding = 0,
-	Compact = true,
-})
-
 local CombatAutoBlock = Tabs.Combat:AddRightGroupbox("Immortal Mode", "shield")
 
 CombatAutoBlock:AddToggle("ImmortalMode", {
@@ -3140,14 +3131,6 @@ local function connectReachTool(tool)
 				local nearestTarget = nil
 				local nearestDist = range
 				local reachTargetSetting = (Options.ReachTarget and Options.ReachTarget.Value) or "All"
-				local maxAngle = (Options.ReachAngle and Options.ReachAngle.Value) or 90
-				local coneThreshold = math.cos(math.rad(maxAngle / 2))
-
-				local function passesReachAngleCheck(targetPos)
-					local dir = Vector3.new(targetPos.X - pos.X, 0, targetPos.Z - pos.Z)
-					if dir.Magnitude <= 0 then return true end
-					return forward:Dot(dir.Unit) >= coneThreshold
-				end
 
 				-- Scan Players
 				for _, otherPlayer in ipairs(Players:GetPlayers()) do
@@ -3157,9 +3140,12 @@ local function connectReachTool(tool)
 							local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
 							if otherHum and otherHum.Health > 0 and otherRoot then
 								local d = (otherRoot.Position - pos).Magnitude
-								if d < nearestDist and passesReachAngleCheck(otherRoot.Position) then
-									nearestDist = d
-									nearestTarget = otherPlayer.Character
+								if d < nearestDist then
+									local dir = Vector3.new(otherRoot.Position.X - pos.X, 0, otherRoot.Position.Z - pos.Z).Unit
+									if dir.Magnitude > 0 and forward:Dot(dir) >= 0.5 then
+										nearestDist = d
+										nearestTarget = otherPlayer.Character
+									end
 								end
 							end
 						end
@@ -3175,9 +3161,12 @@ local function connectReachTool(tool)
 							local npcRoot = npc:FindFirstChild("HumanoidRootPart") or npc.PrimaryPart
 							if npcHum and npcHum.Health > 0 and npcRoot then
 								local d = (npcRoot.Position - pos).Magnitude
-								if d < nearestDist and passesReachAngleCheck(npcRoot.Position) then
-									nearestDist = d
-									nearestTarget = npc
+								if d < nearestDist then
+									local dir = Vector3.new(npcRoot.Position.X - pos.X, 0, npcRoot.Position.Z - pos.Z).Unit
+									if dir.Magnitude > 0 and forward:Dot(dir) >= 0.5 then
+										nearestDist = d
+										nearestTarget = npc
+									end
 								end
 							end
 						end
@@ -3190,9 +3179,12 @@ local function connectReachTool(tool)
 							local npcRoot = npc:FindFirstChild("HumanoidRootPart") or npc.PrimaryPart
 							if (not npcHum or npcHum.Health > 0) and npcRoot then
 								local d = (npcRoot.Position - pos).Magnitude
-								if d < nearestDist and passesReachAngleCheck(npcRoot.Position) then
-									nearestDist = d
-									nearestTarget = npc
+								if d < nearestDist then
+									local dir = Vector3.new(npcRoot.Position.X - pos.X, 0, npcRoot.Position.Z - pos.Z).Unit
+									if dir.Magnitude > 0 and forward:Dot(dir) >= 0.5 then
+										nearestDist = d
+										nearestTarget = npc
+									end
 								end
 							end
 						end
