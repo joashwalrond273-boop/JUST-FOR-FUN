@@ -51,6 +51,7 @@ local updateAutoPickupVisibility
 local updatePlayerESPVisibility
 local updateFlightVisibility
 local updateImmortalModeVisibility
+local updatePhantomModeVisibility
 
 Library.ShowToggleFrameInKeybinds = true
 
@@ -1370,6 +1371,29 @@ CombatLeft:AddToggle("KillAura", {
 	Default = false,
 })
 
+CombatLeft:AddCheckbox("PhantomMode", {
+	Text = "+ Phantom Mode",
+	Default = false,
+})
+
+CombatLeft:AddSlider("OrbitAdjust", {
+	Text = "Orbit Adjust",
+	Default = 2,
+	Min = -10,
+	Max = 15,
+	Rounding = 1,
+	Compact = true,
+})
+
+CombatLeft:AddSlider("OrbitSpeed", {
+	Text = "Orbit Speed",
+	Default = 60,
+	Min = 1,
+	Max = 60,
+	Rounding = 0,
+	Compact = true,
+})
+
 CombatLeft:AddDropdown("KillAuraTarget", {
 	Text = "Target Player",
 	Values = {"All"},
@@ -1400,45 +1424,35 @@ CombatLeft:AddSlider("KillAuraAngle", {
 	Compact = true,
 })
 
-local CombatPhantomAura = Tabs.Combat:AddLeftGroupbox("Phantom Aura", "ghost")
+updatePhantomModeVisibility = function()
+	local isPhantom = (Toggles.PhantomMode and Toggles.PhantomMode.Value) or false
 
-CombatPhantomAura:AddToggle("PhantomMode", {
-	Text = "Phantom Mode",
-	Default = false,
-})
+	if Options.OrbitAdjust then
+		if Options.OrbitAdjust.Visible ~= nil then
+			Options.OrbitAdjust.Visible = isPhantom
+		end
+		if Options.OrbitAdjust.Holder then
+			Options.OrbitAdjust.Holder.Visible = isPhantom
+		end
+	end
+	if Options.OrbitSpeed then
+		if Options.OrbitSpeed.Visible ~= nil then
+			Options.OrbitSpeed.Visible = isPhantom
+		end
+		if Options.OrbitSpeed.Holder then
+			Options.OrbitSpeed.Holder.Visible = isPhantom
+		end
+	end
+	CombatLeft:Resize()
+end
 
-CombatPhantomAura:AddDropdown("PhantomAuraTarget", {
-	Text = "Target Player",
-	Values = {"All"},
-	Default = "All",
-})
-
-CombatPhantomAura:AddSlider("RangeAura", {
-	Text = "Range Aura",
-	Default = 20,
-	Min = 5,
-	Max = 50,
-	Rounding = 1,
-	Compact = true,
-})
-
-CombatPhantomAura:AddSlider("OrbitAdjust", {
-	Text = "Orbit Adjust",
-	Default = 2,
-	Min = -10,
-	Max = 15,
-	Rounding = 1,
-	Compact = true,
-})
-
-CombatPhantomAura:AddSlider("OrbitSpeed", {
-	Text = "Orbit Speed",
-	Default = 60,
-	Min = 1,
-	Max = 60,
-	Rounding = 0,
-	Compact = true,
-})
+updatePhantomModeVisibility()
+task.spawn(function()
+	task.wait(0.05)
+	if updatePhantomModeVisibility then
+		updatePhantomModeVisibility()
+	end
+end)
 
 local CombatAutoSwingGroup = Tabs.Combat:AddLeftGroupbox("Auto Swing", "swords")
 
@@ -2986,7 +3000,7 @@ local phantomModeVars = {
 	active = false,
 	orbitAngle = 0,
 	orbitRadius = 5,
-	orbitHeight = Options.OrbitAdjust.Value,
+	orbitHeight = Options.OrbitAdjust and Options.OrbitAdjust.Value or 2,
 	orbitSpeed = Options.OrbitSpeed and Options.OrbitSpeed.Value or 60,
 	targetPlayer = nil
 }
@@ -2994,10 +3008,10 @@ local phantomModeVars = {
 local function getClosestPlayerInRange()
 	local root = getRootPart()
 	if not root then return nil end
-	local range = Options.RangeAura.Value
+	local range = Options.KillAuraRange and Options.KillAuraRange.Value or 15
 	local closestPlayer = nil
 	local closestDistance = math.huge
-	local targetSetting = Options.PhantomAuraTarget and Options.PhantomAuraTarget.Value or "All"
+	local targetSetting = Options.KillAuraTarget and Options.KillAuraTarget.Value or "All"
 
 	for _, player in ipairs(Players:GetPlayers()) do
 		if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
@@ -3079,6 +3093,9 @@ local function phantomModeLoop(dt)
 end
 
 Toggles.PhantomMode:OnChanged(function()
+	if updatePhantomModeVisibility then
+		updatePhantomModeVisibility()
+	end
 	disconnect("PhantomMode")
 	if Toggles.PhantomMode.Value then
 		if Toggles.KillAura and not Toggles.KillAura.Value then
@@ -6797,17 +6814,6 @@ local function updateAttachPlayerList()
 				Options.KillAuraTarget:SetValue(current)
 			else
 				Options.KillAuraTarget:SetValue("All")
-			end
-		end
-	end)
-	pcall(function()
-		if Options.PhantomAuraTarget then
-			local current = Options.PhantomAuraTarget.Value
-			Options.PhantomAuraTarget:SetValues(kaList)
-			if table.find(kaList, current) then
-				Options.PhantomAuraTarget:SetValue(current)
-			else
-				Options.PhantomAuraTarget:SetValue("All")
 			end
 		end
 	end)
