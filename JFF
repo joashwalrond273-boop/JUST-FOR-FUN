@@ -1600,6 +1600,20 @@ CombatAutoPVP:AddCheckbox("Camlock", {
 	Default = false,
 })
 
+CombatAutoPVP:AddCheckbox("Outline", {
+	Text = "Outline",
+	Default = false,
+})
+
+CombatAutoPVP:AddSlider("OutlineStuds", {
+	Text = "Outline Studs",
+	Default = 7,
+	Min = 1,
+	Max = 50,
+	Rounding = 0,
+	Compact = true,
+})
+
 CombatAutoPVP:AddSlider("CamlockStuds", {
 	Text = "Camlock Studs",
 	Default = 20,
@@ -1607,11 +1621,6 @@ CombatAutoPVP:AddSlider("CamlockStuds", {
 	Max = 100,
 	Rounding = 0,
 	Compact = true,
-})
-
-CombatAutoPVP:AddCheckbox("Cutline", {
-	Text = "+ Cutline",
-	Default = false,
 })
 
 CombatAutoPVP:AddCheckbox("PlusSpeedBoost", {
@@ -1654,6 +1663,8 @@ updatePVPModulesVisibility = function()
 	local isSpeedBoost = (Toggles.PlusSpeedBoost and Toggles.PlusSpeedBoost.Value) or false
 	local isLowGrav = (Toggles.LowGravity and Toggles.LowGravity.Value) or false
 
+	local isOutline = isCam and ((Toggles.Outline and Toggles.Outline.Value) or (Toggles.Cutline and Toggles.Cutline.Value) or false)
+
 	if Options.AutoHopStuds then
 		Options.AutoHopStuds.Visible = isHop
 		if Options.AutoHopStuds.Holder then
@@ -1666,12 +1677,18 @@ updatePVPModulesVisibility = function()
 			Options.CamlockStuds.Holder.Visible = isCam
 		end
 	end
-	if Toggles.Cutline then
-		if Toggles.Cutline.Visible ~= nil then
-			Toggles.Cutline.Visible = isCam
+	if Toggles.Outline then
+		if Toggles.Outline.Visible ~= nil then
+			Toggles.Outline.Visible = isCam
 		end
-		if Toggles.Cutline.Holder then
-			Toggles.Cutline.Holder.Visible = isCam
+		if Toggles.Outline.Holder then
+			Toggles.Outline.Holder.Visible = isCam
+		end
+	end
+	if Options.OutlineStuds then
+		Options.OutlineStuds.Visible = isOutline
+		if Options.OutlineStuds.Holder then
+			Options.OutlineStuds.Holder.Visible = isOutline
 		end
 	end
 	if Options.SpeedBoostSlot then
@@ -2728,9 +2745,10 @@ Toggles.Camlock:OnChanged(function()
 				end
 			end
 
-			-- Cutline: Stop player from getting closer than 7 studs to players while using Camlock
-			if Toggles.Cutline and Toggles.Cutline.Value then
-				local minCutlineStuds = 7
+			-- Outline: Stop player from getting closer than studs to players while using Camlock
+			local outlineActive = (Toggles.Outline and Toggles.Outline.Value) or (Toggles.Cutline and Toggles.Cutline.Value)
+			if outlineActive then
+				local minOutlineStuds = (Options.OutlineStuds and Options.OutlineStuds.Value) or (Options.CutlineStuds and Options.CutlineStuds.Value) or 7
 				for _, otherPlayer in ipairs(Players:GetPlayers()) do
 					if otherPlayer ~= LocalPlayer and otherPlayer.Character then
 						local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
@@ -2741,7 +2759,7 @@ Toggles.Camlock:OnChanged(function()
 							local flatOffset = Vector3.new(offset.X, 0, offset.Z)
 							local flatDist = flatOffset.Magnitude
 
-							if flatDist < minCutlineStuds then
+							if flatDist < minOutlineStuds then
 								local pushDir
 								if flatDist > 0.001 then
 									pushDir = flatOffset.Unit
@@ -2752,9 +2770,9 @@ Toggles.Camlock:OnChanged(function()
 								end
 
 								myPos = Vector3.new(
-									otherPos.X + pushDir.X * minCutlineStuds,
+									otherPos.X + pushDir.X * minOutlineStuds,
 									myPos.Y,
-									otherPos.Z + pushDir.Z * minCutlineStuds
+									otherPos.Z + pushDir.Z * minOutlineStuds
 								)
 
 								pcall(function()
@@ -2797,7 +2815,7 @@ Toggles.Camlock:OnChanged(function()
 				UserInputService.MouseBehavior = Enum.MouseBehavior.Default
 				UserInputService.MouseIconEnabled = true
 				hum.AutoRotate = true
-				if Toggles.Cutline and Toggles.Cutline.Value and (root.Position - myPos).Magnitude > 0.01 then
+				if outlineActive and (root.Position - myPos).Magnitude > 0.01 then
 					root.CFrame = CFrame.new(myPos, myPos + root.CFrame.LookVector)
 				end
 			end
@@ -2812,11 +2830,13 @@ Toggles.Camlock:OnChanged(function()
 	end
 end)
 
-Toggles.Cutline:OnChanged(function()
-	if updatePVPModulesVisibility then
-		updatePVPModulesVisibility()
-	end
-end)
+if Toggles.Outline then
+	Toggles.Outline:OnChanged(function()
+		if updatePVPModulesVisibility then
+			updatePVPModulesVisibility()
+		end
+	end)
+end
 
 Toggles.SwordBot:OnChanged(function()
 	disconnect("SwordBot")
@@ -7348,8 +7368,8 @@ Library:OnUnload(function()
 	if Toggles.Camlock and Toggles.Camlock.Value then
 		Toggles.Camlock:SetValue(false)
 	end
-	if Toggles.Cutline and Toggles.Cutline.Value then
-		Toggles.Cutline:SetValue(false)
+	if Toggles.Outline and Toggles.Outline.Value then
+		Toggles.Outline:SetValue(false)
 	end
 	if Toggles.InvisibleFlyToggle and Toggles.InvisibleFlyToggle.Value then
 		Toggles.InvisibleFlyToggle:SetValue(false)
