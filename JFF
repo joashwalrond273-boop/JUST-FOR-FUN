@@ -4181,22 +4181,16 @@ end
 -- ==========================================
 -- FARMING
 -- ==========================================
--- Shared highlight color (all auras share one color picker in settings)
-local auraHighlightColor = Color3.fromRGB(255, 200, 0)
-local auraOutlineColor = Color3.fromRGB(255, 255, 255)
-
-local function makeAuraHighlight()
+local function makeAuraHighlight(defaultColor)
 	local h = Instance.new("Highlight")
-	h.FillColor = auraHighlightColor
-	h.OutlineColor = auraOutlineColor
+	h.FillColor = defaultColor or Color3.fromRGB(255, 200, 0)
+	h.OutlineColor = Color3.fromRGB(255, 255, 255)
 	h.FillTransparency = 0.65
 	h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
 	h.Enabled = false
 	h.Parent = workspace
 	return h
 end
-
-local FarmRight = Tabs.Farming:AddRightGroupbox("Highlight Settings", "palette")
 
 -- ==========================================
 local BossFarm = Tabs.Farming:AddLeftGroupbox("Boss Farm", "swords")
@@ -4242,6 +4236,9 @@ FarmMine:AddDropdown("AutoMineSlot", {
 FarmMine:AddCheckbox("HighlightMine", {
 	Text = "Highlight Target",
 	Default = true,
+}):AddColorPicker("HighlightMineColor", {
+	Default = Color3.fromRGB(255, 200, 0),
+	Title = "Highlight Target Color",
 })
 
 -- ==========================================
@@ -4270,6 +4267,9 @@ FarmChop:AddDropdown("AutoChopSlot", {
 FarmChop:AddCheckbox("HighlightChop", {
 	Text = "Highlight Target",
 	Default = true,
+}):AddColorPicker("HighlightChopColor", {
+	Default = Color3.fromRGB(255, 200, 0),
+	Title = "Highlight Target Color",
 })
 
 -- ==========================================
@@ -4325,6 +4325,9 @@ FarmAI:AddSlider("AiAuraRange", {
 FarmAI:AddCheckbox("HighlightAI", {
 	Text = "Highlight Target",
 	Default = true,
+}):AddColorPicker("HighlightAIColor", {
+	Default = Color3.fromRGB(255, 200, 0),
+	Title = "Highlight Target Color",
 })
 
 -- ==========================================
@@ -4445,41 +4448,34 @@ OreFarm:AddButton({
 })
 
 -- ==========================================
--- In Obsidian, AddColorPicker is chained off a Label or Toggle
-FarmRight:AddLabel("Fill Color"):AddColorPicker("AuraFillColor", {
-	Default = Color3.fromRGB(255, 200, 0),
-	Title = "Aura Fill Color",
-	Callback = function(color)
-		auraHighlightColor = color
-	end,
-})
-
-FarmRight:AddLabel("Outline Color"):AddColorPicker("AuraOutlineColor", {
-	Default = Color3.fromRGB(255, 255, 255),
-	Title = "Aura Outline Color",
-	Callback = function(color)
-		auraOutlineColor = color
-	end,
-})
-
 -- Aura highlights (one per aura type, created after makeAuraHighlight is defined)
-local hlMine = makeAuraHighlight()
-local hlChop = makeAuraHighlight()
-local hlAI   = makeAuraHighlight()
+local hlMine = makeAuraHighlight(Options.HighlightMineColor and Options.HighlightMineColor.Value)
+local hlChop = makeAuraHighlight(Options.HighlightChopColor and Options.HighlightChopColor.Value)
+local hlAI   = makeAuraHighlight(Options.HighlightAIColor and Options.HighlightAIColor.Value)
 
--- Sync color picker -> all highlights
-Options.AuraFillColor:OnChanged(function()
-	auraHighlightColor = Options.AuraFillColor.Value
-	hlMine.FillColor  = auraHighlightColor
-	hlChop.FillColor  = auraHighlightColor
-	hlAI.FillColor    = auraHighlightColor
-end)
-Options.AuraOutlineColor:OnChanged(function()
-	auraOutlineColor = Options.AuraOutlineColor.Value
-	hlMine.OutlineColor  = auraOutlineColor
-	hlChop.OutlineColor  = auraOutlineColor
-	hlAI.OutlineColor    = auraOutlineColor
-end)
+if Options.HighlightMineColor then
+	Options.HighlightMineColor:OnChanged(function()
+		if hlMine then
+			hlMine.FillColor = Options.HighlightMineColor.Value
+		end
+	end)
+end
+
+if Options.HighlightChopColor then
+	Options.HighlightChopColor:OnChanged(function()
+		if hlChop then
+			hlChop.FillColor = Options.HighlightChopColor.Value
+		end
+	end)
+end
+
+if Options.HighlightAIColor then
+	Options.HighlightAIColor:OnChanged(function()
+		if hlAI then
+			hlAI.FillColor = Options.HighlightAIColor.Value
+		end
+	end)
+end
 
 Toggles.HighlightMine:OnChanged(function()
 	if not Toggles.HighlightMine.Value then
