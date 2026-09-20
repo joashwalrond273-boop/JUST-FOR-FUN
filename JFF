@@ -1609,6 +1609,11 @@ CombatAutoPVP:AddSlider("CamlockStuds", {
 	Compact = true,
 })
 
+CombatAutoPVP:AddCheckbox("Cutline", {
+	Text = "+ Cutline",
+	Default = false,
+})
+
 CombatAutoPVP:AddCheckbox("PlusSpeedBoost", {
 	Text = "+ Speed Boost",
 	Default = false,
@@ -1659,6 +1664,14 @@ updatePVPModulesVisibility = function()
 		Options.CamlockStuds.Visible = isCam
 		if Options.CamlockStuds.Holder then
 			Options.CamlockStuds.Holder.Visible = isCam
+		end
+	end
+	if Toggles.Cutline then
+		if Toggles.Cutline.Visible ~= nil then
+			Toggles.Cutline.Visible = isCam
+		end
+		if Toggles.Cutline.Holder then
+			Toggles.Cutline.Holder.Visible = isCam
 		end
 	end
 	if Options.SpeedBoostSlot then
@@ -2715,6 +2728,56 @@ Toggles.Camlock:OnChanged(function()
 				end
 			end
 
+			-- Cutline: Stop player from getting closer than 7 studs to players while using Camlock
+			if Toggles.Cutline and Toggles.Cutline.Value then
+				local minCutlineStuds = 7
+				for _, otherPlayer in ipairs(Players:GetPlayers()) do
+					if otherPlayer ~= LocalPlayer and otherPlayer.Character then
+						local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
+						local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
+						if otherRoot and otherHum and otherHum.Health > 0 then
+							local otherPos = otherRoot.Position
+							local offset = myPos - otherPos
+							local flatOffset = Vector3.new(offset.X, 0, offset.Z)
+							local flatDist = flatOffset.Magnitude
+
+							if flatDist < minCutlineStuds then
+								local pushDir
+								if flatDist > 0.001 then
+									pushDir = flatOffset.Unit
+								else
+									local backDir = -root.CFrame.LookVector
+									local flatBack = Vector3.new(backDir.X, 0, backDir.Z)
+									pushDir = flatBack.Magnitude > 0.001 and flatBack.Unit or Vector3.new(0, 0, 1)
+								end
+
+								myPos = Vector3.new(
+									otherPos.X + pushDir.X * minCutlineStuds,
+									myPos.Y,
+									otherPos.Z + pushDir.Z * minCutlineStuds
+								)
+
+								pcall(function()
+									local vel = root.AssemblyLinearVelocity or root.Velocity
+									if vel then
+										local moveTowards = vel.X * (-pushDir.X) + vel.Z * (-pushDir.Z)
+										if moveTowards > 0 then
+											local correctedVel = Vector3.new(
+												vel.X - (-pushDir.X * moveTowards),
+												vel.Y,
+												vel.Z - (-pushDir.Z * moveTowards)
+											)
+											root.AssemblyLinearVelocity = correctedVel
+											root.Velocity = correctedVel
+										end
+									end
+								end)
+							end
+						end
+					end
+				end
+			end
+
 			if closestPlayer then
 				UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
 				UserInputService.MouseIconEnabled = false
@@ -2726,12 +2789,17 @@ Toggles.Camlock:OnChanged(function()
 					if lookDir.Magnitude > 0 then
 						hum.AutoRotate = false
 						root.CFrame = CFrame.new(myPos, myPos + lookDir)
+					else
+						root.CFrame = CFrame.new(myPos, myPos + root.CFrame.LookVector)
 					end
 				end
 			else
 				UserInputService.MouseBehavior = Enum.MouseBehavior.Default
 				UserInputService.MouseIconEnabled = true
 				hum.AutoRotate = true
+				if Toggles.Cutline and Toggles.Cutline.Value and (root.Position - myPos).Magnitude > 0.01 then
+					root.CFrame = CFrame.new(myPos, myPos + root.CFrame.LookVector)
+				end
 			end
 		end))
 	else
@@ -2741,6 +2809,12 @@ Toggles.Camlock:OnChanged(function()
 		if hum then
 			hum.AutoRotate = true
 		end
+	end
+end)
+
+Toggles.Cutline:OnChanged(function()
+	if updatePVPModulesVisibility then
+		updatePVPModulesVisibility()
 	end
 end)
 
@@ -7273,6 +7347,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.Camlock and Toggles.Camlock.Value then
 		Toggles.Camlock:SetValue(false)
+	end
+	if Toggles.Cutline and Toggles.Cutline.Value then
+		Toggles.Cutline:SetValue(false)
 	end
 	if Toggles.InvisibleFlyToggle and Toggles.InvisibleFlyToggle.Value then
 		Toggles.InvisibleFlyToggle:SetValue(false)
