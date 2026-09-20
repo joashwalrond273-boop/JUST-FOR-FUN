@@ -51,10 +51,6 @@ local updateAutoPickupVisibility
 local updatePlayerESPVisibility
 local updateFlightVisibility
 local updateImmortalModeVisibility
-local originalDisplayNames = {}
-local originalNames = {}
-local renamedPlayers = {}
-local renameCharAddedConns = {}
 
 Library.ShowToggleFrameInKeybinds = true
 
@@ -5809,6 +5805,11 @@ VisualLeft:AddCheckbox("ShowDistance", {
 	Title = "Show Distance Color",
 })
 
+VisualLeft:AddCheckbox("PlayerESPHideNames", {
+	Text = "Hide Names",
+	Default = false,
+})
+
 VisualLeft:AddCheckbox("OutlineESP", {
 	Text = "Outline ESP",
 	Default = false,
@@ -5844,164 +5845,6 @@ VisualLeft:AddCheckbox("PlayerChams", {
 VisualLeft:AddCheckbox("PlayerHealthBar", {
 	Text = "Health Bar",
 	Default = false,
-})
-
-VisualLeft:AddInput("EnterVictimName", {
-	Text = "Enter Victim",
-	Default = "",
-	Numerical = false,
-	PlaceholderText = "Enter new name...",
-})
-
-VisualLeft:AddDropdown("RenamePlayerList", {
-	Text = "Select Player",
-	Values = {},
-	Default = "",
-})
-
-VisualLeft:AddButton({
-	Text = "Change Name",
-	Func = function()
-		local newName = Options.EnterVictimName.Value
-		local targetName = Options.RenamePlayerList.Value
-
-		if not newName or newName == "" then
-			Library:Notify({ Title = "Rename Error", Description = "Please enter a new name.", Time = 3 })
-			return
-		end
-		if not targetName or targetName == "" then
-			Library:Notify({ Title = "Rename Error", Description = "Please select a player.", Time = 3 })
-			return
-		end
-
-		local targetPlayer = Players:FindFirstChild(targetName)
-		if not targetPlayer then
-			Library:Notify({ Title = "Rename Error", Description = "Player not found.", Time = 3 })
-			return
-		end
-
-		local function renameCharacter(player, name)
-			local character = player.Character
-			if not character then return end
-
-			local head = character:FindFirstChild("Head")
-			if not head then return end
-
-			for _, obj in ipairs(head:GetChildren()) do
-				if obj:IsA("BillboardGui") then
-					for _, child in ipairs(obj:GetChildren()) do
-						if child:IsA("TextLabel") then
-							child.Text = name
-						elseif child:IsA("TextButton") then
-							child.Text = name
-						end
-					end
-				elseif obj:IsA("SurfaceGui") then
-					for _, child in ipairs(obj:GetChildren()) do
-						if child:IsA("TextLabel") then
-							child.Text = name
-						elseif child:IsA("TextButton") then
-							child.Text = name
-						end
-					end
-				end
-			end
-
-			local function renameDescendants(parent)
-				for _, desc in ipairs(parent:GetDescendants()) do
-					if desc:IsA("TextLabel") or desc:IsA("TextButton") then
-						if desc.Text == player.Name or desc.Text == (originalDisplayNames[player] or player.DisplayName) then
-							desc.Text = name
-						end
-					end
-				end
-			end
-
-			pcall(function() renameDescendants(character) end)
-			pcall(function()
-				local playerGui = player:FindFirstChild("PlayerGui")
-				if playerGui then renameDescendants(playerGui) end
-			end)
-		end
-
-		if not originalDisplayNames then originalDisplayNames = {} end
-		if not originalNames then originalNames = {} end
-		if not renamedPlayers then renamedPlayers = {} end
-
-		if not originalNames[targetPlayer] then
-			originalNames[targetPlayer] = targetPlayer.Name
-		end
-		if not originalDisplayNames[targetPlayer] then
-			originalDisplayNames[targetPlayer] = targetPlayer.DisplayName
-		end
-
-		renamedPlayers[targetPlayer] = newName
-
-		pcall(function()
-			targetPlayer.DisplayName = newName
-		end)
-
-		renameCharacter(targetPlayer, newName)
-
-		if not renameCharAddedConns then renameCharAddedConns = {} end
-		if renameCharAddedConns[targetPlayer] then
-			pcall(function() renameCharAddedConns[targetPlayer]:Disconnect() end)
-		end
-		renameCharAddedConns[targetPlayer] = targetPlayer.CharacterAdded:Connect(function()
-			task.wait(1)
-			if renamedPlayers[targetPlayer] then
-				renameCharacter(targetPlayer, renamedPlayers[targetPlayer])
-				pcall(function() targetPlayer.DisplayName = renamedPlayers[targetPlayer] end)
-			end
-		end)
-
-		Library:Notify({ Title = "Name Changed", Description = targetName .. " -> " .. newName, Time = 3 })
-	end,
-})
-
-VisualLeft:AddButton({
-	Text = "Reset All Names",
-	Func = function()
-		if not renamedPlayers then
-			Library:Notify({ Title = "Reset Names", Description = "No names have been changed.", Time = 2 })
-			return
-		end
-
-		for player, _ in pairs(renamedPlayers) do
-			if player and player:IsA("Player") then
-				local origName = originalNames[player] or player.Name
-				local origDisplay = originalDisplayNames[player] or origName
-
-				pcall(function() player.DisplayName = origDisplay end)
-
-				local character = player.Character
-				if character then
-					local head = character:FindFirstChild("Head")
-					if head then
-						for _, obj in ipairs(head:GetChildren()) do
-							if obj:IsA("BillboardGui") or obj:IsA("SurfaceGui") then
-								for _, child in ipairs(obj:GetChildren()) do
-									if child:IsA("TextLabel") or child:IsA("TextButton") then
-										if child.Text == renamedPlayers[player] then
-											child.Text = origDisplay
-										end
-									end
-								end
-							end
-						end
-					end
-				end
-
-				if renameCharAddedConns and renameCharAddedConns[player] then
-					pcall(function() renameCharAddedConns[player]:Disconnect() end)
-					renameCharAddedConns[player] = nil
-				end
-			end
-		end
-
-		table.clear(renamedPlayers)
-		Library:Notify({ Title = "Reset Names", Description = "All player names restored.", Time = 3 })
-	end,
 })
 
 VisualLeft:AddDivider()
@@ -6391,6 +6234,7 @@ local function updateAllESP()
 
 	local maxDist = (Options and Options.ESPDistance and Options.ESPDistance.Value) or 500
 	local showDist = (Toggles.ShowDistance and Toggles.ShowDistance.Value) or false
+	local hideNames = (Toggles.PlayerESPHideNames and Toggles.PlayerESPHideNames.Value) or false
 	local outlineEnabled = (Toggles.OutlineESP and Toggles.OutlineESP.Value) or false
 	local chamsEnabled = (Toggles.PlayerChams and Toggles.PlayerChams.Value) or false
 	local tracersEnabled = (Toggles.PlayerTracers and Toggles.PlayerTracers.Value) or false
@@ -6444,22 +6288,30 @@ local function updateAllESP()
 		local entry = cand.entry
 		local dist = cand.dist
 
-		if not entry.billboard.Enabled then
-			entry.billboard.Enabled = true
+		local roundedDist = math.floor(dist)
+		if entry.lastDist ~= roundedDist or entry.lastShowDist ~= showDist or entry.lastHideNames ~= hideNames then
+			entry.lastDist = roundedDist
+			entry.lastShowDist = showDist
+			entry.lastHideNames = hideNames
+			local text = ""
+			if not hideNames then
+				text = '<font color="#' .. pColorHex .. '">' .. entry.player.Name .. '</font>'
+			end
+			if showDist then
+				if text ~= "" then
+					text = text .. '\n'
+				end
+				text = text .. '<font color="#' .. dColorHex .. '">' .. roundedDist .. 'm</font>'
+			end
+			entry.label.Text = text
+		end
+
+		local shouldShowBillboard = (not hideNames) or showDist
+		if entry.billboard.Enabled ~= shouldShowBillboard then
+			entry.billboard.Enabled = shouldShowBillboard
 		end
 		if entry.billboard.Adornee ~= entry.root then
 			entry.billboard.Adornee = entry.root
-		end
-
-		local roundedDist = math.floor(dist)
-		if entry.lastDist ~= roundedDist or entry.lastShowDist ~= showDist then
-			entry.lastDist = roundedDist
-			entry.lastShowDist = showDist
-			local text = '<font color="#' .. pColorHex .. '">' .. entry.player.Name .. '</font>'
-			if showDist then
-				text = text .. '\n<font color="#' .. dColorHex .. '">' .. roundedDist .. 'm</font>'
-			end
-			entry.label.Text = text
 		end
 
 		local shouldHighlight = (outlineEnabled or chamsEnabled) and (i <= 20)
@@ -6694,6 +6546,14 @@ end)
 Toggles.ShowDistance:OnChanged(function()
 	for _, entry in pairs(espObjects) do
 		entry.lastDist = -1
+	end
+	updateAllESP()
+end)
+
+Toggles.PlayerESPHideNames:OnChanged(function()
+	for _, entry in pairs(espObjects) do
+		entry.lastDist = -1
+		entry.lastHideNames = nil
 	end
 	updateAllESP()
 end)
@@ -6998,29 +6858,6 @@ end
 track("AttachPlayerAdded", Players.PlayerAdded:Connect(updateAttachPlayerList))
 track("AttachPlayerRemoving", Players.PlayerRemoving:Connect(updateAttachPlayerList))
 task.spawn(updateAttachPlayerList)
-
-local function updateRenamePlayerList()
-	local list = {}
-	for _, player in ipairs(Players:GetPlayers()) do
-		if player ~= LocalPlayer then
-			table.insert(list, player.Name)
-		end
-	end
-	pcall(function()
-		Options.RenamePlayerList:SetValues(list)
-		if #list > 0 then
-			if not table.find(list, Options.RenamePlayerList.Value) then
-				Options.RenamePlayerList:SetValue(list[1])
-			end
-		else
-			Options.RenamePlayerList:SetValue("")
-		end
-	end)
-end
-
-track("RenamePlayerAdded", Players.PlayerAdded:Connect(updateRenamePlayerList))
-track("RenamePlayerRemoving", Players.PlayerRemoving:Connect(updateRenamePlayerList))
-task.spawn(updateRenamePlayerList)
 
 local function startAttach()
 	disconnect("AttachLoop")
