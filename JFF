@@ -1748,6 +1748,15 @@ CombatReach:AddSlider("ReachRange", {
 	Compact = true,
 })
 
+CombatReach:AddSlider("ReachAngle", {
+	Text = "Hitbox Angle",
+	Default = 35,
+	Min = 5,
+	Max = 120,
+	Rounding = 0,
+	Compact = true,
+})
+
 local CombatAutoBlock = Tabs.Combat:AddRightGroupbox("Immortal Mode", "shield")
 
 CombatAutoBlock:AddToggle("ImmortalMode", {
@@ -3124,13 +3133,22 @@ local function connectReachTool(tool)
 	track("ReachToolConn", tool.Activated:Connect(function()
 		if Toggles.Reach.Value then
 			local range = Options.ReachRange.Value
+			local maxAngle = (Options.ReachAngle and Options.ReachAngle.Value) or 35
+			local coneThreshold = math.cos(math.rad(maxAngle / 2))
 			local root = getRootPart()
 			if root then
 				local pos = root.Position
-				local forward = Vector3.new(root.CFrame.LookVector.X, 0, root.CFrame.LookVector.Z).Unit
+				local rawLook = Vector3.new(root.CFrame.LookVector.X, 0, root.CFrame.LookVector.Z)
+				local forward = rawLook.Magnitude > 0 and rawLook.Unit or root.CFrame.LookVector
 				local nearestTarget = nil
 				local nearestDist = range
 				local reachTargetSetting = (Options.ReachTarget and Options.ReachTarget.Value) or "All"
+
+				local function passesAngleCheck(targetPos)
+					local dir = Vector3.new(targetPos.X - pos.X, 0, targetPos.Z - pos.Z)
+					if dir.Magnitude <= 0 then return true end
+					return forward:Dot(dir.Unit) >= coneThreshold
+				end
 
 				-- Scan Players
 				for _, otherPlayer in ipairs(Players:GetPlayers()) do
@@ -3140,12 +3158,9 @@ local function connectReachTool(tool)
 							local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
 							if otherHum and otherHum.Health > 0 and otherRoot then
 								local d = (otherRoot.Position - pos).Magnitude
-								if d < nearestDist then
-									local dir = Vector3.new(otherRoot.Position.X - pos.X, 0, otherRoot.Position.Z - pos.Z).Unit
-									if dir.Magnitude > 0 and forward:Dot(dir) >= 0.5 then
-										nearestDist = d
-										nearestTarget = otherPlayer.Character
-									end
+								if d < nearestDist and passesAngleCheck(otherRoot.Position) then
+									nearestDist = d
+									nearestTarget = otherPlayer.Character
 								end
 							end
 						end
@@ -3161,12 +3176,9 @@ local function connectReachTool(tool)
 							local npcRoot = npc:FindFirstChild("HumanoidRootPart") or npc.PrimaryPart
 							if npcHum and npcHum.Health > 0 and npcRoot then
 								local d = (npcRoot.Position - pos).Magnitude
-								if d < nearestDist then
-									local dir = Vector3.new(npcRoot.Position.X - pos.X, 0, npcRoot.Position.Z - pos.Z).Unit
-									if dir.Magnitude > 0 and forward:Dot(dir) >= 0.5 then
-										nearestDist = d
-										nearestTarget = npc
-									end
+								if d < nearestDist and passesAngleCheck(npcRoot.Position) then
+									nearestDist = d
+									nearestTarget = npc
 								end
 							end
 						end
@@ -3179,12 +3191,9 @@ local function connectReachTool(tool)
 							local npcRoot = npc:FindFirstChild("HumanoidRootPart") or npc.PrimaryPart
 							if (not npcHum or npcHum.Health > 0) and npcRoot then
 								local d = (npcRoot.Position - pos).Magnitude
-								if d < nearestDist then
-									local dir = Vector3.new(npcRoot.Position.X - pos.X, 0, npcRoot.Position.Z - pos.Z).Unit
-									if dir.Magnitude > 0 and forward:Dot(dir) >= 0.5 then
-										nearestDist = d
-										nearestTarget = npc
-									end
+								if d < nearestDist and passesAngleCheck(npcRoot.Position) then
+									nearestDist = d
+									nearestTarget = npc
 								end
 							end
 						end
@@ -7269,6 +7278,9 @@ ThemeManager:ApplyToTab(Tabs["UI Settings"])
 SaveManager:LoadAutoloadConfig()
 
 Library:OnUnload(function()
+	if Toggles.Reach and Toggles.Reach.Value then
+		Toggles.Reach:SetValue(false)
+	end
 	if Toggles.ImmortalMode and Toggles.ImmortalMode.Value then
 		Toggles.ImmortalMode:SetValue(false)
 	end
