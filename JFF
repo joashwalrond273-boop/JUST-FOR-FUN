@@ -423,11 +423,6 @@ KillswitchGroup:AddCheckbox("AntiAFK", {
 	Default = false,
 })
 
-KillswitchGroup:AddCheckbox("PingSpoofer", {
-	Text = "Ping Spoofer",
-	Default = false,
-})
-
 Toggles.KillswitchToggle:OnChanged(function()
 	if Toggles.KillswitchToggle.Value then
 		local humanoid = getHumanoid()
@@ -843,6 +838,43 @@ MainRight:AddButton({
 	end,
 })
 
+MainRight:AddButton({
+	Text = "Ping Spoofer",
+	Func = function()
+		if getgenv().PingSpoofer then
+			getgenv().PingSpoofer.SpoofPing = true
+			Library:Notify({ Title = "Ping Spoofer", Description = "Ping spoofing activated!", Time = 2 })
+			return
+		end
+
+		getgenv().PingSpoofer = {
+			SpoofPing = true,
+			StartOfPingSpoofer = 31,
+			EndOfPingSpoofer = 69
+		}
+
+		local Memory
+		pcall(function()
+			for __, v in pairs(game.CoreGui.RobloxGui.PerformanceStats:GetChildren()) do
+				if v.Name == 'PS_Button' and v.StatsMiniTextPanelClass.TitleLabel.Text == 'Ping' then
+					Memory = v.StatsMiniTextPanelClass.ValueLabel
+				end
+			end
+		end)
+
+		if Memory then
+			Memory:GetPropertyChangedSignal('Text'):Connect(function()
+				if getgenv().PingSpoofer and getgenv().PingSpoofer.SpoofPing then
+					local Random = math.random(getgenv().PingSpoofer.StartOfPingSpoofer, getgenv().PingSpoofer.EndOfPingSpoofer)
+					Random = Random * 1.23
+					Memory.Text = Random .. ' ms'
+				end
+			end)
+		end
+
+		Library:Notify({ Title = "Ping Spoofer", Description = "Ping spoofing activated!", Time = 2 })
+	end,
+})
 
 MainRight:AddButton({
 	Text = "Rejoin Server",
@@ -4060,47 +4092,6 @@ Toggles.AntiAFK:OnChanged(function()
 			end)
 		end)
 		Library:Notify({ Title = "Anti-AFK", Description = "Anti-AFK Enabled", Time = 2 })
-	end
-end)
-
-local pingSpooferConn = nil
-local pingSpooferMemory = nil
-
-Toggles.PingSpoofer:OnChanged(function()
-	if getgenv().PingSpoofer == nil then
-		getgenv().PingSpoofer = {
-			SpoofPing = false,
-			StartOfPingSpoofer = 31,
-			EndOfPingSpoofer = 69
-		}
-	end
-
-	getgenv().PingSpoofer.SpoofPing = Toggles.PingSpoofer.Value
-
-	if Toggles.PingSpoofer.Value then
-		if not pingSpooferMemory then
-			pcall(function()
-				for __, v in pairs(game.CoreGui.RobloxGui.PerformanceStats:GetChildren()) do
-					if v.Name == 'PS_Button' and v.StatsMiniTextPanelClass.TitleLabel.Text == 'Ping' then
-						pingSpooferMemory = v.StatsMiniTextPanelClass.ValueLabel
-					end
-				end
-			end)
-		end
-
-		if pingSpooferMemory and not pingSpooferConn then
-			pingSpooferConn = pingSpooferMemory:GetPropertyChangedSignal('Text'):Connect(function()
-				if getgenv().PingSpoofer and getgenv().PingSpoofer.SpoofPing then
-					local Random = math.random(getgenv().PingSpoofer.StartOfPingSpoofer, getgenv().PingSpoofer.EndOfPingSpoofer)
-					Random = Random * 1.23
-					pingSpooferMemory.Text = string.format("%.1f ms", Random)
-				end
-			end)
-		end
-
-		Library:Notify({ Title = "Ping Spoofer", Description = "Ping spoofing enabled!", Time = 2 })
-	else
-		Library:Notify({ Title = "Ping Spoofer", Description = "Ping spoofing disabled!", Time = 2 })
 	end
 end)
 
@@ -7336,9 +7327,6 @@ Library:OnUnload(function()
 	end
 	if Toggles.AntiAFK and Toggles.AntiAFK.Value then
 		Toggles.AntiAFK:SetValue(false)
-	end
-	if Toggles.PingSpoofer and Toggles.PingSpoofer.Value then
-		Toggles.PingSpoofer:SetValue(false)
 	end
 	if Toggles.AimbotLockOn and Toggles.AimbotLockOn.Value then
 		Toggles.AimbotLockOn:SetValue(false)
