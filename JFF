@@ -5805,11 +5805,6 @@ VisualLeft:AddCheckbox("ShowDistance", {
 	Title = "Show Distance Color",
 })
 
-VisualLeft:AddCheckbox("PlayerESPHideNames", {
-	Text = "Hide Names",
-	Default = false,
-})
-
 VisualLeft:AddCheckbox("OutlineESP", {
 	Text = "Outline ESP",
 	Default = false,
@@ -6234,7 +6229,6 @@ local function updateAllESP()
 
 	local maxDist = (Options and Options.ESPDistance and Options.ESPDistance.Value) or 500
 	local showDist = (Toggles.ShowDistance and Toggles.ShowDistance.Value) or false
-	local hideNames = (Toggles.PlayerESPHideNames and Toggles.PlayerESPHideNames.Value) or false
 	local outlineEnabled = (Toggles.OutlineESP and Toggles.OutlineESP.Value) or false
 	local chamsEnabled = (Toggles.PlayerChams and Toggles.PlayerChams.Value) or false
 	local tracersEnabled = (Toggles.PlayerTracers and Toggles.PlayerTracers.Value) or false
@@ -6288,30 +6282,22 @@ local function updateAllESP()
 		local entry = cand.entry
 		local dist = cand.dist
 
-		local roundedDist = math.floor(dist)
-		if entry.lastDist ~= roundedDist or entry.lastShowDist ~= showDist or entry.lastHideNames ~= hideNames then
-			entry.lastDist = roundedDist
-			entry.lastShowDist = showDist
-			entry.lastHideNames = hideNames
-			local text = ""
-			if not hideNames then
-				text = '<font color="#' .. pColorHex .. '">' .. entry.player.Name .. '</font>'
-			end
-			if showDist then
-				if text ~= "" then
-					text = text .. '\n'
-				end
-				text = text .. '<font color="#' .. dColorHex .. '">' .. roundedDist .. 'm</font>'
-			end
-			entry.label.Text = text
-		end
-
-		local shouldShowBillboard = (not hideNames) or showDist
-		if entry.billboard.Enabled ~= shouldShowBillboard then
-			entry.billboard.Enabled = shouldShowBillboard
+		if not entry.billboard.Enabled then
+			entry.billboard.Enabled = true
 		end
 		if entry.billboard.Adornee ~= entry.root then
 			entry.billboard.Adornee = entry.root
+		end
+
+		local roundedDist = math.floor(dist)
+		if entry.lastDist ~= roundedDist or entry.lastShowDist ~= showDist then
+			entry.lastDist = roundedDist
+			entry.lastShowDist = showDist
+			local text = '<font color="#' .. pColorHex .. '">' .. entry.player.Name .. '</font>'
+			if showDist then
+				text = text .. '\n<font color="#' .. dColorHex .. '">' .. roundedDist .. 'm</font>'
+			end
+			entry.label.Text = text
 		end
 
 		local shouldHighlight = (outlineEnabled or chamsEnabled) and (i <= 20)
@@ -6546,14 +6532,6 @@ end)
 Toggles.ShowDistance:OnChanged(function()
 	for _, entry in pairs(espObjects) do
 		entry.lastDist = -1
-	end
-	updateAllESP()
-end)
-
-Toggles.PlayerESPHideNames:OnChanged(function()
-	for _, entry in pairs(espObjects) do
-		entry.lastDist = -1
-		entry.lastHideNames = nil
 	end
 	updateAllESP()
 end)
