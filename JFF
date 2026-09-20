@@ -1362,9 +1362,7 @@ end)
 -- ==========================================
 -- COMBAT
 -- ==========================================
-local CombatAuraTabBox = Tabs.Combat:AddLeftTabbox()
-local CombatLeft = CombatAuraTabBox:AddTab("Kill Aura", "swords")
-local CombatPhantomAura = CombatAuraTabBox:AddTab("Phantom Aura", "ghost")
+local CombatLeft = Tabs.Combat:AddLeftGroupbox("Kill Aura", "swords")
 local CombatRight = Tabs.Combat:AddRightGroupbox("Targeting", "crosshair")
 
 CombatLeft:AddToggle("KillAura", {
@@ -1401,6 +1399,8 @@ CombatLeft:AddSlider("KillAuraAngle", {
 	Rounding = 0,
 	Compact = true,
 })
+
+local CombatPhantomAura = Tabs.Combat:AddLeftGroupbox("Phantom Aura", "ghost")
 
 CombatPhantomAura:AddToggle("PhantomMode", {
 	Text = "Phantom Mode",
