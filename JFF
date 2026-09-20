@@ -51,6 +51,10 @@ local updateAutoPickupVisibility
 local updatePlayerESPVisibility
 local updateFlightVisibility
 local updateImmortalModeVisibility
+local originalDisplayNames = {}
+local originalNames = {}
+local renamedPlayers = {}
+local renameCharAddedConns = {}
 
 Library.ShowToggleFrameInKeybinds = true
 
@@ -5842,19 +5846,162 @@ VisualLeft:AddCheckbox("PlayerHealthBar", {
 	Default = false,
 })
 
-VisualLeft:AddInput("EnterVictim", {
+VisualLeft:AddInput("EnterVictimName", {
 	Text = "Enter Victim",
 	Default = "",
-	Numeric = false,
-	Finished = false,
-	ClearTextOnFocus = false,
-	Placeholder = "Enter new name...",
+	Numerical = false,
+	PlaceholderText = "Enter new name...",
 })
 
-VisualLeft:AddDropdown("VictimNameDropdown", {
-	Text = "Select Victim",
+VisualLeft:AddDropdown("RenamePlayerList", {
+	Text = "Select Player",
 	Values = {},
 	Default = "",
+})
+
+VisualLeft:AddButton({
+	Text = "Change Name",
+	Func = function()
+		local newName = Options.EnterVictimName.Value
+		local targetName = Options.RenamePlayerList.Value
+
+		if not newName or newName == "" then
+			Library:Notify({ Title = "Rename Error", Description = "Please enter a new name.", Time = 3 })
+			return
+		end
+		if not targetName or targetName == "" then
+			Library:Notify({ Title = "Rename Error", Description = "Please select a player.", Time = 3 })
+			return
+		end
+
+		local targetPlayer = Players:FindFirstChild(targetName)
+		if not targetPlayer then
+			Library:Notify({ Title = "Rename Error", Description = "Player not found.", Time = 3 })
+			return
+		end
+
+		local function renameCharacter(player, name)
+			local character = player.Character
+			if not character then return end
+
+			local head = character:FindFirstChild("Head")
+			if not head then return end
+
+			for _, obj in ipairs(head:GetChildren()) do
+				if obj:IsA("BillboardGui") then
+					for _, child in ipairs(obj:GetChildren()) do
+						if child:IsA("TextLabel") then
+							child.Text = name
+						elseif child:IsA("TextButton") then
+							child.Text = name
+						end
+					end
+				elseif obj:IsA("SurfaceGui") then
+					for _, child in ipairs(obj:GetChildren()) do
+						if child:IsA("TextLabel") then
+							child.Text = name
+						elseif child:IsA("TextButton") then
+							child.Text = name
+						end
+					end
+				end
+			end
+
+			local function renameDescendants(parent)
+				for _, desc in ipairs(parent:GetDescendants()) do
+					if desc:IsA("TextLabel") or desc:IsA("TextButton") then
+						if desc.Text == player.Name or desc.Text == (originalDisplayNames[player] or player.DisplayName) then
+							desc.Text = name
+						end
+					end
+				end
+			end
+
+			pcall(function() renameDescendants(character) end)
+			pcall(function()
+				local playerGui = player:FindFirstChild("PlayerGui")
+				if playerGui then renameDescendants(playerGui) end
+			end)
+		end
+
+		if not originalDisplayNames then originalDisplayNames = {} end
+		if not originalNames then originalNames = {} end
+		if not renamedPlayers then renamedPlayers = {} end
+
+		if not originalNames[targetPlayer] then
+			originalNames[targetPlayer] = targetPlayer.Name
+		end
+		if not originalDisplayNames[targetPlayer] then
+			originalDisplayNames[targetPlayer] = targetPlayer.DisplayName
+		end
+
+		renamedPlayers[targetPlayer] = newName
+
+		pcall(function()
+			targetPlayer.DisplayName = newName
+		end)
+
+		renameCharacter(targetPlayer, newName)
+
+		if not renameCharAddedConns then renameCharAddedConns = {} end
+		if renameCharAddedConns[targetPlayer] then
+			pcall(function() renameCharAddedConns[targetPlayer]:Disconnect() end)
+		end
+		renameCharAddedConns[targetPlayer] = targetPlayer.CharacterAdded:Connect(function()
+			task.wait(1)
+			if renamedPlayers[targetPlayer] then
+				renameCharacter(targetPlayer, renamedPlayers[targetPlayer])
+				pcall(function() targetPlayer.DisplayName = renamedPlayers[targetPlayer] end)
+			end
+		end)
+
+		Library:Notify({ Title = "Name Changed", Description = targetName .. " -> " .. newName, Time = 3 })
+	end,
+})
+
+VisualLeft:AddButton({
+	Text = "Reset All Names",
+	Func = function()
+		if not renamedPlayers then
+			Library:Notify({ Title = "Reset Names", Description = "No names have been changed.", Time = 2 })
+			return
+		end
+
+		for player, _ in pairs(renamedPlayers) do
+			if player and player:IsA("Player") then
+				local origName = originalNames[player] or player.Name
+				local origDisplay = originalDisplayNames[player] or origName
+
+				pcall(function() player.DisplayName = origDisplay end)
+
+				local character = player.Character
+				if character then
+					local head = character:FindFirstChild("Head")
+					if head then
+						for _, obj in ipairs(head:GetChildren()) do
+							if obj:IsA("BillboardGui") or obj:IsA("SurfaceGui") then
+								for _, child in ipairs(obj:GetChildren()) do
+									if child:IsA("TextLabel") or child:IsA("TextButton") then
+										if child.Text == renamedPlayers[player] then
+											child.Text = origDisplay
+										end
+									end
+								end
+							end
+						end
+					end
+				end
+
+				if renameCharAddedConns and renameCharAddedConns[player] then
+					pcall(function() renameCharAddedConns[player]:Disconnect() end)
+					renameCharAddedConns[player] = nil
+				end
+			end
+		end
+
+		table.clear(renamedPlayers)
+		Library:Notify({ Title = "Reset Names", Description = "All player names restored.", Time = 3 })
+	end,
 })
 
 VisualLeft:AddDivider()
@@ -6308,8 +6455,7 @@ local function updateAllESP()
 		if entry.lastDist ~= roundedDist or entry.lastShowDist ~= showDist then
 			entry.lastDist = roundedDist
 			entry.lastShowDist = showDist
-			local displayName = (customVictimNames and customVictimNames[entry.player.Name]) or entry.player.Name
-			local text = '<font color="#' .. pColorHex .. '">' .. displayName .. '</font>'
+			local text = '<font color="#' .. pColorHex .. '">' .. entry.player.Name .. '</font>'
 			if showDist then
 				text = text .. '\n<font color="#' .. dColorHex .. '">' .. roundedDist .. 'm</font>'
 			end
@@ -6602,100 +6748,6 @@ Options.ShowDistanceColor:OnChanged(function()
 	updateAllESP()
 end)
 
--- ============================================================================
--- ENTER VICTIM (PLAYER NAME CHANGER)
--- ============================================================================
-local customVictimNames = {}
-
-local function applyCustomNameToPlayer(player, customName)
-	if not player then return end
-	local nameToUse = (customName and customName:match("%S") and customName) or player.Name
-
-	local char = player.Character
-	if char then
-		pcall(function()
-			char.Name = nameToUse
-		end)
-		local hum = char:FindFirstChildOfClass("Humanoid")
-		if hum then
-			pcall(function()
-				hum.DisplayName = nameToUse
-			end)
-		end
-		pcall(function()
-			for _, desc in ipairs(char:GetDescendants()) do
-				if desc:IsA("TextLabel") or desc:IsA("TextButton") then
-					if desc.Text == player.Name or desc.Text == player.DisplayName or (customName and desc.Text == (customVictimNames[player.Name] or "")) then
-						desc.Text = nameToUse
-					end
-				end
-			end
-		end)
-	end
-
-	if espObjects and espObjects[player] then
-		espObjects[player].lastDist = -1
-		updateAllESP()
-	end
-end
-
-local function setupPlayerNameTracking(player)
-	track("VictimNameChar_" .. player.Name, player.CharacterAdded:Connect(function(char)
-		task.wait(0.2)
-		local custom = customVictimNames[player.Name]
-		if custom and custom:match("%S") then
-			applyCustomNameToPlayer(player, custom)
-		end
-	end))
-end
-
-for _, p in ipairs(Players:GetPlayers()) do
-	if p ~= LocalPlayer then
-		setupPlayerNameTracking(p)
-	end
-end
-
-track("VictimNamePlayerAdded", Players.PlayerAdded:Connect(function(p)
-	if p ~= LocalPlayer then
-		setupPlayerNameTracking(p)
-	end
-end))
-
-track("VictimNamePlayerRemoving", Players.PlayerRemoving:Connect(function(p)
-	disconnect("VictimNameChar_" .. p.Name)
-	customVictimNames[p.Name] = nil
-end))
-
-Options.VictimNameDropdown:OnChanged(function()
-	local selectedName = Options.VictimNameDropdown.Value
-	if selectedName and selectedName ~= "" then
-		local currentCustom = customVictimNames[selectedName] or ""
-		if Options.EnterVictim and Options.EnterVictim.Value ~= currentCustom then
-			Options.EnterVictim:SetValue(currentCustom)
-		end
-	end
-end)
-
-Options.EnterVictim:OnChanged(function()
-	local selectedName = Options.VictimNameDropdown and Options.VictimNameDropdown.Value
-	if not selectedName or selectedName == "" then return end
-
-	local targetPlayer = Players:FindFirstChild(selectedName)
-	local val = Options.EnterVictim.Value
-
-	if val and val:match("%S") then
-		customVictimNames[selectedName] = val
-		if targetPlayer then
-			applyCustomNameToPlayer(targetPlayer, val)
-		end
-	else
-		customVictimNames[selectedName] = nil
-		if targetPlayer then
-			applyCustomNameToPlayer(targetPlayer, targetPlayer.Name)
-		end
-	end
-end)
-
 local targetClockTime = nil
 local lightingService = game:GetService("Lighting")
 
@@ -6941,24 +6993,34 @@ local function updateAttachPlayerList()
 			end
 		end
 	end)
-	pcall(function()
-		if Options.VictimNameDropdown then
-			local current = Options.VictimNameDropdown.Value
-			Options.VictimNameDropdown:SetValues(list)
-			if #list > 0 then
-				if not table.find(list, current) then
-					Options.VictimNameDropdown:SetValue(list[1])
-				end
-			else
-				Options.VictimNameDropdown:SetValue("")
-			end
-		end
-	end)
 end
 
 track("AttachPlayerAdded", Players.PlayerAdded:Connect(updateAttachPlayerList))
 track("AttachPlayerRemoving", Players.PlayerRemoving:Connect(updateAttachPlayerList))
 task.spawn(updateAttachPlayerList)
+
+local function updateRenamePlayerList()
+	local list = {}
+	for _, player in ipairs(Players:GetPlayers()) do
+		if player ~= LocalPlayer then
+			table.insert(list, player.Name)
+		end
+	end
+	pcall(function()
+		Options.RenamePlayerList:SetValues(list)
+		if #list > 0 then
+			if not table.find(list, Options.RenamePlayerList.Value) then
+				Options.RenamePlayerList:SetValue(list[1])
+			end
+		else
+			Options.RenamePlayerList:SetValue("")
+		end
+	end)
+end
+
+track("RenamePlayerAdded", Players.PlayerAdded:Connect(updateRenamePlayerList))
+track("RenamePlayerRemoving", Players.PlayerRemoving:Connect(updateRenamePlayerList))
+task.spawn(updateRenamePlayerList)
 
 local function startAttach()
 	disconnect("AttachLoop")
@@ -7463,17 +7525,6 @@ Library:OnUnload(function()
 	if Toggles.PingSpoofer and Toggles.PingSpoofer.Value then
 		Toggles.PingSpoofer:SetValue(false)
 	end
-	pcall(function()
-		if customVictimNames then
-			for origName, _ in pairs(customVictimNames) do
-				local p = Players:FindFirstChild(origName)
-				if p then
-					applyCustomNameToPlayer(p, p.Name)
-				end
-			end
-			customVictimNames = {}
-		end
-	end)
 	if Toggles.AimbotLockOn and Toggles.AimbotLockOn.Value then
 		Toggles.AimbotLockOn:SetValue(false)
 	end
