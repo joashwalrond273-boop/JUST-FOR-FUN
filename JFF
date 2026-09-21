@@ -1382,11 +1382,6 @@ CombatAutoBlock:AddCheckbox("BypassShield", {
 	Default = false,
 })
 
-CombatAutoBlock:AddCheckbox("PlusShieldReloadSkip", {
-	Text = "+ Shield Reload Skip",
-	Default = false,
-})
-
 CombatAutoBlock:AddSlider("ImmortalModeStuds", {
 	Text = "Block Distance",
 	Default = 18,
@@ -1428,19 +1423,8 @@ updateImmortalModeVisibility = function()
 			Toggles.BypassShield.Holder.Visible = isImmortal
 		end
 	end
-	if Toggles.PlusShieldReloadSkip then
-		if Toggles.PlusShieldReloadSkip.Visible ~= nil then
-			Toggles.PlusShieldReloadSkip.Visible = isImmortal
-		end
-		if Toggles.PlusShieldReloadSkip.Holder then
-			Toggles.PlusShieldReloadSkip.Holder.Visible = isImmortal
-		end
-	end
 	if not isImmortal and Toggles.BypassShield and Toggles.BypassShield.Value then
 		Toggles.BypassShield:SetValue(false)
-	end
-	if not isImmortal and Toggles.PlusShieldReloadSkip and Toggles.PlusShieldReloadSkip.Value then
-		Toggles.PlusShieldReloadSkip:SetValue(false)
 	end
 	CombatAutoBlock:Resize()
 end
@@ -2044,107 +2028,6 @@ end)
 Toggles.BypassShield:OnChanged(function()
 	if Toggles.KillAura then
 		Toggles.KillAura:SetValue(Toggles.BypassShield.Value)
-	end
-end)
-
-local isShieldBroken = false
-local lastShieldBreakTime = 0
-
-local function onShieldBreakDetected()
-	if not (Toggles.PlusShieldReloadSkip and Toggles.PlusShieldReloadSkip.Value) then return end
-	if isShieldBroken then return end
-
-	isShieldBroken = true
-	lastShieldBreakTime = tick()
-
-	task.spawn(function()
-		task.wait(1.0) -- 1 second cooldown after shield break
-		if not (Toggles.PlusShieldReloadSkip and Toggles.PlusShieldReloadSkip.Value) then
-			isShieldBroken = false
-			return
-		end
-
-		local hum = getHumanoid()
-		if hum then
-			local anim = hum:FindFirstChild("Animator")
-			if anim then
-				for _, trackObj in ipairs(anim:GetPlayingAnimationTracks()) do
-					local name = string.lower(trackObj.Name or "")
-					if string.find(name, "break") or string.find(name, "stun") or string.find(name, "stagger") or string.find(name, "shield") then
-						pcall(function() trackObj:Stop(0) end)
-					end
-				end
-			end
-		end
-
-		pcall(function()
-			local setShieldRemote = game:GetService("ReplicatedStorage").remoteInterface.character.setShield
-			setShieldRemote:FireServer(false)
-			task.wait(0.05)
-			setShieldRemote:FireServer(true)
-		end)
-
-		isShieldBroken = false
-	end)
-end
-
-local function setupShieldBreakListeners(char)
-	if not char then return end
-	disconnect("ShieldSkip_AttrChanged")
-	disconnect("ShieldSkip_AnimPlayed")
-	disconnect("ShieldSkip_DescAdded")
-
-	track("ShieldSkip_AttrChanged", char.AttributeChanged:Connect(function(attrName)
-		local lower = string.lower(attrName)
-		if string.find(lower, "shield") or string.find(lower, "stun") or string.find(lower, "broken") or string.find(lower, "cooldown") then
-			local val = char:GetAttribute(attrName)
-			if val == true or (type(val) == "number" and val > 0) then
-				onShieldBreakDetected()
-			end
-		end
-	end))
-
-	local hum = char:FindFirstChildOfClass("Humanoid")
-	if hum then
-		local animator = hum:FindFirstChild("Animator") or hum:WaitForChild("Animator", 2)
-		if animator then
-			track("ShieldSkip_AnimPlayed", animator.AnimationPlayed:Connect(function(trackObj)
-				local name = string.lower(trackObj.Name or "")
-				if string.find(name, "break") or string.find(name, "stagger") or string.find(name, "shieldbreak") or string.find(name, "shield_break") or string.find(name, "stun") then
-					onShieldBreakDetected()
-				end
-			end))
-		end
-	end
-
-	track("ShieldSkip_DescAdded", char.DescendantAdded:Connect(function(child)
-		local name = string.lower(child.Name)
-		if string.find(name, "break") or string.find(name, "shieldbreak") or string.find(name, "stagger") then
-			onShieldBreakDetected()
-		end
-	end))
-end
-
-Toggles.PlusShieldReloadSkip:OnChanged(function()
-	disconnect("ShieldSkip_AttrChanged")
-	disconnect("ShieldSkip_AnimPlayed")
-	disconnect("ShieldSkip_DescAdded")
-	disconnect("ShieldSkip_CharAdded")
-
-	if Toggles.PlusShieldReloadSkip.Value then
-		local char = getCharacter()
-		if char then
-			setupShieldBreakListeners(char)
-		end
-		track("ShieldSkip_CharAdded", LocalPlayer.CharacterAdded:Connect(function(newChar)
-			if Toggles.PlusShieldReloadSkip and Toggles.PlusShieldReloadSkip.Value then
-				task.defer(function()
-					setupShieldBreakListeners(newChar)
-				end)
-			end
-		end))
-	else
-		isShieldBroken = false
 	end
 end)
 
@@ -7613,9 +7496,6 @@ Library:OnUnload(function()
 	end
 	if Toggles.BypassShield and Toggles.BypassShield.Value then
 		Toggles.BypassShield:SetValue(false)
-	end
-	if Toggles.PlusShieldReloadSkip and Toggles.PlusShieldReloadSkip.Value then
-		Toggles.PlusShieldReloadSkip:SetValue(false)
 	end
 	if Toggles.DodgeAura and Toggles.DodgeAura.Value then
 		Toggles.DodgeAura:SetValue(false)
