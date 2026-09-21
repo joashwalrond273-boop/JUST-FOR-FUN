@@ -1718,8 +1718,8 @@ CombatAutoPVP:AddSlider("AutoHopStuds", {
 	Compact = true,
 })
 
-CombatAutoPVP:AddCheckbox("ShowAura", {
-	Text = "+ Show Aura",
+CombatAutoPVP:AddCheckbox("DodgeAura", {
+	Text = "+ Dodge Aura",
 	Default = false,
 })
 
@@ -7334,8 +7334,8 @@ Library:OnUnload(function()
 	if Toggles.BypassShield and Toggles.BypassShield.Value then
 		Toggles.BypassShield:SetValue(false)
 	end
-	if Toggles.ShowAura and Toggles.ShowAura.Value then
-		Toggles.ShowAura:SetValue(false)
+	if Toggles.DodgeAura and Toggles.DodgeAura.Value then
+		Toggles.DodgeAura:SetValue(false)
 	end
 	if Toggles.TouchFling and Toggles.TouchFling.Value then
 		Toggles.TouchFling:SetValue(false)
