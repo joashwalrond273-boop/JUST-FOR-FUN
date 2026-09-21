@@ -899,10 +899,6 @@ MainRight:AddButton({
 	end,
 })
 
-
-
-
-
 local function isAdmin(player)
 	local success, rank = pcall(function()
 		return player:GetRankInGroup(7312028)
