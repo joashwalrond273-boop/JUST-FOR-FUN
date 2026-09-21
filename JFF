@@ -1384,11 +1384,6 @@ CombatAutoBlock:AddSlider("ImmortalModeStuds", {
 	Compact = true,
 })
 
-CombatAutoBlock:AddToggle("ShowAura", {
-	Text = "Show Aura",
-	Default = false,
-})
-
 CombatAutoBlock:AddToggle("QuickVanish", {
 	Text = "Quick Vanish",
 	Default = false,
@@ -2146,66 +2141,6 @@ Toggles.DodgeAura:OnChanged(function()
 		Library:Notify({ Title = "Dodge Aura", Description = "Enabled (Fast Instant Dodge)", Time = 2 })
 	end
 end)
-
-local bodyFlameFireColor = Color3.fromRGB(255, 130, 30)
-local bodyFlameSecondaryColor = Color3.fromRGB(255, 0, 0)
-
-local function applyFlamesToCharacter(character)
-	if not character then return end
-	for _, part in ipairs(character:GetChildren()) do
-		if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
-			for _, child in ipairs(part:GetChildren()) do
-				if child.Name == "BodyFlameEffect" then
-					child:Destroy()
-				end
-			end
-			if Toggles.ShowAura and Toggles.ShowAura.Value then
-				local fireInstance = Instance.new("Fire")
-				fireInstance.Name = "BodyFlameEffect"
-				fireInstance.Size = 6
-				fireInstance.Heat = 9
-				fireInstance.Color = bodyFlameFireColor
-				fireInstance.SecondaryColor = bodyFlameSecondaryColor
-				fireInstance.Parent = part
-			end
-		end
-	end
-end
-
-local function removeFlamesFromCharacter(character)
-	if not character then return end
-	for _, part in ipairs(character:GetChildren()) do
-		if part:IsA("BasePart") then
-			for _, child in ipairs(part:GetChildren()) do
-				if child.Name == "BodyFlameEffect" then
-					child:Destroy()
-				end
-			end
-		end
-	end
-end
-
-Toggles.ShowAura:OnChanged(function()
-	local char = LocalPlayer.Character or getCharacter()
-	if Toggles.ShowAura.Value then
-		if char then
-			applyFlamesToCharacter(char)
-		end
-		Library:Notify({ Title = "Show Aura", Description = "Flames Enabled", Time = 2 })
-	else
-		if char then
-			removeFlamesFromCharacter(char)
-		end
-		Library:Notify({ Title = "Show Aura", Description = "Flames Extinguished", Time = 2 })
-	end
-end)
-
-track("ShowAura_CharAdded", LocalPlayer.CharacterAdded:Connect(function(char)
-	task.wait(0.5)
-	if Toggles.ShowAura and Toggles.ShowAura.Value then
-		applyFlamesToCharacter(char)
-	end
-end))
 
 local function updateHighlight(hl, target, toggleValue)
 	if target and toggleValue then
@@ -7389,9 +7324,6 @@ Library:OnUnload(function()
 	end
 	if Toggles.DodgeAura and Toggles.DodgeAura.Value then
 		Toggles.DodgeAura:SetValue(false)
-	end
-	if Toggles.ShowAura and Toggles.ShowAura.Value then
-		Toggles.ShowAura:SetValue(false)
 	end
 	if Toggles.TouchFling and Toggles.TouchFling.Value then
 		Toggles.TouchFling:SetValue(false)
