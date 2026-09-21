@@ -1491,6 +1491,12 @@ CombatCamlock:AddSlider("CamlockStuds", {
 	Compact = true,
 })
 
+CombatCamlock:AddDropdown("OutlineTarget", {
+	Text = "Outline Target",
+	Values = {"All"},
+	Default = "All",
+})
+
 CombatCamlock:AddSlider("OutlineStuds", {
 	Text = "Outline Studs",
 	Default = 7,
@@ -1807,6 +1813,12 @@ updatePVPModulesVisibility = function()
 		end
 		if Toggles.Outline.Holder then
 			Toggles.Outline.Holder.Visible = isCam
+		end
+	end
+	if Options.OutlineTarget then
+		Options.OutlineTarget.Visible = isOutline
+		if Options.OutlineTarget.Holder then
+			Options.OutlineTarget.Holder.Visible = isOutline
 		end
 	end
 	if Options.OutlineStuds then
@@ -2817,47 +2829,50 @@ Toggles.Camlock:OnChanged(function()
 			local outlineActive = (Toggles.Outline and Toggles.Outline.Value) or (Toggles.Cutline and Toggles.Cutline.Value)
 			if outlineActive then
 				local minOutlineStuds = (Options.OutlineStuds and Options.OutlineStuds.Value) or (Options.CutlineStuds and Options.CutlineStuds.Value) or 7
+				local outlineTargetSetting = (Options.OutlineTarget and Options.OutlineTarget.Value) or "All"
 				for _, otherPlayer in ipairs(Players:GetPlayers()) do
 					if otherPlayer ~= LocalPlayer and otherPlayer.Character then
 						local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
 						local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
 						if otherRoot and otherHum and otherHum.Health > 0 then
-							local otherPos = otherRoot.Position
-							local offset = myPos - otherPos
-							local flatOffset = Vector3.new(offset.X, 0, offset.Z)
-							local flatDist = flatOffset.Magnitude
+							if outlineTargetSetting == "All" or otherPlayer.Name == outlineTargetSetting then
+								local otherPos = otherRoot.Position
+								local offset = myPos - otherPos
+								local flatOffset = Vector3.new(offset.X, 0, offset.Z)
+								local flatDist = flatOffset.Magnitude
 
-							if flatDist < minOutlineStuds then
-								local pushDir
-								if flatDist > 0.001 then
-									pushDir = flatOffset.Unit
-								else
-									local backDir = -root.CFrame.LookVector
-									local flatBack = Vector3.new(backDir.X, 0, backDir.Z)
-									pushDir = flatBack.Magnitude > 0.001 and flatBack.Unit or Vector3.new(0, 0, 1)
-								end
-
-								myPos = Vector3.new(
-									otherPos.X + pushDir.X * minOutlineStuds,
-									myPos.Y,
-									otherPos.Z + pushDir.Z * minOutlineStuds
-								)
-
-								pcall(function()
-									local vel = root.AssemblyLinearVelocity or root.Velocity
-									if vel then
-										local moveTowards = vel.X * (-pushDir.X) + vel.Z * (-pushDir.Z)
-										if moveTowards > 0 then
-											local correctedVel = Vector3.new(
-												vel.X - (-pushDir.X * moveTowards),
-												vel.Y,
-												vel.Z - (-pushDir.Z * moveTowards)
-											)
-											root.AssemblyLinearVelocity = correctedVel
-											root.Velocity = correctedVel
-										end
+								if flatDist < minOutlineStuds then
+									local pushDir
+									if flatDist > 0.001 then
+										pushDir = flatOffset.Unit
+									else
+										local backDir = -root.CFrame.LookVector
+										local flatBack = Vector3.new(backDir.X, 0, backDir.Z)
+										pushDir = flatBack.Magnitude > 0.001 and flatBack.Unit or Vector3.new(0, 0, 1)
 									end
-								end)
+
+									myPos = Vector3.new(
+										otherPos.X + pushDir.X * minOutlineStuds,
+										myPos.Y,
+										otherPos.Z + pushDir.Z * minOutlineStuds
+									)
+
+									pcall(function()
+										local vel = root.AssemblyLinearVelocity or root.Velocity
+										if vel then
+											local moveTowards = vel.X * (-pushDir.X) + vel.Z * (-pushDir.Z)
+											if moveTowards > 0 then
+												local correctedVel = Vector3.new(
+													vel.X - (-pushDir.X * moveTowards),
+													vel.Y,
+													vel.Z - (-pushDir.Z * moveTowards)
+												)
+												root.AssemblyLinearVelocity = correctedVel
+												root.Velocity = correctedVel
+											end
+										end
+									end)
+								end
 							end
 						end
 					end
@@ -6853,6 +6868,17 @@ local function updateAttachPlayerList()
 				Options.CamlockTarget:SetValue(current)
 			else
 				Options.CamlockTarget:SetValue("All")
+			end
+		end
+	end)
+	pcall(function()
+		if Options.OutlineTarget then
+			local current = Options.OutlineTarget.Value
+			Options.OutlineTarget:SetValues(kaList)
+			if table.find(kaList, current) then
+				Options.OutlineTarget:SetValue(current)
+			else
+				Options.OutlineTarget:SetValue("All")
 			end
 		end
 	end)
