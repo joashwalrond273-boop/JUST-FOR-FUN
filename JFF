@@ -2093,64 +2093,52 @@ local function hookEnemyDodgeAnimator(animator, enemyChar)
 	end))
 end
 
-local auraFireColor = Color3.fromRGB(255, 130, 30)
-local auraSecondaryColor = Color3.fromRGB(255, 0, 0)
-
-local function applyFlamesToCharacter(character)
-	if not character then return end
-
-	for _, part in ipairs(character:GetChildren()) do
-		if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
-			for _, child in ipairs(part:GetChildren()) do
-				if child.Name == "ShowAuraEffect" then
-					child:Destroy()
-				end
-			end
-
-			if Toggles.ShowAura and Toggles.ShowAura.Value then
-				local fireInstance = Instance.new("Fire")
-				fireInstance.Name = "ShowAuraEffect"
-				fireInstance.Size = 6
-				fireInstance.Heat = 9
-				fireInstance.Color = auraFireColor
-				fireInstance.SecondaryColor = auraSecondaryColor
-				fireInstance.Parent = part
-			end
+Toggles.DodgeAura:OnChanged(function()
+	disconnect("DodgeAura_Heartbeat")
+	for name in pairs(Connections) do
+		if name:sub(1, 10) == "DodgeAnim_" then
+			disconnect(name)
 		end
 	end
-end
 
-local function clearAllFlames()
-	local character = getCharacter()
-	if character then
-		for _, part in ipairs(character:GetChildren()) do
-			if part:IsA("BasePart") then
-				for _, child in ipairs(part:GetChildren()) do
-					if child.Name == "ShowAuraEffect" then
-						child:Destroy()
+	if Toggles.DodgeAura.Value then
+		track("DodgeAura_Heartbeat", RunService.Heartbeat:Connect(checkAndPerformDodge))
+
+		for _, player in ipairs(Players:GetPlayers()) do
+			if player ~= LocalPlayer and player.Character then
+				local hum = player.Character:FindFirstChildOfClass("Humanoid")
+				local animator = hum and hum:FindFirstChild("Animator")
+				if animator then
+					hookEnemyDodgeAnimator(animator, player.Character)
+				end
+			end
+		end
+
+		track("DodgeAura_PlayerAdded", Players.PlayerAdded:Connect(function(player)
+			if player ~= LocalPlayer then
+				player.CharacterAdded:Connect(function(char)
+					local hum = char:WaitForChild("Humanoid", 5)
+					local animator = hum and hum:WaitForChild("Animator", 5)
+					if animator and Toggles.DodgeAura and Toggles.DodgeAura.Value then
+						hookEnemyDodgeAnimator(animator, char)
 					end
-				end
-			end
-		end
-	end
-end
-
-Toggles.ShowAura:OnChanged(function()
-	if Toggles.ShowAura.Value then
-		applyFlamesToCharacter(getCharacter())
-
-		disconnect("ShowAura_CharAdded")
-		track("ShowAura_CharAdded", LocalPlayer.CharacterAdded:Connect(function(char)
-			task.wait(0.5)
-			if Toggles.ShowAura and Toggles.ShowAura.Value then
-				applyFlamesToCharacter(char)
+				end)
 			end
 		end))
 
-		Library:Notify({ Title = "Show Aura", Description = "Enabled (Flames Active)", Time = 2 })
-	else
-		disconnect("ShowAura_CharAdded")
-		clearAllFlames()
+		for _, player in ipairs(Players:GetPlayers()) do
+			if player ~= LocalPlayer then
+				track("DodgeAura_CharAdded_" .. player.Name, player.CharacterAdded:Connect(function(char)
+					local hum = char:WaitForChild("Humanoid", 5)
+					local animator = hum and hum:WaitForChild("Animator", 5)
+					if animator and Toggles.DodgeAura and Toggles.DodgeAura.Value then
+						hookEnemyDodgeAnimator(animator, char)
+					end
+				end))
+			end
+		end
+
+		Library:Notify({ Title = "Dodge Aura", Description = "Enabled (Fast Instant Dodge)", Time = 2 })
 	end
 end)
 
