@@ -1394,15 +1394,15 @@ CombatCamlock:AddToggle("Camlock", {
 	Default = false,
 })
 
+CombatCamlock:AddCheckbox("Outline", {
+	Text = "Outline",
+	Default = false,
+})
+
 CombatCamlock:AddDropdown("CamlockTarget", {
 	Text = "Target Player",
 	Values = {"All"},
 	Default = "All",
-})
-
-CombatCamlock:AddCheckbox("Outline", {
-	Text = "Outline",
-	Default = false,
 })
 
 CombatCamlock:AddSlider("CamlockStuds", {
@@ -1538,11 +1538,11 @@ CombatAutoSwingGroup:AddDropdown("AutoSwingSlot", {
 	Multi = true,
 })
 
-CombatAutoSwingGroup:AddSlider("AutoSwingSpeed", {
-	Text = "Auto Swing Speed",
+CombatAutoSwingGroup:AddSlider("SwingSpeedVal", {
+	Text = "Swing Speed Value",
 	Default = 10,
-	Min = 0.5,
-	Max = 10,
+	Min = 1,
+	Max = 15,
 	Rounding = 1,
 	Compact = true,
 })
@@ -1572,10 +1572,10 @@ updateAutoSwingSliderVisibility = function()
 			Options.AutoSwingSlot.Holder.Visible = isAutoSwingToggled
 		end
 	end
-	if Options.AutoSwingSpeed then
-		Options.AutoSwingSpeed.Visible = isAnyToggled
-		if Options.AutoSwingSpeed.Holder then
-			Options.AutoSwingSpeed.Holder.Visible = isAnyToggled
+	if Options.SwingSpeedVal then
+		Options.SwingSpeedVal.Visible = isAnyToggled
+		if Options.SwingSpeedVal.Holder then
+			Options.SwingSpeedVal.Holder.Visible = isAnyToggled
 		end
 	end
 	if Options.PlayerStuds then
@@ -2402,7 +2402,7 @@ Toggles.AutoSwing:OnChanged(function()
 	if Toggles.AutoSwing.Value then
 		_G.T = true
 		track("AutoSwing", RunService.Heartbeat:Connect(function()
-			local speedVal = Options.AutoSwingSpeed and Options.AutoSwingSpeed.Value or 10
+			local speedVal = Options.SwingSpeedVal and Options.SwingSpeedVal.Value or 10
 			local delay = 1 / math.max(0.1, speedVal)
 			if _G.T and tick() - lastAutoSwing >= delay then
 				local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
@@ -2468,7 +2468,7 @@ Toggles.SmartSwing:OnChanged(function()
 			local root = getRootPart()
 			if not root then return end
 
-			local speedVal = Options.AutoSwingSpeed and Options.AutoSwingSpeed.Value or 10
+			local speedVal = Options.SwingSpeedVal and Options.SwingSpeedVal.Value or 10
 			local delay = 1 / math.max(0.1, speedVal)
 			if tick() - lastSmartSwing < delay then return end
 
@@ -3509,22 +3509,6 @@ do
 	end)
 end
 
-local MoveSwingSpeed = Tabs.Movement:AddLeftGroupbox("Swing Speed", "swords")
-
-MoveSwingSpeed:AddToggle("SwingSpeedToggle", {
-	Text = "Swing Speed",
-	Default = false,
-})
-
-MoveSwingSpeed:AddSlider("SwingSpeedVal", {
-	Text = "Swing Speed Value",
-	Default = 1,
-	Min = 1,
-	Max = 15,
-	Rounding = 1,
-	Compact = true,
-})
-
 MoveRight:AddToggle("Fly", {
 	Text = "Fly",
 	Default = false,
@@ -4125,36 +4109,19 @@ Toggles.AntiAFK:OnChanged(function()
 	end
 end)
 
-Toggles.SwingSpeedToggle:OnChanged(function()
-	if Toggles.SwingSpeedToggle.Value then
-		Library:Notify({ Title = "Swing Speed", Description = "Enabled", Time = 2 })
-	end
+Options.SwingSpeedVal:OnChanged(function()
 	local char = getCharacter()
 	local hum = char and char:FindFirstChildOfClass("Humanoid")
 	local animator = hum and hum:FindFirstChild("Animator")
 	if animator then
 		for _, trackObj in ipairs(animator:GetPlayingAnimationTracks()) do
-			local targetSpeed = Toggles.SwingSpeedToggle.Value and Options.SwingSpeedVal.Value or 1
-			trackObj:AdjustSpeed(targetSpeed)
-		end
-	end
-end)
-
-Options.SwingSpeedVal:OnChanged(function()
-	if Toggles.SwingSpeedToggle.Value then
-		local char = getCharacter()
-		local hum = char and char:FindFirstChildOfClass("Humanoid")
-		local animator = hum and hum:FindFirstChild("Animator")
-		if animator then
-			for _, trackObj in ipairs(animator:GetPlayingAnimationTracks()) do
-				trackObj:AdjustSpeed(Options.SwingSpeedVal.Value)
-			end
+			trackObj:AdjustSpeed(Options.SwingSpeedVal.Value)
 		end
 	end
 end)
 
 local function applyAnimationSpeed(trackObj)
-	local targetSpeed = Toggles.SwingSpeedToggle.Value and Options.SwingSpeedVal.Value or 1
+	local targetSpeed = Options.SwingSpeedVal and Options.SwingSpeedVal.Value or 10
 	trackObj:AdjustSpeed(targetSpeed)
 end
 
@@ -4167,7 +4134,7 @@ local function setupAnimationSpeedHacks(char)
 			local adjusting = false
 			local function enforceSpeed()
 				if adjusting then return end
-				local targetSpeed = Toggles.SwingSpeedToggle.Value and Options.SwingSpeedVal.Value or 1
+				local targetSpeed = Options.SwingSpeedVal and Options.SwingSpeedVal.Value or 10
 				if math.abs(trackObj.Speed - targetSpeed) > 0.01 then
 					adjusting = true
 					trackObj:AdjustSpeed(targetSpeed)
