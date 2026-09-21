@@ -407,6 +407,15 @@ AdvanceHealGroup:AddSlider("AutoEatThreshold", {
 	Compact = true,
 })
 
+AdvanceHealGroup:AddSlider("AutoEatCooldown", {
+	Text = "Eat Cooldown (s)",
+	Default = 0.3,
+	Min = 0.3,
+	Max = 5.0,
+	Rounding = 1,
+	Compact = true,
+})
+
 local MainRight = Tabs.Player:AddRightGroupbox("Settings", "settings")
 
 -- ============================================================================
@@ -1333,7 +1342,8 @@ local FoodIdMap = {
 
 local lastEatCustom = 0
 local function tryEatCustom()
-	if tick() - lastEatCustom < 0.3 then
+	local cooldown = Options and Options.AutoEatCooldown and Options.AutoEatCooldown.Value or 0.3
+	if tick() - lastEatCustom < cooldown then
 		return
 	end
 	local humanoid = getHumanoid()
