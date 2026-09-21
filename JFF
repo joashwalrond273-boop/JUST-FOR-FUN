@@ -1394,6 +1394,12 @@ CombatCamlock:AddToggle("Camlock", {
 	Default = false,
 })
 
+CombatCamlock:AddDropdown("CamlockTarget", {
+	Text = "Target Player",
+	Values = {"All"},
+	Default = "All",
+})
+
 CombatCamlock:AddCheckbox("Outline", {
 	Text = "Outline",
 	Default = false,
@@ -1677,6 +1683,12 @@ updatePVPModulesVisibility = function()
 		Options.AutoHopStuds.Visible = isHop
 		if Options.AutoHopStuds.Holder then
 			Options.AutoHopStuds.Holder.Visible = isHop
+		end
+	end
+	if Options.CamlockTarget then
+		Options.CamlockTarget.Visible = isCam
+		if Options.CamlockTarget.Holder then
+			Options.CamlockTarget.Holder.Visible = isCam
 		end
 	end
 	if Options.CamlockStuds then
@@ -2751,16 +2763,19 @@ Toggles.Camlock:OnChanged(function()
 			local myPos = root.Position
 			local closestPlayer = nil
 			local closestDist = math.huge
+			local targetSetting = Options.CamlockTarget and Options.CamlockTarget.Value or "All"
 
 			for _, otherPlayer in ipairs(Players:GetPlayers()) do
 				if otherPlayer ~= LocalPlayer and otherPlayer.Character then
 					local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
 					local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
 					if otherRoot and otherHum and otherHum.Health > 0 then
-						local dist = (otherRoot.Position - myPos).Magnitude
-						if dist <= maxDist and dist < closestDist then
-							closestDist = dist
-							closestPlayer = otherPlayer
+						if targetSetting == "All" or otherPlayer.Name == targetSetting then
+							local dist = (otherRoot.Position - myPos).Magnitude
+							if dist <= maxDist and dist < closestDist then
+								closestDist = dist
+								closestPlayer = otherPlayer
+							end
 						end
 					end
 				end
@@ -6808,6 +6823,17 @@ local function updateAttachPlayerList()
 				Options.KillAuraTarget:SetValue(current)
 			else
 				Options.KillAuraTarget:SetValue("All")
+			end
+		end
+	end)
+	pcall(function()
+		if Options.CamlockTarget then
+			local current = Options.CamlockTarget.Value
+			Options.CamlockTarget:SetValues(kaList)
+			if table.find(kaList, current) then
+				Options.CamlockTarget:SetValue(current)
+			else
+				Options.CamlockTarget:SetValue("All")
 			end
 		end
 	end)
