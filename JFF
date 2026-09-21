@@ -5742,6 +5742,237 @@ do
 	})
 end
 
+do
+	local originalModuleFuncs = {}
+	local originalHookedClosures = {}
+	local originalInstanceStates = setmetatable({}, { __mode = "k" })
+
+	local dummyObject
+	local dummyFunc
+
+	dummyFunc = function(...)
+		return dummyObject
+	end
+
+	dummyObject = setmetatable({}, {
+		__index = function(_, _)
+			return dummyFunc
+		end,
+		__call = function(_, ...)
+			return dummyObject
+		end,
+		__tostring = function()
+			return "NoBossEffects_Proxy"
+		end,
+	})
+
+	local function hookModuleTable(tbl, depth, visited)
+		depth = depth or 0
+		if depth > 4 then return end
+		visited = visited or {}
+		if visited[tbl] then return end
+		visited[tbl] = true
+
+		pcall(function()
+			if setreadonly then
+				setreadonly(tbl, false)
+			end
+		end)
+
+		for k, v in pairs(tbl) do
+			if type(v) == "function" then
+				if not originalModuleFuncs[tbl] then
+					originalModuleFuncs[tbl] = {}
+				end
+				if originalModuleFuncs[tbl][k] == nil then
+					originalModuleFuncs[tbl][k] = v
+				end
+				pcall(function()
+					tbl[k] = dummyFunc
+				end)
+			elseif type(v) == "table" and v ~= tbl then
+				hookModuleTable(v, depth + 1, visited)
+			end
+		end
+
+		local mt = getmetatable(tbl)
+		if type(mt) == "table" and not visited[mt] then
+			visited[mt] = true
+			pcall(function()
+				if setreadonly then
+					setreadonly(mt, false)
+				end
+			end)
+			if type(mt.__call) == "function" then
+				if not originalModuleFuncs[mt] then
+					originalModuleFuncs[mt] = {}
+				end
+				if originalModuleFuncs[mt]["__call"] == nil then
+					originalModuleFuncs[mt]["__call"] = mt.__call
+				end
+				pcall(function()
+					mt.__call = function() return dummyObject end
+				end)
+			end
+			if type(mt.__index) == "table" then
+				hookModuleTable(mt.__index, depth + 1, visited)
+			end
+		end
+	end
+
+	local function disableEffectInstance(v)
+		if not v or not v.Parent then return end
+
+		if originalInstanceStates[v] == nil then
+			originalInstanceStates[v] = {}
+		end
+		local state = originalInstanceStates[v]
+
+		if v:IsA("ParticleEmitter") then
+			if state.Enabled == nil then state.Enabled = v.Enabled end
+			if state.Rate == nil then state.Rate = v.Rate end
+			pcall(function()
+				v.Enabled = false
+				v.Rate = 0
+				v:Clear()
+			end)
+		elseif v:IsA("Beam") or v:IsA("Trail") or v:IsA("Fire") or v:IsA("Smoke") or v:IsA("Sparkles") then
+			if state.Enabled == nil then state.Enabled = v.Enabled end
+			pcall(function() v.Enabled = false end)
+		elseif v:IsA("Sound") then
+			if state.Volume == nil then state.Volume = v.Volume end
+			pcall(function()
+				v.Volume = 0
+				v:Stop()
+			end)
+		elseif v:IsA("Light") then
+			if state.Enabled == nil then state.Enabled = v.Enabled end
+			pcall(function() v.Enabled = false end)
+		elseif v:IsA("Highlight") or v:IsA("PostEffect") then
+			if state.Enabled == nil then state.Enabled = v.Enabled end
+			pcall(function() v.Enabled = false end)
+		elseif v:IsA("BillboardGui") or v:IsA("SurfaceGui") then
+			if state.Enabled == nil then state.Enabled = v.Enabled end
+			pcall(function() v.Enabled = false end)
+		elseif v:IsA("BasePart") or v:IsA("Decal") or v:IsA("Texture") then
+			if state.Transparency == nil then state.Transparency = v.Transparency end
+			pcall(function() v.Transparency = 1 end)
+		end
+	end
+
+	local function processEffectItem(v)
+		if not v then return end
+		if v:IsA("ModuleScript") then
+			local ok, mod = pcall(require, v)
+			if ok and mod then
+				if type(mod) == "table" then
+					hookModuleTable(mod)
+				elseif type(mod) == "function" and hookfunction then
+					if not originalHookedClosures[mod] then
+						originalHookedClosures[mod] = mod
+						pcall(function()
+							hookfunction(mod, dummyFunc)
+						end)
+					end
+				end
+			end
+		else
+			disableEffectInstance(v)
+		end
+	end
+
+	local function restoreAllModuleFuncs()
+		for tbl, funcs in pairs(originalModuleFuncs) do
+			pcall(function()
+				if setreadonly then
+					setreadonly(tbl, false)
+				end
+			end)
+			for k, origFn in pairs(funcs) do
+				pcall(function()
+					tbl[k] = origFn
+				end)
+			end
+		end
+		table.clear(originalModuleFuncs)
+
+		for origFn, _ in pairs(originalHookedClosures) do
+			pcall(function()
+				if hookfunction then
+					hookfunction(origFn, origFn)
+				end
+			end)
+		end
+		table.clear(originalHookedClosures)
+	end
+
+	local function restoreAllInstances()
+		for v, state in pairs(originalInstanceStates) do
+			if v and v.Parent then
+				pcall(function()
+					if state.Enabled ~= nil then
+						v.Enabled = state.Enabled
+					end
+					if state.Rate ~= nil and v:IsA("ParticleEmitter") then
+						v.Rate = state.Rate
+					end
+					if state.Volume ~= nil and v:IsA("Sound") then
+						v.Volume = state.Volume
+					end
+					if state.Transparency ~= nil then
+						v.Transparency = state.Transparency
+					end
+				end)
+			end
+		end
+		table.clear(originalInstanceStates)
+	end
+
+	local function applyNoBossEffects()
+		local effectFolder = ReplicatedStorage:FindFirstChild("effectModules")
+		if effectFolder then
+			processEffectItem(effectFolder)
+			for _, descendant in ipairs(effectFolder:GetDescendants()) do
+				processEffectItem(descendant)
+			end
+
+			track("NoBossEffects_DescendantAdded", effectFolder.DescendantAdded:Connect(function(desc)
+				if Toggles.NoBossEffects and Toggles.NoBossEffects.Value then
+					task.defer(function()
+						processEffectItem(desc)
+					end)
+				end
+			end))
+		end
+
+		track("NoBossEffects_RSChildAdded", ReplicatedStorage.ChildAdded:Connect(function(child)
+			if child.Name == "effectModules" and Toggles.NoBossEffects and Toggles.NoBossEffects.Value then
+				task.defer(function()
+					applyNoBossEffects()
+				end)
+			end
+		end))
+	end
+
+	VisualFPS:AddCheckbox("NoBossEffects", {
+		Text = "No Boss Effects",
+		Default = false,
+		Callback = function(state)
+			disconnect("NoBossEffects_DescendantAdded")
+			disconnect("NoBossEffects_RSChildAdded")
+
+			if state then
+				applyNoBossEffects()
+				Library:Notify({ Title = "No Boss Effects", Description = "Enabled", Time = 2 })
+			else
+				restoreAllModuleFuncs()
+				restoreAllInstances()
+				Library:Notify({ Title = "No Boss Effects", Description = "Disabled", Time = 2 })
+			end
+		end,
+	})
+end
+
 VisualFPS:AddToggle("UncapFPS", {
 	Text = "Uncap FPS",
 	Default = false,
@@ -7369,6 +7600,12 @@ Library:OnUnload(function()
 	end
 	if Toggles.RemovePBR and Toggles.RemovePBR.Value then
 		Toggles.RemovePBR:SetValue(false)
+	end
+	if Toggles.RemoveParticles and Toggles.RemoveParticles.Value then
+		Toggles.RemoveParticles:SetValue(false)
+	end
+	if Toggles.NoBossEffects and Toggles.NoBossEffects.Value then
+		Toggles.NoBossEffects:SetValue(false)
 	end
 	if Toggles.KillHeavyPostEffects and Toggles.KillHeavyPostEffects.Value then
 		Toggles.KillHeavyPostEffects:SetValue(false)
