@@ -6204,6 +6204,122 @@ do
 	})
 end
 
+do
+	local culledPlayers = {}
+	local cullingRunning = false
+
+	local function hideCharacter(character, storage)
+		for _, inst in ipairs(character:GetDescendants()) do
+			if inst:IsA("BasePart") or inst:IsA("Decal") or inst:IsA("Texture") then
+				if storage[inst] == nil then
+					storage[inst] = inst.Transparency
+				end
+				pcall(function() inst.Transparency = 1 end)
+			elseif inst:IsA("ParticleEmitter") or inst:IsA("Beam") or inst:IsA("Trail") or inst:IsA("Fire") or inst:IsA("Smoke") or inst:IsA("Sparkles") then
+				if storage[inst] == nil then
+					storage[inst] = inst.Enabled
+				end
+				pcall(function() inst.Enabled = false end)
+			elseif inst:IsA("BillboardGui") or inst:IsA("SurfaceGui") or inst:IsA("Highlight") or inst:IsA("Light") then
+				if storage[inst] == nil then
+					storage[inst] = inst.Enabled
+				end
+				pcall(function() inst.Enabled = false end)
+			end
+		end
+	end
+
+	local function restoreCharacter(storage)
+		for inst, originalVal in pairs(storage) do
+			if inst and inst.Parent then
+				pcall(function()
+					if inst:IsA("BasePart") or inst:IsA("Decal") or inst:IsA("Texture") then
+						inst.Transparency = originalVal
+					elseif inst:IsA("ParticleEmitter") or inst:IsA("Beam") or inst:IsA("Trail") or inst:IsA("Fire") or inst:IsA("Smoke") or inst:IsA("Sparkles") or inst:IsA("BillboardGui") or inst:IsA("SurfaceGui") or inst:IsA("Highlight") or inst:IsA("Light") then
+						inst.Enabled = originalVal
+					end
+				end)
+			end
+		end
+		table.clear(storage)
+	end
+
+	local function restoreAllCulled()
+		for _, storage in pairs(culledPlayers) do
+			restoreCharacter(storage)
+		end
+		table.clear(culledPlayers)
+	end
+
+	local function updateCulling()
+		local myRoot = getRootPart()
+		if not myRoot then return end
+		local myPos = myRoot.Position
+		local maxDist = (Options and Options.HideFarPlayersDistance and Options.HideFarPlayersDistance.Value) or 1500
+
+		for _, player in ipairs(Players:GetPlayers()) do
+			if player ~= LocalPlayer then
+				local char = player.Character
+				local root = char and char:FindFirstChild("HumanoidRootPart")
+				if char and root then
+					local dist = (root.Position - myPos).Magnitude
+					if dist > maxDist then
+						if not culledPlayers[player] then
+							culledPlayers[player] = {}
+						end
+						hideCharacter(char, culledPlayers[player])
+					else
+						if culledPlayers[player] then
+							restoreCharacter(culledPlayers[player])
+							culledPlayers[player] = nil
+						end
+					end
+				elseif culledPlayers[player] then
+					restoreCharacter(culledPlayers[player])
+					culledPlayers[player] = nil
+				end
+			end
+		end
+	end
+
+	local function startCullingLoop()
+		if cullingRunning then return end
+		cullingRunning = true
+		task.spawn(function()
+			while Toggles.HideFarPlayers and Toggles.HideFarPlayers.Value do
+				pcall(updateCulling)
+				task.wait(0.3)
+			end
+			restoreAllCulled()
+			cullingRunning = false
+		end)
+	end
+
+	VisualFPS:AddToggle("HideFarPlayers", {
+		Text = "Hide Far Players",
+		Default = false,
+		Callback = function(state)
+			if state then
+				startCullingLoop()
+				Library:Notify({ Title = "Hide Far Players", Description = "Enabled", Time = 2 })
+			else
+				restoreAllCulled()
+				Library:Notify({ Title = "Hide Far Players", Description = "Disabled", Time = 2 })
+			end
+		end,
+	})
+
+	VisualFPS:AddSlider("HideFarPlayersDistance", {
+		Text = "Cull Distance",
+		Default = 1500,
+		Min = 300,
+		Max = 3000,
+		Rounding = 0,
+		Suffix = " studs",
+		Compact = true,
+	})
+end
+
 VisualFPS:AddToggle("UncapFPS", {
 	Text = "Uncap FPS",
 	Default = false,
@@ -7840,6 +7956,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.NoEmitters and Toggles.NoEmitters.Value then
 		Toggles.NoEmitters:SetValue(false)
+	end
+	if Toggles.HideFarPlayers and Toggles.HideFarPlayers.Value then
+		Toggles.HideFarPlayers:SetValue(false)
 	end
 	if Toggles.KillHeavyPostEffects and Toggles.KillHeavyPostEffects.Value then
 		Toggles.KillHeavyPostEffects:SetValue(false)
