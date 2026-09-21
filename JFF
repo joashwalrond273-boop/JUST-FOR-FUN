@@ -424,11 +424,6 @@ KillswitchGroup:AddCheckbox("AntiAFK", {
 	Default = false,
 })
 
-KillswitchGroup:AddCheckbox("ClassicOrange", {
-	Text = "Classic Orange",
-	Default = false,
-})
-
 Toggles.KillswitchToggle:OnChanged(function()
 	if Toggles.KillswitchToggle.Value then
 		local humanoid = getHumanoid()
@@ -4148,67 +4143,6 @@ Toggles.AntiAFK:OnChanged(function()
 	end
 end)
 
-local classicOrangeFireColor = Color3.fromRGB(255, 130, 30)
-local classicOrangeSecondaryColor = Color3.fromRGB(255, 0, 0)
-
-local function applyClassicOrangeFlames(character)
-	if not character then return end
-	for _, part in ipairs(character:GetChildren()) do
-		if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
-			for _, child in ipairs(part:GetChildren()) do
-				if child.Name == "ClassicOrangeFlameEffect" then
-					child:Destroy()
-				end
-			end
-			if Toggles.ClassicOrange and Toggles.ClassicOrange.Value then
-				local fireInstance = Instance.new("Fire")
-				fireInstance.Name = "ClassicOrangeFlameEffect"
-				fireInstance.Size = 6
-				fireInstance.Heat = 9
-				fireInstance.Color = classicOrangeFireColor
-				fireInstance.SecondaryColor = classicOrangeSecondaryColor
-				fireInstance.Parent = part
-			end
-		end
-	end
-end
-
-local function removeClassicOrangeFlames(character)
-	if not character then return end
-	for _, part in ipairs(character:GetChildren()) do
-		if part:IsA("BasePart") then
-			for _, child in ipairs(part:GetChildren()) do
-				if child.Name == "ClassicOrangeFlameEffect" then
-					child:Destroy()
-				end
-			end
-		end
-	end
-end
-
-Toggles.ClassicOrange:OnChanged(function()
-	local char = LocalPlayer.Character or getCharacter()
-	if Toggles.ClassicOrange.Value then
-		if char then
-			applyClassicOrangeFlames(char)
-		end
-		disconnect("ClassicOrange_CharAdded")
-		track("ClassicOrange_CharAdded", LocalPlayer.CharacterAdded:Connect(function(newChar)
-			task.wait(0.5)
-			if Toggles.ClassicOrange and Toggles.ClassicOrange.Value then
-				applyClassicOrangeFlames(newChar)
-			end
-		end))
-		Library:Notify({ Title = "Classic Orange", Description = "Flames Enabled", Time = 2 })
-	else
-		disconnect("ClassicOrange_CharAdded")
-		if char then
-			removeClassicOrangeFlames(char)
-		end
-		Library:Notify({ Title = "Classic Orange", Description = "Flames Extinguished", Time = 2 })
-	end
-end)
-
 Toggles.SwingSpeedToggle:OnChanged(function()
 	if updatePVPModulesVisibility then
 		updatePVPModulesVisibility()
@@ -7440,9 +7374,6 @@ Library:OnUnload(function()
 	end
 	if Toggles.AntiAFK and Toggles.AntiAFK.Value then
 		Toggles.AntiAFK:SetValue(false)
-	end
-	if Toggles.ClassicOrange and Toggles.ClassicOrange.Value then
-		Toggles.ClassicOrange:SetValue(false)
 	end
 	if Toggles.AimbotLockOn and Toggles.AimbotLockOn.Value then
 		Toggles.AimbotLockOn:SetValue(false)
