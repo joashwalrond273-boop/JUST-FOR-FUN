@@ -1537,7 +1537,9 @@ task.spawn(function()
 	end
 end)
 
-local CombatAimbot = Tabs.Combat:AddLeftGroupbox("AIMBOT", "crosshair")
+local AimbotTabBox = Tabs.Combat:AddLeftTabbox()
+local CombatAimbot = AimbotTabBox:AddTab("AIMBOT", "crosshair")
+local CombatCamlock = AimbotTabBox:AddTab("Camlock", "video")
 
 CombatAimbot:AddToggle("AimbotLockOn", {
 	Text = "Lock On",
@@ -1557,6 +1559,34 @@ CombatAimbot:AddSlider("AimbotFOV", {
 	Default = 100,
 	Min = 10,
 	Max = 600,
+	Rounding = 0,
+	Compact = true,
+})
+
+CombatCamlock:AddCheckbox("Camlock", {
+	Text = "Camlock",
+	Default = false,
+})
+
+CombatCamlock:AddSlider("CamlockStuds", {
+	Text = "Camlock Studs",
+	Default = 20,
+	Min = 1,
+	Max = 100,
+	Rounding = 0,
+	Compact = true,
+})
+
+CombatCamlock:AddCheckbox("Outline", {
+	Text = "Outline",
+	Default = false,
+})
+
+CombatCamlock:AddSlider("OutlineStuds", {
+	Text = "Outline Studs",
+	Default = 7,
+	Min = 1,
+	Max = 50,
 	Rounding = 0,
 	Compact = true,
 })
@@ -1601,34 +1631,6 @@ CombatAutoPVP:AddCheckbox("AutoHop", {
 
 CombatAutoPVP:AddSlider("AutoHopStuds", {
 	Text = "Auto Hop Studs",
-	Default = 20,
-	Min = 1,
-	Max = 100,
-	Rounding = 0,
-	Compact = true,
-})
-
-CombatAutoPVP:AddCheckbox("Camlock", {
-	Text = "+ Camlock",
-	Default = false,
-})
-
-CombatAutoPVP:AddCheckbox("Outline", {
-	Text = "Outline",
-	Default = false,
-})
-
-CombatAutoPVP:AddSlider("OutlineStuds", {
-	Text = "Outline Studs",
-	Default = 7,
-	Min = 1,
-	Max = 50,
-	Rounding = 0,
-	Compact = true,
-})
-
-CombatAutoPVP:AddSlider("CamlockStuds", {
-	Text = "Camlock Studs",
 	Default = 20,
 	Min = 1,
 	Max = 100,
@@ -1723,6 +1725,12 @@ updatePVPModulesVisibility = function()
 		end
 	end
 	CombatAutoPVP:Resize()
+	if CombatCamlock and CombatCamlock.Resize then
+		pcall(function() CombatCamlock:Resize() end)
+	end
+	if AimbotTabBox and AimbotTabBox.Resize then
+		pcall(function() AimbotTabBox:Resize() end)
+	end
 end
 
 updatePVPModulesVisibility()
