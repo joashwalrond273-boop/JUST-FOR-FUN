@@ -1363,6 +1363,78 @@ end)
 -- COMBAT
 -- ==========================================
 local CombatLeft = Tabs.Combat:AddLeftGroupbox("Kill Aura", "swords")
+local CombatAutoBlock = Tabs.Combat:AddRightGroupbox("Immortal Mode", "shield")
+
+CombatAutoBlock:AddToggle("ImmortalMode", {
+	Text = "Immortal Mode",
+	Default = false,
+})
+
+CombatAutoBlock:AddCheckbox("BypassShield", {
+	Text = "Bypass Shield",
+	Default = false,
+})
+
+CombatAutoBlock:AddSlider("ImmortalModeStuds", {
+	Text = "Block Distance",
+	Default = 18,
+	Min = 5,
+	Max = 50,
+	Rounding = 0,
+	Compact = true,
+})
+
+CombatAutoBlock:AddToggle("DodgeAura", {
+	Text = "Dodge Aura",
+	Default = false,
+})
+
+CombatAutoBlock:AddToggle("QuickVanish", {
+	Text = "Quick Vanish",
+	Default = false,
+})
+
+CombatAutoBlock:AddSlider("QuickVanishThreshold", {
+	Text = "Health Threshold",
+	Min = 5,
+	Max = 130,
+	Default = 35,
+	Rounding = 0,
+	Compact = true,
+})
+
+updateImmortalModeVisibility = function()
+	local isImmortal = (Toggles.ImmortalMode and Toggles.ImmortalMode.Value) or false
+	if Options.ImmortalModeStuds then
+		if Options.ImmortalModeStuds.Visible ~= nil then
+			Options.ImmortalModeStuds.Visible = isImmortal
+		end
+		if Options.ImmortalModeStuds.Holder then
+			Options.ImmortalModeStuds.Holder.Visible = isImmortal
+		end
+	end
+	if Toggles.BypassShield then
+		if Toggles.BypassShield.Visible ~= nil then
+			Toggles.BypassShield.Visible = isImmortal
+		end
+		if Toggles.BypassShield.Holder then
+			Toggles.BypassShield.Holder.Visible = isImmortal
+		end
+	end
+	if not isImmortal and Toggles.BypassShield and Toggles.BypassShield.Value then
+		Toggles.BypassShield:SetValue(false)
+	end
+	CombatAutoBlock:Resize()
+end
+
+updateImmortalModeVisibility()
+task.spawn(function()
+	task.wait(0.05)
+	if updateImmortalModeVisibility then
+		updateImmortalModeVisibility()
+	end
+end)
+
 local AimbotTabBox = Tabs.Combat:AddRightTabbox()
 local CombatAimbot = AimbotTabBox:AddTab("AIMBOT", "crosshair")
 local CombatCamlock = AimbotTabBox:AddTab("Camlock", "video")
@@ -1540,10 +1612,10 @@ CombatAutoSwingGroup:AddDropdown("AutoSwingSlot", {
 
 CombatAutoSwingGroup:AddSlider("SwingSpeedVal", {
 	Text = "Swing Speed Value",
-	Default = 10,
+	Default = 20,
 	Min = 1,
-	Max = 15,
-	Rounding = 1,
+	Max = 60,
+	Rounding = 0,
 	Compact = true,
 })
 
@@ -1782,78 +1854,6 @@ CombatReach:AddSlider("ReachAngle", {
 	Rounding = 0,
 	Compact = true,
 })
-
-local CombatAutoBlock = Tabs.Combat:AddRightGroupbox("Immortal Mode", "shield")
-
-CombatAutoBlock:AddToggle("ImmortalMode", {
-	Text = "Immortal Mode",
-	Default = false,
-})
-
-CombatAutoBlock:AddCheckbox("BypassShield", {
-	Text = "Bypass Shield",
-	Default = false,
-})
-
-CombatAutoBlock:AddSlider("ImmortalModeStuds", {
-	Text = "Block Distance",
-	Default = 18,
-	Min = 5,
-	Max = 50,
-	Rounding = 0,
-	Compact = true,
-})
-
-CombatAutoBlock:AddToggle("DodgeAura", {
-	Text = "Dodge Aura",
-	Default = false,
-})
-
-CombatAutoBlock:AddToggle("QuickVanish", {
-	Text = "Quick Vanish",
-	Default = false,
-})
-
-CombatAutoBlock:AddSlider("QuickVanishThreshold", {
-	Text = "Health Threshold",
-	Min = 5,
-	Max = 130,
-	Default = 35,
-	Rounding = 0,
-	Compact = true,
-})
-
-updateImmortalModeVisibility = function()
-	local isImmortal = (Toggles.ImmortalMode and Toggles.ImmortalMode.Value) or false
-	if Options.ImmortalModeStuds then
-		if Options.ImmortalModeStuds.Visible ~= nil then
-			Options.ImmortalModeStuds.Visible = isImmortal
-		end
-		if Options.ImmortalModeStuds.Holder then
-			Options.ImmortalModeStuds.Holder.Visible = isImmortal
-		end
-	end
-	if Toggles.BypassShield then
-		if Toggles.BypassShield.Visible ~= nil then
-			Toggles.BypassShield.Visible = isImmortal
-		end
-		if Toggles.BypassShield.Holder then
-			Toggles.BypassShield.Holder.Visible = isImmortal
-		end
-	end
-	if not isImmortal and Toggles.BypassShield and Toggles.BypassShield.Value then
-		Toggles.BypassShield:SetValue(false)
-	end
-	CombatAutoBlock:Resize()
-end
-
-updateImmortalModeVisibility()
-task.spawn(function()
-	task.wait(0.05)
-	if updateImmortalModeVisibility then
-		updateImmortalModeVisibility()
-	end
-end)
 
 local function isSwingAnimation(trackObj)
 	local anim = trackObj.Animation
@@ -2402,8 +2402,8 @@ Toggles.AutoSwing:OnChanged(function()
 	if Toggles.AutoSwing.Value then
 		_G.T = true
 		track("AutoSwing", RunService.Heartbeat:Connect(function()
-			local speedVal = Options.SwingSpeedVal and Options.SwingSpeedVal.Value or 10
-			local delay = 1 / math.max(0.1, speedVal)
+			local speedVal = Options.SwingSpeedVal and Options.SwingSpeedVal.Value or 20
+			local delay = 1 / math.max(1, speedVal * 2)
 			if _G.T and tick() - lastAutoSwing >= delay then
 				local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
 				if tool and isAutoSwingSlotAllowed(Options.AutoSwingSlot) then
@@ -2468,8 +2468,8 @@ Toggles.SmartSwing:OnChanged(function()
 			local root = getRootPart()
 			if not root then return end
 
-			local speedVal = Options.SwingSpeedVal and Options.SwingSpeedVal.Value or 10
-			local delay = 1 / math.max(0.1, speedVal)
+			local speedVal = Options.SwingSpeedVal and Options.SwingSpeedVal.Value or 20
+			local delay = 1 / math.max(1, speedVal * 2)
 			if tick() - lastSmartSwing < delay then return end
 
 			local maxDist = Options.PlayerStuds and Options.PlayerStuds.Value or 20
