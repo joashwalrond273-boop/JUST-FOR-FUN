@@ -52,6 +52,7 @@ local updatePlayerESPVisibility
 local updateFlightVisibility
 local updateImmortalModeVisibility
 local updatePhantomModeVisibility
+local updateHideFarPlayersVisibility
 
 Library.ShowToggleFrameInKeybinds = true
 
@@ -6295,10 +6296,28 @@ do
 		end)
 	end
 
+	updateHideFarPlayersVisibility = function()
+		local isEnabled = (Toggles.HideFarPlayers and Toggles.HideFarPlayers.Value) or false
+		if Options.HideFarPlayersDistance then
+			if Options.HideFarPlayersDistance.Visible ~= nil then
+				Options.HideFarPlayersDistance.Visible = isEnabled
+			end
+			if Options.HideFarPlayersDistance.Holder then
+				Options.HideFarPlayersDistance.Holder.Visible = isEnabled
+			end
+		end
+		if VisualFPS and VisualFPS.Resize then
+			pcall(function() VisualFPS:Resize() end)
+		end
+	end
+
 	VisualFPS:AddToggle("HideFarPlayers", {
 		Text = "Hide Far Players",
 		Default = false,
 		Callback = function(state)
+			if updateHideFarPlayersVisibility then
+				updateHideFarPlayersVisibility()
+			end
 			if state then
 				startCullingLoop()
 				Library:Notify({ Title = "Hide Far Players", Description = "Enabled", Time = 2 })
@@ -6318,6 +6337,14 @@ do
 		Suffix = " studs",
 		Compact = true,
 	})
+
+	updateHideFarPlayersVisibility()
+	task.spawn(function()
+		task.wait(0.05)
+		if updateHideFarPlayersVisibility then
+			updateHideFarPlayersVisibility()
+		end
+	end)
 end
 
 VisualFPS:AddToggle("UncapFPS", {
