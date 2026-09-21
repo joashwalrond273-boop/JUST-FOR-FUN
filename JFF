@@ -7034,7 +7034,7 @@ local function onInvisibleFlyToggle(state)
 		task.spawn(function()
 			repeat
 				task.wait()
-			until LocalPlayer.Character
+			until LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
 
 			invisibleFlyVars.characterAddedConn = LocalPlayer.CharacterAdded:Connect(function(newChar)
 				task.wait(0.1)
@@ -7043,8 +7043,18 @@ local function onInvisibleFlyToggle(state)
 
 			applyInvisFlyTranslucency(LocalPlayer.Character)
 
-			invisibleFlyVars.playerClone = LocalPlayer.Character:Clone()
+			local realChar = LocalPlayer.Character
+			local realRoot = realChar:FindFirstChild("HumanoidRootPart")
+			local realHum = realChar:FindFirstChildOfClass("Humanoid")
+
+			invisibleFlyVars.playerClone = realChar:Clone()
 			invisibleFlyVars.playerClone.Parent = workspace
+
+			for _, desc in ipairs(invisibleFlyVars.playerClone:GetDescendants()) do
+				if desc:IsA("BasePart") then
+					desc.CanCollide = false
+				end
+			end
 
 			-- Create and apply highlight
 			local hl = Instance.new("Highlight")
@@ -7056,6 +7066,20 @@ local function onInvisibleFlyToggle(state)
 			hl.Enabled = true
 			hl.Parent = workspace
 			invisibleFlyVars.highlight = hl
+
+			local cloneRoot = invisibleFlyVars.playerClone:FindFirstChild("HumanoidRootPart")
+			local cloneHum = invisibleFlyVars.playerClone:FindFirstChildOfClass("Humanoid")
+
+			if cloneRoot then
+				cloneRoot.Anchored = true
+			end
+
+			-- Anchor and freeze real character high above so gravity never pulls it down and it does not jitter
+			if realRoot then
+				realRoot.Anchored = true
+				realRoot.AssemblyLinearVelocity = Vector3.zero
+				realRoot.AssemblyAngularVelocity = Vector3.zero
+			end
 
 			while invisibleFlyVars.invisiblefly do
 				RunService.Heartbeat:Wait()
@@ -7072,45 +7096,46 @@ local function onInvisibleFlyToggle(state)
 
 				local root = getRootPart()
 				local hum = getHumanoid()
+				local cloneR = invisibleFlyVars.playerClone:FindFirstChild("HumanoidRootPart")
 
-				if not (root and hum and invisibleFlyVars.playerClone) then
-					return
+				if not (root and hum and cloneR) then
+					break
 				end
 
-				workspace.CurrentCamera.CameraSubject = invisibleFlyVars.playerClone:FindFirstChild("Humanoid") or hum
-				hum:ChangeState("Climbing")
-				invisibleFlyVars.lastClonePivot = invisibleFlyVars.playerClone:GetPivot()
-				LocalPlayer.Character:PivotTo(invisibleFlyVars.lastClonePivot + Vector3.new(0, 500, 0))
-				root.Velocity = Vector3.zero
+				workspace.CurrentCamera.CameraSubject = cloneHum or hum
 
-				local lookPosition = workspace.CurrentCamera.CFrame.Position + workspace.CurrentCamera.CFrame.LookVector * 9999
+				local speed = (Options.InvisibleFlySpeedSlider and Options.InvisibleFlySpeedSlider.Value) or 5
+				local cam = workspace.CurrentCamera
+				local lookPosition = cam.CFrame.Position + cam.CFrame.LookVector * 9999
 
-				invisibleFlyVars.playerClone.HumanoidRootPart.CFrame = CFrame.new(
-					invisibleFlyVars.playerClone.HumanoidRootPart.Position,
-					Vector3.new(lookPosition.X, invisibleFlyVars.playerClone.HumanoidRootPart.Position.Y, lookPosition.Z)
-				)
-				invisibleFlyVars.playerClone.HumanoidRootPart.Anchored = true
+				-- Smooth move direction
+				local moveDir = Vector3.zero
+				if flyKeys.W then moveDir += cam.CFrame.LookVector end
+				if flyKeys.S then moveDir -= cam.CFrame.LookVector end
+				if flyKeys.A then moveDir -= cam.CFrame.RightVector end
+				if flyKeys.D then moveDir += cam.CFrame.RightVector end
+				if flyKeys.Space or UserInputService:IsKeyDown(Enum.KeyCode.Space) then moveDir += Vector3.yAxis end
+				if flyKeys.LeftShift or flyKeys.LeftControl or UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then moveDir -= Vector3.yAxis end
 
-				invisibleFlyVars.playerClone.HumanoidRootPart.CFrame = CFrame.new(
-					invisibleFlyVars.playerClone.HumanoidRootPart.Position + hum.MoveDirection / 10 * Options.InvisibleFlySpeedSlider.Value,
-					Vector3.new(lookPosition.X, invisibleFlyVars.playerClone.HumanoidRootPart.Position.Y, lookPosition.Z)
-				)
-
-				if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
-					invisibleFlyVars.playerClone.HumanoidRootPart.CFrame = CFrame.new(
-						invisibleFlyVars.playerClone.HumanoidRootPart.Position + Vector3.new(0, 0.2, 0),
-						Vector3.new(lookPosition.X, invisibleFlyVars.playerClone.HumanoidRootPart.Position.Y, lookPosition.Z)
-					)
+				if moveDir.Magnitude == 0 and hum.MoveDirection.Magnitude > 0 then
+					moveDir = hum.MoveDirection
 				end
 
-				if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
-					invisibleFlyVars.playerClone.HumanoidRootPart.CFrame = CFrame.new(
-						invisibleFlyVars.playerClone.HumanoidRootPart.Position - Vector3.new(0, 0.2, 0),
-						Vector3.new(lookPosition.X, invisibleFlyVars.playerClone.HumanoidRootPart.Position.Y, lookPosition.Z)
-					)
+				local deltaMove = Vector3.zero
+				if moveDir.Magnitude > 0 then
+					deltaMove = moveDir.Unit * (speed * 0.35)
 				end
+
+				cloneR.CFrame = CFrame.new(cloneR.Position + deltaMove, Vector3.new(lookPosition.X, cloneR.Position.Y + deltaMove.Y, lookPosition.Z))
 
 				invisibleFlyVars.lastClonePivot = invisibleFlyVars.playerClone:GetPivot()
+
+				-- Keep real character anchored high above without falling or jittering
+				if root and root.Parent then
+					root.AssemblyLinearVelocity = Vector3.zero
+					root.AssemblyAngularVelocity = Vector3.zero
+					LocalPlayer.Character:PivotTo(invisibleFlyVars.lastClonePivot + Vector3.new(0, 2000, 0))
+				end
 			end
 
 			workspace.CurrentCamera.CameraSubject = getHumanoid()
@@ -7126,12 +7151,20 @@ local function onInvisibleFlyToggle(state)
 				invisibleFlyVars.highlight = nil
 			end
 
+			local char = getCharacter()
+			local r = char and char:FindFirstChild("HumanoidRootPart")
+			if r then
+				r.Anchored = false
+				r.AssemblyLinearVelocity = Vector3.zero
+				r.AssemblyAngularVelocity = Vector3.zero
+			end
+
 			if invisibleFlyVars.playerClone then
 				local finalPivot = invisibleFlyVars.lastClonePivot or invisibleFlyVars.playerClone:GetPivot()
 				invisibleFlyVars.playerClone:Destroy()
 				invisibleFlyVars.playerClone = nil
-				if finalPivot then
-					pcall(function() LocalPlayer.Character:PivotTo(finalPivot) end)
+				if finalPivot and char then
+					pcall(function() char:PivotTo(finalPivot) end)
 				end
 			end
 			invisibleFlyVars.lastClonePivot = nil
@@ -7149,15 +7182,23 @@ local function onInvisibleFlyToggle(state)
 				invisibleFlyVars.highlight = nil
 			end
 
+			local char = getCharacter()
+			local r = char and char:FindFirstChild("HumanoidRootPart")
+			if r then
+				r.Anchored = false
+				r.AssemblyLinearVelocity = Vector3.zero
+				r.AssemblyAngularVelocity = Vector3.zero
+			end
+
 			if invisibleFlyVars.playerClone then
 				local finalPivot = invisibleFlyVars.lastClonePivot or invisibleFlyVars.playerClone:GetPivot()
 				invisibleFlyVars.playerClone:Destroy()
 				invisibleFlyVars.playerClone = nil
-				if finalPivot then
-					pcall(function() LocalPlayer.Character:PivotTo(finalPivot) end)
+				if finalPivot and char then
+					pcall(function() char:PivotTo(finalPivot) end)
 				end
-			elseif invisibleFlyVars.lastClonePivot then
-				pcall(function() LocalPlayer.Character:PivotTo(invisibleFlyVars.lastClonePivot) end)
+			elseif invisibleFlyVars.lastClonePivot and char then
+				pcall(function() char:PivotTo(invisibleFlyVars.lastClonePivot) end)
 			end
 			invisibleFlyVars.wasInvisibleFlyEnabled = false
 			invisibleFlyVars.lastClonePivot = nil
