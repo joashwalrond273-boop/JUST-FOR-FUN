@@ -1363,7 +1363,59 @@ end)
 -- COMBAT
 -- ==========================================
 local CombatLeft = Tabs.Combat:AddLeftGroupbox("Kill Aura", "swords")
-local CombatRight = Tabs.Combat:AddRightGroupbox("Targeting", "crosshair")
+local AimbotTabBox = Tabs.Combat:AddRightTabbox()
+local CombatAimbot = AimbotTabBox:AddTab("AIMBOT", "crosshair")
+local CombatCamlock = AimbotTabBox:AddTab("Camlock", "video")
+
+CombatAimbot:AddToggle("AimbotLockOn", {
+	Text = "Lock On",
+	Default = false,
+}):AddColorPicker("AimbotFOVCircleColor", {
+	Default = Color3.fromRGB(255, 0, 0),
+	Title = "FOV Circle Color",
+})
+
+CombatAimbot:AddCheckbox("InfiniteDistance", {
+	Text = "Infinite Distance",
+	Default = false,
+})
+
+CombatAimbot:AddSlider("AimbotFOV", {
+	Text = "FOV Slider",
+	Default = 100,
+	Min = 10,
+	Max = 600,
+	Rounding = 0,
+	Compact = true,
+})
+
+CombatCamlock:AddToggle("Camlock", {
+	Text = "Camlock",
+	Default = false,
+})
+
+CombatCamlock:AddCheckbox("Outline", {
+	Text = "Outline",
+	Default = false,
+})
+
+CombatCamlock:AddSlider("CamlockStuds", {
+	Text = "Camlock Studs",
+	Default = 20,
+	Min = 1,
+	Max = 100,
+	Rounding = 0,
+	Compact = true,
+})
+
+CombatCamlock:AddSlider("OutlineStuds", {
+	Text = "Outline Studs",
+	Default = 7,
+	Min = 1,
+	Max = 50,
+	Rounding = 0,
+	Compact = true,
+})
 
 CombatLeft:AddToggle("KillAura", {
 	Text = "Kill Aura",
@@ -1421,6 +1473,14 @@ CombatLeft:AddSlider("KillAuraAngle", {
 	Max = 180,
 	Rounding = 0,
 	Compact = true,
+})
+
+CombatLeft:AddCheckbox("HighlightTarget", {
+	Text = "Highlight Target",
+	Default = true,
+}):AddColorPicker("HighlightTargetColor", {
+	Default = Color3.fromRGB(255, 60, 60),
+	Title = "Highlight Target Color",
 })
 
 updatePhantomModeVisibility = function()
@@ -1537,60 +1597,6 @@ task.spawn(function()
 	end
 end)
 
-local AimbotTabBox = Tabs.Combat:AddLeftTabbox()
-local CombatAimbot = AimbotTabBox:AddTab("AIMBOT", "crosshair")
-local CombatCamlock = AimbotTabBox:AddTab("Camlock", "video")
-
-CombatAimbot:AddToggle("AimbotLockOn", {
-	Text = "Lock On",
-	Default = false,
-}):AddColorPicker("AimbotFOVCircleColor", {
-	Default = Color3.fromRGB(255, 0, 0),
-	Title = "FOV Circle Color",
-})
-
-CombatAimbot:AddCheckbox("InfiniteDistance", {
-	Text = "Infinite Distance",
-	Default = false,
-})
-
-CombatAimbot:AddSlider("AimbotFOV", {
-	Text = "FOV Slider",
-	Default = 100,
-	Min = 10,
-	Max = 600,
-	Rounding = 0,
-	Compact = true,
-})
-
-CombatCamlock:AddCheckbox("Camlock", {
-	Text = "Camlock",
-	Default = false,
-})
-
-CombatCamlock:AddSlider("CamlockStuds", {
-	Text = "Camlock Studs",
-	Default = 20,
-	Min = 1,
-	Max = 100,
-	Rounding = 0,
-	Compact = true,
-})
-
-CombatCamlock:AddCheckbox("Outline", {
-	Text = "Outline",
-	Default = false,
-})
-
-CombatCamlock:AddSlider("OutlineStuds", {
-	Text = "Outline Studs",
-	Default = 7,
-	Min = 1,
-	Max = 50,
-	Rounding = 0,
-	Compact = true,
-})
-
 local CombatSwordBot = Tabs.Combat:AddLeftGroupbox("Sword Bot", "swords")
 
 CombatSwordBot:AddToggle("SwordBot", {
@@ -1602,19 +1608,6 @@ CombatSwordBot:AddDropdown("ChooseVictim", {
 	Text = "Choose a Victim",
 	Values = {},
 	Default = "",
-})
-
-CombatRight:AddToggle("TargetPlayers", {
-	Text = "Target Players",
-	Default = true,
-})
-
-CombatRight:AddCheckbox("HighlightTarget", {
-	Text = "Highlight Target",
-	Default = true,
-}):AddColorPicker("HighlightTargetColor", {
-	Default = Color3.fromRGB(255, 60, 60),
-	Title = "Highlight Target Color",
 })
 
 local CombatAutoPVP = Tabs.Combat:AddRightGroupbox("PVP Modules", "swords")
@@ -2222,18 +2215,16 @@ local function killAuraLoop()
 	local targetSetting = Options.KillAuraTarget and Options.KillAuraTarget.Value or "All"
 
 	-- Scan Players
-	if Toggles.TargetPlayers.Value then
-		for _, otherPlayer in ipairs(Players:GetPlayers()) do
-			if otherPlayer ~= LocalPlayer and otherPlayer.Character then
-				local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
-				local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart") or otherPlayer.Character.PrimaryPart
-				if otherHum and otherHum.Health > 0 and otherRoot then
-					if targetSetting == "All" or otherPlayer.Name == targetSetting then
-						local d = (otherRoot.Position - pos).Magnitude
-						if d < nearestDist and passesAngleCheck(otherRoot.Position) then
-							nearestDist = d
-							nearestTarget = otherPlayer.Character
-						end
+	for _, otherPlayer in ipairs(Players:GetPlayers()) do
+		if otherPlayer ~= LocalPlayer and otherPlayer.Character then
+			local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
+			local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart") or otherPlayer.Character.PrimaryPart
+			if otherHum and otherHum.Health > 0 and otherRoot then
+				if targetSetting == "All" or otherPlayer.Name == targetSetting then
+					local d = (otherRoot.Position - pos).Magnitude
+					if d < nearestDist and passesAngleCheck(otherRoot.Position) then
+						nearestDist = d
+						nearestTarget = otherPlayer.Character
 					end
 				end
 			end
