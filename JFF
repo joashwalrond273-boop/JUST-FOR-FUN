@@ -1475,7 +1475,7 @@ CombatCamlock:AddCheckbox("Outline", {
 
 CombatCamlock:AddCheckbox("CamlockIgnoreTeam", {
 	Text = "Ignore Team",
-	Default = false,
+	Default = true,
 })
 
 CombatCamlock:AddDropdown("CamlockTarget", {
