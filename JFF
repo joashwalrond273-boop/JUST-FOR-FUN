@@ -1750,11 +1750,6 @@ CombatAutoPVP:AddCheckbox("PlusSpeedBoost", {
 	Default = false,
 })
 
-CombatAutoPVP:AddCheckbox("PlusWaterBoost", {
-	Text = "+ Water Boost",
-	Default = false,
-})
-
 CombatAutoPVP:AddDropdown("SpeedBoostSlot", {
 	Text = "Tool Slot",
 	Values = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"},
@@ -1788,8 +1783,7 @@ updatePVPModulesVisibility = function()
 	local isHop = (Toggles.AutoHop and Toggles.AutoHop.Value) or false
 	local isCam = (Toggles.Camlock and Toggles.Camlock.Value) or false
 	local isSpeedBoost = (Toggles.PlusSpeedBoost and Toggles.PlusSpeedBoost.Value) or false
-	local isWaterBoost = (Toggles.PlusWaterBoost and Toggles.PlusWaterBoost.Value) or false
-	local isAnySpeedBoost = isSpeedBoost or isWaterBoost
+	local isAnySpeedBoost = isSpeedBoost
 	local isLowGrav = (Toggles.LowGravity and Toggles.LowGravity.Value) or false
 	local isSwingSpeed = (Toggles.SwingSpeedToggle and Toggles.SwingSpeedToggle.Value) or false
 
@@ -4028,36 +4022,6 @@ Toggles.PlusSpeedBoost:OnChanged(function()
 		end))
 	else
 		Library:Notify({ Title = "+ Speed Boost", Description = "Disabled", Time = 2 })
-	end
-end)
-
-Toggles.PlusWaterBoost:OnChanged(function()
-	disconnect("PlusWaterBoost")
-	if updatePVPModulesVisibility then
-		updatePVPModulesVisibility()
-	end
-	if Toggles.PlusWaterBoost.Value then
-		Library:Notify({ Title = "+ Water Boost", Description = "Enabled", Time = 2 })
-		track("PlusWaterBoost", RunService.Heartbeat:Connect(function(dt)
-			if not isAlive() then return end
-			if Toggles.SpeedHack and Toggles.SpeedHack.Value then return end
-			local humanoid = getHumanoid()
-			local root = getRootPart()
-			if not humanoid or not root then return end
-			local isSwimming = humanoid:GetState() == Enum.HumanoidStateType.Swimming or (LocalPlayer.Character and LocalPlayer.Character:GetAttribute("inWater"))
-			if isSwimming then
-				local selectedSlot = Options.SpeedBoostSlot and Options.SpeedBoostSlot.Value or "1"
-				if isHoldingSelectedSlot(selectedSlot) then
-					local targetSpeed = Options.SpeedBoostValue and Options.SpeedBoostValue.Value or 16
-					local factor = targetSpeed - humanoid.WalkSpeed
-					if factor > 0 and humanoid.MoveDirection.Magnitude > 0 then
-						LocalPlayer.Character:TranslateBy(humanoid.MoveDirection * dt * factor)
-					end
-				end
-			end
-		end))
-	else
-		Library:Notify({ Title = "+ Water Boost", Description = "Disabled", Time = 2 })
 	end
 end)
 
@@ -7591,9 +7555,6 @@ Library:OnUnload(function()
 	end
 	if Toggles.PlusSpeedBoost and Toggles.PlusSpeedBoost.Value then
 		Toggles.PlusSpeedBoost:SetValue(false)
-	end
-	if Toggles.PlusWaterBoost and Toggles.PlusWaterBoost.Value then
-		Toggles.PlusWaterBoost:SetValue(false)
 	end
 	if Toggles.LowGravity and Toggles.LowGravity.Value then
 		Toggles.LowGravity:SetValue(false)
