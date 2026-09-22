@@ -52,7 +52,6 @@ local updatePlayerESPVisibility
 local updateFlightVisibility
 local updateImmortalModeVisibility
 local updatePhantomModeVisibility
-local updateHideFarPlayersVisibility
 
 Library.ShowToggleFrameInKeybinds = true
 
@@ -1478,6 +1477,11 @@ CombatCamlock:AddCheckbox("CamlockIgnoreTeam", {
 	Default = true,
 })
 
+CombatCamlock:AddCheckbox("SpearSword", {
+	Text = "Spear/Sword",
+	Default = false,
+})
+
 CombatCamlock:AddDropdown("CamlockTarget", {
 	Text = "Target Player",
 	Values = {"All"},
@@ -1823,6 +1827,14 @@ updatePVPModulesVisibility = function()
 		end
 		if Toggles.CamlockIgnoreTeam.Holder then
 			Toggles.CamlockIgnoreTeam.Holder.Visible = isCam
+		end
+	end
+	if Toggles.SpearSword then
+		if Toggles.SpearSword.Visible ~= nil then
+			Toggles.SpearSword.Visible = isCam
+		end
+		if Toggles.SpearSword.Holder then
+			Toggles.SpearSword.Holder.Visible = isCam
 		end
 	end
 	if Options.OutlineTarget then
@@ -2944,6 +2956,80 @@ if Toggles.CamlockIgnoreTeam then
 	Toggles.CamlockIgnoreTeam:OnChanged(function()
 		if updatePVPModulesVisibility then
 			updatePVPModulesVisibility()
+		end
+	end)
+end
+
+local function applySpearSwordSlot(slot)
+	if not (Toggles.SpearSword and Toggles.SpearSword.Value) then return end
+	if slot == 3 or slot == "3" then
+		if Options.CamlockStuds then
+			Options.CamlockStuds:SetValue(13)
+		end
+		if Options.OutlineStuds then
+			Options.OutlineStuds:SetValue(8)
+		end
+	elseif slot == 5 or slot == "5" then
+		if Options.CamlockStuds then
+			Options.CamlockStuds:SetValue(13)
+		end
+		if Options.OutlineStuds then
+			Options.OutlineStuds:SetValue(5)
+		end
+	end
+end
+
+local function checkCurrentSpearSwordHeld()
+	if not (Toggles.SpearSword and Toggles.SpearSword.Value) then return end
+	if isHoldingSelectedSlot(3) then
+		applySpearSwordSlot(3)
+	elseif isHoldingSelectedSlot(5) then
+		applySpearSwordSlot(5)
+	end
+end
+
+if Toggles.SpearSword then
+	Toggles.SpearSword:OnChanged(function()
+		disconnect("SpearSword_Input")
+		disconnect("SpearSword_ChildAdded")
+		disconnect("SpearSword_CharAdded")
+		if updatePVPModulesVisibility then
+			updatePVPModulesVisibility()
+		end
+		if Toggles.SpearSword.Value then
+			checkCurrentSpearSwordHeld()
+
+			track("SpearSword_Input", UserInputService.InputBegan:Connect(function(input, gameProcessed)
+				if not (Toggles.SpearSword and Toggles.SpearSword.Value) then return end
+				if not gameProcessed and not UserInputService:GetFocusedTextBox() then
+					if input.KeyCode == Enum.KeyCode.Three or input.KeyCode == Enum.KeyCode.KeypadThree then
+						applySpearSwordSlot(3)
+						return
+					elseif input.KeyCode == Enum.KeyCode.Five or input.KeyCode == Enum.KeyCode.KeypadFive then
+						applySpearSwordSlot(5)
+						return
+					end
+				end
+				task.delay(0.05, function()
+					checkCurrentSpearSwordHeld()
+				end)
+			end))
+
+			local function hookChar(char)
+				if not char then return end
+				disconnect("SpearSword_ChildAdded")
+				track("SpearSword_ChildAdded", char.ChildAdded:Connect(function(child)
+					if child:IsA("Tool") then
+						task.wait()
+						checkCurrentSpearSwordHeld()
+					end
+				end))
+			end
+
+			if LocalPlayer.Character then
+				hookChar(LocalPlayer.Character)
+			end
+			track("SpearSword_CharAdded", LocalPlayer.CharacterAdded:Connect(hookChar))
 		end
 	end)
 end
@@ -5773,148 +5859,6 @@ do
 	})
 end
 
-do
-	local culledPlayers = {}
-	local cullingRunning = false
-
-	local function hideCharacter(character, storage)
-		for _, inst in ipairs(character:GetDescendants()) do
-			if inst:IsA("BasePart") or inst:IsA("Decal") or inst:IsA("Texture") then
-				if storage[inst] == nil then
-					storage[inst] = inst.Transparency
-				end
-				pcall(function() inst.Transparency = 1 end)
-			elseif inst:IsA("ParticleEmitter") or inst:IsA("Beam") or inst:IsA("Trail") or inst:IsA("Fire") or inst:IsA("Smoke") or inst:IsA("Sparkles") then
-				if storage[inst] == nil then
-					storage[inst] = inst.Enabled
-				end
-				pcall(function() inst.Enabled = false end)
-			elseif inst:IsA("BillboardGui") or inst:IsA("SurfaceGui") or inst:IsA("Highlight") or inst:IsA("Light") then
-				if storage[inst] == nil then
-					storage[inst] = inst.Enabled
-				end
-				pcall(function() inst.Enabled = false end)
-			end
-		end
-	end
-
-	local function restoreCharacter(storage)
-		for inst, originalVal in pairs(storage) do
-			if inst and inst.Parent then
-				pcall(function()
-					if inst:IsA("BasePart") or inst:IsA("Decal") or inst:IsA("Texture") then
-						inst.Transparency = originalVal
-					elseif inst:IsA("ParticleEmitter") or inst:IsA("Beam") or inst:IsA("Trail") or inst:IsA("Fire") or inst:IsA("Smoke") or inst:IsA("Sparkles") or inst:IsA("BillboardGui") or inst:IsA("SurfaceGui") or inst:IsA("Highlight") or inst:IsA("Light") then
-						inst.Enabled = originalVal
-					end
-				end)
-			end
-		end
-		table.clear(storage)
-	end
-
-	local function restoreAllCulled()
-		for _, storage in pairs(culledPlayers) do
-			restoreCharacter(storage)
-		end
-		table.clear(culledPlayers)
-	end
-
-	local function updateCulling()
-		local myRoot = getRootPart()
-		if not myRoot then return end
-		local myPos = myRoot.Position
-		local maxDist = (Options and Options.HideFarPlayersDistance and Options.HideFarPlayersDistance.Value) or 1500
-
-		for _, player in ipairs(Players:GetPlayers()) do
-			if player ~= LocalPlayer then
-				local char = player.Character
-				local root = char and char:FindFirstChild("HumanoidRootPart")
-				if char and root then
-					local dist = (root.Position - myPos).Magnitude
-					if dist > maxDist then
-						if not culledPlayers[player] then
-							culledPlayers[player] = {}
-						end
-						hideCharacter(char, culledPlayers[player])
-					else
-						if culledPlayers[player] then
-							restoreCharacter(culledPlayers[player])
-							culledPlayers[player] = nil
-						end
-					end
-				elseif culledPlayers[player] then
-					restoreCharacter(culledPlayers[player])
-					culledPlayers[player] = nil
-				end
-			end
-		end
-	end
-
-	local function startCullingLoop()
-		if cullingRunning then return end
-		cullingRunning = true
-		task.spawn(function()
-			while Toggles.HideFarPlayers and Toggles.HideFarPlayers.Value do
-				pcall(updateCulling)
-				task.wait(0.3)
-			end
-			restoreAllCulled()
-			cullingRunning = false
-		end)
-	end
-
-	updateHideFarPlayersVisibility = function()
-		local isEnabled = (Toggles.HideFarPlayers and Toggles.HideFarPlayers.Value) or false
-		if Options.HideFarPlayersDistance then
-			if Options.HideFarPlayersDistance.Visible ~= nil then
-				Options.HideFarPlayersDistance.Visible = isEnabled
-			end
-			if Options.HideFarPlayersDistance.Holder then
-				Options.HideFarPlayersDistance.Holder.Visible = isEnabled
-			end
-		end
-		if VisualFPS and VisualFPS.Resize then
-			pcall(function() VisualFPS:Resize() end)
-		end
-	end
-
-	VisualFPS:AddToggle("HideFarPlayers", {
-		Text = "Hide Far Players",
-		Default = false,
-		Callback = function(state)
-			if updateHideFarPlayersVisibility then
-				updateHideFarPlayersVisibility()
-			end
-			if state then
-				startCullingLoop()
-				Library:Notify({ Title = "Hide Far Players", Description = "Enabled", Time = 2 })
-			else
-				restoreAllCulled()
-				Library:Notify({ Title = "Hide Far Players", Description = "Disabled", Time = 2 })
-			end
-		end,
-	})
-
-	VisualFPS:AddSlider("HideFarPlayersDistance", {
-		Text = "Cull Distance",
-		Default = 1500,
-		Min = 300,
-		Max = 3000,
-		Rounding = 0,
-		Suffix = " studs",
-		Compact = true,
-	})
-
-	updateHideFarPlayersVisibility()
-	task.spawn(function()
-		task.wait(0.05)
-		if updateHideFarPlayersVisibility then
-			updateHideFarPlayersVisibility()
-		end
-	end)
-end
-
 VisualFPS:AddToggle("UncapFPS", {
 	Text = "Uncap FPS",
 	Default = false,
@@ -7546,9 +7490,6 @@ Library:OnUnload(function()
 	if Toggles.RemoveParticles and Toggles.RemoveParticles.Value then
 		Toggles.RemoveParticles:SetValue(false)
 	end
-	if Toggles.HideFarPlayers and Toggles.HideFarPlayers.Value then
-		Toggles.HideFarPlayers:SetValue(false)
-	end
 	if Toggles.KillHeavyPostEffects and Toggles.KillHeavyPostEffects.Value then
 		Toggles.KillHeavyPostEffects:SetValue(false)
 	end
@@ -7631,6 +7572,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.CamlockIgnoreTeam and Toggles.CamlockIgnoreTeam.Value then
 		Toggles.CamlockIgnoreTeam:SetValue(false)
+	end
+	if Toggles.SpearSword and Toggles.SpearSword.Value then
+		Toggles.SpearSword:SetValue(false)
 	end
 	if Toggles.InvisibleFlyToggle and Toggles.InvisibleFlyToggle.Value then
 		Toggles.InvisibleFlyToggle:SetValue(false)
