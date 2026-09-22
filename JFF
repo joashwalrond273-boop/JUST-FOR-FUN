@@ -2840,7 +2840,7 @@ local function applySpearSwordSlot(slot)
 			Options.CamlockStuds:SetValue(13)
 		end
 		if Options.OutlineStuds then
-			Options.OutlineStuds:SetValue(4)
+			Options.OutlineStuds:SetValue(2)
 		end
 	end
 end
