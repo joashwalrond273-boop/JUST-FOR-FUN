@@ -1478,7 +1478,7 @@ CombatCamlock:AddCheckbox("CamlockIgnoreTeam", {
 })
 
 CombatCamlock:AddCheckbox("SpearSword", {
-	Text = "Spear/Sword",
+	Text = "Spear/Sword(Slot 3/5)",
 	Default = false,
 })
 
@@ -2974,7 +2974,7 @@ local function applySpearSwordSlot(slot)
 			Options.CamlockStuds:SetValue(13)
 		end
 		if Options.OutlineStuds then
-			Options.OutlineStuds:SetValue(5)
+			Options.OutlineStuds:SetValue(4)
 		end
 	end
 end
