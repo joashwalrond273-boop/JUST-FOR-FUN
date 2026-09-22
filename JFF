@@ -1750,6 +1750,11 @@ CombatAutoPVP:AddCheckbox("PlusSpeedBoost", {
 	Default = false,
 })
 
+CombatAutoPVP:AddCheckbox("SpeedBoostInWater", {
+	Text = "In Water",
+	Default = false,
+})
+
 CombatAutoPVP:AddDropdown("SpeedBoostSlot", {
 	Text = "Tool Slot",
 	Values = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"},
@@ -1847,6 +1852,14 @@ updatePVPModulesVisibility = function()
 		Options.OutlineStuds.Visible = isOutline
 		if Options.OutlineStuds.Holder then
 			Options.OutlineStuds.Holder.Visible = isOutline
+		end
+	end
+	if Toggles.SpeedBoostInWater then
+		if Toggles.SpeedBoostInWater.Visible ~= nil then
+			Toggles.SpeedBoostInWater.Visible = isSpeedBoost
+		end
+		if Toggles.SpeedBoostInWater.Holder then
+			Toggles.SpeedBoostInWater.Holder.Visible = isSpeedBoost
 		end
 	end
 	if Options.SpeedBoostSlot then
@@ -4008,7 +4021,9 @@ Toggles.PlusSpeedBoost:OnChanged(function()
 			local root = getRootPart()
 			if not humanoid or not root then return end
 			local isSwimming = humanoid:GetState() == Enum.HumanoidStateType.Swimming or (LocalPlayer.Character and LocalPlayer.Character:GetAttribute("inWater"))
-			if not isSwimming then
+			local inWaterOnly = Toggles.SpeedBoostInWater and Toggles.SpeedBoostInWater.Value
+			local shouldBoost = inWaterOnly and isSwimming or (not inWaterOnly and not isSwimming)
+			if shouldBoost then
 				local selectedSlot = Options.SpeedBoostSlot and Options.SpeedBoostSlot.Value or "1"
 				if isHoldingSelectedSlot(selectedSlot) then
 					local targetSpeed = Options.SpeedBoostValue and Options.SpeedBoostValue.Value or 16
@@ -4023,6 +4038,14 @@ Toggles.PlusSpeedBoost:OnChanged(function()
 		Library:Notify({ Title = "+ Speed Boost", Description = "Disabled", Time = 2 })
 	end
 end)
+
+if Toggles.SpeedBoostInWater then
+	Toggles.SpeedBoostInWater:OnChanged(function()
+		if updatePVPModulesVisibility then
+			updatePVPModulesVisibility()
+		end
+	end)
+end
 
 Toggles.MountNoclip:OnChanged(function()
 	disconnect("MountNoclip")
@@ -7554,6 +7577,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.PlusSpeedBoost and Toggles.PlusSpeedBoost.Value then
 		Toggles.PlusSpeedBoost:SetValue(false)
+	end
+	if Toggles.SpeedBoostInWater and Toggles.SpeedBoostInWater.Value then
+		Toggles.SpeedBoostInWater:SetValue(false)
 	end
 	if Toggles.LowGravity and Toggles.LowGravity.Value then
 		Toggles.LowGravity:SetValue(false)
