@@ -1473,6 +1473,11 @@ CombatCamlock:AddCheckbox("Outline", {
 	Default = false,
 })
 
+CombatCamlock:AddCheckbox("CamlockIgnoreTeam", {
+	Text = "Ignore Team",
+	Default = false,
+})
+
 CombatCamlock:AddDropdown("CamlockTarget", {
 	Text = "Target Player",
 	Values = {"All"},
@@ -1810,6 +1815,14 @@ updatePVPModulesVisibility = function()
 		end
 		if Toggles.Outline.Holder then
 			Toggles.Outline.Holder.Visible = isCam
+		end
+	end
+	if Toggles.CamlockIgnoreTeam then
+		if Toggles.CamlockIgnoreTeam.Visible ~= nil then
+			Toggles.CamlockIgnoreTeam.Visible = isCam
+		end
+		if Toggles.CamlockIgnoreTeam.Holder then
+			Toggles.CamlockIgnoreTeam.Holder.Visible = isCam
 		end
 	end
 	if Options.OutlineTarget then
@@ -2470,7 +2483,7 @@ local function isTeammate(otherPlayer)
 		return true
 	end
 
-	pcall(function()
+	local success, kingdomMatch = pcall(function()
 		if TSG.ClientData and TSG.ClientData.getKingdom then
 			local myKingdom = TSG.ClientData.getKingdom()
 			local otherKingdom = otherPlayer:GetAttribute("Kingdom") or otherPlayer:GetAttribute("Clan") or otherPlayer:GetAttribute("Team")
@@ -2478,7 +2491,11 @@ local function isTeammate(otherPlayer)
 				return true
 			end
 		end
+		return false
 	end)
+	if success and kingdomMatch then
+		return true
+	end
 
 	local myClan = LocalPlayer:GetAttribute("Clan") or LocalPlayer:GetAttribute("Kingdom") or LocalPlayer:GetAttribute("Tribe") or LocalPlayer:GetAttribute("Team")
 	local theirClan = otherPlayer:GetAttribute("Clan") or otherPlayer:GetAttribute("Kingdom") or otherPlayer:GetAttribute("Tribe") or otherPlayer:GetAttribute("Team")
@@ -2805,17 +2822,20 @@ Toggles.Camlock:OnChanged(function()
 			local closestPlayer = nil
 			local closestDist = math.huge
 			local targetSetting = Options.CamlockTarget and Options.CamlockTarget.Value or "All"
+			local ignoreTeam = Toggles.CamlockIgnoreTeam and Toggles.CamlockIgnoreTeam.Value
 
 			for _, otherPlayer in ipairs(Players:GetPlayers()) do
 				if otherPlayer ~= LocalPlayer and otherPlayer.Character then
-					local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
-					local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
-					if otherRoot and otherHum and otherHum.Health > 0 then
-						if targetSetting == "All" or otherPlayer.Name == targetSetting then
-							local dist = (otherRoot.Position - myPos).Magnitude
-							if dist <= maxDist and dist < closestDist then
-								closestDist = dist
-								closestPlayer = otherPlayer
+					if not ignoreTeam or not isTeammate(otherPlayer) then
+						local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
+						local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
+						if otherRoot and otherHum and otherHum.Health > 0 then
+							if targetSetting == "All" or otherPlayer.Name == targetSetting then
+								local dist = (otherRoot.Position - myPos).Magnitude
+								if dist <= maxDist and dist < closestDist then
+									closestDist = dist
+									closestPlayer = otherPlayer
+								end
 							end
 						end
 					end
@@ -2829,46 +2849,48 @@ Toggles.Camlock:OnChanged(function()
 				local outlineTargetSetting = (Options.OutlineTarget and Options.OutlineTarget.Value) or "All"
 				for _, otherPlayer in ipairs(Players:GetPlayers()) do
 					if otherPlayer ~= LocalPlayer and otherPlayer.Character then
-						local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
-						local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
-						if otherRoot and otherHum and otherHum.Health > 0 then
-							if outlineTargetSetting == "All" or otherPlayer.Name == outlineTargetSetting then
-								local otherPos = otherRoot.Position
-								local offset = myPos - otherPos
-								local flatOffset = Vector3.new(offset.X, 0, offset.Z)
-								local flatDist = flatOffset.Magnitude
+						if not ignoreTeam or not isTeammate(otherPlayer) then
+							local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
+							local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
+							if otherRoot and otherHum and otherHum.Health > 0 then
+								if outlineTargetSetting == "All" or otherPlayer.Name == outlineTargetSetting then
+									local otherPos = otherRoot.Position
+									local offset = myPos - otherPos
+									local flatOffset = Vector3.new(offset.X, 0, offset.Z)
+									local flatDist = flatOffset.Magnitude
 
-								if flatDist < minOutlineStuds then
-									local pushDir
-									if flatDist > 0.001 then
-										pushDir = flatOffset.Unit
-									else
-										local backDir = -root.CFrame.LookVector
-										local flatBack = Vector3.new(backDir.X, 0, backDir.Z)
-										pushDir = flatBack.Magnitude > 0.001 and flatBack.Unit or Vector3.new(0, 0, 1)
-									end
-
-									myPos = Vector3.new(
-										otherPos.X + pushDir.X * minOutlineStuds,
-										myPos.Y,
-										otherPos.Z + pushDir.Z * minOutlineStuds
-									)
-
-									pcall(function()
-										local vel = root.AssemblyLinearVelocity or root.Velocity
-										if vel then
-											local moveTowards = vel.X * (-pushDir.X) + vel.Z * (-pushDir.Z)
-											if moveTowards > 0 then
-												local correctedVel = Vector3.new(
-													vel.X - (-pushDir.X * moveTowards),
-													vel.Y,
-													vel.Z - (-pushDir.Z * moveTowards)
-												)
-												root.AssemblyLinearVelocity = correctedVel
-												root.Velocity = correctedVel
-											end
+									if flatDist < minOutlineStuds then
+										local pushDir
+										if flatDist > 0.001 then
+											pushDir = flatOffset.Unit
+										else
+											local backDir = -root.CFrame.LookVector
+											local flatBack = Vector3.new(backDir.X, 0, backDir.Z)
+											pushDir = flatBack.Magnitude > 0.001 and flatBack.Unit or Vector3.new(0, 0, 1)
 										end
-									end)
+
+										myPos = Vector3.new(
+											otherPos.X + pushDir.X * minOutlineStuds,
+											myPos.Y,
+											otherPos.Z + pushDir.Z * minOutlineStuds
+										)
+
+										pcall(function()
+											local vel = root.AssemblyLinearVelocity or root.Velocity
+											if vel then
+												local moveTowards = vel.X * (-pushDir.X) + vel.Z * (-pushDir.Z)
+												if moveTowards > 0 then
+													local correctedVel = Vector3.new(
+														vel.X - (-pushDir.X * moveTowards),
+														vel.Y,
+														vel.Z - (-pushDir.Z * moveTowards)
+													)
+													root.AssemblyLinearVelocity = correctedVel
+													root.Velocity = correctedVel
+												end
+											end
+										end)
+									end
 								end
 							end
 						end
@@ -2912,6 +2934,14 @@ end)
 
 if Toggles.Outline then
 	Toggles.Outline:OnChanged(function()
+		if updatePVPModulesVisibility then
+			updatePVPModulesVisibility()
+		end
+	end)
+end
+
+if Toggles.CamlockIgnoreTeam then
+	Toggles.CamlockIgnoreTeam:OnChanged(function()
 		if updatePVPModulesVisibility then
 			updatePVPModulesVisibility()
 		end
@@ -7598,6 +7628,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.Outline and Toggles.Outline.Value then
 		Toggles.Outline:SetValue(false)
+	end
+	if Toggles.CamlockIgnoreTeam and Toggles.CamlockIgnoreTeam.Value then
+		Toggles.CamlockIgnoreTeam:SetValue(false)
 	end
 	if Toggles.InvisibleFlyToggle and Toggles.InvisibleFlyToggle.Value then
 		Toggles.InvisibleFlyToggle:SetValue(false)
