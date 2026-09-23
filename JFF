@@ -2929,31 +2929,92 @@ if Toggles.SpearSword then
 	end)
 end
 
+local floorLookYaw = 0
+
+local function getFloorLookMouseSens()
+	local sens = 0.004
+	pcall(function()
+		local userSens = UserSettings():GetService("UserGameSettings").MouseSensitivity
+		if typeof(userSens) == "number" and userSens > 0 then
+			sens = userSens * 0.0035
+		end
+	end)
+	return sens
+end
+
 if Toggles.LookDownFloor then
 	Toggles.LookDownFloor:OnChanged(function()
 		disconnect("LookDownFloor")
+		disconnect("LookDownFloor_Input")
 		if updatePVPModulesVisibility then
 			updatePVPModulesVisibility()
 		end
 		if Toggles.LookDownFloor.Value then
-			track("LookDownFloor", RunService.RenderStepped:Connect(function()
-				if not isAlive() then return end
-				local root = getRootPart()
-				local hum = getHumanoid()
-				local camera = workspace.CurrentCamera
-				if not root or not hum or not camera then return end
-
-				local zoomDist = (Options.LookDownZoom and Options.LookDownZoom.Value) or 20
-				local rootPos = root.Position
+			local root = getRootPart()
+			if root then
 				local look = root.CFrame.LookVector
 				local flatLook = Vector3.new(look.X, 0, look.Z)
-				local upVec = flatLook.Magnitude > 0.001 and flatLook.Unit or Vector3.new(0, 0, -1)
+				if flatLook.Magnitude > 0.001 then
+					floorLookYaw = math.atan2(-flatLook.X, -flatLook.Z)
+				else
+					floorLookYaw = 0
+				end
+			else
+				floorLookYaw = 0
+			end
 
-				camera.CFrame = CFrame.lookAt(
-					rootPos + Vector3.new(0, zoomDist, 0.001),
-					rootPos,
-					upVec
-				)
+			track("LookDownFloor_Input", UserInputService.InputChanged:Connect(function(input, gameProcessed)
+				if not (Toggles.LookDownFloor and Toggles.LookDownFloor.Value) then return end
+				if input.UserInputType == Enum.UserInputType.MouseMovement then
+					local isLocked = UserInputService.MouseBehavior ~= Enum.MouseBehavior.Default
+					local isRightDown = false
+					pcall(function()
+						isRightDown = UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2)
+					end)
+					if isLocked or isRightDown then
+						local sens = getFloorLookMouseSens()
+						floorLookYaw = floorLookYaw - input.Delta.X * sens
+					end
+				elseif input.UserInputType == Enum.UserInputType.Touch then
+					floorLookYaw = floorLookYaw - input.Delta.X * 0.004
+				end
+			end))
+
+			track("LookDownFloor", RunService.RenderStepped:Connect(function(dt)
+				if not isAlive() then return end
+				local r = getRootPart()
+				local h = getHumanoid()
+				local camera = workspace.CurrentCamera
+				if not r or not h or not camera then return end
+
+				-- Arrow key rotation support
+				pcall(function()
+					if UserInputService:IsKeyDown(Enum.KeyCode.Left) then
+						floorLookYaw = floorLookYaw + 2.5 * dt
+					elseif UserInputService:IsKeyDown(Enum.KeyCode.Right) then
+						floorLookYaw = floorLookYaw - 2.5 * dt
+					end
+				end)
+
+				-- If Camlock is active and tracking a target, sync yaw
+				if Toggles.Camlock and Toggles.Camlock.Value then
+					local look = r.CFrame.LookVector
+					local flatLook = Vector3.new(look.X, 0, look.Z)
+					if flatLook.Magnitude > 0.001 then
+						floorLookYaw = math.atan2(-flatLook.X, -flatLook.Z)
+					end
+				end
+
+				local zoomDist = (Options.LookDownZoom and Options.LookDownZoom.Value) or 20
+				local rootPos = r.Position
+
+				local camRotation = CFrame.Angles(0, floorLookYaw, 0) * CFrame.Angles(-math.rad(89.5), 0, 0)
+				camera.CFrame = CFrame.new(rootPos + Vector3.new(0, zoomDist, 0)) * camRotation
+
+				-- If in lock center / shiftlock, rotate character to match yaw
+				if UserInputService.MouseBehavior == Enum.MouseBehavior.LockCenter and not (Toggles.Camlock and Toggles.Camlock.Value) then
+					r.CFrame = CFrame.new(rootPos) * CFrame.Angles(0, floorLookYaw, 0)
+				end
 			end))
 		else
 			local hum = getHumanoid()
