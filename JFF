@@ -1482,20 +1482,6 @@ CombatCamlock:AddCheckbox("SpearSword", {
 	Default = false,
 })
 
-CombatCamlock:AddCheckbox("LookDownFloor", {
-	Text = "Look at Floor",
-	Default = false,
-})
-
-CombatCamlock:AddSlider("LookDownZoom", {
-	Text = "Floor Zoom Distance",
-	Default = 20,
-	Min = 5,
-	Max = 60,
-	Rounding = 0,
-	Compact = true,
-})
-
 CombatCamlock:AddDropdown("CamlockTarget", {
 	Text = "Target Player",
 	Values = {"All"},
@@ -1788,6 +1774,20 @@ CombatAutoPVP:AddSlider("LowGravityHeight", {
 	Compact = true,
 })
 
+CombatAutoPVP:AddCheckbox("LookDownFloor", {
+	Text = "+ Look at Floor",
+	Default = false,
+})
+
+CombatAutoPVP:AddSlider("LookDownZoom", {
+	Text = "Floor Zoom Distance",
+	Default = 20,
+	Min = 5,
+	Max = 60,
+	Rounding = 0,
+	Compact = true,
+})
+
 updatePVPModulesVisibility = function()
 	local isHop = (Toggles.AutoHop and Toggles.AutoHop.Value) or false
 	local isCam = (Toggles.Camlock and Toggles.Camlock.Value) or false
@@ -1847,16 +1847,8 @@ updatePVPModulesVisibility = function()
 			Toggles.SpearSword.Holder.Visible = isCam
 		end
 	end
-	if Toggles.LookDownFloor then
-		if Toggles.LookDownFloor.Visible ~= nil then
-			Toggles.LookDownFloor.Visible = isCam
-		end
-		if Toggles.LookDownFloor.Holder then
-			Toggles.LookDownFloor.Holder.Visible = isCam
-		end
-	end
+	local isLookDown = (Toggles.LookDownFloor and Toggles.LookDownFloor.Value) or false
 	if Options.LookDownZoom then
-		local isLookDown = isCam and ((Toggles.LookDownFloor and Toggles.LookDownFloor.Value) or false)
 		Options.LookDownZoom.Visible = isLookDown
 		if Options.LookDownZoom.Holder then
 			Options.LookDownZoom.Holder.Visible = isLookDown
@@ -2930,6 +2922,7 @@ if Toggles.SpearSword then
 end
 
 local floorLookYaw = 0
+local floorTouchPositions = {}
 
 local function getFloorLookMouseSens()
 	local sens = 0.004
@@ -2946,11 +2939,21 @@ if Toggles.LookDownFloor then
 	Toggles.LookDownFloor:OnChanged(function()
 		disconnect("LookDownFloor")
 		disconnect("LookDownFloor_Input")
+		disconnect("LookDownFloor_TouchStarted")
+		disconnect("LookDownFloor_TouchMoved")
+		disconnect("LookDownFloor_TouchEnded")
+		table.clear(floorTouchPositions)
+
 		if updatePVPModulesVisibility then
 			updatePVPModulesVisibility()
 		end
+
 		if Toggles.LookDownFloor.Value then
 			local root = getRootPart()
+			local hum = getHumanoid()
+			if hum then
+				hum.AutoRotate = false
+			end
 			if root then
 				local look = root.CFrame.LookVector
 				local flatLook = Vector3.new(look.X, 0, look.Z)
@@ -2963,6 +2966,33 @@ if Toggles.LookDownFloor then
 				floorLookYaw = 0
 			end
 
+			-- Right Thumb touch panning
+			track("LookDownFloor_TouchStarted", UserInputService.TouchStarted:Connect(function(touch, gameProcessed)
+				if not (Toggles.LookDownFloor and Toggles.LookDownFloor.Value) then return end
+				local viewportSize = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(1000, 1000)
+				-- Capture touches on the right 62% of the screen (right thumb area, away from left movement joystick)
+				if touch.Position.X >= viewportSize.X * 0.38 then
+					floorTouchPositions[touch] = touch.Position
+				end
+			end))
+
+			track("LookDownFloor_TouchMoved", UserInputService.TouchMoved:Connect(function(touch, gameProcessed)
+				if not (Toggles.LookDownFloor and Toggles.LookDownFloor.Value) then return end
+				local lastPos = floorTouchPositions[touch]
+				if lastPos then
+					local currentPos = touch.Position
+					local deltaX = currentPos.X - lastPos.X
+					floorTouchPositions[touch] = currentPos
+					floorLookYaw = floorLookYaw - deltaX * 0.005
+				end
+			end))
+
+			local function removeFloorTouch(touch)
+				floorTouchPositions[touch] = nil
+			end
+			track("LookDownFloor_TouchEnded", UserInputService.TouchEnded:Connect(removeFloorTouch))
+
+			-- Mouse movement support for PC
 			track("LookDownFloor_Input", UserInputService.InputChanged:Connect(function(input, gameProcessed)
 				if not (Toggles.LookDownFloor and Toggles.LookDownFloor.Value) then return end
 				if input.UserInputType == Enum.UserInputType.MouseMovement then
@@ -2975,8 +3005,6 @@ if Toggles.LookDownFloor then
 						local sens = getFloorLookMouseSens()
 						floorLookYaw = floorLookYaw - input.Delta.X * sens
 					end
-				elseif input.UserInputType == Enum.UserInputType.Touch then
-					floorLookYaw = floorLookYaw - input.Delta.X * 0.004
 				end
 			end))
 
@@ -2987,6 +3015,9 @@ if Toggles.LookDownFloor then
 				local camera = workspace.CurrentCamera
 				if not r or not h or not camera then return end
 
+				-- Disable AutoRotate so joystick only strafes/moves without twisting facing angle
+				h.AutoRotate = false
+
 				-- Arrow key rotation support
 				pcall(function()
 					if UserInputService:IsKeyDown(Enum.KeyCode.Left) then
@@ -2996,7 +3027,7 @@ if Toggles.LookDownFloor then
 					end
 				end)
 
-				-- If Camlock is active and tracking a target, sync yaw
+				-- If Camlock is active and locked onto a target, sync yaw to target
 				if Toggles.Camlock and Toggles.Camlock.Value then
 					local look = r.CFrame.LookVector
 					local flatLook = Vector3.new(look.X, 0, look.Z)
@@ -3011,14 +3042,15 @@ if Toggles.LookDownFloor then
 				local camRotation = CFrame.Angles(0, floorLookYaw, 0) * CFrame.Angles(-math.rad(89.5), 0, 0)
 				camera.CFrame = CFrame.new(rootPos + Vector3.new(0, zoomDist, 0)) * camRotation
 
-				-- If in lock center / shiftlock, rotate character to match yaw
-				if UserInputService.MouseBehavior == Enum.MouseBehavior.LockCenter and not (Toggles.Camlock and Toggles.Camlock.Value) then
+				-- Rotate character body to face the thumb aim direction
+				if not (Toggles.Camlock and Toggles.Camlock.Value) then
 					r.CFrame = CFrame.new(rootPos) * CFrame.Angles(0, floorLookYaw, 0)
 				end
 			end))
 		else
 			local hum = getHumanoid()
 			if hum then
+				hum.AutoRotate = true
 				workspace.CurrentCamera.CameraSubject = hum
 			end
 			workspace.CurrentCamera.CameraType = Enum.CameraType.Custom
