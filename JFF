@@ -1482,6 +1482,20 @@ CombatCamlock:AddCheckbox("SpearSword", {
 	Default = false,
 })
 
+CombatCamlock:AddCheckbox("LookDownFloor", {
+	Text = "Look at Floor",
+	Default = false,
+})
+
+CombatCamlock:AddSlider("LookDownZoom", {
+	Text = "Floor Zoom Distance",
+	Default = 20,
+	Min = 5,
+	Max = 60,
+	Rounding = 0,
+	Compact = true,
+})
+
 CombatCamlock:AddDropdown("CamlockTarget", {
 	Text = "Target Player",
 	Values = {"All"},
@@ -1831,6 +1845,21 @@ updatePVPModulesVisibility = function()
 		end
 		if Toggles.SpearSword.Holder then
 			Toggles.SpearSword.Holder.Visible = isCam
+		end
+	end
+	if Toggles.LookDownFloor then
+		if Toggles.LookDownFloor.Visible ~= nil then
+			Toggles.LookDownFloor.Visible = isCam
+		end
+		if Toggles.LookDownFloor.Holder then
+			Toggles.LookDownFloor.Holder.Visible = isCam
+		end
+	end
+	if Options.LookDownZoom then
+		local isLookDown = isCam and ((Toggles.LookDownFloor and Toggles.LookDownFloor.Value) or false)
+		Options.LookDownZoom.Visible = isLookDown
+		if Options.LookDownZoom.Holder then
+			Options.LookDownZoom.Holder.Visible = isLookDown
 		end
 	end
 	if Options.OutlineTarget then
@@ -2896,6 +2925,42 @@ if Toggles.SpearSword then
 				hookChar(LocalPlayer.Character)
 			end
 			track("SpearSword_CharAdded", LocalPlayer.CharacterAdded:Connect(hookChar))
+		end
+	end)
+end
+
+if Toggles.LookDownFloor then
+	Toggles.LookDownFloor:OnChanged(function()
+		disconnect("LookDownFloor")
+		if updatePVPModulesVisibility then
+			updatePVPModulesVisibility()
+		end
+		if Toggles.LookDownFloor.Value then
+			track("LookDownFloor", RunService.RenderStepped:Connect(function()
+				if not isAlive() then return end
+				local root = getRootPart()
+				local hum = getHumanoid()
+				local camera = workspace.CurrentCamera
+				if not root or not hum or not camera then return end
+
+				local zoomDist = (Options.LookDownZoom and Options.LookDownZoom.Value) or 20
+				local rootPos = root.Position
+				local look = root.CFrame.LookVector
+				local flatLook = Vector3.new(look.X, 0, look.Z)
+				local upVec = flatLook.Magnitude > 0.001 and flatLook.Unit or Vector3.new(0, 0, -1)
+
+				camera.CFrame = CFrame.lookAt(
+					rootPos + Vector3.new(0, zoomDist, 0.001),
+					rootPos,
+					upVec
+				)
+			end))
+		else
+			local hum = getHumanoid()
+			if hum then
+				workspace.CurrentCamera.CameraSubject = hum
+			end
+			workspace.CurrentCamera.CameraType = Enum.CameraType.Custom
 		end
 	end)
 end
@@ -7438,6 +7503,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.SpearSword and Toggles.SpearSword.Value then
 		Toggles.SpearSword:SetValue(false)
+	end
+	if Toggles.LookDownFloor and Toggles.LookDownFloor.Value then
+		Toggles.LookDownFloor:SetValue(false)
 	end
 	if Toggles.InvisibleFlyToggle and Toggles.InvisibleFlyToggle.Value then
 		Toggles.InvisibleFlyToggle:SetValue(false)
