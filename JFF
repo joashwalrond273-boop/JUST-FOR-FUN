@@ -1788,6 +1788,15 @@ CombatAutoPVP:AddSlider("LookDownZoom", {
 	Compact = true,
 })
 
+CombatAutoPVP:AddSlider("LookDownSens", {
+	Text = "Floor Turn Sensitivity",
+	Default = 12,
+	Min = 1,
+	Max = 30,
+	Rounding = 0,
+	Compact = true,
+})
+
 updatePVPModulesVisibility = function()
 	local isHop = (Toggles.AutoHop and Toggles.AutoHop.Value) or false
 	local isCam = (Toggles.Camlock and Toggles.Camlock.Value) or false
@@ -1852,6 +1861,12 @@ updatePVPModulesVisibility = function()
 		Options.LookDownZoom.Visible = isLookDown
 		if Options.LookDownZoom.Holder then
 			Options.LookDownZoom.Holder.Visible = isLookDown
+		end
+	end
+	if Options.LookDownSens then
+		Options.LookDownSens.Visible = isLookDown
+		if Options.LookDownSens.Holder then
+			Options.LookDownSens.Holder.Visible = isLookDown
 		end
 	end
 	if Options.OutlineTarget then
@@ -2924,15 +2939,21 @@ end
 local floorLookYaw = 0
 local floorTouchPositions = {}
 
+local function getFloorLookTouchSens()
+	local multiplier = (Options.LookDownSens and Options.LookDownSens.Value) or 12
+	return multiplier * 0.001
+end
+
 local function getFloorLookMouseSens()
-	local sens = 0.004
+	local base = 0.008
 	pcall(function()
 		local userSens = UserSettings():GetService("UserGameSettings").MouseSensitivity
 		if typeof(userSens) == "number" and userSens > 0 then
-			sens = userSens * 0.0035
+			base = userSens * 0.007
 		end
 	end)
-	return sens
+	local multiplier = (Options.LookDownSens and (Options.LookDownSens.Value / 12)) or 1
+	return base * multiplier
 end
 
 if Toggles.LookDownFloor then
@@ -2983,7 +3004,8 @@ if Toggles.LookDownFloor then
 					local currentPos = touch.Position
 					local deltaX = currentPos.X - lastPos.X
 					floorTouchPositions[touch] = currentPos
-					floorLookYaw = floorLookYaw - deltaX * 0.005
+					local touchSens = getFloorLookTouchSens()
+					floorLookYaw = floorLookYaw - deltaX * touchSens
 				end
 			end))
 
@@ -3021,9 +3043,9 @@ if Toggles.LookDownFloor then
 				-- Arrow key rotation support
 				pcall(function()
 					if UserInputService:IsKeyDown(Enum.KeyCode.Left) then
-						floorLookYaw = floorLookYaw + 2.5 * dt
+						floorLookYaw = floorLookYaw + 4.5 * dt
 					elseif UserInputService:IsKeyDown(Enum.KeyCode.Right) then
-						floorLookYaw = floorLookYaw - 2.5 * dt
+						floorLookYaw = floorLookYaw - 4.5 * dt
 					end
 				end)
 
