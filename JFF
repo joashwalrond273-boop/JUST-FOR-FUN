@@ -1779,6 +1779,11 @@ CombatAutoPVP:AddCheckbox("LookDownFloor", {
 	Default = false,
 })
 
+CombatAutoPVP:AddCheckbox("LookDownSlotBased", {
+	Text = "Tool Slot Based",
+	Default = false,
+})
+
 CombatAutoPVP:AddDropdown("LookDownSlot", {
 	Text = "Tool Slot",
 	Values = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"},
@@ -1864,10 +1869,20 @@ updatePVPModulesVisibility = function()
 		end
 	end
 	local isLookDown = (Toggles.LookDownFloor and Toggles.LookDownFloor.Value) or false
+	local isSlotBased = isLookDown and ((Toggles.LookDownSlotBased and Toggles.LookDownSlotBased.Value) or false)
+
+	if Toggles.LookDownSlotBased then
+		if Toggles.LookDownSlotBased.Visible ~= nil then
+			Toggles.LookDownSlotBased.Visible = isLookDown
+		end
+		if Toggles.LookDownSlotBased.Holder then
+			Toggles.LookDownSlotBased.Holder.Visible = isLookDown
+		end
+	end
 	if Options.LookDownSlot then
-		Options.LookDownSlot.Visible = isLookDown
+		Options.LookDownSlot.Visible = isSlotBased
 		if Options.LookDownSlot.Holder then
-			Options.LookDownSlot.Holder.Visible = isLookDown
+			Options.LookDownSlot.Holder.Visible = isSlotBased
 		end
 	end
 	if Options.LookDownZoom then
@@ -2990,7 +3005,25 @@ local function isLookDownSlotAllowed(slotOption)
 	return false
 end
 
+local function isLookDownTriggerActive()
+	if not (Toggles.LookDownFloor and Toggles.LookDownFloor.Value) then
+		return false
+	end
+	if Toggles.LookDownSlotBased and Toggles.LookDownSlotBased.Value then
+		return isLookDownSlotAllowed(Options.LookDownSlot)
+	end
+	return true
+end
+
 local isLookDownEngaged = false
+
+if Toggles.LookDownSlotBased then
+	Toggles.LookDownSlotBased:OnChanged(function()
+		if updatePVPModulesVisibility then
+			updatePVPModulesVisibility()
+		end
+	end)
+end
 
 if Toggles.LookDownFloor then
 	Toggles.LookDownFloor:OnChanged(function()
@@ -3036,15 +3069,13 @@ if Toggles.LookDownFloor then
 
 			-- Touch turning for mobile / tablet
 			track("LookDownFloor_TouchMoved", UserInputService.TouchMoved:Connect(function(touch, gameProcessed)
-				if not (Toggles.LookDownFloor and Toggles.LookDownFloor.Value) then return end
-				if not isLookDownSlotAllowed(Options.LookDownSlot) then return end
+				if not isLookDownTriggerActive() then return end
 				applyTurnDelta(touch.Delta.X, touch.Position.X, true)
 			end))
 
 			-- Mouse & general input changed
 			track("LookDownFloor_Input", UserInputService.InputChanged:Connect(function(input, gameProcessed)
-				if not (Toggles.LookDownFloor and Toggles.LookDownFloor.Value) then return end
-				if not isLookDownSlotAllowed(Options.LookDownSlot) then return end
+				if not isLookDownTriggerActive() then return end
 				if input.UserInputType == Enum.UserInputType.Touch then
 					applyTurnDelta(input.Delta.X, input.Position.X, true)
 				elseif input.UserInputType == Enum.UserInputType.MouseMovement then
@@ -3066,9 +3097,9 @@ if Toggles.LookDownFloor then
 				local camera = workspace.CurrentCamera
 				if not r or not h or not camera then return end
 
-				local isHolding = isLookDownSlotAllowed(Options.LookDownSlot)
+				local isActive = isLookDownTriggerActive()
 
-				if isHolding then
+				if isActive then
 					if not isLookDownEngaged then
 						isLookDownEngaged = true
 						local look = r.CFrame.LookVector
@@ -7660,6 +7691,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.LookDownFloor and Toggles.LookDownFloor.Value then
 		Toggles.LookDownFloor:SetValue(false)
+	end
+	if Toggles.LookDownSlotBased and Toggles.LookDownSlotBased.Value then
+		Toggles.LookDownSlotBased:SetValue(false)
 	end
 	if Toggles.InvisibleFlyToggle and Toggles.InvisibleFlyToggle.Value then
 		Toggles.InvisibleFlyToggle:SetValue(false)
