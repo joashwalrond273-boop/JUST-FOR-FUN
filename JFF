@@ -5319,74 +5319,9 @@ end)
 -- ==========================================
 -- Extra Locations
 local TeleportExtra = Tabs.Teleport:AddLeftGroupbox("Extra Locations", "map-pin")
-
-local extraLocationPairs = {
-	{
-		main = { name = "Desert",      pos = Vector3.new(1459.50, 26.26, -204.70) },
-		sub  = { name = "Desert Hill", pos = Vector3.new(1548.35, 145.47, 196.68) },
-	},
-	{
-		main = { name = "MainLand",    pos = Vector3.new(-170.20, 25.26, 430.70) },
-		sub  = { name = "Below ML",    pos = Vector3.new(-177, 25.26, -1014.83) },
-	},
-	{
-		main = { name = "Arena",       pos = Vector3.new(-1315.59, 41.19, 1972.84) },
-		sub  = { name = "Bamboo",      pos = Vector3.new(-1330.92, 39.43, 5798.47) },
-	},
-	{
-		main = { name = "Volcano",     pos = Vector3.new(1769.70, 36.43, 1832.10) },
-		sub  = { name = "Asia Cave",   pos = Vector3.new(-2108.44, 210, 6823.05) },
-	},
-	{
-		main = { name = "Juggernaut",  pos = Vector3.new(-1645.06, 336.32, -2874.34) },
-		sub  = { name = "Waterfall",   pos = Vector3.new(-1949.89, 25.29, 345.83) },
-	},
-	{
-		main = { name = "Lion",        pos = Vector3.new(1327.79, 25.26, -756.75) },
-		sub  = { name = "White Wolf",  pos = Vector3.new(-1447.88, 25.26, -1566.85) },
-	},
-	{
-		main = { name = "Horse",       pos = Vector3.new(-215.30, 25.26, 496.58) },
-		sub  = { name = "Grey wolf",   pos = Vector3.new(84.67, 25.26, 442.49) },
-	},
-	{
-		main = { name = "Elephant",    pos = Vector3.new(1495.75, 25.26, -313.55) },
-		sub  = { name = "Snow Bear",   pos = Vector3.new(-879.8, 25.3, -2062.5) },
-	},
-}
-
-for _, pair in ipairs(extraLocationPairs) do
-	local mainBtn = TeleportExtra:AddButton({
-		Text = pair.main.name,
-		Func = function()
-			local root = getRootPart()
-			if root then
-				root.CFrame = CFrame.new(pair.main.pos)
-				Library:Notify({ Title = "Teleport", Description = "Teleported to " .. pair.main.name, Time = 1.5 })
-			else
-				Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
-			end
-		end,
-	})
-
-	if pair.sub then
-		mainBtn:AddButton({
-			Text = pair.sub.name,
-			Func = function()
-				local root = getRootPart()
-				if root then
-					root.CFrame = CFrame.new(pair.sub.pos)
-					Library:Notify({ Title = "Teleport", Description = "Teleported to " .. pair.sub.name, Time = 1.5 })
-				else
-					Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
-				end
-			end,
-		})
-	end
-end
-
--- Boss Locations Groupbox (below Extra Locations)
-local BossLocationsGroup = Tabs.Teleport:AddLeftGroupbox("Boss locations", "map-pin")
+	
+-- Boss Locations (moved into Extra Locations)
+local BossLocationsGroup = TeleportExtra
 
 BossLocationsGroup:AddButton({
 	Text = "Hacker Platform (Auto-Reset TP)",
