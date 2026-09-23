@@ -5317,6 +5317,27 @@ end)
 -- ==========================================
 -- TELEPORT
 -- ==========================================
+local function autoResetTeleport(pos, name)
+	lastDeathPosition = pos
+	shouldTeleportBack = true
+
+	local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
+	local characterFolder = remoteInterface and remoteInterface:FindFirstChild("character")
+	local resetRemote = characterFolder and characterFolder:FindFirstChild("reset")
+	if resetRemote then
+		pcall(function()
+			resetRemote:InvokeServer()
+		end)
+	else
+		local humanoid = getHumanoid()
+		if humanoid then
+			humanoid.Health = 0
+		end
+	end
+
+	Library:Notify({ Title = "Auto-Reset Teleport", Description = "Resetting... Spawning at " .. tostring(name) .. "!", Time = 2.5 })
+end
+
 local TeleportLeft = Tabs.Teleport:AddLeftGroupbox("Boss Locations", "map-pin")
 
 local bossPairs = {
@@ -5338,13 +5359,7 @@ for _, pair in ipairs(bossPairs) do
 	local mainBtn = TeleportLeft:AddButton({
 		Text = pair.main.name,
 		Func = function()
-			local root = getRootPart()
-			if root then
-				root.CFrame = CFrame.new(pair.main.pos)
-				Library:Notify({ Title = "Teleport", Description = "Teleported to " .. pair.main.name, Time = 1.5 })
-			else
-				Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
-			end
+			autoResetTeleport(pair.main.pos, pair.main.name)
 		end,
 	})
 
@@ -5352,13 +5367,7 @@ for _, pair in ipairs(bossPairs) do
 		mainBtn:AddButton({
 			Text = pair.sub.name,
 			Func = function()
-				local root = getRootPart()
-				if root then
-					root.CFrame = CFrame.new(pair.sub.pos)
-					Library:Notify({ Title = "Teleport", Description = "Teleported to " .. pair.sub.name, Time = 1.5 })
-				else
-					Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
-				end
+				autoResetTeleport(pair.sub.pos, pair.sub.name)
 			end,
 		})
 	end
@@ -5406,13 +5415,7 @@ for _, pair in ipairs(extraLocationPairs) do
 	local mainBtn = TeleportExtra:AddButton({
 		Text = pair.main.name,
 		Func = function()
-			local root = getRootPart()
-			if root then
-				root.CFrame = CFrame.new(pair.main.pos)
-				Library:Notify({ Title = "Teleport", Description = "Teleported to " .. pair.main.name, Time = 1.5 })
-			else
-				Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
-			end
+			autoResetTeleport(pair.main.pos, pair.main.name)
 		end,
 	})
 
@@ -5420,13 +5423,7 @@ for _, pair in ipairs(extraLocationPairs) do
 		mainBtn:AddButton({
 			Text = pair.sub.name,
 			Func = function()
-				local root = getRootPart()
-				if root then
-					root.CFrame = CFrame.new(pair.sub.pos)
-					Library:Notify({ Title = "Teleport", Description = "Teleported to " .. pair.sub.name, Time = 1.5 })
-				else
-					Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
-				end
+				autoResetTeleport(pair.sub.pos, pair.sub.name)
 			end,
 		})
 	end
@@ -5436,26 +5433,9 @@ end
 local Area51Group = Tabs.Teleport:AddLeftGroupbox("Area 51", "map-pin")
 
 Area51Group:AddButton({
-	Text = "Hacker Platform (Auto-Reset TP)",
+	Text = "Hacker Platform",
 	Func = function()
-		lastDeathPosition = Vector3.new(3811.73, 1546.83, -977.48)
-		shouldTeleportBack = true
-
-		local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
-		local characterFolder = remoteInterface and remoteInterface:FindFirstChild("character")
-		local resetRemote = characterFolder and characterFolder:FindFirstChild("reset")
-		if resetRemote then
-			pcall(function()
-				resetRemote:InvokeServer()
-			end)
-		else
-			local humanoid = getHumanoid()
-			if humanoid then
-				humanoid.Health = 0
-			end
-		end
-
-		Library:Notify({ Title = "Auto-Reset Teleport", Description = "Resetting... Spawning at Hacker Platform!", Time = 2.5 })
+		autoResetTeleport(Vector3.new(3811.73, 1546.83, -977.48), "Hacker Platform")
 	end,
 })
 
@@ -5463,10 +5443,10 @@ Area51Group:AddButton({
 local ReadThisFirstGroup = Tabs.Teleport:AddRightGroupbox("READ THIS FIRST!!", "alert-circle")
 
 do
-	local warnLabel = ReadThisFirstGroup:AddLabel("Always reset before teleport")
+	local warnLabel = ReadThisFirstGroup:AddLabel("Auto-Reset & Spawn active on teleport buttons")
 	pcall(function()
 		if warnLabel and warnLabel.Label then
-			warnLabel.Label.TextColor3 = Color3.fromRGB(255, 80, 80)
+			warnLabel.Label.TextColor3 = Color3.fromRGB(80, 255, 120)
 			warnLabel.Label.TextWrapped = true
 			warnLabel.Label.TextSize = 14
 		end
@@ -5531,13 +5511,7 @@ for _, pair in ipairs(merchantPairs) do
 	local mainBtn = MerchantsGroup:AddButton({
 		Text = pair.main.name,
 		Func = function()
-			local root = getRootPart()
-			if root then
-				root.CFrame = CFrame.new(pair.main.pos)
-				Library:Notify({ Title = "Teleport", Description = "Teleported to " .. pair.main.name, Time = 1.5 })
-			else
-				Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
-			end
+			autoResetTeleport(pair.main.pos, pair.main.name)
 		end,
 	})
 
@@ -5545,13 +5519,7 @@ for _, pair in ipairs(merchantPairs) do
 		mainBtn:AddButton({
 			Text = pair.sub.name,
 			Func = function()
-				local root = getRootPart()
-				if root then
-					root.CFrame = CFrame.new(pair.sub.pos)
-					Library:Notify({ Title = "Teleport", Description = "Teleported to " .. pair.sub.name, Time = 1.5 })
-				else
-					Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
-				end
+				autoResetTeleport(pair.sub.pos, pair.sub.name)
 			end,
 		})
 	end
