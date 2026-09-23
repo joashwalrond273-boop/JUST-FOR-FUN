@@ -1156,7 +1156,7 @@ track("CharacterModuleRespawn", LocalPlayer.CharacterAdded:Connect(function(char
 			shouldTeleportBack = false
 			local root = character:WaitForChild("HumanoidRootPart", 5) or getRootPart()
 			if root then
-				task.wait(0.05)
+				task.wait(0.5)
 				root.CFrame = CFrame.new(targetPos + Vector3.new(0, 3, 0))
 				Library:Notify({ Title = "Teleport", Description = "Teleported to destination!", Time = 2 })
 			end
