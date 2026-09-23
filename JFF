@@ -1149,21 +1149,17 @@ joinLowPingServer = function()
 	end)
 end
 
-track("CharacterModuleRespawn", LocalPlayer.CharacterAdded:Connect(function(character)
-	task.spawn(function()
-		if shouldTeleportBack and lastDeathPosition then
-			local targetPos = lastDeathPosition
-			shouldTeleportBack = false
-			local root = character:WaitForChild("HumanoidRootPart", 5) or getRootPart()
-			if root then
-				task.wait(0.5)
-				root.CFrame = CFrame.new(targetPos + Vector3.new(0, 3, 0))
-				Library:Notify({ Title = "Teleport", Description = "Teleported to destination!", Time = 2 })
-			end
-		end
-	end)
-	task.wait(0.5)
+track("CharacterModuleRespawn", LocalPlayer.CharacterAdded:Connect(function()
+	task.wait(1.5)
 	applyCharacterModuleToggles()
+	if shouldTeleportBack and lastDeathPosition then
+		shouldTeleportBack = false
+		local root = getRootPart()
+		if root then
+			root.CFrame = CFrame.new(lastDeathPosition + Vector3.new(0, 3, 0))
+			Library:Notify({ Title = "Reset & Teleport", Description = "Teleported back to last location!", Time = 2 })
+		end
+	end
 end))
 
 -- No Boss Damage Hook Setup
