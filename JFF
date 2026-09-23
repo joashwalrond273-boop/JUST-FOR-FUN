@@ -5511,7 +5511,7 @@ local extraResetLocations = {
 }
 
 local function addAutoResetButton(name, pos)
-	BossLocationsGroup:AddButton({
+	TeleportExtra:AddButton({
 		Text = name .. " (Auto-Reset TP)",
 		Func = function()
 			lastDeathPosition = pos
