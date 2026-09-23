@@ -2937,11 +2937,10 @@ if Toggles.SpearSword then
 end
 
 local floorLookYaw = 0
-local floorTouchPositions = {}
 
 local function getFloorLookTouchSens()
 	local multiplier = (Options.LookDownSens and Options.LookDownSens.Value) or 12
-	return multiplier * 0.001
+	return multiplier * 0.0014
 end
 
 local function getFloorLookMouseSens()
@@ -2949,7 +2948,7 @@ local function getFloorLookMouseSens()
 	pcall(function()
 		local userSens = UserSettings():GetService("UserGameSettings").MouseSensitivity
 		if typeof(userSens) == "number" and userSens > 0 then
-			base = userSens * 0.007
+			base = userSens * 0.006
 		end
 	end)
 	local multiplier = (Options.LookDownSens and (Options.LookDownSens.Value / 12)) or 1
@@ -2960,10 +2959,7 @@ if Toggles.LookDownFloor then
 	Toggles.LookDownFloor:OnChanged(function()
 		disconnect("LookDownFloor")
 		disconnect("LookDownFloor_Input")
-		disconnect("LookDownFloor_TouchStarted")
 		disconnect("LookDownFloor_TouchMoved")
-		disconnect("LookDownFloor_TouchEnded")
-		table.clear(floorTouchPositions)
 
 		if updatePVPModulesVisibility then
 			updatePVPModulesVisibility()
@@ -2987,45 +2983,42 @@ if Toggles.LookDownFloor then
 				floorLookYaw = 0
 			end
 
-			-- Right Thumb touch panning
-			track("LookDownFloor_TouchStarted", UserInputService.TouchStarted:Connect(function(touch, gameProcessed)
-				if not (Toggles.LookDownFloor and Toggles.LookDownFloor.Value) then return end
-				local viewportSize = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(1000, 1000)
-				-- Capture touches on the right 62% of the screen (right thumb area, away from left movement joystick)
-				if touch.Position.X >= viewportSize.X * 0.38 then
-					floorTouchPositions[touch] = touch.Position
+			-- Helper to apply horizontal turn delta from thumb or mouse
+			local function applyTurnDelta(deltaX, posX, isTouch)
+				if not deltaX or math.abs(deltaX) < 0.0001 then return end
+				if isTouch then
+					local viewportWidth = (workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize.X) or 1000
+					-- Ignore touch on the virtual joystick area (left 35% of the screen)
+					if posX and posX < viewportWidth * 0.35 then
+						return
+					end
+					local sens = getFloorLookTouchSens()
+					floorLookYaw = floorLookYaw - deltaX * sens
+				else
+					local sens = getFloorLookMouseSens()
+					floorLookYaw = floorLookYaw - deltaX * sens
 				end
-			end))
+			end
 
+			-- Touch turning for mobile / tablet
 			track("LookDownFloor_TouchMoved", UserInputService.TouchMoved:Connect(function(touch, gameProcessed)
 				if not (Toggles.LookDownFloor and Toggles.LookDownFloor.Value) then return end
-				local lastPos = floorTouchPositions[touch]
-				if lastPos then
-					local currentPos = touch.Position
-					local deltaX = currentPos.X - lastPos.X
-					floorTouchPositions[touch] = currentPos
-					local touchSens = getFloorLookTouchSens()
-					floorLookYaw = floorLookYaw - deltaX * touchSens
-				end
+				applyTurnDelta(touch.Delta.X, touch.Position.X, true)
 			end))
 
-			local function removeFloorTouch(touch)
-				floorTouchPositions[touch] = nil
-			end
-			track("LookDownFloor_TouchEnded", UserInputService.TouchEnded:Connect(removeFloorTouch))
-
-			-- Mouse movement support for PC
+			-- Mouse & general input changed
 			track("LookDownFloor_Input", UserInputService.InputChanged:Connect(function(input, gameProcessed)
 				if not (Toggles.LookDownFloor and Toggles.LookDownFloor.Value) then return end
-				if input.UserInputType == Enum.UserInputType.MouseMovement then
+				if input.UserInputType == Enum.UserInputType.Touch then
+					applyTurnDelta(input.Delta.X, input.Position.X, true)
+				elseif input.UserInputType == Enum.UserInputType.MouseMovement then
 					local isLocked = UserInputService.MouseBehavior ~= Enum.MouseBehavior.Default
 					local isRightDown = false
 					pcall(function()
 						isRightDown = UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2)
 					end)
 					if isLocked or isRightDown then
-						local sens = getFloorLookMouseSens()
-						floorLookYaw = floorLookYaw - input.Delta.X * sens
+						applyTurnDelta(input.Delta.X, input.Position.X, false)
 					end
 				end
 			end))
@@ -3037,7 +3030,7 @@ if Toggles.LookDownFloor then
 				local camera = workspace.CurrentCamera
 				if not r or not h or not camera then return end
 
-				-- Disable AutoRotate so joystick only strafes/moves without twisting facing angle
+				-- Disable AutoRotate so joystick only moves/strafes without twisting character facing direction
 				h.AutoRotate = false
 
 				-- Arrow key rotation support
@@ -3049,15 +3042,6 @@ if Toggles.LookDownFloor then
 					end
 				end)
 
-				-- If Camlock is active and locked onto a target, sync yaw to target
-				if Toggles.Camlock and Toggles.Camlock.Value then
-					local look = r.CFrame.LookVector
-					local flatLook = Vector3.new(look.X, 0, look.Z)
-					if flatLook.Magnitude > 0.001 then
-						floorLookYaw = math.atan2(-flatLook.X, -flatLook.Z)
-					end
-				end
-
 				local zoomDist = (Options.LookDownZoom and Options.LookDownZoom.Value) or 20
 				local rootPos = r.Position
 
@@ -3065,9 +3049,7 @@ if Toggles.LookDownFloor then
 				camera.CFrame = CFrame.new(rootPos + Vector3.new(0, zoomDist, 0)) * camRotation
 
 				-- Rotate character body to face the thumb aim direction
-				if not (Toggles.Camlock and Toggles.Camlock.Value) then
-					r.CFrame = CFrame.new(rootPos) * CFrame.Angles(0, floorLookYaw, 0)
-				end
+				r.CFrame = CFrame.new(rootPos) * CFrame.Angles(0, floorLookYaw, 0)
 			end))
 		else
 			local hum = getHumanoid()
