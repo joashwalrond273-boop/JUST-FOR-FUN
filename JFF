@@ -5459,6 +5459,30 @@ BossLocationsGroup:AddButton({
 	end,
 })
 
+BossLocationsGroup:AddButton({
+	Text = "Samurai (Auto-Reset TP)",
+	Func = function()
+		lastDeathPosition = Vector3.new(-1727.48, 517.20, 7305.50)
+		shouldTeleportBack = true
+
+		local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
+		local characterFolder = remoteInterface and remoteInterface:FindFirstChild("character")
+		local resetRemote = characterFolder and characterFolder:FindFirstChild("reset")
+		if resetRemote then
+			pcall(function()
+				resetRemote:InvokeServer()
+			end)
+		else
+			local humanoid = getHumanoid()
+			if humanoid then
+				humanoid.Health = 0
+			end
+		end
+
+		Library:Notify({ Title = "Auto-Reset Teleport", Description = "Resetting... Spawning at Samurai!", Time = 2.5 })
+	end,
+})
+
 -- READ THIS FIRST Groupbox (placed above Trick Spawn)
 local ReadThisFirstGroup = Tabs.Teleport:AddRightGroupbox("READ THIS FIRST!!", "alert-circle")
 
