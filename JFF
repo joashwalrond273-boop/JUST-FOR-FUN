@@ -1782,7 +1782,8 @@ CombatAutoPVP:AddCheckbox("LookDownFloor", {
 CombatAutoPVP:AddDropdown("LookDownSlot", {
 	Text = "Tool Slot",
 	Values = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"},
-	Default = "1",
+	Default = {"1"},
+	Multi = true,
 })
 
 CombatAutoPVP:AddSlider("LookDownZoom", {
@@ -2967,6 +2968,28 @@ local function getFloorLookMouseSens()
 	return base * multiplier
 end
 
+local function isLookDownSlotAllowed(slotOption)
+	if not slotOption then return false end
+	local val = slotOption.Value
+	if val == nil then return false end
+
+	if typeof(val) == "table" then
+		for slotKey, isSelected in pairs(val) do
+			if isSelected == true or (typeof(slotKey) == "number" and typeof(isSelected) == "string") then
+				local targetSlot = (isSelected == true) and slotKey or isSelected
+				if isHoldingSelectedSlot(targetSlot) then
+					return true
+				end
+			end
+		end
+		return false
+	elseif typeof(val) == "string" or typeof(val) == "number" then
+		return isHoldingSelectedSlot(val)
+	end
+
+	return false
+end
+
 local isLookDownEngaged = false
 
 if Toggles.LookDownFloor then
@@ -3014,16 +3037,14 @@ if Toggles.LookDownFloor then
 			-- Touch turning for mobile / tablet
 			track("LookDownFloor_TouchMoved", UserInputService.TouchMoved:Connect(function(touch, gameProcessed)
 				if not (Toggles.LookDownFloor and Toggles.LookDownFloor.Value) then return end
-				local selectedSlot = Options.LookDownSlot and Options.LookDownSlot.Value or "1"
-				if not isHoldingSelectedSlot(selectedSlot) then return end
+				if not isLookDownSlotAllowed(Options.LookDownSlot) then return end
 				applyTurnDelta(touch.Delta.X, touch.Position.X, true)
 			end))
 
 			-- Mouse & general input changed
 			track("LookDownFloor_Input", UserInputService.InputChanged:Connect(function(input, gameProcessed)
 				if not (Toggles.LookDownFloor and Toggles.LookDownFloor.Value) then return end
-				local selectedSlot = Options.LookDownSlot and Options.LookDownSlot.Value or "1"
-				if not isHoldingSelectedSlot(selectedSlot) then return end
+				if not isLookDownSlotAllowed(Options.LookDownSlot) then return end
 				if input.UserInputType == Enum.UserInputType.Touch then
 					applyTurnDelta(input.Delta.X, input.Position.X, true)
 				elseif input.UserInputType == Enum.UserInputType.MouseMovement then
@@ -3045,8 +3066,7 @@ if Toggles.LookDownFloor then
 				local camera = workspace.CurrentCamera
 				if not r or not h or not camera then return end
 
-				local selectedSlot = Options.LookDownSlot and Options.LookDownSlot.Value or "1"
-				local isHolding = isHoldingSelectedSlot(selectedSlot)
+				local isHolding = isLookDownSlotAllowed(Options.LookDownSlot)
 
 				if isHolding then
 					if not isLookDownEngaged then
