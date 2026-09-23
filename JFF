@@ -5319,35 +5319,56 @@ end)
 -- ==========================================
 local TeleportLeft = Tabs.Teleport:AddLeftGroupbox("Boss Locations", "map-pin")
 
-local bossTeleports = {
-	{ name = "Juggernaut", pos = Vector3.new(-1601.49, 113.27, -2890.59) },
-	{ name = "Titan",      pos = Vector3.new(1654.57,  23.20,  2312.14)  },
-	{ name = "Samurai",    pos = Vector3.new(-1727.48, 517.20, 7305.50)  },
-	{ name = "Kraken",     pos = Vector3.new(802.42,   19.35,  -1999.35) },
-	{ name = "Spider",     pos = Vector3.new(-330.32,  -91.12, 382.67)   },
-    { name = "Desert",     pos = Vector3.new(1459.50, 26.26, -204.70)    },
-    { name = "Marvin",     pos = Vector3.new(-663.22, 26.14, 741.84)     },
+local bossPairs = {
+	{
+		main = { name = "Samurai", pos = Vector3.new(-1727.48, 517.20, 7305.50) },
+		sub  = { name = "Juggernaut", pos = Vector3.new(-1601.49, 113.27, -2890.59) },
+	},
+	{
+		main = { name = "Spider", pos = Vector3.new(-330.32, -91.12, 382.67) },
+		sub  = { name = "Titan", pos = Vector3.new(1654.57, 23.20, 2312.14) },
+	},
+	{
+		main = { name = "Kraken", pos = Vector3.new(802.42, 19.35, -1999.35) },
+		sub  = { name = "Marvin", pos = Vector3.new(-663.22, 26.14, 741.84) },
+	},
 }
 
-for _, boss in ipairs(bossTeleports) do
-	TeleportLeft:AddButton({
-		Text = boss.name,
+for _, pair in ipairs(bossPairs) do
+	local mainBtn = TeleportLeft:AddButton({
+		Text = pair.main.name,
 		Func = function()
 			local root = getRootPart()
 			if root then
-				root.CFrame = CFrame.new(boss.pos)
-				Library:Notify({ Title = "Teleport", Description = "Teleported to " .. boss.name, Time = 1.5 })
+				root.CFrame = CFrame.new(pair.main.pos)
+				Library:Notify({ Title = "Teleport", Description = "Teleported to " .. pair.main.name, Time = 1.5 })
 			else
 				Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
 			end
 		end,
 	})
+
+	if pair.sub then
+		mainBtn:AddButton({
+			Text = pair.sub.name,
+			Func = function()
+				local root = getRootPart()
+				if root then
+					root.CFrame = CFrame.new(pair.sub.pos)
+					Library:Notify({ Title = "Teleport", Description = "Teleported to " .. pair.sub.name, Time = 1.5 })
+				else
+					Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
+				end
+			end,
+		})
+	end
 end
 
 -- Extra Locations
 local TeleportExtra = Tabs.Teleport:AddLeftGroupbox("Extra Locations", "map-pin")
 
 local extraLocations = {
+	{ name = "Desert",      pos = Vector3.new(1459.50, 26.26, -204.70)   },
 	{ name = "Desert Hill", pos = Vector3.new(1548.35, 145.47, 196.68)   },
 	{ name = "MainLand",    pos = Vector3.new(-170.20, 25.26, 430.70)    },
 	{ name = "Below ML",    pos = Vector3.new(-177, 25.26, -1014.83)     },
