@@ -1149,17 +1149,21 @@ joinLowPingServer = function()
 	end)
 end
 
-track("CharacterModuleRespawn", LocalPlayer.CharacterAdded:Connect(function()
-	task.wait(1.5)
-	applyCharacterModuleToggles()
-	if shouldTeleportBack and lastDeathPosition then
-		shouldTeleportBack = false
-		local root = getRootPart()
-		if root then
-			root.CFrame = CFrame.new(lastDeathPosition + Vector3.new(0, 3, 0))
-			Library:Notify({ Title = "Reset & Teleport", Description = "Teleported back to last location!", Time = 2 })
+track("CharacterModuleRespawn", LocalPlayer.CharacterAdded:Connect(function(character)
+	task.spawn(function()
+		if shouldTeleportBack and lastDeathPosition then
+			local targetPos = lastDeathPosition
+			shouldTeleportBack = false
+			local root = character:WaitForChild("HumanoidRootPart", 5) or getRootPart()
+			if root then
+				task.wait(0.05)
+				root.CFrame = CFrame.new(targetPos + Vector3.new(0, 3, 0))
+				Library:Notify({ Title = "Teleport", Description = "Teleported to destination!", Time = 2 })
+			end
 		end
-	end
+	end)
+	task.wait(0.5)
+	applyCharacterModuleToggles()
 end))
 
 -- No Boss Damage Hook Setup
@@ -5534,20 +5538,6 @@ for _, loc in ipairs(extraResetLocations) do
 	addAutoResetButton(TeleportExtra, loc.name, loc.pos)
 end
 
--- READ THIS FIRST Groupbox (placed above Mounts)
-local ReadThisFirstGroup = Tabs.Teleport:AddRightGroupbox("READ THIS FIRST!!", "alert-circle")
-
-do
-	local warnLabel = ReadThisFirstGroup:AddLabel("Always reset before teleport")
-	pcall(function()
-		if warnLabel and warnLabel.Label then
-			warnLabel.Label.TextColor3 = Color3.fromRGB(255, 80, 80)
-			warnLabel.Label.TextWrapped = true
-			warnLabel.Label.TextSize = 14
-		end
-	end)
-end
-
 -- Mounts Groupbox
 local ResetTeleportGroup = Tabs.Teleport:AddRightGroupbox("Mounts", "refresh-cw")
 
@@ -5567,49 +5557,17 @@ end
 -- Merchants Groupbox
 local MerchantsGroup = Tabs.Teleport:AddRightGroupbox("Merchants", "map-pin")
 
-local merchantPairs = {
-	{
-		main = { name = "Mainland",   pos = Vector3.new(-144.60, 25.26, 429.38) },
-		sub  = { name = "Desert",     pos = Vector3.new(1428.14, 25.26, -593.17) },
-	},
-	{
-		main = { name = "Asia",       pos = Vector3.new(-744.10, 329.20, 7134.18) },
-		sub  = { name = "Arctic",     pos = Vector3.new(-1251.90, 25.25, -1997.17) },
-	},
-	{
-		main = { name = "Below Main", pos = Vector3.new(-166.28, 25.26, -1043.86) },
-		sub  = { name = "Secret",     pos = Vector3.new(-1171.82, 24.40, 90.70) },
-	},
+local merchantResetLocations = {
+	{ name = "Mainland",   pos = Vector3.new(-144.60, 25.26, 429.38) },
+	{ name = "Desert",     pos = Vector3.new(1428.14, 25.26, -593.17) },
+	{ name = "Asia",       pos = Vector3.new(-744.10, 329.20, 7134.18) },
+	{ name = "Arctic",     pos = Vector3.new(-1251.90, 25.25, -1997.17) },
+	{ name = "Below Main", pos = Vector3.new(-166.28, 25.26, -1043.86) },
+	{ name = "Secret",     pos = Vector3.new(-1171.82, 24.40, 90.70) },
 }
 
-for _, pair in ipairs(merchantPairs) do
-	local mainBtn = MerchantsGroup:AddButton({
-		Text = pair.main.name,
-		Func = function()
-			local root = getRootPart()
-			if root then
-				root.CFrame = CFrame.new(pair.main.pos)
-				Library:Notify({ Title = "Teleport", Description = "Teleported to " .. pair.main.name, Time = 1.5 })
-			else
-				Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
-			end
-		end,
-	})
-
-	if pair.sub then
-		mainBtn:AddButton({
-			Text = pair.sub.name,
-			Func = function()
-				local root = getRootPart()
-				if root then
-					root.CFrame = CFrame.new(pair.sub.pos)
-					Library:Notify({ Title = "Teleport", Description = "Teleported to " .. pair.sub.name, Time = 1.5 })
-				else
-					Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
-				end
-			end,
-		})
-	end
+for _, loc in ipairs(merchantResetLocations) do
+	addAutoResetButton(MerchantsGroup, loc.name, loc.pos)
 end
 
 -- ==========================================
