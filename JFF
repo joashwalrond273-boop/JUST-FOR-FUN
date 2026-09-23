@@ -5436,35 +5436,26 @@ end
 local Area51Group = Tabs.Teleport:AddLeftGroupbox("Area 51", "map-pin")
 
 Area51Group:AddButton({
-	Text = "Hacker Platform (Force TP Test)",
+	Text = "Hacker Platform (Auto-Reset TP)",
 	Func = function()
-		local root = getRootPart()
-		local char = getCharacter()
-		if root and char then
-			local targetCFrame = CFrame.new(Vector3.new(3811.73, 1546.83, -977.48))
-			local count = 0
-			local maxTicks = 30
-			local con
-			con = RunService.Heartbeat:Connect(function()
-				count = count + 1
-				pcall(function()
-					root.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
-					root.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
-					root.CFrame = targetCFrame
-					char:PivotTo(targetCFrame)
-				end)
-				if count >= maxTicks then
-					if con then con:Disconnect() end
-					pcall(function()
-						root.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
-						root.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
-					end)
-				end
+		lastDeathPosition = Vector3.new(3811.73, 1546.83, -977.48)
+		shouldTeleportBack = true
+
+		local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
+		local characterFolder = remoteInterface and remoteInterface:FindFirstChild("character")
+		local resetRemote = characterFolder and characterFolder:FindFirstChild("reset")
+		if resetRemote then
+			pcall(function()
+				resetRemote:InvokeServer()
 			end)
-			Library:Notify({ Title = "Force Teleport", Description = "Force teleporting to Hacker Platform (30 ticks)...", Time = 2 })
 		else
-			Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
+			local humanoid = getHumanoid()
+			if humanoid then
+				humanoid.Health = 0
+			end
 		end
+
+		Library:Notify({ Title = "Auto-Reset Teleport", Description = "Resetting... Spawning at Hacker Platform!", Time = 2.5 })
 	end,
 })
 
