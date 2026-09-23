@@ -5317,53 +5317,6 @@ end)
 -- ==========================================
 -- TELEPORT
 -- ==========================================
-local TeleportLeft = Tabs.Teleport:AddLeftGroupbox("Boss Locations", "map-pin")
-
-local bossPairs = {
-	{
-		main = { name = "Samurai", pos = Vector3.new(-1727.48, 517.20, 7305.50) },
-		sub  = { name = "Juggernaut", pos = Vector3.new(-1601.49, 113.27, -2890.59) },
-	},
-	{
-		main = { name = "Spider", pos = Vector3.new(-330.32, -91.12, 382.67) },
-		sub  = { name = "Titan", pos = Vector3.new(1654.57, 23.20, 2312.14) },
-	},
-	{
-		main = { name = "Kraken", pos = Vector3.new(802.42, 19.35, -1999.35) },
-		sub  = { name = "Marvin", pos = Vector3.new(-663.22, 26.14, 741.84) },
-	},
-}
-
-for _, pair in ipairs(bossPairs) do
-	local mainBtn = TeleportLeft:AddButton({
-		Text = pair.main.name,
-		Func = function()
-			local root = getRootPart()
-			if root then
-				root.CFrame = CFrame.new(pair.main.pos)
-				Library:Notify({ Title = "Teleport", Description = "Teleported to " .. pair.main.name, Time = 1.5 })
-			else
-				Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
-			end
-		end,
-	})
-
-	if pair.sub then
-		mainBtn:AddButton({
-			Text = pair.sub.name,
-			Func = function()
-				local root = getRootPart()
-				if root then
-					root.CFrame = CFrame.new(pair.sub.pos)
-					Library:Notify({ Title = "Teleport", Description = "Teleported to " .. pair.sub.name, Time = 1.5 })
-				else
-					Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
-				end
-			end,
-		})
-	end
-end
-
 -- Extra Locations
 local TeleportExtra = Tabs.Teleport:AddLeftGroupbox("Extra Locations", "map-pin")
 
@@ -5436,7 +5389,7 @@ end
 local BossLocationsGroup = Tabs.Teleport:AddLeftGroupbox("Boss locations", "map-pin")
 
 BossLocationsGroup:AddButton({
-	Text = "Hacker Platform",
+	Text = "Hacker Platform (Auto-Reset TP)",
 	Func = function()
 		lastDeathPosition = Vector3.new(3811.73, 1546.83, -977.48)
 		shouldTeleportBack = true
@@ -5508,7 +5461,7 @@ BossLocationsGroup:AddButton({
 })
 
 BossLocationsGroup:AddButton({
-	Text = "Spider",
+	Text = "Spider (Auto-Reset TP)",
 	Func = function()
 		lastDeathPosition = Vector3.new(-330.32, -91.12, 382.67)
 		shouldTeleportBack = true
@@ -5580,7 +5533,7 @@ BossLocationsGroup:AddButton({
 })
 
 BossLocationsGroup:AddButton({
-	Text = "Marvin",
+	Text = "Marvin (Auto-Reset TP)",
 	Func = function()
 		lastDeathPosition = Vector3.new(-663.22, 26.14, 741.84)
 		shouldTeleportBack = true
