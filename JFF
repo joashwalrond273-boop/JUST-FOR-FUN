@@ -5317,58 +5317,6 @@ end)
 -- ==========================================
 -- TELEPORT
 -- ==========================================
--- Extra Locations
-local TeleportExtra = Tabs.Teleport:AddLeftGroupbox("Extra Locations", "map-pin")
-
-local extraResetLocations = {
-	{ name = "Desert",        pos = Vector3.new(1459.50, 26.26, -204.70) },
-	{ name = "Desert Hill",   pos = Vector3.new(1548.35, 145.47, 196.68) },
-	{ name = "MainLand",      pos = Vector3.new(-170.20, 25.26, 430.70) },
-	{ name = "Below ML",      pos = Vector3.new(-177, 25.26, -1014.83) },
-	{ name = "Arena",         pos = Vector3.new(-1315.59, 41.19, 1972.84) },
-	{ name = "Bamboo",        pos = Vector3.new(-1330.92, 39.43, 5798.47) },
-	{ name = "Volcano",       pos = Vector3.new(1769.70, 36.43, 1832.10) },
-	{ name = "Asia Cave",     pos = Vector3.new(-2108.44, 210, 6823.05) },
-	{ name = "Juggernaut 2",  pos = Vector3.new(-1645.06, 336.32, -2874.34) },
-	{ name = "Waterfall",     pos = Vector3.new(-1949.89, 25.29, 345.83) },
-	{ name = "Lion",          pos = Vector3.new(1327.79, 25.26, -756.75) },
-	{ name = "White Wolf",    pos = Vector3.new(-1447.88, 25.26, -1566.85) },
-	{ name = "Horse",         pos = Vector3.new(-215.30, 25.26, 496.58) },
-	{ name = "Grey Wolf",     pos = Vector3.new(84.67, 25.26, 442.49) },
-	{ name = "Elephant",      pos = Vector3.new(1495.75, 25.26, -313.55) },
-	{ name = "Snow Bear",     pos = Vector3.new(-879.8, 25.3, -2062.5) },
-}
-
-local function addAutoResetButton(name, pos)
-	BossLocationsGroup:AddButton({
-		Text = name .. " (Auto-Reset TP)",
-		Func = function()
-			lastDeathPosition = pos
-			shouldTeleportBack = true
-
-			local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
-			local characterFolder = remoteInterface and remoteInterface:FindFirstChild("character")
-			local resetRemote = characterFolder and characterFolder:FindFirstChild("reset")
-			if resetRemote then
-				pcall(function()
-					resetRemote:InvokeServer()
-				end)
-			else
-				local humanoid = getHumanoid()
-				if humanoid then
-					humanoid.Health = 0
-				end
-			end
-
-			Library:Notify({ Title = "Auto-Reset Teleport", Description = "Resetting... Spawning at " .. name .. "!", Time = 2.5 })
-		end,
-	})
-end
-
-for _, loc in ipairs(extraResetLocations) do
-	addAutoResetButton(loc.name, loc.pos)
-end
-
 -- Boss Locations
 local BossLocationsGroup = Tabs.Teleport:AddLeftGroupbox("Boss locations", "map-pin")
 
@@ -5539,6 +5487,58 @@ BossLocationsGroup:AddButton({
 		Library:Notify({ Title = "Auto-Reset Teleport", Description = "Resetting... Spawning at Marvin!", Time = 2.5 })
 	end,
 })
+
+-- Extra Locations
+local TeleportExtra = Tabs.Teleport:AddLeftGroupbox("Extra Locations", "map-pin")
+
+local extraResetLocations = {
+	{ name = "Desert",        pos = Vector3.new(1459.50, 26.26, -204.70) },
+	{ name = "Desert Hill",   pos = Vector3.new(1548.35, 145.47, 196.68) },
+	{ name = "MainLand",      pos = Vector3.new(-170.20, 25.26, 430.70) },
+	{ name = "Below ML",      pos = Vector3.new(-177, 25.26, -1014.83) },
+	{ name = "Arena",         pos = Vector3.new(-1315.59, 41.19, 1972.84) },
+	{ name = "Bamboo",        pos = Vector3.new(-1330.92, 39.43, 5798.47) },
+	{ name = "Volcano",       pos = Vector3.new(1769.70, 36.43, 1832.10) },
+	{ name = "Asia Cave",     pos = Vector3.new(-2108.44, 210, 6823.05) },
+	{ name = "Juggernaut 2",  pos = Vector3.new(-1645.06, 336.32, -2874.34) },
+	{ name = "Waterfall",     pos = Vector3.new(-1949.89, 25.29, 345.83) },
+	{ name = "Lion",          pos = Vector3.new(1327.79, 25.26, -756.75) },
+	{ name = "White Wolf",    pos = Vector3.new(-1447.88, 25.26, -1566.85) },
+	{ name = "Horse",         pos = Vector3.new(-215.30, 25.26, 496.58) },
+	{ name = "Grey Wolf",     pos = Vector3.new(84.67, 25.26, 442.49) },
+	{ name = "Elephant",      pos = Vector3.new(1495.75, 25.26, -313.55) },
+	{ name = "Snow Bear",     pos = Vector3.new(-879.8, 25.3, -2062.5) },
+}
+
+local function addAutoResetButton(name, pos)
+	BossLocationsGroup:AddButton({
+		Text = name .. " (Auto-Reset TP)",
+		Func = function()
+			lastDeathPosition = pos
+			shouldTeleportBack = true
+
+			local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
+			local characterFolder = remoteInterface and remoteInterface:FindFirstChild("character")
+			local resetRemote = characterFolder and characterFolder:FindFirstChild("reset")
+			if resetRemote then
+				pcall(function()
+					resetRemote:InvokeServer()
+				end)
+			else
+				local humanoid = getHumanoid()
+				if humanoid then
+					humanoid.Health = 0
+				end
+			end
+
+			Library:Notify({ Title = "Auto-Reset Teleport", Description = "Resetting... Spawning at " .. name .. "!", Time = 2.5 })
+		end,
+	})
+end
+
+for _, loc in ipairs(extraResetLocations) do
+	addAutoResetButton(loc.name, loc.pos)
+end
 
 -- READ THIS FIRST Groupbox (placed above Trick Spawn)
 local ReadThisFirstGroup = Tabs.Teleport:AddRightGroupbox("READ THIS FIRST!!", "alert-circle")
