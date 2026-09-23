@@ -5483,6 +5483,126 @@ BossLocationsGroup:AddButton({
 	end,
 })
 
+BossLocationsGroup:AddButton({
+	Text = "Juggernaut (Auto-Reset TP)",
+	Func = function()
+		lastDeathPosition = Vector3.new(-1601.49, 113.27, -2890.59)
+		shouldTeleportBack = true
+
+		local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
+		local characterFolder = remoteInterface and remoteInterface:FindFirstChild("character")
+		local resetRemote = characterFolder and characterFolder:FindFirstChild("reset")
+		if resetRemote then
+			pcall(function()
+				resetRemote:InvokeServer()
+			end)
+		else
+			local humanoid = getHumanoid()
+			if humanoid then
+				humanoid.Health = 0
+			end
+		end
+
+		Library:Notify({ Title = "Auto-Reset Teleport", Description = "Resetting... Spawning at Juggernaut!", Time = 2.5 })
+	end,
+})
+
+BossLocationsGroup:AddButton({
+	Text = "Spider (Auto-Reset TP)",
+	Func = function()
+		lastDeathPosition = Vector3.new(-330.32, -91.12, 382.67)
+		shouldTeleportBack = true
+
+		local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
+		local characterFolder = remoteInterface and remoteInterface:FindFirstChild("character")
+		local resetRemote = characterFolder and characterFolder:FindFirstChild("reset")
+		if resetRemote then
+			pcall(function()
+				resetRemote:InvokeServer()
+			end)
+		else
+			local humanoid = getHumanoid()
+			if humanoid then
+				humanoid.Health = 0
+			end
+		end
+
+		Library:Notify({ Title = "Auto-Reset Teleport", Description = "Resetting... Spawning at Spider!", Time = 2.5 })
+	end,
+})
+
+BossLocationsGroup:AddButton({
+	Text = "Titan (Auto-Reset TP)",
+	Func = function()
+		lastDeathPosition = Vector3.new(1654.57, 23.20, 2312.14)
+		shouldTeleportBack = true
+
+		local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
+		local characterFolder = remoteInterface and remoteInterface:FindFirstChild("character")
+		local resetRemote = characterFolder and characterFolder:FindFirstChild("reset")
+		if resetRemote then
+			pcall(function()
+				resetRemote:InvokeServer()
+			end)
+		else
+			local humanoid = getHumanoid()
+			if humanoid then
+				humanoid.Health = 0
+			end
+		end
+
+		Library:Notify({ Title = "Auto-Reset Teleport", Description = "Resetting... Spawning at Titan!", Time = 2.5 })
+	end,
+})
+
+BossLocationsGroup:AddButton({
+	Text = "Kraken (Auto-Reset TP)",
+	Func = function()
+		lastDeathPosition = Vector3.new(802.42, 19.35, -1999.35)
+		shouldTeleportBack = true
+
+		local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
+		local characterFolder = remoteInterface and remoteInterface:FindFirstChild("character")
+		local resetRemote = characterFolder and characterFolder:FindFirstChild("reset")
+		if resetRemote then
+			pcall(function()
+				resetRemote:InvokeServer()
+			end)
+		else
+			local humanoid = getHumanoid()
+			if humanoid then
+				humanoid.Health = 0
+			end
+		end
+
+		Library:Notify({ Title = "Auto-Reset Teleport", Description = "Resetting... Spawning at Kraken!", Time = 2.5 })
+	end,
+})
+
+BossLocationsGroup:AddButton({
+	Text = "Marvin (Auto-Reset TP)",
+	Func = function()
+		lastDeathPosition = Vector3.new(-663.22, 26.14, 741.84)
+		shouldTeleportBack = true
+
+		local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
+		local characterFolder = remoteInterface and remoteInterface:FindFirstChild("character")
+		local resetRemote = characterFolder and characterFolder:FindFirstChild("reset")
+		if resetRemote then
+			pcall(function()
+				resetRemote:InvokeServer()
+			end)
+		else
+			local humanoid = getHumanoid()
+			if humanoid then
+				humanoid.Health = 0
+			end
+		end
+
+		Library:Notify({ Title = "Auto-Reset Teleport", Description = "Resetting... Spawning at Marvin!", Time = 2.5 })
+	end,
+})
+
 -- READ THIS FIRST Groupbox (placed above Trick Spawn)
 local ReadThisFirstGroup = Tabs.Teleport:AddRightGroupbox("READ THIS FIRST!!", "alert-circle")
 
