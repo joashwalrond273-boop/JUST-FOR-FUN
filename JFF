@@ -5502,16 +5502,10 @@ local extraResetLocations = {
 	{ name = "Asia Cave",     pos = Vector3.new(-2108.44, 210, 6823.05) },
 	{ name = "Juggernaut 2",  pos = Vector3.new(-1645.06, 336.32, -2874.34) },
 	{ name = "Waterfall",     pos = Vector3.new(-1949.89, 25.29, 345.83) },
-	{ name = "Lion",          pos = Vector3.new(1327.79, 25.26, -756.75) },
-	{ name = "White Wolf",    pos = Vector3.new(-1447.88, 25.26, -1566.85) },
-	{ name = "Horse",         pos = Vector3.new(-215.30, 25.26, 496.58) },
-	{ name = "Grey Wolf",     pos = Vector3.new(84.67, 25.26, 442.49) },
-	{ name = "Elephant",      pos = Vector3.new(1495.75, 25.26, -313.55) },
-	{ name = "Snow Bear",     pos = Vector3.new(-879.8, 25.3, -2062.5) },
 }
 
-local function addAutoResetButton(name, pos)
-	TeleportExtra:AddButton({
+local function addAutoResetButton(group, name, pos)
+	group:AddButton({
 		Text = name,
 		Func = function()
 			lastDeathPosition = pos
@@ -5537,10 +5531,10 @@ local function addAutoResetButton(name, pos)
 end
 
 for _, loc in ipairs(extraResetLocations) do
-	addAutoResetButton(loc.name, loc.pos)
+	addAutoResetButton(TeleportExtra, loc.name, loc.pos)
 end
 
--- READ THIS FIRST Groupbox (placed above Trick Spawn)
+-- READ THIS FIRST Groupbox (placed above Mounts)
 local ReadThisFirstGroup = Tabs.Teleport:AddRightGroupbox("READ THIS FIRST!!", "alert-circle")
 
 do
@@ -5554,41 +5548,21 @@ do
 	end)
 end
 
--- Extra Locations Groupbox
-local ResetTeleportGroup = Tabs.Teleport:AddRightGroupbox("Trick Spawn", "refresh-cw")
+-- Mounts Groupbox
+local ResetTeleportGroup = Tabs.Teleport:AddRightGroupbox("Mounts", "refresh-cw")
 
-ResetTeleportGroup:AddToggle("ResetCharacter", {
-	Text = "Death Spawn",
-	Default = false,
-})
+local mountResetLocations = {
+	{ name = "Lion",          pos = Vector3.new(1327.79, 25.26, -756.75) },
+	{ name = "White Wolf",    pos = Vector3.new(-1447.88, 25.26, -1566.85) },
+	{ name = "Horse",         pos = Vector3.new(-215.30, 25.26, 496.58) },
+	{ name = "Grey Wolf",     pos = Vector3.new(84.67, 25.26, 442.49) },
+	{ name = "Elephant",      pos = Vector3.new(1495.75, 25.26, -313.55) },
+	{ name = "Snow Bear",     pos = Vector3.new(-879.8, 25.3, -2062.5) },
+}
 
-Toggles.ResetCharacter:OnChanged(function()
-	if Toggles.ResetCharacter.Value then
-		local root = getRootPart()
-		if root then
-			lastDeathPosition = root.Position
-			shouldTeleportBack = true
-		end
-
-		local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
-		if remoteInterface then
-			local characterFolder = remoteInterface:FindFirstChild("character")
-			if characterFolder then
-				local resetRemote = characterFolder:FindFirstChild("reset")
-				if resetRemote then
-					pcall(function()
-						resetRemote:InvokeServer()
-					end)
-				end
-			end
-		end
-
-		task.spawn(function()
-			task.wait(0.5)
-			Toggles.ResetCharacter:SetValue(false)
-		end)
-	end
-end)
+for _, loc in ipairs(mountResetLocations) do
+	addAutoResetButton(ResetTeleportGroup, loc.name, loc.pos)
+end
 
 -- Merchants Groupbox
 local MerchantsGroup = Tabs.Teleport:AddRightGroupbox("Merchants", "map-pin")
