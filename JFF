@@ -5333,181 +5333,76 @@ end)
 -- ==========================================
 -- TELEPORT
 -- ==========================================
+-- Settings
+local TeleportSettings = Tabs.Teleport:AddLeftGroupbox("Settings", "settings")
+
+TeleportSettings:AddCheckbox("AutoReset", {
+	Text = "Auto Reset",
+	Default = false,
+})
+
+local function teleportTo(name, pos)
+	if Toggles.AutoReset and Toggles.AutoReset.Value then
+		lastDeathPosition = pos
+		shouldTeleportBack = true
+
+		local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
+		local characterFolder = remoteInterface and remoteInterface:FindFirstChild("character")
+		local resetRemote = characterFolder and characterFolder:FindFirstChild("reset")
+		if resetRemote then
+			pcall(function()
+				resetRemote:InvokeServer()
+			end)
+		else
+			local humanoid = getHumanoid()
+			if humanoid then
+				humanoid.Health = 0
+			end
+		end
+
+		Library:Notify({ Title = "Auto-Reset Teleport", Description = "Resetting... Spawning at " .. name .. "!", Time = 2.5 })
+	else
+		local root = getRootPart()
+		if root then
+			root.Velocity = Vector3.zero
+			root.CFrame = CFrame.new(pos)
+			Library:Notify({ Title = "Teleport", Description = "Teleported to " .. name .. "!", Time = 2 })
+		else
+			Library:Notify({ Title = "Teleport", Description = "Character not found!", Time = 2 })
+		end
+	end
+end
+
+local function addTeleportButton(group, name, pos)
+	group:AddButton({
+		Text = name,
+		Func = function()
+			teleportTo(name, pos)
+		end,
+	})
+end
+
 -- Boss Locations
-local BossLocationsGroup = Tabs.Teleport:AddLeftGroupbox("Boss locations", "map-pin")
+local BossLocationsGroup = Tabs.Teleport:AddLeftGroupbox("Boss locations", "swords")
 
-BossLocationsGroup:AddButton({
-	Text = "Samurai",
-	Func = function()
-		lastDeathPosition = Vector3.new(-1727.48, 517.20, 7305.50)
-		shouldTeleportBack = true
+local bossLocations = {
+	{ name = "Samurai",         pos = Vector3.new(-1727.48, 517.20, 7305.50) },
+	{ name = "Juggernaut",      pos = Vector3.new(-1601.49, 113.27, -2890.59) },
+	{ name = "Spider",          pos = Vector3.new(-330.32, -91.12, 382.67) },
+	{ name = "Titan",           pos = Vector3.new(1654.57, 23.20, 2312.14) },
+	{ name = "Kraken",          pos = Vector3.new(802.42, 19.35, -1999.35) },
+	{ name = "Marvin",          pos = Vector3.new(-663.22, 26.14, 741.84) },
+	{ name = "Hacker Platform", pos = Vector3.new(3811.73, 1546.83, -977.48) },
+}
 
-		local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
-		local characterFolder = remoteInterface and remoteInterface:FindFirstChild("character")
-		local resetRemote = characterFolder and characterFolder:FindFirstChild("reset")
-		if resetRemote then
-			pcall(function()
-				resetRemote:InvokeServer()
-			end)
-		else
-			local humanoid = getHumanoid()
-			if humanoid then
-				humanoid.Health = 0
-			end
-		end
-
-		Library:Notify({ Title = "Auto-Reset Teleport", Description = "Resetting... Spawning at Samurai!", Time = 2.5 })
-	end,
-})
-
-BossLocationsGroup:AddButton({
-	Text = "Juggernaut",
-	Func = function()
-		lastDeathPosition = Vector3.new(-1601.49, 113.27, -2890.59)
-		shouldTeleportBack = true
-
-		local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
-		local characterFolder = remoteInterface and remoteInterface:FindFirstChild("character")
-		local resetRemote = characterFolder and characterFolder:FindFirstChild("reset")
-		if resetRemote then
-			pcall(function()
-				resetRemote:InvokeServer()
-			end)
-		else
-			local humanoid = getHumanoid()
-			if humanoid then
-				humanoid.Health = 0
-			end
-		end
-
-		Library:Notify({ Title = "Auto-Reset Teleport", Description = "Resetting... Spawning at Juggernaut!", Time = 2.5 })
-	end,
-})
-
-BossLocationsGroup:AddButton({
-	Text = "Spider",
-	Func = function()
-		lastDeathPosition = Vector3.new(-330.32, -91.12, 382.67)
-		shouldTeleportBack = true
-
-		local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
-		local characterFolder = remoteInterface and remoteInterface:FindFirstChild("character")
-		local resetRemote = characterFolder and characterFolder:FindFirstChild("reset")
-		if resetRemote then
-			pcall(function()
-				resetRemote:InvokeServer()
-			end)
-		else
-			local humanoid = getHumanoid()
-			if humanoid then
-				humanoid.Health = 0
-			end
-		end
-
-		Library:Notify({ Title = "Auto-Reset Teleport", Description = "Resetting... Spawning at Spider!", Time = 2.5 })
-	end,
-})
-
-BossLocationsGroup:AddButton({
-	Text = "Titan",
-	Func = function()
-		lastDeathPosition = Vector3.new(1654.57, 23.20, 2312.14)
-		shouldTeleportBack = true
-
-		local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
-		local characterFolder = remoteInterface and remoteInterface:FindFirstChild("character")
-		local resetRemote = characterFolder and characterFolder:FindFirstChild("reset")
-		if resetRemote then
-			pcall(function()
-				resetRemote:InvokeServer()
-			end)
-		else
-			local humanoid = getHumanoid()
-			if humanoid then
-				humanoid.Health = 0
-			end
-		end
-
-		Library:Notify({ Title = "Auto-Reset Teleport", Description = "Resetting... Spawning at Titan!", Time = 2.5 })
-	end,
-})
-
-BossLocationsGroup:AddButton({
-	Text = "Kraken",
-	Func = function()
-		lastDeathPosition = Vector3.new(802.42, 19.35, -1999.35)
-		shouldTeleportBack = true
-
-		local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
-		local characterFolder = remoteInterface and remoteInterface:FindFirstChild("character")
-		local resetRemote = characterFolder and characterFolder:FindFirstChild("reset")
-		if resetRemote then
-			pcall(function()
-				resetRemote:InvokeServer()
-			end)
-		else
-			local humanoid = getHumanoid()
-			if humanoid then
-				humanoid.Health = 0
-			end
-		end
-
-		Library:Notify({ Title = "Auto-Reset Teleport", Description = "Resetting... Spawning at Kraken!", Time = 2.5 })
-	end,
-})
-
-BossLocationsGroup:AddButton({
-	Text = "Marvin",
-	Func = function()
-		lastDeathPosition = Vector3.new(-663.22, 26.14, 741.84)
-		shouldTeleportBack = true
-
-		local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
-		local characterFolder = remoteInterface and remoteInterface:FindFirstChild("character")
-		local resetRemote = characterFolder and characterFolder:FindFirstChild("reset")
-		if resetRemote then
-			pcall(function()
-				resetRemote:InvokeServer()
-			end)
-		else
-			local humanoid = getHumanoid()
-			if humanoid then
-				humanoid.Health = 0
-			end
-		end
-
-		Library:Notify({ Title = "Auto-Reset Teleport", Description = "Resetting... Spawning at Marvin!", Time = 2.5 })
-	end,
-})
-
-BossLocationsGroup:AddButton({
-	Text = "Hacker Platform",
-	Func = function()
-		lastDeathPosition = Vector3.new(3811.73, 1546.83, -977.48)
-		shouldTeleportBack = true
-
-		local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
-		local characterFolder = remoteInterface and remoteInterface:FindFirstChild("character")
-		local resetRemote = characterFolder and characterFolder:FindFirstChild("reset")
-		if resetRemote then
-			pcall(function()
-				resetRemote:InvokeServer()
-			end)
-		else
-			local humanoid = getHumanoid()
-			if humanoid then
-				humanoid.Health = 0
-			end
-		end
-
-		Library:Notify({ Title = "Auto-Reset Teleport", Description = "Resetting... Spawning at Hacker Platform!", Time = 2.5 })
-	end,
-})
+for _, loc in ipairs(bossLocations) do
+	addTeleportButton(BossLocationsGroup, loc.name, loc.pos)
+end
 
 -- Extra Locations
 local TeleportExtra = Tabs.Teleport:AddLeftGroupbox("Extra Locations", "map-pin")
 
-local extraResetLocations = {
+local extraLocations = {
 	{ name = "Desert",        pos = Vector3.new(1459.50, 26.26, -204.70) },
 	{ name = "Desert Hill",   pos = Vector3.new(1548.35, 145.47, 196.68) },
 	{ name = "MainLand",      pos = Vector3.new(-170.20, 25.26, 430.70) },
@@ -5520,40 +5415,14 @@ local extraResetLocations = {
 	{ name = "Waterfall",     pos = Vector3.new(-1949.89, 25.29, 345.83) },
 }
 
-local function addAutoResetButton(group, name, pos)
-	group:AddButton({
-		Text = name,
-		Func = function()
-			lastDeathPosition = pos
-			shouldTeleportBack = true
-
-			local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
-			local characterFolder = remoteInterface and remoteInterface:FindFirstChild("character")
-			local resetRemote = characterFolder and characterFolder:FindFirstChild("reset")
-			if resetRemote then
-				pcall(function()
-					resetRemote:InvokeServer()
-				end)
-			else
-				local humanoid = getHumanoid()
-				if humanoid then
-					humanoid.Health = 0
-				end
-			end
-
-			Library:Notify({ Title = "Auto-Reset Teleport", Description = "Resetting... Spawning at " .. name .. "!", Time = 2.5 })
-		end,
-	})
-end
-
-for _, loc in ipairs(extraResetLocations) do
-	addAutoResetButton(TeleportExtra, loc.name, loc.pos)
+for _, loc in ipairs(extraLocations) do
+	addTeleportButton(TeleportExtra, loc.name, loc.pos)
 end
 
 -- Mounts Groupbox
-local ResetTeleportGroup = Tabs.Teleport:AddRightGroupbox("Mounts", "refresh-cw")
+local MountsGroup = Tabs.Teleport:AddRightGroupbox("Mounts", "paw-print")
 
-local mountResetLocations = {
+local mountLocations = {
 	{ name = "Lion",          pos = Vector3.new(1327.79, 25.26, -756.75) },
 	{ name = "White Wolf",    pos = Vector3.new(-1447.88, 25.26, -1566.85) },
 	{ name = "Horse",         pos = Vector3.new(-215.30, 25.26, 496.58) },
@@ -5562,14 +5431,14 @@ local mountResetLocations = {
 	{ name = "Snow Bear",     pos = Vector3.new(-879.8, 25.3, -2062.5) },
 }
 
-for _, loc in ipairs(mountResetLocations) do
-	addAutoResetButton(ResetTeleportGroup, loc.name, loc.pos)
+for _, loc in ipairs(mountLocations) do
+	addTeleportButton(MountsGroup, loc.name, loc.pos)
 end
 
 -- Merchants Groupbox
 local MerchantsGroup = Tabs.Teleport:AddRightGroupbox("Merchants", "map-pin")
 
-local merchantResetLocations = {
+local merchantLocations = {
 	{ name = "Mainland",   pos = Vector3.new(-144.60, 25.26, 429.38) },
 	{ name = "Desert",     pos = Vector3.new(1428.14, 25.26, -593.17) },
 	{ name = "Asia",       pos = Vector3.new(-744.10, 329.20, 7134.18) },
@@ -5578,8 +5447,8 @@ local merchantResetLocations = {
 	{ name = "Secret",     pos = Vector3.new(-1171.82, 24.40, 90.70) },
 }
 
-for _, loc in ipairs(merchantResetLocations) do
-	addAutoResetButton(MerchantsGroup, loc.name, loc.pos)
+for _, loc in ipairs(merchantLocations) do
+	addTeleportButton(MerchantsGroup, loc.name, loc.pos)
 end
 
 -- ==========================================
