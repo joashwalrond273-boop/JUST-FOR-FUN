@@ -275,6 +275,7 @@ pcall(function()
 	end
 end)
 
+
 Library.Font = Enum.Font.Jura
 Library.CornerRadius = 15
 
@@ -619,6 +620,7 @@ MainLeft:AddCheckbox("InfiniteJump", {
 	Default = false,
 })
 
+
 MainLeft:AddCheckbox("WalkOnWater", {
 	Text = "Walk On Water",
 	Default = false,
@@ -895,37 +897,6 @@ end
 
 -- Infinite stamina, no fall damage, anti lava (Behavior > Disabled on workspace.Characters.[name] or Character itself)
 local function applyCharacterModuleToggles()
-	if Toggles.InfiniteStamina and Toggles.InfiniteStamina.Value then
-		setBehaviorDisabled(getCharacterBehavior("stamina"), true)
-	end
-	if Toggles.NoFallDamage and Toggles.NoFallDamage.Value then
-		setBehaviorDisabled(getCharacterBehavior("fallDamage"), true)
-	end
-	if Toggles.AntiLava and Toggles.AntiLava.Value then
-		local char = getCharacter()
-		if char then
-			setBehaviorDisabled(char:FindFirstChild("worldHazards"), true)
-		end
-	end
-	if (Toggles.NoSlowdown and Toggles.NoSlowdown.Value) or (Toggles.InfiniteBackpack and Toggles.InfiniteBackpack.Value) then
-		local hum = getHumanoid()
-		if hum and hum.WalkSpeed < 16 then
-			hum.WalkSpeed = 16
-		end
-		local charFolder = getCharacterFolder()
-		if charFolder then
-			for _, name in ipairs({"weight", "overweight", "backpack", "slowdown", "combatSlow", "actionSlow", "speedModifier"}) do
-				local b = charFolder:FindFirstChild(name)
-				if b then
-					setBehaviorDisabled(b, true)
-				end
-			end
-		end
-	end
-end
-
--- Infinite stamina, no fall damage, anti lava (Behavior > Disabled on workspace.Characters.[name] or Character itself)
-local function applyCharacterModuleToggles()
 	if Toggles.InfiniteStamina.Value then
 		setBehaviorDisabled(getCharacterBehavior("stamina"), true)
 	end
@@ -1003,6 +974,8 @@ Toggles.InfiniteBackpack:OnChanged(function()
 	end
 end)
 
+
+
 Toggles.InfiniteStamina:OnChanged(function()
 	disconnect("InfiniteStamina")
 	if Toggles.InfiniteStamina.Value then
@@ -1037,6 +1010,7 @@ Toggles.NoFallDamage:OnChanged(function()
 	end
 end)
 
+
 Toggles.NoBearTrapDMG:OnChanged(function()
 	if Toggles.NoBearTrapDMG.Value then
 		Library:Notify({ Title = "No Bear Trap DMG", Description = "Enabled", Time = 2 })
@@ -1059,13 +1033,15 @@ Toggles.AntiLava:OnChanged(function()
 	end
 end)
 
-local lastBubbleUpdate = 0
 Toggles.AutoAirBubbles:OnChanged(function()
 	disconnect("AutoAirBubbles")
 	if Toggles.AutoAirBubbles.Value then
+		local lastUpdate = 0
 		track("AutoAirBubbles", RunService.Heartbeat:Connect(function()
-			if tick() - lastBubbleUpdate < 0.3 then return end
-			lastBubbleUpdate = tick()
+			local now = os.clock()
+			if now - lastUpdate < (1 / 20) then return end
+			lastUpdate = now
+
 			local character = getCharacter()
 			local head = character and character:FindFirstChild("Head")
 			local airBubbles = workspace:FindFirstChild("AirBubbles")
@@ -5210,7 +5186,6 @@ local function scanOreTypesAndBuildUI()
 	return anyAdded
 end
 
-local lastOreESPUpdate = 0
 Toggles.OreESPToggle:OnChanged(function()
 	disconnect("OreESP")
 	disconnect("OreESPScan")
@@ -5230,8 +5205,6 @@ Toggles.OreESPToggle:OnChanged(function()
 
 	track("OreESP", RunService.Heartbeat:Connect(function()
 		if not isAlive() or not Toggles.OreESPToggle.Value then return end
-		if tick() - lastOreESPUpdate < 0.3 then return end
-		lastOreESPUpdate = tick()
 		oreESPLoop()
 	end))
 
