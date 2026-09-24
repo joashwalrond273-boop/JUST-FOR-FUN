@@ -1253,7 +1253,7 @@ for _, item in ipairs(CollectionService:GetTagged("DROPPED_ITEM")) do
 end
 
 local function tryAutoPickup()
-	if time() - lastAutoPickup < 0.03 then
+	if time() - lastAutoPickup < 0.09 then
 		return
 	end
 	if not isAlive() or not TSG.PickupRemote then
@@ -1731,6 +1731,11 @@ CombatAutoPVP:AddCheckbox("AutoHop", {
 	Default = false,
 })
 
+CombatAutoPVP:AddCheckbox("AutoHopIgnoreTeam", {
+	Text = "Ignore Team",
+	Default = true,
+})
+
 CombatAutoPVP:AddSlider("AutoHopStuds", {
 	Text = "Auto Hop Studs",
 	Default = 20,
@@ -1825,6 +1830,14 @@ updatePVPModulesVisibility = function()
 		Options.AutoHopStuds.Visible = isHop
 		if Options.AutoHopStuds.Holder then
 			Options.AutoHopStuds.Holder.Visible = isHop
+		end
+	end
+	if Toggles.AutoHopIgnoreTeam then
+		if Toggles.AutoHopIgnoreTeam.Visible ~= nil then
+			Toggles.AutoHopIgnoreTeam.Visible = isHop
+		end
+		if Toggles.AutoHopIgnoreTeam.Holder then
+			Toggles.AutoHopIgnoreTeam.Holder.Visible = isHop
 		end
 	end
 	if Options.CamlockTarget then
@@ -2517,17 +2530,20 @@ Toggles.AutoHop:OnChanged(function()
 			end
 
 			local maxDist = Options.AutoHopStuds and Options.AutoHopStuds.Value or 20
+			local ignoreTeam = Toggles.AutoHopIgnoreTeam and Toggles.AutoHopIgnoreTeam.Value
 			local pos = root.Position
 			local playerNearby = false
 			for _, otherPlayer in ipairs(Players:GetPlayers()) do
 				if otherPlayer ~= LocalPlayer and otherPlayer.Character then
-					local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
-					local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
-					if otherRoot and otherHum and otherHum.Health > 0 then
-						local dist = (otherRoot.Position - pos).Magnitude
-						if dist <= maxDist then
-							playerNearby = true
-							break
+					if not ignoreTeam or not isTeammate(otherPlayer) then
+						local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
+						local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
+						if otherRoot and otherHum and otherHum.Health > 0 then
+							local dist = (otherRoot.Position - pos).Magnitude
+							if dist <= maxDist then
+								playerNearby = true
+								break
+							end
 						end
 					end
 				end
@@ -2889,7 +2905,7 @@ local function applySpearSwordSlot(slot)
 			Options.CamlockStuds:SetValue(13)
 		end
 		if Options.OutlineStuds then
-			Options.OutlineStuds:SetValue(2)
+			Options.OutlineStuds:SetValue(1)
 		end
 	end
 end
