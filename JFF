@@ -1149,33 +1149,16 @@ joinLowPingServer = function()
 	end)
 end
 
-track("CharacterModuleRespawn", LocalPlayer.CharacterAdded:Connect(function(char)
-	task.wait(0.3)
+track("CharacterModuleRespawn", LocalPlayer.CharacterAdded:Connect(function()
+	task.wait(0.5)
 	applyCharacterModuleToggles()
 	if shouldTeleportBack and lastDeathPosition then
-		local destPos = lastDeathPosition
 		shouldTeleportBack = false
-		lastDeathPosition = nil
-
-		task.spawn(function()
-			local character = char or LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-			local root = character:WaitForChild("HumanoidRootPart", 10)
-			if root then
-				local targetCFrame = CFrame.new(destPos + Vector3.new(0, 3, 0))
-				for i = 1, 15 do
-					if character and character.Parent and root and root.Parent then
-						root.Velocity = Vector3.zero
-						root.RotVelocity = Vector3.zero
-						root.AssemblyLinearVelocity = Vector3.zero
-						root.AssemblyAngularVelocity = Vector3.zero
-						root.CFrame = targetCFrame
-						character:PivotTo(targetCFrame)
-					end
-					task.wait(0.05)
-				end
-				Library:Notify({ Title = "Reset & Teleport", Description = "Teleported to destination!", Time = 2 })
-			end
-		end)
+		local root = getRootPart()
+		if root then
+			root.CFrame = CFrame.new(lastDeathPosition + Vector3.new(0, 3, 0))
+			Library:Notify({ Title = "Reset & Teleport", Description = "Teleported back to last location!", Time = 2 })
+		end
 	end
 end))
 
@@ -5350,130 +5333,6 @@ end)
 -- ==========================================
 -- TELEPORT
 -- ==========================================
--- Settings
-local TeleportSettings = Tabs.Teleport:AddLeftGroupbox("Settings", "settings")
-
-TeleportSettings:AddCheckbox("AutoReset", {
-	Text = "Auto Reset",
-	Default = false,
-})
-
-TeleportSettings:AddButton({
-	Text = "Reset Character",
-	Func = function()
-		local root = getRootPart()
-		if root then
-			lastDeathPosition = root.Position
-			shouldTeleportBack = true
-		end
-
-		local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
-		if remoteInterface then
-			local characterFolder = remoteInterface:FindFirstChild("character")
-			if characterFolder then
-				local resetRemote = characterFolder:FindFirstChild("reset")
-				if resetRemote then
-					pcall(function()
-						resetRemote:InvokeServer()
-					end)
-					return
-				end
-			end
-		end
-
-		local humanoid = getHumanoid()
-		if humanoid then
-			humanoid.Health = 0
-		end
-	end,
-})
-
-local function teleportTo(name, pos)
-	local targetCFrame = CFrame.new(pos + Vector3.new(0, 3, 0))
-
-	if Toggles.AutoReset and Toggles.AutoReset.Value then
-		lastDeathPosition = pos
-		shouldTeleportBack = true
-
-		local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
-		local characterFolder = remoteInterface and remoteInterface:FindFirstChild("character")
-		local resetRemote = characterFolder and characterFolder:FindFirstChild("reset")
-		if resetRemote then
-			pcall(function()
-				resetRemote:InvokeServer()
-			end)
-		else
-			local humanoid = getHumanoid()
-			if humanoid then
-				humanoid.Health = 0
-			end
-		end
-
-		Library:Notify({ Title = "Auto-Reset Teleport", Description = "Resetting... Spawning at " .. name .. "!", Time = 2.5 })
-	else
-		local character = LocalPlayer.Character
-		if not character then
-			Library:Notify({ Title = "Teleport", Description = "Character not found!", Time = 2 })
-			return
-		end
-
-		-- Check if player is seated in a boat
-		local boat = nil
-		local boatsFolder = workspace:FindFirstChild("boats")
-		if boatsFolder then
-			for _, obj in pairs(boatsFolder:GetChildren()) do
-				if obj:FindFirstChild("VehicleSeat") and obj.VehicleSeat.Occupant and obj.VehicleSeat.Occupant.Parent == character then
-					boat = obj
-					break
-				end
-			end
-		end
-
-		if boat and boat.PrimaryPart then
-			boat:SetPrimaryPartCFrame(targetCFrame)
-			boat:PivotTo(targetCFrame)
-			Library:Notify({ Title = "Teleport", Description = "Teleported boat to " .. name .. "!", Time = 2 })
-			return
-		end
-
-		-- Direct character teleport
-		local root = character:FindFirstChild("HumanoidRootPart")
-		if root then
-			root.Velocity = Vector3.zero
-			root.RotVelocity = Vector3.zero
-			root.AssemblyLinearVelocity = Vector3.zero
-			root.AssemblyAngularVelocity = Vector3.zero
-			root.CFrame = targetCFrame
-			character:PivotTo(targetCFrame)
-
-			task.spawn(function()
-				for i = 1, 8 do
-					task.wait(0.03)
-					if character and character.Parent and root and root.Parent then
-						root.Velocity = Vector3.zero
-						root.AssemblyLinearVelocity = Vector3.zero
-						root.CFrame = targetCFrame
-						character:PivotTo(targetCFrame)
-					end
-				end
-			end)
-
-			Library:Notify({ Title = "Teleport", Description = "Teleported to " .. name .. "!", Time = 2 })
-		else
-			Library:Notify({ Title = "Teleport", Description = "HumanoidRootPart not found!", Time = 2 })
-		end
-	end
-end
-
-local function addTeleportButton(group, name, pos)
-	group:AddButton({
-		Text = name,
-		Func = function()
-			teleportTo(name, pos)
-		end,
-	})
-end
-
 -- Boss Locations
 local BossLocationsGroup = Tabs.Teleport:AddLeftGroupbox("Boss locations", "swords")
 
@@ -5488,7 +5347,18 @@ local bossLocations = {
 }
 
 for _, loc in ipairs(bossLocations) do
-	addTeleportButton(BossLocationsGroup, loc.name, loc.pos)
+	BossLocationsGroup:AddButton({
+		Text = loc.name,
+		Func = function()
+			local root = getRootPart()
+			if root then
+				root.CFrame = CFrame.new(loc.pos)
+				Library:Notify({ Title = "Teleport", Description = "Teleported to " .. loc.name, Time = 1.5 })
+			else
+				Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
+			end
+		end,
+	})
 end
 
 -- Extra Locations
@@ -5508,7 +5378,18 @@ local extraLocations = {
 }
 
 for _, loc in ipairs(extraLocations) do
-	addTeleportButton(TeleportExtra, loc.name, loc.pos)
+	TeleportExtra:AddButton({
+		Text = loc.name,
+		Func = function()
+			local root = getRootPart()
+			if root then
+				root.CFrame = CFrame.new(loc.pos)
+				Library:Notify({ Title = "Teleport", Description = "Teleported to " .. loc.name, Time = 1.5 })
+			else
+				Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
+			end
+		end,
+	})
 end
 
 -- Mounts Groupbox
@@ -5524,7 +5405,18 @@ local mountLocations = {
 }
 
 for _, loc in ipairs(mountLocations) do
-	addTeleportButton(MountsGroup, loc.name, loc.pos)
+	MountsGroup:AddButton({
+		Text = loc.name,
+		Func = function()
+			local root = getRootPart()
+			if root then
+				root.CFrame = CFrame.new(loc.pos)
+				Library:Notify({ Title = "Teleport", Description = "Teleported to " .. loc.name, Time = 1.5 })
+			else
+				Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
+			end
+		end,
+	})
 end
 
 -- Merchants Groupbox
@@ -5540,7 +5432,18 @@ local merchantLocations = {
 }
 
 for _, loc in ipairs(merchantLocations) do
-	addTeleportButton(MerchantsGroup, loc.name, loc.pos)
+	MerchantsGroup:AddButton({
+		Text = loc.name,
+		Func = function()
+			local root = getRootPart()
+			if root then
+				root.CFrame = CFrame.new(loc.pos)
+				Library:Notify({ Title = "Teleport", Description = "Teleported to " .. loc.name, Time = 1.5 })
+			else
+				Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
+			end
+		end,
+	})
 end
 
 -- ==========================================
