@@ -245,65 +245,34 @@ TSG.MineRemote = (keyedRemotes and rawget(keyedRemotes, "mine")) or (interaction
 TSG.ChopRemote = (keyedRemotes and rawget(keyedRemotes, "chop")) or (interactionsFolder and interactionsFolder:FindFirstChild("chop"))
 TSG.MeleeAI = interactionsFolder and interactionsFolder:FindFirstChild("meleeAI")
 
--- No Bear Trap DMG Remote Interception
-pcall(function()
-	local Event = resolvePath(ReplicatedStorage, "remoteInterface", "traps", "Run") or (ReplicatedStorage:FindFirstChild("remoteInterface") and ReplicatedStorage.remoteInterface:FindFirstChild("traps") and ReplicatedStorage.remoteInterface.traps:FindFirstChild("Run"))
-	if not Event then return end
+-- Remotes & Metamethod Interception (Unified & Optimized)
+local BearTrapEvent = resolvePath(ReplicatedStorage, "remoteInterface", "traps", "Run") or (ReplicatedStorage:FindFirstChild("remoteInterface") and ReplicatedStorage.remoteInterface:FindFirstChild("traps") and ReplicatedStorage.remoteInterface.traps:FindFirstChild("Run"))
+local BossDamageEvent = resolvePath(ReplicatedStorage, "remoteInterface", "character", "hurtByAIAttack")
 
-	local mtHook; mtHook = hookmetamethod(game, "__namecall", function(...)
-		local self = ...
-
-		if Toggles.NoBearTrapDMG and Toggles.NoBearTrapDMG.Value and rawequal(self, Event) and getnamecallmethod() == "InvokeServer" then
-			print(`Intercepted (__namecall) {Event.Name}:InvokeServer() - BLOCKED`, ...)
+local originalNamecall
+originalNamecall = hookmetamethod(game, "__namecall", function(self, ...)
+	local method = getnamecallmethod()
+	if method == "InvokeServer" or method == "FireServer" then
+		if BearTrapEvent and rawequal(self, BearTrapEvent) and Toggles.NoBearTrapDMG and Toggles.NoBearTrapDMG.Value then
 			return nil
 		end
-
-		return mtHook(...)
-	end)
-
-	if typeof(hookfunction) == "function" and Event.InvokeServer then
-		local OldInvokeServer; OldInvokeServer = hookfunction(Event.InvokeServer, function(...)
-			local self = ...
-
-			if Toggles.NoBearTrapDMG and Toggles.NoBearTrapDMG.Value and rawequal(self, Event) then
-				print(`Intercepted (__index) {Event.Name}:InvokeServer() - BLOCKED`, ...)
-				return nil
-			end
-
-			return OldInvokeServer(self, ...)
-		end)
-	end
-end)
-
--- No Glider Cooldown Remote Interception
-pcall(function()
-	local Event = resolvePath(ReplicatedStorage, "remoteInterface", "Tools", "ToggleGlider")
-	if not Event then return end
-
-	local mtHook; mtHook = hookmetamethod(game, "__namecall", function(...)
-		local self = ...
-
-		if Toggles.NoGliderCooldown and Toggles.NoGliderCooldown.Value and rawequal(self, Event) and getnamecallmethod() == "InvokeServer" then
-			print(`Intercepted (namecall) {Event.Name}:InvokeServer() - BLOCKED`, ...)
+		if BossDamageEvent and rawequal(self, BossDamageEvent) and Toggles.NoBossDamage and Toggles.NoBossDamage.Value then
 			return nil
 		end
+	end
+	return originalNamecall(self, ...)
+end)
 
-		return mtHook(...)
-	end)
-
-	if typeof(hookfunction) == "function" and Event.InvokeServer then
-		local OldInvokeServer; OldInvokeServer = hookfunction(Event.InvokeServer, function(...)
-			local self = ...
-
-			if Toggles.NoGliderCooldown and Toggles.NoGliderCooldown.Value and rawequal(self, Event) then
-				print(`Intercepted (__index) {Event.Name}:InvokeServer() - BLOCKED`, ...)
+if typeof(hookfunction) == "function" then
+	if BearTrapEvent and BearTrapEvent.InvokeServer then
+		local oldTrap = hookfunction(BearTrapEvent.InvokeServer, function(self, ...)
+			if Toggles.NoBearTrapDMG and Toggles.NoBearTrapDMG.Value and rawequal(self, BearTrapEvent) then
 				return nil
 			end
-
-			return OldInvokeServer(self, ...)
+			return oldTrap(self, ...)
 		end)
 	end
-end)
+end
 
 Library.Font = Enum.Font.Jura
 Library.CornerRadius = 15
@@ -649,11 +618,6 @@ MainLeft:AddCheckbox("InfiniteJump", {
 	Default = false,
 })
 
-MainLeft:AddCheckbox("NoGliderCooldown", {
-	Text = "No Glider Cooldown",
-	Default = false,
-})
-
 MainLeft:AddCheckbox("WalkOnWater", {
 	Text = "Walk On Water",
 	Default = false,
@@ -930,13 +894,13 @@ end
 
 -- Infinite stamina, no fall damage, anti lava (Behavior > Disabled on workspace.Characters.[name] or Character itself)
 local function applyCharacterModuleToggles()
-	if Toggles.InfiniteStamina.Value then
+	if Toggles.InfiniteStamina and Toggles.InfiniteStamina.Value then
 		setBehaviorDisabled(getCharacterBehavior("stamina"), true)
 	end
-	if Toggles.NoFallDamage.Value then
+	if Toggles.NoFallDamage and Toggles.NoFallDamage.Value then
 		setBehaviorDisabled(getCharacterBehavior("fallDamage"), true)
 	end
-	if Toggles.AntiLava.Value then
+	if Toggles.AntiLava and Toggles.AntiLava.Value then
 		local char = getCharacter()
 		if char then
 			setBehaviorDisabled(char:FindFirstChild("worldHazards"), true)
@@ -959,29 +923,32 @@ local function applyCharacterModuleToggles()
 	end
 end
 
+-- Efficient periodic watchdog (every 1 second instead of every frame)
+local lastCharModuleCheck = 0
+local function pollCharacterModules()
+	if tick() - lastCharModuleCheck < 1.0 then return end
+	lastCharModuleCheck = tick()
+	applyCharacterModuleToggles()
+end
+
+local function syncCharacterModuleWatchdog()
+	disconnect("CharModuleWatchdog")
+	local needsWatchdog = (Toggles.InfiniteStamina and Toggles.InfiniteStamina.Value)
+		or (Toggles.NoFallDamage and Toggles.NoFallDamage.Value)
+		or (Toggles.AntiLava and Toggles.AntiLava.Value)
+		or (Toggles.InfiniteBackpack and Toggles.InfiniteBackpack.Value)
+		or (Toggles.NoSlowdown and Toggles.NoSlowdown.Value)
+	if needsWatchdog then
+		track("CharModuleWatchdog", RunService.Heartbeat:Connect(pollCharacterModules))
+	end
+end
+
 Toggles.InfiniteBackpack:OnChanged(function()
-	disconnect("InfiniteBackpack")
 	disconnect("InfiniteBackpack_WS")
 	disconnect("InfiniteBackpack_CharAdded")
 	if Toggles.InfiniteBackpack.Value then
-		local function enforceBackpackSpeed()
-			if not isAlive() then return end
-			local humanoid = getHumanoid()
-			if humanoid and humanoid.WalkSpeed < 16 then
-				humanoid.WalkSpeed = 16
-			end
-			local charFolder = getCharacterFolder()
-			if charFolder then
-				for _, name in ipairs({"weight", "overweight", "backpack", "slowdown", "speedModifier"}) do
-					local b = charFolder:FindFirstChild(name)
-					if b then
-						setBehaviorDisabled(b, true)
-					end
-				end
-			end
-		end
-
-		track("InfiniteBackpack", RunService.Heartbeat:Connect(enforceBackpackSpeed))
+		applyCharacterModuleToggles()
+		syncCharacterModuleWatchdog()
 
 		local function setupHumanoid(char)
 			if not char then return end
@@ -1003,20 +970,19 @@ Toggles.InfiniteBackpack:OnChanged(function()
 
 		Library:Notify({ Title = "Infinite Backpack", Description = "Enabled (No Weight Slowdown)", Time = 2 })
 	else
+		syncCharacterModuleWatchdog()
 		Library:Notify({ Title = "Infinite Backpack", Description = "Disabled", Time = 2 })
 	end
 end)
 
-
-
 Toggles.InfiniteStamina:OnChanged(function()
-	disconnect("InfiniteStamina")
 	if Toggles.InfiniteStamina.Value then
 		applyCharacterModuleToggles()
-		track("InfiniteStamina", RunService.Heartbeat:Connect(applyCharacterModuleToggles))
+		syncCharacterModuleWatchdog()
 		Library:Notify({ Title = "Infinite Stamina", Description = "Enabled", Time = 2 })
 	else
 		setBehaviorDisabled(getCharacterBehavior("stamina"), false)
+		syncCharacterModuleWatchdog()
 	end
 end)
 
@@ -1033,21 +999,13 @@ Toggles.InfiniteJump:OnChanged(function()
 end)
 
 Toggles.NoFallDamage:OnChanged(function()
-	disconnect("NoFallDamage")
 	if Toggles.NoFallDamage.Value then
 		applyCharacterModuleToggles()
-		track("NoFallDamage", RunService.Heartbeat:Connect(applyCharacterModuleToggles))
+		syncCharacterModuleWatchdog()
 		Library:Notify({ Title = "No Fall Damage", Description = "Enabled", Time = 2 })
 	else
 		setBehaviorDisabled(getCharacterBehavior("fallDamage"), false)
-	end
-end)
-
-Toggles.NoGliderCooldown:OnChanged(function()
-	if Toggles.NoGliderCooldown.Value then
-		Library:Notify({ Title = "No Glider Cooldown", Description = "Enabled", Time = 2 })
-	else
-		Library:Notify({ Title = "No Glider Cooldown", Description = "Disabled", Time = 2 })
+		syncCharacterModuleWatchdog()
 	end
 end)
 
@@ -1060,23 +1018,26 @@ Toggles.NoBearTrapDMG:OnChanged(function()
 end)
 
 Toggles.AntiLava:OnChanged(function()
-	disconnect("AntiLava")
 	if Toggles.AntiLava.Value then
 		applyCharacterModuleToggles()
-		track("AntiLava", RunService.Heartbeat:Connect(applyCharacterModuleToggles))
+		syncCharacterModuleWatchdog()
 		Library:Notify({ Title = "Anti Fire / Lava", Description = "Enabled", Time = 2 })
 	else
 		local char = getCharacter()
 		if char then
 			setBehaviorDisabled(char:FindFirstChild("worldHazards"), false)
 		end
+		syncCharacterModuleWatchdog()
 	end
 end)
 
+local lastBubbleUpdate = 0
 Toggles.AutoAirBubbles:OnChanged(function()
 	disconnect("AutoAirBubbles")
 	if Toggles.AutoAirBubbles.Value then
 		track("AutoAirBubbles", RunService.Heartbeat:Connect(function()
+			if tick() - lastBubbleUpdate < 0.1 then return end
+			lastBubbleUpdate = tick()
 			local character = getCharacter()
 			local head = character and character:FindFirstChild("Head")
 			local airBubbles = workspace:FindFirstChild("AirBubbles")
@@ -1162,24 +1123,7 @@ track("CharacterModuleRespawn", LocalPlayer.CharacterAdded:Connect(function()
 	end
 end))
 
--- No Boss Damage Hook Setup
-local BossDamageEvent = resolvePath(ReplicatedStorage, "remoteInterface", "character", "hurtByAIAttack")
-local originalNamecall
-if BossDamageEvent then
-	originalNamecall = hookmetamethod(game, "__namecall", function(...)
-		local self = ...
-		local method = getnamecallmethod()
-
-		if rawequal(self, BossDamageEvent) and method == "FireServer" then
-			if Toggles.NoBossDamage and Toggles.NoBossDamage.Value then
-				return -- Block the attack to prevent damage
-			end
-		end
-
-		return originalNamecall(...)
-	end)
-end
-
+-- No Boss Damage (Handled in main metamethod hook)
 local function noBossDamageToggle(state)
 	if state then
 		Library:Notify({ Title = "No Boss Damage", Description = "Enabled", Time = 2 })
@@ -2237,12 +2181,11 @@ local function killAuraLoop()
 		end
 	end
 
+	lastKillAuraHit = tick()
 	updateHighlight(highlightTarget, nearestTarget, Toggles.HighlightTarget.Value)
 	if not nearestTarget then
 		return
 	end
-
-	lastKillAuraHit = tick()
 	local targetPlayer = Players:GetPlayerFromCharacter(nearestTarget)
 	if targetPlayer then
 		-- Player: use Crypt encryption, fire (slot, encryptedUserId)
@@ -2304,29 +2247,26 @@ end
 
 Toggles.AimbotLockOn:OnChanged(function()
 	disconnect("AimbotLoop")
-   disconnect("AimbotFOVCircleUpdate")
-   if fovCircle then fovCircle.Visible = false end
+	if fovCircle then fovCircle.Visible = false end
 
 	if Toggles.AimbotLockOn.Value then
-           track("AimbotFOVCircleUpdate", RunService.RenderStepped:Connect(function()
-                   if fovCircle then
-                           local viewportSize = workspace.CurrentCamera.ViewportSize
-                           fovCircle.Position = Vector2.new(viewportSize.X / 2, viewportSize.Y / 2)
-                           fovCircle.Radius = (Options.AimbotFOV and Options.AimbotFOV.Value) or 100
-                           fovCircle.Color = (Options.AimbotFOVCircleColor and Options.AimbotFOVCircleColor.Value) or Color3.fromRGB(255, 0, 0)
-
-                           local infiniteRange = Toggles.InfiniteDistance and Toggles.InfiniteDistance.Value
-                           fovCircle.Visible = not infiniteRange
-                   end
-           end))
-
 		track("AimbotLoop", RunService.RenderStepped:Connect(function()
-			if Toggles.AimbotLockOn.Value then
-				local target = getClosestPlayerToCenter()
-				if target then
-					local camera = workspace.CurrentCamera
-					camera.CFrame = CFrame.new(camera.CFrame.Position, target.Position)
-				end
+			if not (Toggles.AimbotLockOn and Toggles.AimbotLockOn.Value) then return end
+			local camera = workspace.CurrentCamera
+			if not camera then return end
+
+			if fovCircle then
+				local viewportSize = camera.ViewportSize
+				fovCircle.Position = Vector2.new(viewportSize.X / 2, viewportSize.Y / 2)
+				fovCircle.Radius = (Options.AimbotFOV and Options.AimbotFOV.Value) or 100
+				fovCircle.Color = (Options.AimbotFOVCircleColor and Options.AimbotFOVCircleColor.Value) or Color3.fromRGB(255, 0, 0)
+				local infiniteRange = Toggles.InfiniteDistance and Toggles.InfiniteDistance.Value
+				fovCircle.Visible = not infiniteRange
+			end
+
+			local target = getClosestPlayerToCenter()
+			if target then
+				camera.CFrame = CFrame.new(camera.CFrame.Position, target.Position)
 			end
 		end))
 		Library:Notify({ Title = "AIMBOT", Description = "Aimbot Enabled (Locking to Torso)", Time = 2 })
@@ -4793,8 +4733,9 @@ local function autoMine()
 			end
 		end
 	end
+
+	lastAutoMineHit = tick()
 	if closest then
-		lastAutoMineHit = tick()
 		mineObject(closest)
 	else
 		updateHighlight(hlMine, nil, false)
@@ -4857,8 +4798,9 @@ local function autoChop()
 			end
 		end
 	end
+
+	lastAutoChopHit = tick()
 	if closest then
-		lastAutoChopHit = tick()
 		chopObject(closest)
 	else
 		updateHighlight(hlChop, nil, false)
@@ -4928,14 +4870,13 @@ local function aiAuraLoop()
 		end
 	end
 
+	lastAiAuraHit = tick()
 	updateHighlight(hlAI, closest, Toggles.HighlightAI.Value)
 	if not closest then
 		return
 	end
 
 	local slot = tonumber(Options.AiAuraSlot.Value) or 1
-	lastAiAuraHit = tick()
-
 	attackNPC(slot, closest) -- Use attackNPC for proper server model handling
 end
 
@@ -5221,6 +5162,7 @@ local function scanOreTypesAndBuildUI()
 	return anyAdded
 end
 
+local lastOreESPUpdate = 0
 Toggles.OreESPToggle:OnChanged(function()
 	disconnect("OreESP")
 	disconnect("OreESPScan")
@@ -5240,6 +5182,8 @@ Toggles.OreESPToggle:OnChanged(function()
 
 	track("OreESP", RunService.Heartbeat:Connect(function()
 		if not isAlive() or not Toggles.OreESPToggle.Value then return end
+		if tick() - lastOreESPUpdate < 0.25 then return end
+		lastOreESPUpdate = tick()
 		oreESPLoop()
 	end))
 
@@ -7644,9 +7588,6 @@ Library:OnUnload(function()
 		Toggles.OreESPToggle:SetValue(false)
 	end
 
-	if Toggles.NoGliderCooldown and Toggles.NoGliderCooldown.Value then
-		Toggles.NoGliderCooldown:SetValue(false)
-	end
 	if Toggles.FastPickup and Toggles.FastPickup.Value then
 		Toggles.FastPickup:SetValue(false)
 	end
