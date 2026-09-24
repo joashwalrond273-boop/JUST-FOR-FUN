@@ -43,6 +43,10 @@ local Options = Library.Options
 local Toggles = Library.Toggles
 local lastDeathPosition = nil
 local shouldTeleportBack = false
+local pendingTeleportTarget = nil
+local pendingTeleportName = nil
+local resetCharacter
+local teleportToLocation
 local updateAutoSwingSliderVisibility
 local updatePVPModulesVisibility
 local updateTouchFlingVisibility
@@ -96,6 +100,67 @@ end
 local function isAlive()
 	local humanoid = getHumanoid()
 	return humanoid and humanoid.Health > 0
+end
+
+resetCharacter = function()
+	local root = getRootPart()
+	if root then
+		lastDeathPosition = root.Position
+	end
+
+	local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
+	if remoteInterface then
+		local characterFolder = remoteInterface:FindFirstChild("character")
+		if characterFolder then
+			local resetRemote = characterFolder:FindFirstChild("reset")
+			if resetRemote then
+				local s = pcall(function()
+					resetRemote:InvokeServer()
+				end)
+				if s then return true end
+			end
+		end
+	end
+
+	local humanoid = getHumanoid()
+	if humanoid then
+		humanoid.Health = 0
+		return true
+	end
+
+	local character = getCharacter()
+	if character then
+		character:BreakJoints()
+		return true
+	end
+	return false
+end
+
+teleportToLocation = function(targetPos, locationName, isAutoReset)
+	if not isAutoReset then
+		local root = getRootPart()
+		if root then
+			root.Velocity = Vector3.zero
+			root.CFrame = CFrame.new(targetPos)
+			Library:Notify({ Title = "Teleport", Description = "Teleported to " .. (locationName or "location"), Time = 1.5 })
+		else
+			Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
+		end
+		return
+	end
+
+	pendingTeleportTarget = targetPos
+	pendingTeleportName = locationName
+
+	Library:Notify({
+		Title = "Auto Reset",
+		Description = "Resetting... Spawning at " .. (locationName or "location"),
+		Time = 2,
+	})
+
+	task.spawn(function()
+		resetCharacter()
+	end)
 end
 
 local function isHoldingSelectedSlot(selectedSlot)
@@ -479,6 +544,14 @@ FunAttach:AddCheckbox("FloatOverToggle", {
 
 local TeleportGroup = Tabs.Main:AddRightGroupbox("TELEPORT", "map-pin")
 
+TeleportGroup:AddToggle("AutoResetPlayerTP", {
+	Text = "Auto Reset",
+	Default = false,
+	Tooltip = "Auto reset and spawn at selected player",
+})
+
+TeleportGroup:AddDivider()
+
 TeleportGroup:AddDropdown("TeleportPlayerList", {
 	Text = "Select Player",
 	Values = {},
@@ -527,9 +600,14 @@ TeleportGroup:AddButton({
 			return
 		end
 
-		if targetCharacter:FindFirstChild("HumanoidRootPart") and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-			player.Character.HumanoidRootPart.CFrame = targetCharacter.HumanoidRootPart.CFrame + Vector3.new(0, 3, 0)
+		local targetRoot = targetCharacter:FindFirstChild("HumanoidRootPart")
+		if not targetRoot then
+			notify("Tp Error", "Character root not found.", 5)
+			return
 		end
+
+		local isAutoReset = Toggles.AutoResetPlayerTP and Toggles.AutoResetPlayerTP.Value
+		teleportToLocation(targetRoot.Position + Vector3.new(0, 3, 0), matchedPlayers[1].DisplayName or matchedPlayers[1].Name, isAutoReset)
 	end,
 })
 
@@ -1149,10 +1227,33 @@ joinLowPingServer = function()
 	end)
 end
 
-track("CharacterModuleRespawn", LocalPlayer.CharacterAdded:Connect(function()
+track("CharacterModuleRespawn", LocalPlayer.CharacterAdded:Connect(function(newChar)
 	task.wait(0.5)
 	applyCharacterModuleToggles()
-	if shouldTeleportBack and lastDeathPosition then
+	if pendingTeleportTarget then
+		local targetPos = pendingTeleportTarget
+		local targetName = pendingTeleportName or "Location"
+		pendingTeleportTarget = nil
+		pendingTeleportName = nil
+
+		task.spawn(function()
+			local root = getRootPart()
+			if not root and newChar then
+				root = newChar:WaitForChild("HumanoidRootPart", 5)
+			end
+			if root then
+				for i = 1, 8 do
+					if root and root.Parent then
+						root.Velocity = Vector3.zero
+						root.RotVelocity = Vector3.zero
+						root.CFrame = CFrame.new(targetPos + Vector3.new(0, 3, 0))
+					end
+					task.wait(0.05)
+				end
+				Library:Notify({ Title = "Auto Reset & Spawn", Description = "Spawned at " .. targetName .. "!", Time = 2 })
+			end
+		end)
+	elseif shouldTeleportBack and lastDeathPosition then
 		shouldTeleportBack = false
 		local root = getRootPart()
 		if root then
@@ -4685,27 +4786,28 @@ Options.SelectOreDropdown:OnChanged(function()
 	end
 end)
 
+OreFarm:AddToggle("AutoResetOreFarmTP", {
+	Text = "Auto Reset",
+	Default = false,
+	Tooltip = "Auto reset and spawn at selected ore location",
+})
+
 OreFarm:AddButton({
 	Text = "Teleport to Selected",
 	Func = function()
-           local selected = Options.GoldLocationsDropdown.Value
-           local targetPos = nil
-           for _, loc in ipairs(goldLocations) do
-                   if loc.name == selected then
-                           targetPos = loc.pos
-                           break
-                   end
-           end
-           if targetPos then
-                   local root = getRootPart()
-                   if root then
-                           root.CFrame = CFrame.new(targetPos)
-                           Library:Notify({ Title = "Teleport", Description = "Teleported to " .. selected, Time = 1.5 })
-                   else
-                           Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
-                   end
-           end
-   end,
+		local selected = Options.GoldLocationsDropdown.Value
+		local targetPos = nil
+		for _, loc in ipairs(goldLocations) do
+			if loc.name == selected then
+				targetPos = loc.pos
+				break
+			end
+		end
+		if targetPos then
+			local isAutoReset = Toggles.AutoResetOreFarmTP and Toggles.AutoResetOreFarmTP.Value
+			teleportToLocation(targetPos, selected, isAutoReset)
+		end
+	end,
 })
 
 -- ==========================================
@@ -5336,6 +5438,14 @@ end)
 -- Boss Locations
 local BossLocationsGroup = Tabs.Teleport:AddLeftGroupbox("Boss locations", "swords")
 
+BossLocationsGroup:AddToggle("AutoResetBossTP", {
+	Text = "Auto Reset",
+	Default = false,
+	Tooltip = "Auto reset and spawn at selected boss location",
+})
+
+BossLocationsGroup:AddDivider()
+
 local bossLocations = {
 	{ name = "Samurai",         pos = Vector3.new(-1727.48, 517.20, 7305.50) },
 	{ name = "Juggernaut",      pos = Vector3.new(-1601.49, 113.27, -2890.59) },
@@ -5350,19 +5460,22 @@ for _, loc in ipairs(bossLocations) do
 	BossLocationsGroup:AddButton({
 		Text = loc.name,
 		Func = function()
-			local root = getRootPart()
-			if root then
-				root.CFrame = CFrame.new(loc.pos)
-				Library:Notify({ Title = "Teleport", Description = "Teleported to " .. loc.name, Time = 1.5 })
-			else
-				Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
-			end
+			local isAutoReset = Toggles.AutoResetBossTP and Toggles.AutoResetBossTP.Value
+			teleportToLocation(loc.pos, loc.name, isAutoReset)
 		end,
 	})
 end
 
 -- Extra Locations
 local TeleportExtra = Tabs.Teleport:AddLeftGroupbox("Extra Locations", "map-pin")
+
+TeleportExtra:AddToggle("AutoResetExtraTP", {
+	Text = "Auto Reset",
+	Default = false,
+	Tooltip = "Auto reset and spawn at selected extra location",
+})
+
+TeleportExtra:AddDivider()
 
 local extraLocations = {
 	{ name = "Desert",        pos = Vector3.new(1459.50, 26.26, -204.70) },
@@ -5381,19 +5494,22 @@ for _, loc in ipairs(extraLocations) do
 	TeleportExtra:AddButton({
 		Text = loc.name,
 		Func = function()
-			local root = getRootPart()
-			if root then
-				root.CFrame = CFrame.new(loc.pos)
-				Library:Notify({ Title = "Teleport", Description = "Teleported to " .. loc.name, Time = 1.5 })
-			else
-				Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
-			end
+			local isAutoReset = Toggles.AutoResetExtraTP and Toggles.AutoResetExtraTP.Value
+			teleportToLocation(loc.pos, loc.name, isAutoReset)
 		end,
 	})
 end
 
 -- Mounts Groupbox
 local MountsGroup = Tabs.Teleport:AddRightGroupbox("Mounts", "paw-print")
+
+MountsGroup:AddToggle("AutoResetMountsTP", {
+	Text = "Auto Reset",
+	Default = false,
+	Tooltip = "Auto reset and spawn at selected mount location",
+})
+
+MountsGroup:AddDivider()
 
 local mountLocations = {
 	{ name = "Lion",          pos = Vector3.new(1327.79, 25.26, -756.75) },
@@ -5408,19 +5524,22 @@ for _, loc in ipairs(mountLocations) do
 	MountsGroup:AddButton({
 		Text = loc.name,
 		Func = function()
-			local root = getRootPart()
-			if root then
-				root.CFrame = CFrame.new(loc.pos)
-				Library:Notify({ Title = "Teleport", Description = "Teleported to " .. loc.name, Time = 1.5 })
-			else
-				Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
-			end
+			local isAutoReset = Toggles.AutoResetMountsTP and Toggles.AutoResetMountsTP.Value
+			teleportToLocation(loc.pos, loc.name, isAutoReset)
 		end,
 	})
 end
 
 -- Merchants Groupbox
 local MerchantsGroup = Tabs.Teleport:AddRightGroupbox("Merchants", "map-pin")
+
+MerchantsGroup:AddToggle("AutoResetMerchantsTP", {
+	Text = "Auto Reset",
+	Default = false,
+	Tooltip = "Auto reset and spawn at selected merchant location",
+})
+
+MerchantsGroup:AddDivider()
 
 local merchantLocations = {
 	{ name = "Mainland",   pos = Vector3.new(-144.60, 25.26, 429.38) },
@@ -5435,13 +5554,8 @@ for _, loc in ipairs(merchantLocations) do
 	MerchantsGroup:AddButton({
 		Text = loc.name,
 		Func = function()
-			local root = getRootPart()
-			if root then
-				root.CFrame = CFrame.new(loc.pos)
-				Library:Notify({ Title = "Teleport", Description = "Teleported to " .. loc.name, Time = 1.5 })
-			else
-				Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
-			end
+			local isAutoReset = Toggles.AutoResetMerchantsTP and Toggles.AutoResetMerchantsTP.Value
+			teleportToLocation(loc.pos, loc.name, isAutoReset)
 		end,
 	})
 end
