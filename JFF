@@ -640,7 +640,7 @@ MainLeft:AddSlider("AutoPickupRange", {
 	Text = "Pickup Range",
 	Default = 20,
 	Min = 5,
-	Max = 700,
+	Max = 600,
 	Rounding = 1,
 	Compact = true,
 })
