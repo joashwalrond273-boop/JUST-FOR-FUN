@@ -52,8 +52,6 @@ local updatePlayerESPVisibility
 local updateFlightVisibility
 local updateImmortalModeVisibility
 local updatePhantomModeVisibility
-local triggerAdvanceHit
-local isInsideKillAura = false
 
 Library.ShowToggleFrameInKeybinds = true
 
@@ -260,12 +258,6 @@ pcall(function()
 			return nil
 		end
 
-		if getnamecallmethod() == "FireServer" and not isInsideKillAura and (rawequal(self, TSG.MeleePlayerRemote) or (self and typeof(self) == "Instance" and self.Name == "meleePlayer")) then
-			if triggerAdvanceHit then
-				triggerAdvanceHit()
-			end
-		end
-
 		return mtHook(...)
 	end)
 
@@ -279,17 +271,6 @@ pcall(function()
 			end
 
 			return OldInvokeServer(self, ...)
-		end)
-	end
-end)
-
-pcall(function()
-	if typeof(hookfunction) == "function" and TSG.MeleePlayerRemote and TSG.MeleePlayerRemote.FireServer then
-		local OldMeleeFire; OldMeleeFire = hookfunction(TSG.MeleePlayerRemote.FireServer, function(self, ...)
-			if not isInsideKillAura and triggerAdvanceHit then
-				triggerAdvanceHit()
-			end
-			return OldMeleeFire(self, ...)
 		end)
 	end
 end)
@@ -1639,11 +1620,6 @@ CombatAutoSwingGroup:AddCheckbox("SmartSwing", {
 	Default = false,
 })
 
-CombatAutoSwingGroup:AddCheckbox("AdvanceHit", {
-	Text = "+ Advance Hit",
-	Default = false,
-})
-
 CombatAutoSwingGroup:AddDropdown("AutoSwingSlot", {
 	Text = "Tool Slot",
 	Values = { "Normal", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" },
@@ -2268,7 +2244,6 @@ local function killAuraLoop()
 
 	lastKillAuraHit = tick()
 	local targetPlayer = Players:GetPlayerFromCharacter(nearestTarget)
-	isInsideKillAura = true
 	if targetPlayer then
 		-- Player: use Crypt encryption, fire (slot, encryptedUserId)
 		if Crypt then
@@ -2285,7 +2260,6 @@ local function killAuraLoop()
 	else
 		attackNPC(slot, nearestTarget)
 	end
-	isInsideKillAura = false
 end
 
 -- Aimbot Script
@@ -2529,104 +2503,6 @@ Toggles.SmartSwing:OnChanged(function()
 		Library:Notify({ Title = "Smart Swing", Description = "Enabled (Within " .. tostring(studs) .. " Studs)", Time = 2 })
 	else
 		Library:Notify({ Title = "Smart Swing", Description = "Disabled", Time = 2 })
-	end
-end)
-
-local isAdvanceHitActive = false
-local lastAdvanceHitToken = nil
-
-triggerAdvanceHit = function()
-	if not (Toggles.AdvanceHit and Toggles.AdvanceHit.Value) then return end
-	if not isAlive() then return end
-	if isInsideKillAura then return end
-
-	isAdvanceHitActive = true
-	if Toggles.KillAura and not Toggles.KillAura.Value then
-		Toggles.KillAura:SetValue(true)
-	end
-
-	local currentToken = {}
-	lastAdvanceHitToken = currentToken
-
-	task.delay(1, function()
-		if lastAdvanceHitToken == currentToken then
-			isAdvanceHitActive = false
-			if Toggles.AdvanceHit and Toggles.AdvanceHit.Value then
-				if Toggles.KillAura and Toggles.KillAura.Value then
-					Toggles.KillAura:SetValue(false)
-				end
-			end
-		end
-	end)
-end
-
-local function onAdvanceHitToolTouched(hit)
-	if not (Toggles.AdvanceHit and Toggles.AdvanceHit.Value) then return end
-	if isInsideKillAura then return end
-	if not hit or not hit.Parent then return end
-	local enemyChar = hit.Parent
-	if enemyChar:IsA("Accessory") then
-		enemyChar = enemyChar.Parent
-	end
-	if not enemyChar or enemyChar == LocalPlayer.Character then return end
-	local enemyPlayer = Players:GetPlayerFromCharacter(enemyChar)
-	if enemyPlayer and enemyPlayer ~= LocalPlayer then
-		local ignoreTeam = Toggles.SmartSwingIgnoreTeam and Toggles.SmartSwingIgnoreTeam.Value
-		if not ignoreTeam or not isTeammate(enemyPlayer) then
-			local enemyHum = enemyChar:FindFirstChildOfClass("Humanoid")
-			if enemyHum and enemyHum.Health > 0 then
-				triggerAdvanceHit()
-			end
-		end
-	end
-end
-
-local function hookAdvanceHitToolTouch(tool)
-	if not tool or not tool:IsA("Tool") then return end
-	for _, part in ipairs(tool:GetDescendants()) do
-		if part:IsA("BasePart") then
-			track("AdvanceHit_Touch_" .. part:GetDebugId(), part.Touched:Connect(onAdvanceHitToolTouched))
-		end
-	end
-	track("AdvanceHit_DescAdded_" .. tool:GetDebugId(), tool.DescendantAdded:Connect(function(part)
-		if part:IsA("BasePart") then
-			track("AdvanceHit_Touch_" .. part:GetDebugId(), part.Touched:Connect(onAdvanceHitToolTouched))
-		end
-	end))
-end
-
-Toggles.AdvanceHit:OnChanged(function()
-	disconnect("AdvanceHit_CharAdded")
-	disconnect("AdvanceHit_ChildAdded")
-	if Toggles.AdvanceHit.Value then
-		local function setupChar(char)
-			if not char then return end
-			for _, child in ipairs(char:GetChildren()) do
-				if child:IsA("Tool") then
-					hookAdvanceHitToolTouch(child)
-				end
-			end
-			disconnect("AdvanceHit_ChildAdded")
-			track("AdvanceHit_ChildAdded", char.ChildAdded:Connect(function(child)
-				if child:IsA("Tool") then
-					task.wait()
-					hookAdvanceHitToolTouch(child)
-				end
-			end))
-		end
-
-		if LocalPlayer.Character then
-			setupChar(LocalPlayer.Character)
-		end
-		track("AdvanceHit_CharAdded", LocalPlayer.CharacterAdded:Connect(setupChar))
-
-		Library:Notify({ Title = "Advance Hit", Description = "Enabled (1s Kill Aura on Hit)", Time = 2 })
-	else
-		if isAdvanceHitActive and Toggles.KillAura and Toggles.KillAura.Value then
-			Toggles.KillAura:SetValue(false)
-		end
-		isAdvanceHitActive = false
-		Library:Notify({ Title = "Advance Hit", Description = "Disabled", Time = 2 })
 	end
 end)
 
