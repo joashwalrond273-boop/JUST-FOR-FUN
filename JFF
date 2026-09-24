@@ -245,56 +245,63 @@ TSG.MineRemote = (keyedRemotes and rawget(keyedRemotes, "mine")) or (interaction
 TSG.ChopRemote = (keyedRemotes and rawget(keyedRemotes, "chop")) or (interactionsFolder and interactionsFolder:FindFirstChild("chop"))
 TSG.MeleeAI = interactionsFolder and interactionsFolder:FindFirstChild("meleeAI")
 
--- Centralized Metamethod Remote Interception Hook
+-- No Bear Trap DMG Remote Interception
 pcall(function()
-	local BearTrapEvent = resolvePath(ReplicatedStorage, "remoteInterface", "traps", "Run") or (ReplicatedStorage:FindFirstChild("remoteInterface") and ReplicatedStorage.remoteInterface:FindFirstChild("traps") and ReplicatedStorage.remoteInterface.traps:FindFirstChild("Run"))
-	local GliderEvent = resolvePath(ReplicatedStorage, "remoteInterface", "Tools", "ToggleGlider")
-	local BossDamageEvent = resolvePath(ReplicatedStorage, "remoteInterface", "character", "hurtByAIAttack")
+	local Event = resolvePath(ReplicatedStorage, "remoteInterface", "traps", "Run") or (ReplicatedStorage:FindFirstChild("remoteInterface") and ReplicatedStorage.remoteInterface:FindFirstChild("traps") and ReplicatedStorage.remoteInterface.traps:FindFirstChild("Run"))
+	if not Event then return end
 
 	local mtHook; mtHook = hookmetamethod(game, "__namecall", function(...)
 		local self = ...
-		local method = getnamecallmethod()
 
-		if method == "InvokeServer" then
-			if BearTrapEvent and rawequal(self, BearTrapEvent) then
-				if Toggles.NoBearTrapDMG and Toggles.NoBearTrapDMG.Value then
-					return nil
-				end
-			elseif GliderEvent and rawequal(self, GliderEvent) then
-				if Toggles.NoGliderCooldown and Toggles.NoGliderCooldown.Value then
-					return nil
-				end
-			end
-		elseif method == "FireServer" then
-			if BossDamageEvent and rawequal(self, BossDamageEvent) then
-				if Toggles.NoBossDamage and Toggles.NoBossDamage.Value then
-					return nil
-				end
-			end
+		if Toggles.NoBearTrapDMG and Toggles.NoBearTrapDMG.Value and rawequal(self, Event) and getnamecallmethod() == "InvokeServer" then
+			print(`Intercepted (__namecall) {Event.Name}:InvokeServer() - BLOCKED`, ...)
+			return nil
 		end
 
 		return mtHook(...)
 	end)
 
-	if typeof(hookfunction) == "function" then
-		if BearTrapEvent and BearTrapEvent.InvokeServer then
-			local OldBearTrapInvoke; OldBearTrapInvoke = hookfunction(BearTrapEvent.InvokeServer, function(...)
-				local self = ...
-				if Toggles.NoBearTrapDMG and Toggles.NoBearTrapDMG.Value and rawequal(self, BearTrapEvent) then
-					return nil
-				end
-				return OldBearTrapInvoke(self, ...)
-			end)
+	if typeof(hookfunction) == "function" and Event.InvokeServer then
+		local OldInvokeServer; OldInvokeServer = hookfunction(Event.InvokeServer, function(...)
+			local self = ...
+
+			if Toggles.NoBearTrapDMG and Toggles.NoBearTrapDMG.Value and rawequal(self, Event) then
+				print(`Intercepted (__index) {Event.Name}:InvokeServer() - BLOCKED`, ...)
+				return nil
+			end
+
+			return OldInvokeServer(self, ...)
+		end)
+	end
+end)
+
+-- No Glider Cooldown Remote Interception
+pcall(function()
+	local Event = resolvePath(ReplicatedStorage, "remoteInterface", "Tools", "ToggleGlider")
+	if not Event then return end
+
+	local mtHook; mtHook = hookmetamethod(game, "__namecall", function(...)
+		local self = ...
+
+		if Toggles.NoGliderCooldown and Toggles.NoGliderCooldown.Value and rawequal(self, Event) and getnamecallmethod() == "InvokeServer" then
+			print(`Intercepted (namecall) {Event.Name}:InvokeServer() - BLOCKED`, ...)
+			return nil
 		end
-		if GliderEvent and GliderEvent.InvokeServer then
-			local OldGliderInvoke; OldGliderInvoke = hookfunction(GliderEvent.InvokeServer, function(...)
-				local self = ...
-				if Toggles.NoGliderCooldown and Toggles.NoGliderCooldown.Value and rawequal(self, GliderEvent) then
-					return nil
-				end
-				return OldGliderInvoke(self, ...)
-			end)
-		end
+
+		return mtHook(...)
+	end)
+
+	if typeof(hookfunction) == "function" and Event.InvokeServer then
+		local OldInvokeServer; OldInvokeServer = hookfunction(Event.InvokeServer, function(...)
+			local self = ...
+
+			if Toggles.NoGliderCooldown and Toggles.NoGliderCooldown.Value and rawequal(self, Event) then
+				print(`Intercepted (__index) {Event.Name}:InvokeServer() - BLOCKED`, ...)
+				return nil
+			end
+
+			return OldInvokeServer(self, ...)
+		end)
 	end
 end)
 
@@ -953,10 +960,28 @@ local function applyCharacterModuleToggles()
 end
 
 Toggles.InfiniteBackpack:OnChanged(function()
+	disconnect("InfiniteBackpack")
 	disconnect("InfiniteBackpack_WS")
 	disconnect("InfiniteBackpack_CharAdded")
 	if Toggles.InfiniteBackpack.Value then
-		applyCharacterModuleToggles()
+		local function enforceBackpackSpeed()
+			if not isAlive() then return end
+			local humanoid = getHumanoid()
+			if humanoid and humanoid.WalkSpeed < 16 then
+				humanoid.WalkSpeed = 16
+			end
+			local charFolder = getCharacterFolder()
+			if charFolder then
+				for _, name in ipairs({"weight", "overweight", "backpack", "slowdown", "speedModifier"}) do
+					local b = charFolder:FindFirstChild(name)
+					if b then
+						setBehaviorDisabled(b, true)
+					end
+				end
+			end
+		end
+
+		track("InfiniteBackpack", RunService.Heartbeat:Connect(enforceBackpackSpeed))
 
 		local function setupHumanoid(char)
 			if not char then return end
@@ -985,8 +1010,10 @@ end)
 
 
 Toggles.InfiniteStamina:OnChanged(function()
+	disconnect("InfiniteStamina")
 	if Toggles.InfiniteStamina.Value then
 		applyCharacterModuleToggles()
+		track("InfiniteStamina", RunService.Heartbeat:Connect(applyCharacterModuleToggles))
 		Library:Notify({ Title = "Infinite Stamina", Description = "Enabled", Time = 2 })
 	else
 		setBehaviorDisabled(getCharacterBehavior("stamina"), false)
@@ -1006,8 +1033,10 @@ Toggles.InfiniteJump:OnChanged(function()
 end)
 
 Toggles.NoFallDamage:OnChanged(function()
+	disconnect("NoFallDamage")
 	if Toggles.NoFallDamage.Value then
 		applyCharacterModuleToggles()
+		track("NoFallDamage", RunService.Heartbeat:Connect(applyCharacterModuleToggles))
 		Library:Notify({ Title = "No Fall Damage", Description = "Enabled", Time = 2 })
 	else
 		setBehaviorDisabled(getCharacterBehavior("fallDamage"), false)
@@ -1031,8 +1060,10 @@ Toggles.NoBearTrapDMG:OnChanged(function()
 end)
 
 Toggles.AntiLava:OnChanged(function()
+	disconnect("AntiLava")
 	if Toggles.AntiLava.Value then
 		applyCharacterModuleToggles()
+		track("AntiLava", RunService.Heartbeat:Connect(applyCharacterModuleToggles))
 		Library:Notify({ Title = "Anti Fire / Lava", Description = "Enabled", Time = 2 })
 	else
 		local char = getCharacter()
@@ -1131,7 +1162,23 @@ track("CharacterModuleRespawn", LocalPlayer.CharacterAdded:Connect(function()
 	end
 end))
 
--- No Boss Damage (Handled in Centralized Metamethod Hook)
+-- No Boss Damage Hook Setup
+local BossDamageEvent = resolvePath(ReplicatedStorage, "remoteInterface", "character", "hurtByAIAttack")
+local originalNamecall
+if BossDamageEvent then
+	originalNamecall = hookmetamethod(game, "__namecall", function(...)
+		local self = ...
+		local method = getnamecallmethod()
+
+		if rawequal(self, BossDamageEvent) and method == "FireServer" then
+			if Toggles.NoBossDamage and Toggles.NoBossDamage.Value then
+				return -- Block the attack to prevent damage
+			end
+		end
+
+		return originalNamecall(...)
+	end)
+end
 
 local function noBossDamageToggle(state)
 	if state then
@@ -1206,7 +1253,7 @@ for _, item in ipairs(CollectionService:GetTagged("DROPPED_ITEM")) do
 end
 
 local function tryAutoPickup()
-	if time() - lastAutoPickup < 0.15 then
+	if time() - lastAutoPickup < 0.03 then
 		return
 	end
 	if not isAlive() or not TSG.PickupRemote then
@@ -1233,10 +1280,6 @@ local function tryAutoPickup()
 				table.insert(candidateItems, { item = item, dist = dist })
 			end
 		end
-	end
-
-	if #candidateItems == 0 then
-		return
 	end
 
 	-- Sort closest first
