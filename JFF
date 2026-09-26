@@ -673,57 +673,6 @@ ImmuneTab:AddCheckbox("AutoAirBubbles", {
 	Default = false,
 })
 
-MainRight:AddButton({
-	Text = "Admin Nearby",
-	Func = function()
-		local myRoot = getRootPart()
-		for _, player in ipairs(Players:GetPlayers()) do
-			if player ~= LocalPlayer then
-				if isAdmin(player) then
-					local nearby = false
-					local adminRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-					if myRoot and adminRoot then
-						local dist = (myRoot.Position - adminRoot.Position).Magnitude
-						if dist < 150 then
-							nearby = true
-						end
-					end
-					Library:Notify({
-						Title = "ADMIN " .. (nearby and "NEARBY" or "DETECTED"),
-						Description = player.Name .. " is " .. (nearby and "close to you!" or "in the server!") .. " Server hopping...",
-						Time = 5,
-					})
-					task.wait(2)
-					task.spawn(joinLowPingServer)
-					break
-				end
-			end
-		end
-	end,
-})
-
-MainRight:AddButton({
-	Text = "Reset Character",
-	Func = function()
-            local root = getRootPart()
-            if root then
-                    lastDeathPosition = root.Position
-            end
-
-            local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
-            if remoteInterface then
-                    local characterFolder = remoteInterface:FindFirstChild("character")
-                    if characterFolder then
-                            local resetRemote = characterFolder:FindFirstChild("reset")
-                            if resetRemote then
-                                    pcall(function()
-                                            resetRemote:InvokeServer()
-                                    end)
-                            end
-                    end
-            end
-	end,
-})
 
 MainRight:AddButton({
 	Text = "Low Ping Server",
@@ -834,34 +783,6 @@ MainRight:AddButton({
 	end,
 })
 
-local function isAdmin(player)
-	local success, rank = pcall(function()
-		return player:GetRankInGroup(7312028)
-	end)
-	if success and rank and rank >= 10 then
-		return true
-	end
-
-	local successRole, role = pcall(function()
-		return player:GetRoleInGroup(7312028)
-	end)
-	if successRole and role then
-		local lowerRole = role:lower()
-		if lowerRole:find("admin") or lowerRole:find("mod") or lowerRole:find("dev") or lowerRole:find("staff") or lowerRole:find("creator") or lowerRole:find("owner") then
-			return true
-		end
-	end
-
-	local isRobloxStaff = false
-	pcall(function()
-		isRobloxStaff = player:IsInGroup(1200769)
-	end)
-	if isRobloxStaff then
-		return true
-	end
-
-	return false
-end
 
 -- Infinite stamina, no fall damage, anti lava (Behavior > Disabled on workspace.Characters.[name] or Character itself)
 local function applyCharacterModuleToggles()
@@ -2809,14 +2730,14 @@ local function applySpearSwordSlot(slot)
 	if not (Toggles.SpearSword and Toggles.SpearSword.Value) then return end
 	if slot == 3 or slot == "3" then
 		if Options.CamlockStuds then
-			Options.CamlockStuds:SetValue(13)
+			Options.CamlockStuds:SetValue(15)
 		end
 		if Options.OutlineStuds then
-			Options.OutlineStuds:SetValue(8)
+			Options.OutlineStuds:SetValue(9)
 		end
 	elseif slot == 5 or slot == "5" then
 		if Options.CamlockStuds then
-			Options.CamlockStuds:SetValue(13)
+			Options.CamlockStuds:SetValue(15)
 		end
 		if Options.OutlineStuds then
 			Options.OutlineStuds:SetValue(1)
@@ -3489,7 +3410,7 @@ MoveSwimBoost:AddSlider("SwimBoostValue", {
 	Text = "Swim Speed Value",
 	Default = 30,
 	Min = 16,
-	Max = 100,
+	Max = 50,
 	Rounding = 1,
 	Compact = true,
 })
@@ -5332,20 +5253,33 @@ local function setPlayerShadows(castShadow)
 	end
 end
 
-VisualFPS:AddToggle("DisableShadows", {
-	Text = "Disable Shadows",
+VisualFPS:AddToggle("DisableRenderFog", {
+	Text = "Disable Render Fog",
 	Default = false,
 	Callback = function(state)
-		game:GetService("Lighting").GlobalShadows = not state
+		local lighting = game:GetService("Lighting")
+		lighting.GlobalShadows = not state
+
+		pcall(function()
+			if state then
+				lighting.FogEnd = 100000
+				lighting.FogStart = 0
+				lighting.FogColor = Color3.new(1, 1, 1)
+			else
+				lighting.FogEnd = 1000
+				lighting.FogStart = 50
+				lighting.FogColor = Color3.new(0.5, 0.6, 0.7)
+			end
+		end)
 
 		if state then
 			-- Disable player shadows
 			setPlayerShadows(false)
 
 			-- Connect for new players
-			track("DisableShadows_PlayerAdded", Players.PlayerAdded:Connect(function(player)
+			track("DisableRenderFog_PlayerAdded", Players.PlayerAdded:Connect(function(player)
 				player.CharacterAdded:Connect(function(char)
-					if Toggles.DisableShadows.Value then
+					if Toggles.DisableRenderFog and Toggles.DisableRenderFog.Value then
 						for _, part in ipairs(char:GetDescendants()) do
 							if part:IsA("BasePart") then
 								pcall(function() part.CastShadow = false end)
@@ -5357,8 +5291,8 @@ VisualFPS:AddToggle("DisableShadows", {
 
 			-- Connect for existing players' new characters
 			for _, player in ipairs(Players:GetPlayers()) do
-				track("DisableShadows_CharAdded_" .. player.Name, player.CharacterAdded:Connect(function(char)
-					if Toggles.DisableShadows.Value then
+				track("DisableRenderFog_CharAdded_" .. player.Name, player.CharacterAdded:Connect(function(char)
+					if Toggles.DisableRenderFog and Toggles.DisableRenderFog.Value then
 						for _, part in ipairs(char:GetDescendants()) do
 							if part:IsA("BasePart") then
 								pcall(function() part.CastShadow = false end)
@@ -5370,9 +5304,9 @@ VisualFPS:AddToggle("DisableShadows", {
 		else
 			-- Re-enable player shadows
 			setPlayerShadows(true)
-			disconnect("DisableShadows_PlayerAdded")
+			disconnect("DisableRenderFog_PlayerAdded")
 			for _, player in ipairs(Players:GetPlayers()) do
-				disconnect("DisableShadows_CharAdded_" .. player.Name)
+				disconnect("DisableRenderFog_CharAdded_" .. player.Name)
 			end
 		end
 	end,
@@ -5466,34 +5400,15 @@ VisualFPS:AddToggle("FullBright", {
 		pcall(function()
 			local lighting = game:GetService("Lighting")
 			if state then
-				lighting.Brightness = 1.4
+				lighting.Brightness = 1.2
 				lighting.GlobalShadows = false
-				lighting.Ambient = Color3.new(0.68, 0.68, 0.68)
-				lighting.OutdoorAmbient = Color3.new(0.8, 0.8, 0.8)
+				lighting.Ambient = Color3.new(0.55, 0.55, 0.55)
+				lighting.OutdoorAmbient = Color3.new(0.65, 0.65, 0.65)
 			else
 				lighting.Brightness = 1
 				lighting.GlobalShadows = true
 				lighting.Ambient = Color3.new(0.4, 0.4, 0.4)
 				lighting.OutdoorAmbient = Color3.new(0.6, 0.6, 0.6)
-			end
-		end)
-	end,
-})
-
-VisualFPS:AddToggle("NoFog", {
-	Text = "No Fog",
-	Default = false,
-	Callback = function(state)
-		pcall(function()
-			local lighting = game:GetService("Lighting")
-			if state then
-				lighting.FogEnd = 100000
-				lighting.FogStart = 0
-				lighting.FogColor = Color3.new(1, 1, 1)
-			else
-				lighting.FogEnd = 1000
-				lighting.FogStart = 50
-				lighting.FogColor = Color3.new(0.5, 0.6, 0.7)
 			end
 		end)
 	end,
@@ -7420,8 +7335,8 @@ Library:OnUnload(function()
 	if Toggles.KillHeavyPostEffects and Toggles.KillHeavyPostEffects.Value then
 		Toggles.KillHeavyPostEffects:SetValue(false)
 	end
-	if Toggles.DisableShadows and Toggles.DisableShadows.Value then
-		Toggles.DisableShadows:SetValue(false)
+	if Toggles.DisableRenderFog and Toggles.DisableRenderFog.Value then
+		Toggles.DisableRenderFog:SetValue(false)
 	end
 	if Toggles.NoGrass and Toggles.NoGrass.Value then
 		Toggles.NoGrass:SetValue(false)
