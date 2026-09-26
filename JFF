@@ -5414,109 +5414,81 @@ VisualFPS:AddToggle("FullBright", {
 	end,
 })
 
-VisualFPS:AddToggle("LowTextures", {
-	Text = "Low Textures",
-	Default = false,
-	Callback = function(state)
-		disconnect("LowTextures")
-		if state then
-			local function applyLowTexture(v)
-				if (v:IsA("BasePart") or v:IsA("MeshPart")) and v.Material ~= Enum.Material.Plastic then
-					pcall(function() v.Material = Enum.Material.Plastic end)
-				end
+-- ==========================================
+-- Natural Built-in Smoothness System
+-- ==========================================
+pcall(function()
+	local lighting = game:GetService("Lighting")
+	local blurTag = "TSG_Smoothness_Blur"
+	local bloomTag = "TSG_Smoothness_Bloom"
+	local ccTag = "TSG_Smoothness_Color"
+
+	local blur = lighting:FindFirstChild(blurTag) or Instance.new("BlurEffect")
+	blur.Name = blurTag
+	blur.Size = 1
+	blur.Enabled = true
+	blur.Parent = lighting
+
+	local bloom = lighting:FindFirstChild(bloomTag) or Instance.new("BloomEffect")
+	bloom.Name = bloomTag
+	bloom.Intensity = 0.1
+	bloom.Size = 4
+	bloom.Threshold = 0.98
+	bloom.Enabled = true
+	bloom.Parent = lighting
+
+	local cc = lighting:FindFirstChild(ccTag) or Instance.new("ColorCorrectionEffect")
+	cc.Name = ccTag
+	cc.Contrast = 0.02
+	cc.Saturation = 0.03
+	cc.Brightness = 0
+	cc.Enabled = true
+	cc.Parent = lighting
+end)
+
+do
+	local PBR_TYPES = { SurfaceAppearance = true, Texture = true, Decal = true }
+
+	local function simplifyObject(v)
+		if not v or not v.Parent then return end
+		if (v:IsA("BasePart") or v:IsA("MeshPart")) and v.Material ~= Enum.Material.Plastic then
+			pcall(function()
+				v.Material = Enum.Material.Plastic
+				v.Reflectance = 0
+			end)
+		elseif PBR_TYPES[v.ClassName] then
+			pcall(v.Destroy, v)
+		end
+	end
+
+	VisualFPS:AddToggle("LowTextures", {
+		Text = "Low Textures / Remove PBR",
+		Default = false,
+		Callback = function(state)
+			disconnect("LowTextures")
+			if state then
+				-- Process workspace smoothly in micro-chunks without memory bloat or FPS freeze
+				task.spawn(function()
+					local descendants = workspace:GetDescendants()
+					for i = 1, #descendants do
+						if not (Toggles.LowTextures and Toggles.LowTextures.Value) then break end
+						local v = descendants[i]
+						simplifyObject(v)
+						if i % 300 == 0 then
+							task.wait()
+						end
+					end
+				end)
+
+				track("LowTextures", workspace.DescendantAdded:Connect(function(v)
+					if Toggles.LowTextures and Toggles.LowTextures.Value then
+						simplifyObject(v)
+					end
+				end))
 			end
-
-			-- Process workspace smoothly in chunks without memory bloat or FPS freeze
-			task.spawn(function()
-				local descendants = workspace:GetDescendants()
-				for i = 1, #descendants do
-					if not (Toggles.LowTextures and Toggles.LowTextures.Value) then break end
-					local v = descendants[i]
-					if v and v.Parent then
-						applyLowTexture(v)
-					end
-					if i % 400 == 0 then
-						task.wait()
-					end
-				end
-			end)
-
-			track("LowTextures", workspace.DescendantAdded:Connect(function(v)
-				if Toggles.LowTextures and Toggles.LowTextures.Value then
-					applyLowTexture(v)
-				end
-			end))
-		end
-	end,
-})
-
-VisualFPS:AddToggle("Smoothness", {
-	Text = "Smoothness",
-	Default = false,
-	Callback = function(state)
-		local lighting = game:GetService("Lighting")
-		local blurTag = "Smoothness_Blur"
-		local bloomTag = "Smoothness_Bloom"
-		local ccTag = "Smoothness_Color"
-
-		local existingBlur = lighting:FindFirstChild(blurTag)
-		local existingBloom = lighting:FindFirstChild(bloomTag)
-		local existingCC = lighting:FindFirstChild(ccTag)
-
-		if state then
-			pcall(function()
-				if not existingBlur then
-					local blur = Instance.new("BlurEffect")
-					blur.Name = blurTag
-					blur.Size = 1
-					blur.Parent = lighting
-				else
-					existingBlur.Size = 1
-					existingBlur.Enabled = true
-				end
-
-				if not existingBloom then
-					local bloom = Instance.new("BloomEffect")
-					bloom.Name = bloomTag
-					bloom.Intensity = 0.1
-					bloom.Size = 4
-					bloom.Threshold = 0.98
-					bloom.Parent = lighting
-				else
-					existingBloom.Intensity = 0.1
-					existingBloom.Size = 4
-					existingBloom.Threshold = 0.98
-					existingBloom.Enabled = true
-				end
-
-				if not existingCC then
-					local cc = Instance.new("ColorCorrectionEffect")
-					cc.Name = ccTag
-					cc.Contrast = 0.02
-					cc.Saturation = 0.03
-					cc.Brightness = 0
-					cc.Parent = lighting
-				else
-					existingCC.Contrast = 0.02
-					existingCC.Saturation = 0.03
-					existingCC.Enabled = true
-				end
-			end)
-		else
-			pcall(function()
-				if existingBlur then
-					existingBlur:Destroy()
-				end
-				if existingBloom then
-					existingBloom:Destroy()
-				end
-				if existingCC then
-					existingCC:Destroy()
-				end
-			end)
-		end
-	end,
-})
+		end,
+	})
+end
 
 VisualFPS:AddToggle("DisableEffects", {
 	Text = "Disable Effects",
@@ -5529,40 +5501,6 @@ VisualFPS:AddToggle("DisableEffects", {
 		end
 	end,
 })
-
-do
-	local PBR_TYPES = { SurfaceAppearance = true, Texture = true, Decal = true }
-
-	VisualFPS:AddToggle("RemovePBR", {
-		Text = "Remove PBR Textures",
-		Default = false,
-		Callback = function(state)
-			disconnect("RemovePBR")
-			if state then
-				-- Process workspace smoothly in chunks without freezing the game
-				task.spawn(function()
-					local descendants = workspace:GetDescendants()
-					for i = 1, #descendants do
-						if not (Toggles.RemovePBR and Toggles.RemovePBR.Value) then break end
-						local v = descendants[i]
-						if v and v.Parent and PBR_TYPES[v.ClassName] then
-							pcall(v.Destroy, v)
-						end
-						if i % 400 == 0 then
-							task.wait()
-						end
-					end
-				end)
-
-				track("RemovePBR", workspace.DescendantAdded:Connect(function(v)
-					if Toggles.RemovePBR and Toggles.RemovePBR.Value and PBR_TYPES[v.ClassName] then
-						pcall(v.Destroy, v)
-					end
-				end))
-			end
-		end,
-	})
-end
 
 do
 	local PARTICLE_CLASSES = {
@@ -7326,9 +7264,19 @@ Library:OnUnload(function()
 	if Toggles.NoWaterBlur and Toggles.NoWaterBlur.Value then
 		Toggles.NoWaterBlur:SetValue(false)
 	end
-	if Toggles.RemovePBR and Toggles.RemovePBR.Value then
-		Toggles.RemovePBR:SetValue(false)
+	if Toggles.LowTextures and Toggles.LowTextures.Value then
+		Toggles.LowTextures:SetValue(false)
 	end
+
+	pcall(function()
+		local lighting = game:GetService("Lighting")
+		local blur = lighting:FindFirstChild("TSG_Smoothness_Blur")
+		if blur then blur:Destroy() end
+		local bloom = lighting:FindFirstChild("TSG_Smoothness_Bloom")
+		if bloom then bloom:Destroy() end
+		local cc = lighting:FindFirstChild("TSG_Smoothness_Color")
+		if cc then cc:Destroy() end
+	end)
 	if Toggles.RemoveParticles and Toggles.RemoveParticles.Value then
 		Toggles.RemoveParticles:SetValue(false)
 	end
