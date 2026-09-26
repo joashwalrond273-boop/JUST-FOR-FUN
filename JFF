@@ -288,9 +288,14 @@ local Window = Library:CreateWindow({
 	AutoShow = true,
 	Resizable = true,
 	NotifySide = "Right",
-	ShowCustomCursor = true,
+	ShowCustomCursor = false,
 	CornerRadius = 15,
 })
+
+-- Ensure native mouse icon is enabled on PC
+pcall(function()
+	UserInputService.MouseIconEnabled = true
+end)
 
 local Tabs = {
 	Main = Window:AddTab("Main", "badge-info"),
@@ -534,7 +539,7 @@ FunLeft:AddSlider("TouchFlingPower", {
 })
 
 FunLeft:AddCheckbox("HelicopterTroll", {
-	Text = "Helicopter Spin",
+	Text = "Fling Your Victim",
 	Default = false,
 })
 
@@ -542,24 +547,6 @@ FunLeft:AddDropdown("HelicopterPlayerList", {
 	Text = "Select Target",
 	Values = {},
 	Default = "",
-})
-
-FunLeft:AddSlider("HelicopterHeight", {
-	Text = "Height Offset",
-	Default = 5,
-	Min = 1,
-	Max = 20,
-	Rounding = 1,
-	Compact = true,
-})
-
-FunLeft:AddSlider("HelicopterSpeed", {
-	Text = "Spin Speed",
-	Default = 35,
-	Min = 5,
-	Max = 100,
-	Rounding = 0,
-	Compact = true,
 })
 
 updateTouchFlingVisibility = function()
@@ -576,20 +563,6 @@ updateTouchFlingVisibility = function()
 		Options.HelicopterPlayerList.Visible = true
 		if Options.HelicopterPlayerList.Holder then
 			Options.HelicopterPlayerList.Holder.Visible = true
-		end
-	end
-
-	if Options.HelicopterHeight then
-		Options.HelicopterHeight.Visible = true
-		if Options.HelicopterHeight.Holder then
-			Options.HelicopterHeight.Holder.Visible = true
-		end
-	end
-
-	if Options.HelicopterSpeed then
-		Options.HelicopterSpeed.Visible = true
-		if Options.HelicopterSpeed.Holder then
-			Options.HelicopterSpeed.Holder.Visible = true
 		end
 	end
 
@@ -1730,19 +1703,7 @@ CombatAutoPVP:AddSlider("SpeedBoostValue", {
 	Compact = true,
 })
 
-CombatAutoPVP:AddCheckbox("LowGravity", {
-	Text = "+ Low Gravity",
-	Default = false,
-})
 
-CombatAutoPVP:AddSlider("LowGravityHeight", {
-	Text = "Low Gravity Height",
-	Default = 100,
-	Min = 0,
-	Max = 300,
-	Rounding = 0,
-	Compact = true,
-})
 
 CombatAutoPVP:AddCheckbox("LookDownFloor", {
 	Text = "+ Look at Floor",
@@ -1779,7 +1740,6 @@ updatePVPModulesVisibility = function()
 	local isCam = (Toggles.Camlock and Toggles.Camlock.Value) or false
 	local isSpeedBoost = (Toggles.PlusSpeedBoost and Toggles.PlusSpeedBoost.Value) or false
 	local isAnySpeedBoost = isSpeedBoost
-	local isLowGrav = (Toggles.LowGravity and Toggles.LowGravity.Value) or false
 	local isSwingSpeed = (Toggles.SwingSpeedToggle and Toggles.SwingSpeedToggle.Value) or false
 
 	local isOutline = isCam and ((Toggles.Outline and Toggles.Outline.Value) or (Toggles.Cutline and Toggles.Cutline.Value) or false)
@@ -1882,12 +1842,6 @@ updatePVPModulesVisibility = function()
 		Options.SpeedBoostValue.Visible = isAnySpeedBoost
 		if Options.SpeedBoostValue.Holder then
 			Options.SpeedBoostValue.Holder.Visible = isAnySpeedBoost
-		end
-	end
-	if Options.LowGravityHeight then
-		Options.LowGravityHeight.Visible = isLowGrav
-		if Options.LowGravityHeight.Holder then
-			Options.LowGravityHeight.Holder.Visible = isLowGrav
 		end
 	end
 	CombatAutoPVP:Resize()
@@ -3825,11 +3779,6 @@ MoveMountAura:AddCheckbox("MountSpeedBoost", {
 	Default = false,
 })
 
-MoveMountAura:AddCheckbox("MountNoclip", {
-	Text = "Mount Noclip",
-	Default = false,
-})
-
 MoveMountAura:AddCheckbox("MountFly", {
 	Text = "Mount Fly",
 	Default = false,
@@ -3855,22 +3804,7 @@ MoveMountAura:AddSlider("MountFlySpeed", {
 
 
 
-Toggles.LowGravity:OnChanged(function()
-	if updatePVPModulesVisibility then
-		updatePVPModulesVisibility()
-	end
-	if Toggles.LowGravity.Value then
-		workspace.Gravity = math.max(0, 196.2 - Options.LowGravityHeight.Value)
-	else
-		workspace.Gravity = 196.2
-	end
-end)
 
-Options.LowGravityHeight:OnChanged(function()
-        if Toggles.LowGravity.Value then
-           workspace.Gravity = math.max(0, 196.2 - Options.LowGravityHeight.Value)
-        end
-end)
 
 
 local noclipCorePartNames = {
@@ -3886,17 +3820,36 @@ local function updateNoclipParts(character)
 	table.clear(noclipCoreParts)
 	if not character then return end
 	for _, child in ipairs(character:GetChildren()) do
-		if child:IsA("BasePart") then
+		if child:IsA("BasePart") and noclipCorePartNames[child.Name] then
 			table.insert(noclipCoreParts, child)
+		end
+	end
+end
+
+local function restoreCharacterCollisions(character)
+	if not character then return end
+	for _, part in ipairs(character:GetDescendants()) do
+		if part:IsA("BasePart") then
+			if part.Name == "Torso" or part.Name == "UpperTorso" or part.Name == "LowerTorso" or part.Name == "Head" then
+				part.CanCollide = true
+			else
+				part.CanCollide = false
+			end
 		end
 	end
 end
 
 LocalPlayer.CharacterAdded:Connect(function(char)
 	updateNoclipParts(char)
+	if not (Toggles.Noclip and Toggles.Noclip.Value) then
+		restoreCharacterCollisions(char)
+	end
 end)
 if LocalPlayer.Character then
 	updateNoclipParts(LocalPlayer.Character)
+	if not (Toggles.Noclip and Toggles.Noclip.Value) then
+		restoreCharacterCollisions(LocalPlayer.Character)
+	end
 end
 
 Toggles.Noclip:OnChanged(function()
@@ -3911,14 +3864,7 @@ Toggles.Noclip:OnChanged(function()
 			end
 		end))
 	else
-		local character = getCharacter()
-		if character then
-			for _, part in ipairs(noclipCoreParts) do
-				if part and part.Parent and part.Name ~= "HumanoidRootPart" then
-					part.CanCollide = true
-				end
-			end
-		end
+		restoreCharacterCollisions(getCharacter())
 	end
 end)
 
@@ -4090,46 +4036,7 @@ Toggles.PlusSpeedBoost:OnChanged(function()
 	end
 end)
 
-Toggles.MountNoclip:OnChanged(function()
-	disconnect("MountNoclip")
-	if Toggles.MountNoclip.Value then
-		Library:Notify({ Title = "Mount Noclip", Description = "Enabled", Time = 2 })
-		track("MountNoclip", RunService.Stepped:Connect(function()
-			if not isAlive() then return end
-			local mountModel = getCurrentMount()
-			if mountModel then
-				for _, part in ipairs(mountModel:GetDescendants()) do
-					if part:IsA("BasePart") and part.CanCollide then
-						part.CanCollide = false
-					end
-				end
-				for _, part in ipairs(noclipCoreParts) do
-					if part and part.CanCollide then
-						part.CanCollide = false
-					end
-				end
-			end
-		end))
-	else
-		local mountModel = getCurrentMount()
-		if mountModel then
-			for _, part in ipairs(mountModel:GetDescendants()) do
-				if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
-					part.CanCollide = true
-				end
-			end
-		end
-		local character = getCharacter()
-		if character and not (Toggles.Noclip and Toggles.Noclip.Value) then
-			for _, part in ipairs(character:GetDescendants()) do
-				if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
-					part.CanCollide = true
-				end
-			end
-		end
-		Library:Notify({ Title = "Mount Noclip", Description = "Disabled", Time = 2 })
-	end
-end)
+
 
 Toggles.SwimBoost:OnChanged(function()
 	disconnect("SwimBoost")
@@ -6885,7 +6792,7 @@ Toggles.TouchFling:OnChanged(function()
 	end
 end)
 
--- Helicopter Troll Script Logic
+-- Fling Your Victim Script Logic
 local helicopterAngle = 0
 local function startHelicopter()
 	disconnect("HelicopterLoop")
@@ -6910,8 +6817,8 @@ local function startHelicopter()
 					end
 				end
 
-				local speed = (Options.HelicopterSpeed and Options.HelicopterSpeed.Value) or 35
-				local height = (Options.HelicopterHeight and Options.HelicopterHeight.Value) or 5
+				local speed = 100
+				local height = 1
 				helicopterAngle = (helicopterAngle + (speed * 15) * dt) % 360
 
 				if hum then
@@ -6941,9 +6848,9 @@ Toggles.HelicopterTroll:OnChanged(function()
 	end
 	startHelicopter()
 	if Toggles.HelicopterTroll.Value then
-		Library:Notify({ Title = "HELICOPTER TROLL", Description = "Spinning above: " .. tostring(Options.HelicopterPlayerList.Value), Time = 2 })
+		Library:Notify({ Title = "FLING YOUR VICTIM", Description = "Flinging: " .. tostring(Options.HelicopterPlayerList.Value), Time = 2 })
 	else
-		Library:Notify({ Title = "HELICOPTER TROLL", Description = "Helicopter Disabled", Time = 2 })
+		Library:Notify({ Title = "FLING YOUR VICTIM", Description = "Fling Disabled", Time = 2 })
 	end
 end)
 
@@ -7416,9 +7323,14 @@ MenuGroup:AddToggle("KeybindMenuOpen", {
 
 MenuGroup:AddToggle("ShowCustomCursor", {
 	Text = "Custom Cursor",
-	Default = true,
+	Default = false,
 	Callback = function(value)
 		Library.ShowCustomCursor = value
+		if not value then
+			pcall(function()
+				UserInputService.MouseIconEnabled = true
+			end)
+		end
 	end,
 })
 
@@ -7483,6 +7395,94 @@ SaveManager:SetFolder("TSG/TheSurvivalGame")
 SaveManager:BuildConfigSection(Tabs["UI Settings"])
 ThemeManager:ApplyToTab(Tabs["UI Settings"])
 SaveManager:LoadAutoloadConfig()
+if not (Toggles.Noclip and Toggles.Noclip.Value) then
+	restoreCharacterCollisions(getCharacter())
+end
+
+-- Notify players on execution about how to toggle menu
+pcall(function()
+	Library:Notify({
+		Title = "♠ URIEL Loaded",
+		Description = "Press RightShift (or click the floating icon) to toggle the menu.",
+		Time = 6,
+	})
+end)
+
+-- Multi-keybind support for PC (RightShift, RightControl, Insert)
+track("GlobalMenuToggle", UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if not gameProcessed and (input.KeyCode == Enum.KeyCode.RightShift or input.KeyCode == Enum.KeyCode.RightControl or input.KeyCode == Enum.KeyCode.Insert) then
+		if Library.ToggleKeybind and Library.ToggleKeybind.OnClick then
+			pcall(function() Library.ToggleKeybind:OnClick() end)
+		end
+		if Library.Window and Library.Window.MainFrame then
+			Library.Window.MainFrame.Visible = not Library.Window.MainFrame.Visible
+			Library.Toggled = Library.Window.MainFrame.Visible
+		end
+	end
+end))
+
+-- Floating Menu Toggle Button (Clickable on PC & Mobile)
+pcall(function()
+	local targetParent
+	pcall(function()
+		targetParent = (gethui and gethui()) or game:GetService("CoreGui")
+	end)
+	if not targetParent then
+		targetParent = LocalPlayer:WaitForChild("PlayerGui")
+	end
+
+	local toggleGui = Instance.new("ScreenGui")
+	toggleGui.Name = "URIEL_Toggle_GUI"
+	toggleGui.ResetOnSpawn = false
+	if syn and syn.protect_gui then
+		pcall(syn.protect_gui, toggleGui)
+	end
+	toggleGui.Parent = targetParent
+
+	local toggleBtn = Instance.new("ImageButton")
+	toggleBtn.Name = "ToggleMenuButton"
+	toggleBtn.Size = UDim2.new(0, 42, 0, 42)
+	toggleBtn.Position = UDim2.new(0, 18, 0.45, 0)
+	toggleBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+	toggleBtn.BackgroundTransparency = 0.15
+	toggleBtn.BorderSizePixel = 0
+	toggleBtn.Active = true
+	toggleBtn.Draggable = true
+	toggleBtn.Parent = toggleGui
+
+	local uiCorner = Instance.new("UICorner")
+	uiCorner.CornerRadius = UDim.new(0, 10)
+	uiCorner.Parent = toggleBtn
+
+	local uiStroke = Instance.new("UIStroke")
+	uiStroke.Color = Color3.fromRGB(255, 60, 60)
+	uiStroke.Thickness = 1.5
+	uiStroke.Parent = toggleBtn
+
+	local iconLabel = Instance.new("TextLabel")
+	iconLabel.Size = UDim2.new(1, 0, 1, 0)
+	iconLabel.BackgroundTransparency = 1
+	iconLabel.Text = "♠"
+	iconLabel.TextColor3 = Color3.fromRGB(255, 60, 60)
+	iconLabel.TextSize = 22
+	iconLabel.Font = Enum.Font.GothamBold
+	iconLabel.Parent = toggleBtn
+
+	toggleBtn.MouseButton1Click:Connect(function()
+		pcall(function()
+			if Library.ToggleKeybind and Library.ToggleKeybind.OnClick then
+				Library.ToggleKeybind:OnClick()
+			elseif Library.Window and Library.Window.MainFrame then
+				Library.Window.MainFrame.Visible = not Library.Window.MainFrame.Visible
+				Library.Toggled = Library.Window.MainFrame.Visible
+			end
+		end)
+	end)
+
+	Library:OnUnload(function()
+		pcall(function() toggleGui:Destroy() end)
+	end)
+end)
 
 Library:OnUnload(function()
 	if Toggles.Reach and Toggles.Reach.Value then
@@ -7574,9 +7574,6 @@ Library:OnUnload(function()
 	end
 	if Toggles.PlusSpeedBoost and Toggles.PlusSpeedBoost.Value then
 		Toggles.PlusSpeedBoost:SetValue(false)
-	end
-	if Toggles.LowGravity and Toggles.LowGravity.Value then
-		Toggles.LowGravity:SetValue(false)
 	end
 	if Toggles.MountSpeedBoost and Toggles.MountSpeedBoost.Value then
 		Toggles.MountSpeedBoost:SetValue(false)
