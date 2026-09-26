@@ -53,7 +53,7 @@ local updateFlightVisibility
 local updateImmortalModeVisibility
 local updatePhantomModeVisibility
 
-Library.ShowToggleFrameInKeybinds = false
+Library.ShowToggleFrameInKeybinds = true
 
 
 -- Helpers
@@ -276,7 +276,7 @@ pcall(function()
 end)
 
 
-Library.Font = Enum.Font.Jura
+Library.Font = Enum.Font.Gotham
 Library.CornerRadius = 15
 
 -- Window
@@ -289,7 +289,6 @@ local Window = Library:CreateWindow({
 	Resizable = true,
 	NotifySide = "Right",
 	ShowCustomCursor = true,
-	ShowMobileButtons = false,
 	CornerRadius = 15,
 })
 
@@ -4951,7 +4950,7 @@ local function oreESPLoop()
 					lbl.BackgroundTransparency = 1
 					lbl.TextColor3 = oreColor
 					lbl.TextStrokeTransparency = 0.4
-					lbl.Font = Enum.Font.Jura
+					lbl.Font = Enum.Font.Gotham
 					lbl.TextSize = 16
 					lbl.RichText = true
 					lbl.Text = '<font color="#' .. oreColor:ToHex() .. '">' .. oreName .. '</font>'
@@ -5970,7 +5969,7 @@ do
 		tl.Size = UDim2.new(1, 0, 1, 0)
 		tl.Text = merchantModel.Name
 		tl.TextColor3 = Color3.fromRGB(255, 200, 0)
-		tl.Font = Enum.Font.Jura
+		tl.Font = Enum.Font.Gotham
 		tl.TextScaled = true
 		tl.Parent = bbg
 
@@ -6188,7 +6187,7 @@ local function getOrCreateESP(player)
 		label.BackgroundTransparency = 1
 		label.TextColor3 = (Options and Options.PlayerESPColor and Options.PlayerESPColor.Value) or Color3.new(1, 1, 1)
 		label.TextStrokeTransparency = 0.4
-		label.Font = Enum.Font.Jura
+		label.Font = Enum.Font.Gotham
 		label.TextSize = 14
 		label.RichText = true
 		label.Parent = billboard
@@ -7389,71 +7388,6 @@ SaveManager:LoadAutoloadConfig()
 if not (Toggles.Noclip and Toggles.Noclip.Value) then
 	restoreCharacterCollisions(getCharacter())
 end
--- Custom Floating Menu Toggle Button (♠)
-pcall(function()
-	local targetParent
-	pcall(function()
-		targetParent = (gethui and gethui()) or game:GetService("CoreGui")
-	end)
-	if not targetParent then
-		targetParent = LocalPlayer:WaitForChild("PlayerGui")
-	end
-
-	local toggleGui = Instance.new("ScreenGui")
-	toggleGui.Name = "URIEL_Toggle_GUI"
-	toggleGui.ResetOnSpawn = false
-	if syn and syn.protect_gui then
-		pcall(syn.protect_gui, toggleGui)
-	end
-	toggleGui.Parent = targetParent
-
-	local toggleBtn = Instance.new("ImageButton")
-	toggleBtn.Name = "ToggleMenuButton"
-	toggleBtn.Size = UDim2.new(0, 44, 0, 44)
-	toggleBtn.Position = UDim2.new(0, 18, 0.45, 0)
-	toggleBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-	toggleBtn.BackgroundTransparency = 0.15
-	toggleBtn.BorderSizePixel = 0
-	toggleBtn.Active = true
-	toggleBtn.Draggable = true
-	toggleBtn.Parent = toggleGui
-
-	local uiCorner = Instance.new("UICorner")
-	uiCorner.CornerRadius = UDim.new(0, 10)
-	uiCorner.Parent = toggleBtn
-
-	local uiStroke = Instance.new("UIStroke")
-	uiStroke.Color = Color3.fromRGB(255, 60, 60)
-	uiStroke.Thickness = 1.5
-	uiStroke.Parent = toggleBtn
-
-	local iconLabel = Instance.new("TextLabel")
-	iconLabel.Size = UDim2.new(1, 0, 1, 0)
-	iconLabel.BackgroundTransparency = 1
-	iconLabel.Text = "♠"
-	iconLabel.TextColor3 = Color3.fromRGB(255, 60, 60)
-	iconLabel.TextSize = 22
-	iconLabel.Font = Enum.Font.GothamBold
-	iconLabel.Parent = toggleBtn
-
-	local function toggleMenu()
-		pcall(function()
-			if Library.ToggleKeybind and Library.ToggleKeybind.OnClick then
-				Library.ToggleKeybind:OnClick()
-			elseif Library.Window and Library.Window.MainFrame then
-				Library.Window.MainFrame.Visible = not Library.Window.MainFrame.Visible
-				Library.Toggled = Library.Window.MainFrame.Visible
-			end
-		end)
-	end
-
-	toggleBtn.MouseButton1Click:Connect(toggleMenu)
-	toggleBtn.TouchTap:Connect(toggleMenu)
-
-	Library:OnUnload(function()
-		pcall(function() toggleGui:Destroy() end)
-	end)
-end)
 
 
 
