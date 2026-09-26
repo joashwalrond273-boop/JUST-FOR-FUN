@@ -53,7 +53,7 @@ local updateFlightVisibility
 local updateImmortalModeVisibility
 local updatePhantomModeVisibility
 
-Library.ShowToggleFrameInKeybinds = true
+Library.ShowToggleFrameInKeybinds = false
 
 
 -- Helpers
@@ -288,14 +288,10 @@ local Window = Library:CreateWindow({
 	AutoShow = true,
 	Resizable = true,
 	NotifySide = "Right",
-	ShowCustomCursor = false,
+	ShowCustomCursor = true,
+	ShowMobileButtons = false,
 	CornerRadius = 15,
 })
-
--- Ensure native mouse icon is enabled on PC
-pcall(function()
-	UserInputService.MouseIconEnabled = true
-end)
 
 local Tabs = {
 	Main = Window:AddTab("Main", "badge-info"),
@@ -7323,14 +7319,9 @@ MenuGroup:AddToggle("KeybindMenuOpen", {
 
 MenuGroup:AddToggle("ShowCustomCursor", {
 	Text = "Custom Cursor",
-	Default = false,
+	Default = true,
 	Callback = function(value)
 		Library.ShowCustomCursor = value
-		if not value then
-			pcall(function()
-				UserInputService.MouseIconEnabled = true
-			end)
-		end
 	end,
 })
 
@@ -7398,30 +7389,7 @@ SaveManager:LoadAutoloadConfig()
 if not (Toggles.Noclip and Toggles.Noclip.Value) then
 	restoreCharacterCollisions(getCharacter())
 end
-
--- Notify players on execution about how to toggle menu
-pcall(function()
-	Library:Notify({
-		Title = "♠ URIEL Loaded",
-		Description = "Press RightShift (or click the floating icon) to toggle the menu.",
-		Time = 6,
-	})
-end)
-
--- Multi-keybind support for PC (RightShift, RightControl, Insert)
-track("GlobalMenuToggle", UserInputService.InputBegan:Connect(function(input, gameProcessed)
-	if not gameProcessed and (input.KeyCode == Enum.KeyCode.RightShift or input.KeyCode == Enum.KeyCode.RightControl or input.KeyCode == Enum.KeyCode.Insert) then
-		if Library.ToggleKeybind and Library.ToggleKeybind.OnClick then
-			pcall(function() Library.ToggleKeybind:OnClick() end)
-		end
-		if Library.Window and Library.Window.MainFrame then
-			Library.Window.MainFrame.Visible = not Library.Window.MainFrame.Visible
-			Library.Toggled = Library.Window.MainFrame.Visible
-		end
-	end
-end))
-
--- Floating Menu Toggle Button (Clickable on PC & Mobile)
+-- Custom Floating Menu Toggle Button (♠)
 pcall(function()
 	local targetParent
 	pcall(function()
@@ -7441,7 +7409,7 @@ pcall(function()
 
 	local toggleBtn = Instance.new("ImageButton")
 	toggleBtn.Name = "ToggleMenuButton"
-	toggleBtn.Size = UDim2.new(0, 42, 0, 42)
+	toggleBtn.Size = UDim2.new(0, 44, 0, 44)
 	toggleBtn.Position = UDim2.new(0, 18, 0.45, 0)
 	toggleBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 	toggleBtn.BackgroundTransparency = 0.15
@@ -7468,7 +7436,7 @@ pcall(function()
 	iconLabel.Font = Enum.Font.GothamBold
 	iconLabel.Parent = toggleBtn
 
-	toggleBtn.MouseButton1Click:Connect(function()
+	local function toggleMenu()
 		pcall(function()
 			if Library.ToggleKeybind and Library.ToggleKeybind.OnClick then
 				Library.ToggleKeybind:OnClick()
@@ -7477,12 +7445,17 @@ pcall(function()
 				Library.Toggled = Library.Window.MainFrame.Visible
 			end
 		end)
-	end)
+	end
+
+	toggleBtn.MouseButton1Click:Connect(toggleMenu)
+	toggleBtn.TouchTap:Connect(toggleMenu)
 
 	Library:OnUnload(function()
 		pcall(function() toggleGui:Destroy() end)
 	end)
 end)
+
+
 
 Library:OnUnload(function()
 	if Toggles.Reach and Toggles.Reach.Value then
