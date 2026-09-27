@@ -815,21 +815,6 @@ local function applyCharacterModuleToggles()
 	end
 end
 
-LocalPlayer.CharacterAdded:Connect(function()
-	task.wait(0.25)
-	applyCharacterModuleToggles()
-end)
-
-local charsFolder = workspace:FindFirstChild("Characters")
-if charsFolder then
-	charsFolder.ChildAdded:Connect(function(child)
-		if child.Name == LocalPlayer.Name then
-			task.wait(0.25)
-			applyCharacterModuleToggles()
-		end
-	end)
-end
-
 Toggles.InfiniteBackpack:OnChanged(function()
 	disconnect("InfiniteBackpack")
 	disconnect("InfiniteBackpack_WS")
@@ -883,7 +868,8 @@ end)
 Toggles.InfiniteStamina:OnChanged(function()
 	disconnect("InfiniteStamina")
 	if Toggles.InfiniteStamina.Value then
-		setBehaviorDisabled(getCharacterBehavior("stamina"), true)
+		applyCharacterModuleToggles()
+		track("InfiniteStamina", RunService.Heartbeat:Connect(applyCharacterModuleToggles))
 		Library:Notify({ Title = "Infinite Stamina", Description = "Enabled", Time = 2 })
 	else
 		setBehaviorDisabled(getCharacterBehavior("stamina"), false)
@@ -905,7 +891,8 @@ end)
 Toggles.NoFallDamage:OnChanged(function()
 	disconnect("NoFallDamage")
 	if Toggles.NoFallDamage.Value then
-		setBehaviorDisabled(getCharacterBehavior("fallDamage"), true)
+		applyCharacterModuleToggles()
+		track("NoFallDamage", RunService.Heartbeat:Connect(applyCharacterModuleToggles))
 		Library:Notify({ Title = "No Fall Damage", Description = "Enabled", Time = 2 })
 	else
 		setBehaviorDisabled(getCharacterBehavior("fallDamage"), false)
@@ -924,10 +911,8 @@ end)
 Toggles.AntiLava:OnChanged(function()
 	disconnect("AntiLava")
 	if Toggles.AntiLava.Value then
-		local char = getCharacter()
-		if char then
-			setBehaviorDisabled(char:FindFirstChild("worldHazards"), true)
-		end
+		applyCharacterModuleToggles()
+		track("AntiLava", RunService.Heartbeat:Connect(applyCharacterModuleToggles))
 		Library:Notify({ Title = "Anti Fire / Lava", Description = "Enabled", Time = 2 })
 	else
 		local char = getCharacter()
