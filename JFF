@@ -4280,7 +4280,7 @@ OreESPGroup:AddCheckbox("OreESPRemoveNames", {
 
 OreESPGroup:AddCheckbox("OreESPHighlights", {
 	Text = "Ore Highlights (Chams)",
-	Default = true,
+	Default = false,
 })
 
 OreESPGroup:AddSlider("OreESPDistance", {
@@ -4851,7 +4851,7 @@ local function oreESPLoop()
 				end
 			end
 
-			if chamsEnabled and dist <= 250 then
+			if chamsEnabled and dist <= 60 then
 				table.insert(candidateHighlights, { entry = entry, obj = obj, color = oreColor, dist = dist })
 			elseif entry and entry.hl and entry.hl.Enabled then
 				entry.hl.Enabled = false
@@ -4859,14 +4859,14 @@ local function oreESPLoop()
 		end
 	end
 
-	-- Cap active highlights strictly to the closest 15 ores (to protect engine FPS)
+	-- Cap active highlights strictly to the closest 3 ores (to protect engine FPS and avoid GPU stencil lag)
 	if #candidateHighlights > 1 then
 		table.sort(candidateHighlights, function(a, b) return a.dist < b.dist end)
 	end
 
 	for i, item in ipairs(candidateHighlights) do
 		local entry = item.entry
-		if i <= 15 then
+		if i <= 3 then
 			if not entry.hl then
 				local hl = Instance.new("Highlight")
 				hl.FillColor = item.color
@@ -6126,26 +6126,32 @@ local function updateAllESP()
 			entry.label.Text = text
 		end
 
-		local shouldHighlight = (outlineEnabled or chamsEnabled) and (i <= 20)
-		if entry.highlight.Adornee ~= entry.character then
-			entry.highlight.Adornee = entry.character
-		end
-		if entry.highlight.OutlineColor ~= oColor then
-			entry.highlight.OutlineColor = oColor
-		end
-		if entry.highlight.FillColor ~= cColor then
-			entry.highlight.FillColor = cColor
-		end
-		local targetOutlineTrans = outlineEnabled and 0 or 1
-		if entry.highlight.OutlineTransparency ~= targetOutlineTrans then
-			entry.highlight.OutlineTransparency = targetOutlineTrans
-		end
-		local targetFillTrans = chamsEnabled and 0.65 or 1
-		if entry.highlight.FillTransparency ~= targetFillTrans then
-			entry.highlight.FillTransparency = targetFillTrans
-		end
-		if entry.highlight.Enabled ~= shouldHighlight then
-			entry.highlight.Enabled = shouldHighlight
+		local shouldHighlight = (outlineEnabled or chamsEnabled) and (i <= 6) and (dist <= 150)
+		if shouldHighlight then
+			if entry.highlight.Adornee ~= entry.character then
+				entry.highlight.Adornee = entry.character
+			end
+			if entry.highlight.OutlineColor ~= oColor then
+				entry.highlight.OutlineColor = oColor
+			end
+			if entry.highlight.FillColor ~= cColor then
+				entry.highlight.FillColor = cColor
+			end
+			local targetOutlineTrans = outlineEnabled and 0 or 1
+			if entry.highlight.OutlineTransparency ~= targetOutlineTrans then
+				entry.highlight.OutlineTransparency = targetOutlineTrans
+			end
+			local targetFillTrans = chamsEnabled and 0.65 or 1
+			if entry.highlight.FillTransparency ~= targetFillTrans then
+				entry.highlight.FillTransparency = targetFillTrans
+			end
+			if not entry.highlight.Enabled then
+				entry.highlight.Enabled = true
+			end
+		else
+			if entry.highlight.Enabled then
+				entry.highlight.Enabled = false
+			end
 		end
 
 		if entry.tracer then
