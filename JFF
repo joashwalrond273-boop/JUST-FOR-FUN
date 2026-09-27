@@ -2728,7 +2728,7 @@ local function applySpearSwordSlot(slot)
 			Options.CamlockStuds:SetValue(15)
 		end
 		if Options.OutlineStuds then
-			Options.OutlineStuds:SetValue(9)
+			Options.OutlineStuds:SetValue(8)
 		end
 	elseif slot == 5 or slot == "5" then
 		if Options.CamlockStuds then
@@ -5071,9 +5071,9 @@ end)
 local BossLocationsGroup = Tabs.Teleport:AddLeftGroupbox("Boss locations", "swords")
 
 local bossLocations = {
-	{ name = "Samurai",         pos = Vector3.new(-1727.48, 517.20, 7305.50) },
+	{ name = "Samurai",         pos = Vector3.new(-1727.48, 520.01, 7305.50) },
 	{ name = "Juggernaut",      pos = Vector3.new(-1601.49, 113.27, -2890.59) },
-	{ name = "Spider",          pos = Vector3.new(-330.32, -91.12, 382.67) },
+	{ name = "Spider",          pos = Vector3.new(-330.32, -90.12, 382.67) },
 	{ name = "Titan",           pos = Vector3.new(1654.57, 23.20, 2312.14) },
 	{ name = "Kraken",          pos = Vector3.new(802.42, 19.35, -1999.35) },
 	{ name = "Marvin",          pos = Vector3.new(-663.22, 26.14, 741.84) },
