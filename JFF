@@ -390,9 +390,21 @@ AdvanceHealGroup:AddSlider("AutoEatCooldown", {
 local MainRight = Tabs.Player:AddRightGroupbox("Settings", "settings")
 
 -- ============================================================================
--- MAIN TAB (KILLSWITCH / SPECTATE)
+-- MAIN TAB (CODENAME URIEL / SPECTATE)
 -- ============================================================================
-local KillswitchGroup = Tabs.Main:AddLeftGroupbox("Killswitch", "skull")
+local KillswitchGroup = Tabs.Main:AddLeftGroupbox("CODENAME URIEL", "skull")
+
+KillswitchGroup:AddLabel(
+	"<b>♠ URIEL</b>\n" ..
+	"<i>Advanced • Clean • Precise</i>\n\n" ..
+	"<b>STATUS:</b> ONLINE\n" ..
+	"<b>VERSION:</b> 1.0\n" ..
+	"<b>SYSTEM:</b> READY\n\n" ..
+	"<i>\"The quieter you become, the more you are able to hear.\"</i>",
+	true
+)
+
+KillswitchGroup:AddDivider()
 
 KillswitchGroup:AddToggle("KillswitchToggle", {
 	Text = "Kill Character",
