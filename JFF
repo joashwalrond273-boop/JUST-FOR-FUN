@@ -815,6 +815,21 @@ local function applyCharacterModuleToggles()
 	end
 end
 
+LocalPlayer.CharacterAdded:Connect(function()
+	task.wait(0.25)
+	applyCharacterModuleToggles()
+end)
+
+local charsFolder = workspace:FindFirstChild("Characters")
+if charsFolder then
+	charsFolder.ChildAdded:Connect(function(child)
+		if child.Name == LocalPlayer.Name then
+			task.wait(0.25)
+			applyCharacterModuleToggles()
+		end
+	end)
+end
+
 Toggles.InfiniteBackpack:OnChanged(function()
 	disconnect("InfiniteBackpack")
 	disconnect("InfiniteBackpack_WS")
@@ -868,8 +883,7 @@ end)
 Toggles.InfiniteStamina:OnChanged(function()
 	disconnect("InfiniteStamina")
 	if Toggles.InfiniteStamina.Value then
-		applyCharacterModuleToggles()
-		track("InfiniteStamina", RunService.Heartbeat:Connect(applyCharacterModuleToggles))
+		setBehaviorDisabled(getCharacterBehavior("stamina"), true)
 		Library:Notify({ Title = "Infinite Stamina", Description = "Enabled", Time = 2 })
 	else
 		setBehaviorDisabled(getCharacterBehavior("stamina"), false)
@@ -891,8 +905,7 @@ end)
 Toggles.NoFallDamage:OnChanged(function()
 	disconnect("NoFallDamage")
 	if Toggles.NoFallDamage.Value then
-		applyCharacterModuleToggles()
-		track("NoFallDamage", RunService.Heartbeat:Connect(applyCharacterModuleToggles))
+		setBehaviorDisabled(getCharacterBehavior("fallDamage"), true)
 		Library:Notify({ Title = "No Fall Damage", Description = "Enabled", Time = 2 })
 	else
 		setBehaviorDisabled(getCharacterBehavior("fallDamage"), false)
@@ -911,8 +924,10 @@ end)
 Toggles.AntiLava:OnChanged(function()
 	disconnect("AntiLava")
 	if Toggles.AntiLava.Value then
-		applyCharacterModuleToggles()
-		track("AntiLava", RunService.Heartbeat:Connect(applyCharacterModuleToggles))
+		local char = getCharacter()
+		if char then
+			setBehaviorDisabled(char:FindFirstChild("worldHazards"), true)
+		end
 		Library:Notify({ Title = "Anti Fire / Lava", Description = "Enabled", Time = 2 })
 	else
 		local char = getCharacter()
@@ -1107,7 +1122,7 @@ for _, item in ipairs(CollectionService:GetTagged("DROPPED_ITEM")) do
 end
 
 local function tryAutoPickup()
-	if time() - lastAutoPickup < 0.09 then
+	if time() - lastAutoPickup < 0.35 then
 		return
 	end
 	if not isAlive() or not TSG.PickupRemote then
@@ -1128,7 +1143,7 @@ local function tryAutoPickup()
 	local candidateItems = {}
 
 	for _, item in ipairs(CollectionService:GetTagged("DROPPED_ITEM")) do
-		if canAutoPickup(item, isVacuum) then
+		if item and item.Parent and canAutoPickup(item, isVacuum) then
 			local dist = (item.Position - rootPos).Magnitude
 			if dist <= maxRange then
 				table.insert(candidateItems, { item = item, dist = dist })
@@ -1136,10 +1151,16 @@ local function tryAutoPickup()
 		end
 	end
 
-	-- Sort closest first
-	table.sort(candidateItems, function(a, b)
-		return a.dist < b.dist
-	end)
+	if #candidateItems == 0 then
+		lastAutoPickup = time()
+		return
+	end
+
+	if #candidateItems > 1 then
+		table.sort(candidateItems, function(a, b)
+			return a.dist < b.dist
+		end)
+	end
 
 	local pickedCount = 0
 	local maxBatch = isVacuum and 25 or 8
@@ -1159,9 +1180,7 @@ local function tryAutoPickup()
 		end
 	end
 
-	if pickedCount > 0 then
-		lastAutoPickup = time()
-	end
+	lastAutoPickup = time()
 end
 
 Toggles.FastPickup:OnChanged(function()
@@ -2135,27 +2154,26 @@ end
 
 Toggles.AimbotLockOn:OnChanged(function()
 	disconnect("AimbotLoop")
-   disconnect("AimbotFOVCircleUpdate")
-   if fovCircle then fovCircle.Visible = false end
+	disconnect("AimbotFOVCircleUpdate")
+	if fovCircle then fovCircle.Visible = false end
 
 	if Toggles.AimbotLockOn.Value then
-           track("AimbotFOVCircleUpdate", RunService.RenderStepped:Connect(function()
-                   if fovCircle then
-                           local viewportSize = workspace.CurrentCamera.ViewportSize
-                           fovCircle.Position = Vector2.new(viewportSize.X / 2, viewportSize.Y / 2)
-                           fovCircle.Radius = (Options.AimbotFOV and Options.AimbotFOV.Value) or 100
-                           fovCircle.Color = (Options.AimbotFOVCircleColor and Options.AimbotFOVCircleColor.Value) or Color3.fromRGB(255, 0, 0)
-                           fovCircle.Visible = true
-                   end
-           end))
-
 		track("AimbotLoop", RunService.RenderStepped:Connect(function()
-			if Toggles.AimbotLockOn.Value then
-				local target = getClosestPlayerToCenter()
-				if target then
-					local camera = workspace.CurrentCamera
-					camera.CFrame = CFrame.new(camera.CFrame.Position, target.Position)
-				end
+			if not (Toggles.AimbotLockOn and Toggles.AimbotLockOn.Value) then return end
+			local camera = workspace.CurrentCamera
+			if not camera then return end
+
+			if fovCircle then
+				local viewportSize = camera.ViewportSize
+				fovCircle.Position = Vector2.new(viewportSize.X / 2, viewportSize.Y / 2)
+				fovCircle.Radius = (Options.AimbotFOV and Options.AimbotFOV.Value) or 100
+				fovCircle.Color = (Options.AimbotFOVCircleColor and Options.AimbotFOVCircleColor.Value) or Color3.fromRGB(255, 0, 0)
+				fovCircle.Visible = true
+			end
+
+			local target = getClosestPlayerToCenter()
+			if target then
+				camera.CFrame = CFrame.new(camera.CFrame.Position, target.Position)
 			end
 		end))
 		Library:Notify({ Title = "AIMBOT", Description = "Aimbot Enabled (Locking to Torso)", Time = 2 })
@@ -5238,26 +5256,22 @@ VisualFPS:AddToggle("DisableRenderFog", {
 			end
 		end)
 
+		disconnect("DisableRenderFog_PlayerAdded")
+		for name, _ in pairs(Connections) do
+			if typeof(name) == "string" and name:match("^DisableRenderFog_CharAdded") then
+				disconnect(name)
+			end
+		end
+
 		if state then
 			-- Disable player shadows
 			setPlayerShadows(false)
 
-			-- Connect for new players
-			track("DisableRenderFog_PlayerAdded", Players.PlayerAdded:Connect(function(player)
-				player.CharacterAdded:Connect(function(char)
-					if Toggles.DisableRenderFog and Toggles.DisableRenderFog.Value then
-						for _, part in ipairs(char:GetDescendants()) do
-							if part:IsA("BasePart") then
-								pcall(function() part.CastShadow = false end)
-							end
-						end
-					end
-				end)
-			end))
-
-			-- Connect for existing players' new characters
-			for _, player in ipairs(Players:GetPlayers()) do
-				track("DisableRenderFog_CharAdded_" .. player.Name, player.CharacterAdded:Connect(function(char)
+			local function hookPlayerShadows(player)
+				if not player then return end
+				local connName = "DisableRenderFog_CharAdded_" .. tostring(player.UserId or player.Name)
+				disconnect(connName)
+				track(connName, player.CharacterAdded:Connect(function(char)
 					if Toggles.DisableRenderFog and Toggles.DisableRenderFog.Value then
 						for _, part in ipairs(char:GetDescendants()) do
 							if part:IsA("BasePart") then
@@ -5267,12 +5281,20 @@ VisualFPS:AddToggle("DisableRenderFog", {
 					end
 				end))
 			end
+
+			track("DisableRenderFog_PlayerAdded", Players.PlayerAdded:Connect(hookPlayerShadows))
+
+			for _, player in ipairs(Players:GetPlayers()) do
+				hookPlayerShadows(player)
+			end
 		else
 			-- Re-enable player shadows
 			setPlayerShadows(true)
 			disconnect("DisableRenderFog_PlayerAdded")
-			for _, player in ipairs(Players:GetPlayers()) do
-				disconnect("DisableRenderFog_CharAdded_" .. player.Name)
+			for name, _ in pairs(Connections) do
+				if typeof(name) == "string" and name:match("^DisableRenderFog_CharAdded") then
+					disconnect(name)
+				end
 			end
 		end
 	end,
