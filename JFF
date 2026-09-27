@@ -5242,26 +5242,22 @@ VisualFPS:AddToggle("DisableRenderFog", {
 			end
 		end)
 
+		disconnect("DisableRenderFog_PlayerAdded")
+		for name, _ in pairs(Connections) do
+			if typeof(name) == "string" and name:match("^DisableRenderFog_CharAdded") then
+				disconnect(name)
+			end
+		end
+
 		if state then
 			-- Disable player shadows
 			setPlayerShadows(false)
 
-			-- Connect for new players
-			track("DisableRenderFog_PlayerAdded", Players.PlayerAdded:Connect(function(player)
-				player.CharacterAdded:Connect(function(char)
-					if Toggles.DisableRenderFog and Toggles.DisableRenderFog.Value then
-						for _, part in ipairs(char:GetDescendants()) do
-							if part:IsA("BasePart") then
-								pcall(function() part.CastShadow = false end)
-							end
-						end
-					end
-				end)
-			end))
-
-			-- Connect for existing players' new characters
-			for _, player in ipairs(Players:GetPlayers()) do
-				track("DisableRenderFog_CharAdded_" .. player.Name, player.CharacterAdded:Connect(function(char)
+			local function hookPlayerShadows(player)
+				if not player then return end
+				local connName = "DisableRenderFog_CharAdded_" .. tostring(player.UserId or player.Name)
+				disconnect(connName)
+				track(connName, player.CharacterAdded:Connect(function(char)
 					if Toggles.DisableRenderFog and Toggles.DisableRenderFog.Value then
 						for _, part in ipairs(char:GetDescendants()) do
 							if part:IsA("BasePart") then
@@ -5271,12 +5267,20 @@ VisualFPS:AddToggle("DisableRenderFog", {
 					end
 				end))
 			end
+
+			track("DisableRenderFog_PlayerAdded", Players.PlayerAdded:Connect(hookPlayerShadows))
+
+			for _, player in ipairs(Players:GetPlayers()) do
+				hookPlayerShadows(player)
+			end
 		else
 			-- Re-enable player shadows
 			setPlayerShadows(true)
 			disconnect("DisableRenderFog_PlayerAdded")
-			for _, player in ipairs(Players:GetPlayers()) do
-				disconnect("DisableRenderFog_CharAdded_" .. player.Name)
+			for name, _ in pairs(Connections) do
+				if typeof(name) == "string" and name:match("^DisableRenderFog_CharAdded") then
+					disconnect(name)
+				end
 			end
 		end
 	end,
