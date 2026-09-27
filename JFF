@@ -1293,7 +1293,6 @@ end)
 local AimbotTabBox = Tabs.Combat:AddRightTabbox()
 local CombatAimbot = AimbotTabBox:AddTab("AIMBOT", "crosshair")
 local CombatCamlock = AimbotTabBox:AddTab("Camlock", "video")
-local CombatAICamlock = AimbotTabBox:AddTab("AI Camlock", "bot")
 
 CombatAimbot:AddToggle("AimbotLockOn", {
 	Text = "Lock On",
@@ -1302,8 +1301,6 @@ CombatAimbot:AddToggle("AimbotLockOn", {
 	Default = Color3.fromRGB(255, 0, 0),
 	Title = "FOV Circle Color",
 })
-
-
 
 CombatAimbot:AddSlider("AimbotFOV", {
 	Text = "FOV Slider",
@@ -1362,42 +1359,6 @@ CombatCamlock:AddSlider("OutlineStuds", {
 	Max = 50,
 	Rounding = 0,
 	Compact = true,
-})
-
-CombatAICamlock:AddToggle("AiCamlock", {
-	Text = "AI Camlock",
-	Default = false,
-})
-
-CombatAICamlock:AddCheckbox("AiOutline", {
-	Text = "Outline",
-	Default = false,
-})
-
-CombatAICamlock:AddSlider("AiCamlockStuds", {
-	Text = "Camlock Studs",
-	Default = 30,
-	Min = 1,
-	Max = 100,
-	Rounding = 0,
-	Compact = true,
-})
-
-CombatAICamlock:AddSlider("AiOutlineStuds", {
-	Text = "Outline Studs",
-	Default = 7,
-	Min = 1,
-	Max = 50,
-	Rounding = 0,
-	Compact = true,
-})
-
-CombatAICamlock:AddCheckbox("HighlightAICamlock", {
-	Text = "Highlight Target",
-	Default = false,
-}):AddColorPicker("HighlightAICamlockColor", {
-	Default = Color3.fromRGB(0, 255, 200),
-	Title = "Highlight Target Color",
 })
 
 CombatLeft:AddToggle("KillAura", {
@@ -1794,43 +1755,9 @@ updatePVPModulesVisibility = function()
 			Options.SpeedBoostValue.Holder.Visible = isAnySpeedBoost
 		end
 	end
-	local isAiCam = (Toggles.AiCamlock and Toggles.AiCamlock.Value) or false
-	local isAiOutline = isAiCam and ((Toggles.AiOutline and Toggles.AiOutline.Value) or false)
-
-	if Options.AiCamlockStuds then
-		Options.AiCamlockStuds.Visible = isAiCam
-		if Options.AiCamlockStuds.Holder then
-			Options.AiCamlockStuds.Holder.Visible = isAiCam
-		end
-	end
-	if Toggles.AiOutline then
-		if Toggles.AiOutline.Visible ~= nil then
-			Toggles.AiOutline.Visible = isAiCam
-		end
-		if Toggles.AiOutline.Holder then
-			Toggles.AiOutline.Holder.Visible = isAiCam
-		end
-	end
-	if Options.AiOutlineStuds then
-		Options.AiOutlineStuds.Visible = isAiOutline
-		if Options.AiOutlineStuds.Holder then
-			Options.AiOutlineStuds.Holder.Visible = isAiOutline
-		end
-	end
-	if Toggles.HighlightAICamlock then
-		if Toggles.HighlightAICamlock.Visible ~= nil then
-			Toggles.HighlightAICamlock.Visible = isAiCam
-		end
-		if Toggles.HighlightAICamlock.Holder then
-			Toggles.HighlightAICamlock.Holder.Visible = isAiCam
-		end
-	end
 	CombatAutoPVP:Resize()
 	if CombatCamlock and CombatCamlock.Resize then
 		pcall(function() CombatCamlock:Resize() end)
-	end
-	if CombatAICamlock and CombatAICamlock.Resize then
-		pcall(function() CombatAICamlock:Resize() end)
 	end
 	if AimbotTabBox and AimbotTabBox.Resize then
 		pcall(function() AimbotTabBox:Resize() end)
@@ -2048,30 +1975,6 @@ Toggles.HighlightTarget:OnChanged(function()
 		updateHighlight(highlightTarget, nil, false)
 	end
 end)
-
-local hlAiCamlock = Instance.new("Highlight")
-hlAiCamlock.FillColor = (Options.HighlightAICamlockColor and Options.HighlightAICamlockColor.Value) or Color3.fromRGB(0, 255, 200)
-hlAiCamlock.OutlineColor = Color3.fromRGB(255, 255, 255)
-hlAiCamlock.FillTransparency = 0.65
-hlAiCamlock.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-hlAiCamlock.Enabled = false
-hlAiCamlock.Parent = workspace
-
-if Options.HighlightAICamlockColor then
-	Options.HighlightAICamlockColor:OnChanged(function()
-		if hlAiCamlock then
-			hlAiCamlock.FillColor = Options.HighlightAICamlockColor.Value
-		end
-	end)
-end
-
-if Toggles.HighlightAICamlock then
-	Toggles.HighlightAICamlock:OnChanged(function()
-		if not Toggles.HighlightAICamlock.Value then
-			updateHighlight(hlAiCamlock, nil, false)
-		end
-	end)
-end
 
 local function getBestMeleeWeapon()
 	if not TSG.ClientData or not TSG.Items then
@@ -2810,158 +2713,6 @@ end
 
 if Toggles.CamlockIgnoreTeam then
 	Toggles.CamlockIgnoreTeam:OnChanged(function()
-		if updatePVPModulesVisibility then
-			updatePVPModulesVisibility()
-		end
-	end)
-end
-
--- AI Camlock Logic (uses AI_Server and AI_Client folders, same folders AI Aura uses)
-local function getClosestAICamlock(maxDist)
-	local root = getRootPart()
-	if not root then return nil, math.huge, nil end
-	local pos = root.Position
-	local closestAI, closestDist, closestHRP = nil, maxDist or math.huge, nil
-
-	local function checkFolder(folder)
-		if not folder then return end
-		for _, ai in ipairs(folder:GetChildren()) do
-			if ai:IsA("Model") then
-				local aiHRP = ai:FindFirstChild("HumanoidRootPart") or ai:FindFirstChild("Torso") or ai:FindFirstChild("UpperTorso") or ai.PrimaryPart or ai:FindFirstChildWhichIsA("BasePart")
-				local hum = ai:FindFirstChildOfClass("Humanoid")
-				if aiHRP and (not hum or hum.Health > 0) then
-					local dist = (aiHRP.Position - pos).Magnitude
-					if dist <= maxDist and dist < closestDist then
-						closestDist = dist
-						closestAI = ai
-						closestHRP = aiHRP
-					end
-				end
-			end
-		end
-	end
-
-	checkFolder(workspace:FindFirstChild("AI_Server"))
-	checkFolder(workspace:FindFirstChild("AI_Client"))
-
-	return closestAI, closestDist, closestHRP
-end
-
-local function runAICamlockStep()
-	if not isAlive() then return end
-	local root = getRootPart()
-	local hum = getHumanoid()
-	if not root or not hum then return end
-
-	local maxDist = (Options.AiCamlockStuds and Options.AiCamlockStuds.Value) or 30
-	local myPos = root.Position
-
-	local closestAI, closestDist, aiRoot = getClosestAICamlock(maxDist)
-
-	-- AI Outline: Stop player from getting closer than studs to AI mob while using AI Camlock
-	local aiOutlineActive = (Toggles.AiOutline and Toggles.AiOutline.Value) or false
-	if aiOutlineActive and aiRoot then
-		local minOutlineStuds = (Options.AiOutlineStuds and Options.AiOutlineStuds.Value) or 7
-		local otherPos = aiRoot.Position
-		local offset = myPos - otherPos
-		local flatOffset = Vector3.new(offset.X, 0, offset.Z)
-		local flatDist = flatOffset.Magnitude
-
-		if flatDist < minOutlineStuds then
-			local pushDir
-			if flatDist > 0.001 then
-				pushDir = flatOffset.Unit
-			else
-				local backDir = -root.CFrame.LookVector
-				local flatBack = Vector3.new(backDir.X, 0, backDir.Z)
-				pushDir = flatBack.Magnitude > 0.001 and flatBack.Unit or Vector3.new(0, 0, 1)
-			end
-
-			myPos = Vector3.new(
-				otherPos.X + pushDir.X * minOutlineStuds,
-				myPos.Y,
-				otherPos.Z + pushDir.Z * minOutlineStuds
-			)
-
-			pcall(function()
-				local vel = root.AssemblyLinearVelocity or root.Velocity
-				if vel then
-					local moveTowards = vel.X * (-pushDir.X) + vel.Z * (-pushDir.Z)
-					if moveTowards > 0 then
-						local correctedVel = Vector3.new(
-							vel.X - (-pushDir.X * moveTowards),
-							vel.Y,
-							vel.Z - (-pushDir.Z * moveTowards)
-						)
-						root.AssemblyLinearVelocity = correctedVel
-						root.Velocity = correctedVel
-					end
-				end
-			end)
-		end
-	end
-
-	if Toggles.HighlightAICamlock and hlAiCamlock then
-		updateHighlight(hlAiCamlock, closestAI, Toggles.HighlightAICamlock.Value)
-	end
-
-	if closestAI and aiRoot then
-		UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
-		UserInputService.MouseIconEnabled = false
-
-		local targetPos = aiRoot.Position
-		local lookDir = Vector3.new(targetPos.X - myPos.X, 0, targetPos.Z - myPos.Z).Unit
-		if lookDir.Magnitude > 0 then
-			hum.AutoRotate = false
-			root.CFrame = CFrame.new(myPos, myPos + lookDir)
-		else
-			root.CFrame = CFrame.new(myPos, myPos + root.CFrame.LookVector)
-		end
-	else
-		local normalCamActive = (Toggles.Camlock and Toggles.Camlock.Value) or false
-		if not normalCamActive then
-			UserInputService.MouseBehavior = Enum.MouseBehavior.Default
-			UserInputService.MouseIconEnabled = true
-			hum.AutoRotate = true
-		end
-		if aiOutlineActive and (root.Position - myPos).Magnitude > 0.01 then
-			root.CFrame = CFrame.new(myPos, myPos + root.CFrame.LookVector)
-		end
-	end
-end
-
-if Toggles.AiCamlock then
-	Toggles.AiCamlock:OnChanged(function()
-		disconnect("AiCamlock")
-		if updatePVPModulesVisibility then
-			updatePVPModulesVisibility()
-		end
-		if Toggles.AiCamlockFarm and Toggles.AiCamlockFarm.Value ~= Toggles.AiCamlock.Value then
-			Toggles.AiCamlockFarm:SetValue(Toggles.AiCamlock.Value)
-		end
-		if Toggles.AiCamlock.Value then
-			track("AiCamlock", RunService.Heartbeat:Connect(runAICamlockStep))
-			Library:Notify({ Title = "AI Camlock", Description = "Enabled", Time = 2 })
-		else
-			if hlAiCamlock then
-				updateHighlight(hlAiCamlock, nil, false)
-			end
-			local normalCamActive = (Toggles.Camlock and Toggles.Camlock.Value) or false
-			if not normalCamActive then
-				UserInputService.MouseBehavior = Enum.MouseBehavior.Default
-				UserInputService.MouseIconEnabled = true
-				local hum = getHumanoid()
-				if hum then
-					hum.AutoRotate = true
-				end
-			end
-			Library:Notify({ Title = "AI Camlock", Description = "Disabled", Time = 2 })
-		end
-	end)
-end
-
-if Toggles.AiOutline then
-	Toggles.AiOutline:OnChanged(function()
 		if updatePVPModulesVisibility then
 			updatePVPModulesVisibility()
 		end
@@ -4549,11 +4300,6 @@ FarmAI:AddToggle("AiAura", {
 	Default = false,
 })
 
-FarmAI:AddToggle("AiCamlockFarm", {
-	Text = "AI Camlock",
-	Default = false,
-})
-
 FarmAI:AddDropdown("AiAuraSlot", {
 	Text = "Tool Slot",
 	Values = {"1","2","3","4","5","6","7","8","9","10"},
@@ -4945,14 +4691,6 @@ Toggles.AiAura:OnChanged(function()
 		updateHighlight(hlAI, nil, false)
 	end
 end)
-
-if Toggles.AiCamlockFarm then
-	Toggles.AiCamlockFarm:OnChanged(function()
-		if Toggles.AiCamlock and Toggles.AiCamlock.Value ~= Toggles.AiCamlockFarm.Value then
-			Toggles.AiCamlock:SetValue(Toggles.AiCamlockFarm.Value)
-		end
-	end)
-end
 
 -- ==========================================
 -- Ore ESP (reads ore names from workspace.worldResources.mineable, per-ore filters)
@@ -5646,7 +5384,7 @@ do
 	end
 
 	VisualFPS:AddToggle("LowTextures", {
-		Text = "Low Textures / Remove PBR",
+		Text = "Low Textures PBR",
 		Default = false,
 		Callback = function(state)
 			disconnect("LowTextures")
@@ -7536,15 +7274,6 @@ Library:OnUnload(function()
 	if Toggles.Camlock and Toggles.Camlock.Value then
 		Toggles.Camlock:SetValue(false)
 	end
-	if Toggles.AiCamlock and Toggles.AiCamlock.Value then
-		Toggles.AiCamlock:SetValue(false)
-	end
-	if Toggles.AiCamlockFarm and Toggles.AiCamlockFarm.Value then
-		Toggles.AiCamlockFarm:SetValue(false)
-	end
-	if Toggles.AiOutline and Toggles.AiOutline.Value then
-		Toggles.AiOutline:SetValue(false)
-	end
 	if Toggles.Outline and Toggles.Outline.Value then
 		Toggles.Outline:SetValue(false)
 	end
@@ -7589,9 +7318,6 @@ Library:OnUnload(function()
 	end
 	clearESP()
 	pcall(function() clearOreESPHighlights() end)
-	if hlAiCamlock then
-		pcall(function() hlAiCamlock:Destroy() end)
-	end
 	highlightTarget:Destroy()
 	workspace.Gravity = 196.2
 	LocalPlayer.CameraMaxZoomDistance = 400
