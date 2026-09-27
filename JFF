@@ -5373,12 +5373,15 @@ do
 
 	local function simplifyObject(v)
 		if not v or not v.Parent then return end
-		if (v:IsA("BasePart") or v:IsA("MeshPart")) and v.Material ~= Enum.Material.Plastic then
-			pcall(function()
-				v.Material = Enum.Material.Plastic
-				v.Reflectance = 0
-			end)
-		elseif PBR_TYPES[v.ClassName] then
+		local c = v.ClassName
+		if c == "MeshPart" or c == "Part" or c == "WedgePart" or c == "CornerWedgePart" or c == "TrussPart" then
+			if v.Material ~= Enum.Material.Plastic then
+				pcall(function()
+					v.Material = Enum.Material.Plastic
+					v.Reflectance = 0
+				end)
+			end
+		elseif PBR_TYPES[c] then
 			pcall(v.Destroy, v)
 		end
 	end
@@ -5402,8 +5405,11 @@ do
 					end
 				end)
 
+				-- Fast direct check: skip non-visual objects instantly with zero overhead
 				track("LowTextures", workspace.DescendantAdded:Connect(function(v)
-					if Toggles.LowTextures and Toggles.LowTextures.Value then
+					if not (Toggles.LowTextures and Toggles.LowTextures.Value) then return end
+					local c = v.ClassName
+					if PBR_TYPES[c] or c == "MeshPart" or c == "Part" or c == "WedgePart" or c == "CornerWedgePart" or c == "TrussPart" then
 						simplifyObject(v)
 					end
 				end))
@@ -5435,7 +5441,6 @@ do
 	}
 
 	local originalStates = setmetatable({}, { __mode = "k" })
-	local activeParticleConns = {}
 
 	local function disableParticle(v)
 		if not v or not PARTICLE_CLASSES[v.ClassName] then return end
@@ -5450,48 +5455,8 @@ do
 		pcall(function()
 			v.Enabled = false
 			if v:IsA("ParticleEmitter") then
+				v.Rate = 0
 				v:Clear()
-			end
-		end)
-
-		-- Prevent memory leaks: clean up previous connection for this instance if any
-		if activeParticleConns[v] then
-			pcall(function() activeParticleConns[v]:Disconnect() end)
-			activeParticleConns[v] = nil
-		end
-
-		-- Listen for re-enabling by game scripts
-		local conn
-		conn = v:GetPropertyChangedSignal("Enabled"):Connect(function()
-			if not (Toggles.RemoveParticles and Toggles.RemoveParticles.Value) then
-				if conn then
-					pcall(function() conn:Disconnect() end)
-					activeParticleConns[v] = nil
-				end
-				return
-			end
-			if v.Enabled then
-				pcall(function()
-					v.Enabled = false
-					if v:IsA("ParticleEmitter") then
-						v:Clear()
-					end
-				end)
-			end
-		end)
-		activeParticleConns[v] = conn
-
-		-- Auto cleanup connection when destroyed or removed
-		local ancestryConn
-		ancestryConn = v.AncestryChanged:Connect(function(_, parent)
-			if not parent then
-				if conn then
-					pcall(function() conn:Disconnect() end)
-					activeParticleConns[v] = nil
-				end
-				if ancestryConn then
-					pcall(function() ancestryConn:Disconnect() end)
-				end
 			end
 		end)
 	end
@@ -5502,10 +5467,6 @@ do
 		Callback = function(state)
 			disconnect("RemoveParticles_Workspace")
 			disconnect("RemoveParticles_Lighting")
-			for v, conn in pairs(activeParticleConns) do
-				pcall(function() conn:Disconnect() end)
-			end
-			table.clear(activeParticleConns)
 
 			if state then
 				-- Process workspace & lighting smoothly in chunks without freeze/stutter
@@ -5519,20 +5480,21 @@ do
 							if v and v.Parent and PARTICLE_CLASSES[v.ClassName] then
 								disableParticle(v)
 							end
-							if i % 400 == 0 then
+							if i % 300 == 0 then
 								task.wait()
 							end
 						end
 					end
 				end)
 
+				-- Direct fast class check without spawning leaking sub-connections per instance
 				track("RemoveParticles_Workspace", workspace.DescendantAdded:Connect(function(v)
 					if Toggles.RemoveParticles and Toggles.RemoveParticles.Value and PARTICLE_CLASSES[v.ClassName] then
 						disableParticle(v)
 					end
 				end))
 
-				track("RemoveParticles_Lighting", game:GetService("Lighting").DescendantAdded:Connect(function(v)
+				track("RemoveParticles_Lighting", game:GetService("Lighting").ChildAdded:Connect(function(v)
 					if Toggles.RemoveParticles and Toggles.RemoveParticles.Value and PARTICLE_CLASSES[v.ClassName] then
 						disableParticle(v)
 					end
