@@ -786,13 +786,13 @@ MainRight:AddButton({
 
 -- Infinite stamina, no fall damage, anti lava (Behavior > Disabled on workspace.Characters.[name] or Character itself)
 local function applyCharacterModuleToggles()
-	if Toggles.InfiniteStamina and Toggles.InfiniteStamina.Value then
+	if Toggles.InfiniteStamina.Value then
 		setBehaviorDisabled(getCharacterBehavior("stamina"), true)
 	end
-	if Toggles.NoFallDamage and Toggles.NoFallDamage.Value then
+	if Toggles.NoFallDamage.Value then
 		setBehaviorDisabled(getCharacterBehavior("fallDamage"), true)
 	end
-	if Toggles.AntiLava and Toggles.AntiLava.Value then
+	if Toggles.AntiLava.Value then
 		local char = getCharacter()
 		if char then
 			setBehaviorDisabled(char:FindFirstChild("worldHazards"), true)
@@ -813,21 +813,6 @@ local function applyCharacterModuleToggles()
 			end
 		end
 	end
-end
-
-LocalPlayer.CharacterAdded:Connect(function()
-	task.wait(0.25)
-	applyCharacterModuleToggles()
-end)
-
-local charsFolder = workspace:FindFirstChild("Characters")
-if charsFolder then
-	charsFolder.ChildAdded:Connect(function(child)
-		if child.Name == LocalPlayer.Name then
-			task.wait(0.25)
-			applyCharacterModuleToggles()
-		end
-	end)
 end
 
 Toggles.InfiniteBackpack:OnChanged(function()
@@ -883,7 +868,8 @@ end)
 Toggles.InfiniteStamina:OnChanged(function()
 	disconnect("InfiniteStamina")
 	if Toggles.InfiniteStamina.Value then
-		setBehaviorDisabled(getCharacterBehavior("stamina"), true)
+		applyCharacterModuleToggles()
+		track("InfiniteStamina", RunService.Heartbeat:Connect(applyCharacterModuleToggles))
 		Library:Notify({ Title = "Infinite Stamina", Description = "Enabled", Time = 2 })
 	else
 		setBehaviorDisabled(getCharacterBehavior("stamina"), false)
@@ -905,7 +891,8 @@ end)
 Toggles.NoFallDamage:OnChanged(function()
 	disconnect("NoFallDamage")
 	if Toggles.NoFallDamage.Value then
-		setBehaviorDisabled(getCharacterBehavior("fallDamage"), true)
+		applyCharacterModuleToggles()
+		track("NoFallDamage", RunService.Heartbeat:Connect(applyCharacterModuleToggles))
 		Library:Notify({ Title = "No Fall Damage", Description = "Enabled", Time = 2 })
 	else
 		setBehaviorDisabled(getCharacterBehavior("fallDamage"), false)
@@ -924,10 +911,8 @@ end)
 Toggles.AntiLava:OnChanged(function()
 	disconnect("AntiLava")
 	if Toggles.AntiLava.Value then
-		local char = getCharacter()
-		if char then
-			setBehaviorDisabled(char:FindFirstChild("worldHazards"), true)
-		end
+		applyCharacterModuleToggles()
+		track("AntiLava", RunService.Heartbeat:Connect(applyCharacterModuleToggles))
 		Library:Notify({ Title = "Anti Fire / Lava", Description = "Enabled", Time = 2 })
 	else
 		local char = getCharacter()
@@ -1122,7 +1107,7 @@ for _, item in ipairs(CollectionService:GetTagged("DROPPED_ITEM")) do
 end
 
 local function tryAutoPickup()
-	if time() - lastAutoPickup < 0.09 then
+	if time() - lastAutoPickup < 0.35 then
 		return
 	end
 	if not isAlive() or not TSG.PickupRemote then
@@ -1143,7 +1128,7 @@ local function tryAutoPickup()
 	local candidateItems = {}
 
 	for _, item in ipairs(CollectionService:GetTagged("DROPPED_ITEM")) do
-		if canAutoPickup(item, isVacuum) then
+		if item and item.Parent and canAutoPickup(item, isVacuum) then
 			local dist = (item.Position - rootPos).Magnitude
 			if dist <= maxRange then
 				table.insert(candidateItems, { item = item, dist = dist })
@@ -1151,10 +1136,16 @@ local function tryAutoPickup()
 		end
 	end
 
-	-- Sort closest first
-	table.sort(candidateItems, function(a, b)
-		return a.dist < b.dist
-	end)
+	if #candidateItems == 0 then
+		lastAutoPickup = time()
+		return
+	end
+
+	if #candidateItems > 1 then
+		table.sort(candidateItems, function(a, b)
+			return a.dist < b.dist
+		end)
+	end
 
 	local pickedCount = 0
 	local maxBatch = isVacuum and 25 or 8
@@ -1174,9 +1165,7 @@ local function tryAutoPickup()
 		end
 	end
 
-	if pickedCount > 0 then
-		lastAutoPickup = time()
-	end
+	lastAutoPickup = time()
 end
 
 Toggles.FastPickup:OnChanged(function()
