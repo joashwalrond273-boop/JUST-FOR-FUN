@@ -415,6 +415,17 @@ Toggles.KillswitchToggle:OnChanged(function()
 	end
 end)
 
+local CodenameUrielGroup = Tabs.Main:AddLeftGroupbox("CODENAME URIEL", "terminal")
+
+CodenameUrielGroup:AddLabel("<b>URIEL</b>", true)
+CodenameUrielGroup:AddLabel("<i>Advanced • Clean • Precise</i>", true)
+CodenameUrielGroup:AddDivider()
+CodenameUrielGroup:AddLabel("<b>STATUS:</b> <font color=\"#00FF7F\">ONLINE</font>", true)
+CodenameUrielGroup:AddLabel("<b>VERSION:</b> 1.0", true)
+CodenameUrielGroup:AddLabel("<b>SYSTEM:</b> <font color=\"#00FF7F\">READY</font>", true)
+CodenameUrielGroup:AddDivider()
+CodenameUrielGroup:AddLabel('<i>"The quieter you become, the more you are able to hear."</i>', true)
+
 local FunAttach = Tabs.Main:AddLeftGroupbox("ATTACH", "link")
 
 FunAttach:AddToggle("AttachToggle", {
