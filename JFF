@@ -7470,8 +7470,6 @@ if not (Toggles.Noclip and Toggles.Noclip.Value) then
 	restoreCharacterCollisions(getCharacter())
 end
 
-
-
 Library:OnUnload(function()
 	if Toggles.Reach and Toggles.Reach.Value then
 		Toggles.Reach:SetValue(false)
