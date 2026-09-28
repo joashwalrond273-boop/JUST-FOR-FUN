@@ -390,9 +390,9 @@ AdvanceHealGroup:AddSlider("AutoEatCooldown", {
 local MainRight = Tabs.Player:AddRightGroupbox("Settings", "settings")
 
 -- ============================================================================
--- MAIN TAB (IMMORTALITY / SPECTATE)
+-- MAIN TAB (IMMORTAL MODE / SPECTATE)
 -- ============================================================================
-local CombatAutoBlock = Tabs.Main:AddLeftGroupbox("IMMORTALITY", "shield")
+local CombatAutoBlock = Tabs.Main:AddLeftGroupbox("Immortal Mode", "shield")
 
 CombatAutoBlock:AddToggle("ImmortalMode", {
 	Text = "Immortal Mode",
