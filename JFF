@@ -392,7 +392,7 @@ local MainRight = Tabs.Player:AddRightGroupbox("Settings", "settings")
 -- ============================================================================
 -- MAIN TAB (IMMORTAL MODE / SPECTATE)
 -- ============================================================================
-local CombatAutoBlock = Tabs.Main:AddLeftGroupbox("IMMORTALITY", "shield")
+local CombatAutoBlock = Tabs.Main:AddLeftGroupbox("Immortal Mode", "shield")
 
 CombatAutoBlock:AddToggle("ImmortalMode", {
 	Text = "Immortal Mode",
@@ -400,7 +400,7 @@ CombatAutoBlock:AddToggle("ImmortalMode", {
 })
 
 CombatAutoBlock:AddCheckbox("BypassShield", {
-	Text = "Shield Bypass",
+	Text = "Bypass Shield",
 	Default = false,
 })
 
@@ -412,8 +412,6 @@ CombatAutoBlock:AddSlider("ImmortalModeStuds", {
 	Rounding = 0,
 	Compact = true,
 })
-
-CombatAutoBlock:AddDivider()
 
 CombatAutoBlock:AddToggle("QuickVanish", {
 	Text = "Quick Vanish",
