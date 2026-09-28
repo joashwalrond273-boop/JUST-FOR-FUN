@@ -12,6 +12,7 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 local CollectionService = game:GetService("CollectionService")
+local SoundService = game:GetService("SoundService")
 
 local LocalPlayer = Players.LocalPlayer
 
@@ -275,6 +276,213 @@ pcall(function()
 	end
 end)
 
+
+-- ============================================================================
+-- GUI SOUND SYSTEM
+-- ============================================================================
+local uiSounds = {
+	ToggleOn = "rbxassetid://4590662766",
+	ToggleOff = "rbxassetid://4590657391",
+	CheckboxOn = "rbxassetid://6895079853",
+	CheckboxOff = "rbxassetid://6895079853",
+	Tab = "rbxassetid://9069609200",
+	Button = "rbxassetid://6895079853",
+}
+
+local function playGuiSound(soundType, pitch, volume)
+	task.spawn(function()
+		pcall(function()
+			local soundId = uiSounds[soundType] or "rbxassetid://6895079853"
+			local sound = Instance.new("Sound")
+			sound.SoundId = soundId
+			sound.Volume = volume or 0.45
+			sound.PlaybackSpeed = pitch or 1
+			sound.Parent = SoundService
+			SoundService:PlayLocalSound(sound)
+			task.delay(1.5, function()
+				pcall(function() sound:Destroy() end)
+			end)
+		end)
+	end)
+end
+
+local lastTabSound = 0
+local function playTabSound()
+	local now = os.clock()
+	if now - lastTabSound > 0.06 then
+		lastTabSound = now
+		playGuiSound("Tab", 1.15, 0.45)
+	end
+end
+
+-- Hook Tab Switch Animation
+if Library and Library.PlayTabAnimation then
+	local origPlayTabAnimation = Library.PlayTabAnimation
+	Library.PlayTabAnimation = function(self, Tab, Showing, ...)
+		if Showing then
+			playTabSound()
+		end
+		return origPlayTabAnimation(self, Tab, Showing, ...)
+	end
+end
+
+-- Helper to wrap groupboxes (toggles, checkboxes, buttons)
+local function wrapGroupbox(groupbox)
+	if not groupbox or type(groupbox) ~= "table" then return groupbox end
+
+	if groupbox.AddToggle and not groupbox._SoundHooked then
+		local origAddToggle = groupbox.AddToggle
+		groupbox.AddToggle = function(self, idx, info)
+			local toggleObj = origAddToggle(self, idx, info)
+			if toggleObj and toggleObj.SetValue then
+				local origSetValue = toggleObj.SetValue
+				toggleObj.SetValue = function(tSelf, val, ...)
+					if tSelf.Value ~= val then
+						playGuiSound(val and "ToggleOn" or "ToggleOff", val and 1.15 or 0.9, 0.45)
+					end
+					return origSetValue(tSelf, val, ...)
+				end
+			end
+			return toggleObj
+		end
+
+		local origAddCheckbox = groupbox.AddCheckbox
+		if origAddCheckbox then
+			groupbox.AddCheckbox = function(self, idx, info)
+				local checkboxObj = origAddCheckbox(self, idx, info)
+				if checkboxObj and checkboxObj.SetValue then
+					local origSetValue = checkboxObj.SetValue
+					checkboxObj.SetValue = function(cSelf, val, ...)
+						if cSelf.Value ~= val then
+							playGuiSound(val and "CheckboxOn" or "CheckboxOff", val and 1.25 or 0.95, 0.45)
+						end
+						return origSetValue(cSelf, val, ...)
+					end
+				end
+				return checkboxObj
+			end
+		end
+
+		local origAddButton = groupbox.AddButton
+		if origAddButton then
+			groupbox.AddButton = function(self, info)
+				if type(info) == "table" then
+					local origFunc = info.Func or info.Callback
+					info.Func = function(...)
+						playGuiSound("Button", 1.0, 0.4)
+						if origFunc then
+							return origFunc(...)
+						end
+					end
+					info.Callback = info.Func
+				end
+				return origAddButton(self, info)
+			end
+		end
+
+		groupbox._SoundHooked = true
+	end
+
+	return groupbox
+end
+
+-- Helper to wrap tabboxes
+local function wrapTabbox(tabbox)
+	if not tabbox or type(tabbox) ~= "table" then return tabbox end
+	if tabbox.AddTab and not tabbox._SoundHooked then
+		local origTabboxAddTab = tabbox.AddTab
+		tabbox.AddTab = function(self, title, icon)
+			local subTab = origTabboxAddTab(self, title, icon)
+			if subTab and subTab.Button then
+				pcall(function()
+					if subTab.Button:IsA("GuiButton") then
+						subTab.Button.MouseButton1Click:Connect(playTabSound)
+					elseif subTab.Button:IsA("GuiObject") then
+						subTab.Button.InputBegan:Connect(function(input)
+							if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+								playTabSound()
+							end
+						end)
+					end
+				end)
+			end
+			wrapGroupbox(subTab)
+			return subTab
+		end
+		tabbox._SoundHooked = true
+	end
+	return tabbox
+end
+
+-- Helper to wrap tabs
+local function wrapTab(tab)
+	if not tab or type(tab) ~= "table" then return tab end
+
+	if tab.Button then
+		pcall(function()
+			if tab.Button:IsA("GuiButton") then
+				tab.Button.MouseButton1Click:Connect(playTabSound)
+			elseif tab.Button:IsA("GuiObject") then
+				tab.Button.InputBegan:Connect(function(input)
+					if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+						playTabSound()
+					end
+				end)
+			end
+		end)
+	end
+
+	if tab.AddLeftGroupbox then
+		local origLeftGroup = tab.AddLeftGroupbox
+		tab.AddLeftGroupbox = function(self, ...)
+			return wrapGroupbox(origLeftGroup(self, ...))
+		end
+	end
+
+	if tab.AddRightGroupbox then
+		local origRightGroup = tab.AddRightGroupbox
+		tab.AddRightGroupbox = function(self, ...)
+			return wrapGroupbox(origRightGroup(self, ...))
+		end
+	end
+
+	if tab.AddLeftTabbox then
+		local origLeftTabbox = tab.AddLeftTabbox
+		tab.AddLeftTabbox = function(self, ...)
+			return wrapTabbox(origLeftTabbox(self, ...))
+		end
+	end
+
+	if tab.AddRightTabbox then
+		local origRightTabbox = tab.AddRightTabbox
+		tab.AddRightTabbox = function(self, ...)
+			return wrapTabbox(origRightTabbox(self, ...))
+		end
+	end
+
+	if tab.AddTabbox then
+		local origTabbox = tab.AddTabbox
+		tab.AddTabbox = function(self, ...)
+			return wrapTabbox(origTabbox(self, ...))
+		end
+	end
+
+	return tab
+end
+
+-- Hook Window creation
+local origCreateWindow = Library.CreateWindow
+Library.CreateWindow = function(self, config)
+	local window = origCreateWindow(self, config)
+	if window and window.AddTab then
+		local origWindowAddTab = window.AddTab
+		window.AddTab = function(wSelf, title, icon)
+			local tab = origWindowAddTab(wSelf, title, icon)
+			return wrapTab(tab)
+		end
+	end
+	return window
+end
 
 Library.Font = Enum.Font.Gotham
 Library.CornerRadius = 15
