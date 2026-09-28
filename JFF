@@ -52,7 +52,6 @@ local updatePlayerESPVisibility
 local updateFlightVisibility
 local updateImmortalModeVisibility
 local updatePhantomModeVisibility
-local updateAttachVisibility
 
 Library.ShowToggleFrameInKeybinds = true
 
@@ -391,19 +390,17 @@ AdvanceHealGroup:AddSlider("AutoEatCooldown", {
 local MainRight = Tabs.Player:AddRightGroupbox("Settings", "settings")
 
 -- ============================================================================
--- MAIN TAB (IMMORTALITY / SPECTATE)
+-- MAIN TAB (IMMORTAL MODE / SPECTATE)
 -- ============================================================================
 local CombatAutoBlock = Tabs.Main:AddLeftGroupbox("IMMORTALITY", "shield")
 
-CombatAutoBlock:AddCheckbox("ImmortalMode", {
+CombatAutoBlock:AddToggle("ImmortalMode", {
 	Text = "Immortal Mode",
 	Default = false,
 })
 
-CombatAutoBlock:AddDivider()
-
 CombatAutoBlock:AddCheckbox("BypassShield", {
-	Text = "Bypass Shield",
+	Text = "Shield Bypass",
 	Default = false,
 })
 
@@ -416,7 +413,9 @@ CombatAutoBlock:AddSlider("ImmortalModeStuds", {
 	Compact = true,
 })
 
-CombatAutoBlock:AddCheckbox("QuickVanish", {
+CombatAutoBlock:AddDivider
+
+CombatAutoBlock:AddToggle("QuickVanish", {
 	Text = "Quick Vanish",
 	Default = false,
 })
@@ -475,7 +474,7 @@ FunAttach:AddDropdown("AttachPlayerList", {
         Default = "",
 })
 
-local attachDivider = FunAttach:AddDivider()
+FunAttach:AddDivider()
 
 local PlusKillPlayerToggle = FunAttach:AddCheckbox("PlusKillPlayerToggle", {
         Text = "+ Kill player",
@@ -494,56 +493,6 @@ FunAttach:AddCheckbox("FloatOverToggle", {
         Text = "Float Over",
         Default = false,
 })
-
-updateAttachVisibility = function()
-	local isAttach = (Toggles.AttachToggle and Toggles.AttachToggle.Value) or false
-
-	if attachDivider then
-		if attachDivider.Visible ~= nil then
-			attachDivider.Visible = isAttach
-		end
-		if attachDivider.Holder then
-			attachDivider.Holder.Visible = isAttach
-		end
-	end
-
-	if Toggles.PlusKillPlayerToggle then
-		if Toggles.PlusKillPlayerToggle.Visible ~= nil then
-			Toggles.PlusKillPlayerToggle.Visible = isAttach
-		end
-		if Toggles.PlusKillPlayerToggle.Holder then
-			Toggles.PlusKillPlayerToggle.Holder.Visible = isAttach
-		end
-	end
-
-	if Toggles.HideBeneathToggle then
-		if Toggles.HideBeneathToggle.Visible ~= nil then
-			Toggles.HideBeneathToggle.Visible = isAttach
-		end
-		if Toggles.HideBeneathToggle.Holder then
-			Toggles.HideBeneathToggle.Holder.Visible = isAttach
-		end
-	end
-
-	if Toggles.FloatOverToggle then
-		if Toggles.FloatOverToggle.Visible ~= nil then
-			Toggles.FloatOverToggle.Visible = isAttach
-		end
-		if Toggles.FloatOverToggle.Holder then
-			Toggles.FloatOverToggle.Holder.Visible = isAttach
-		end
-	end
-
-	FunAttach:Resize()
-end
-
-updateAttachVisibility()
-task.spawn(function()
-	task.wait(0.05)
-	if updateAttachVisibility then
-		updateAttachVisibility()
-	end
-end)
 
 local TeleportGroup = Tabs.Main:AddRightGroupbox("TELEPORT", "map-pin")
 
@@ -6779,12 +6728,7 @@ local function startAttach()
 	end
 end
 
-Toggles.AttachToggle:OnChanged(function()
-	if updateAttachVisibility then
-		updateAttachVisibility()
-	end
-	startAttach()
-end)
+Toggles.AttachToggle:OnChanged(startAttach)
 Toggles.PlusKillPlayerToggle:OnChanged(function()
 	if Toggles.PlusKillPlayerToggle.TextLabel then
 		Toggles.PlusKillPlayerToggle.TextLabel.TextColor3 = Toggles.PlusKillPlayerToggle.Value and Color3.fromRGB(255, 100, 100) or Color3.fromRGB(255, 0, 0)
