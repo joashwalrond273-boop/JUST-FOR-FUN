@@ -282,7 +282,7 @@ Library.CornerRadius = 15
 -- Window
 local Window = Library:CreateWindow({
 	Title = "♠ URIEL",
-	Footer = "CODENAME:♠ URIEL",
+	Footer = "CODENAME: ♠ URIEL",
 	Icon = nil,
 	Center = true,
 	AutoShow = true,
@@ -402,6 +402,16 @@ KillswitchGroup:AddLabel(
 )
 
 KillswitchGroup:AddDivider()
+
+KillswitchGroup:AddCheckbox("KillswitchToggle", {
+	Text = "Kill Character",
+	Default = false,
+})
+
+KillswitchGroup:AddCheckbox("AntiAFK", {
+	Text = "Anti-AFK",
+	Default = false,
+})
 
 Toggles.KillswitchToggle:OnChanged(function()
 	if Toggles.KillswitchToggle.Value then
@@ -672,10 +682,6 @@ ImmuneTab:AddCheckbox("AutoAirBubbles", {
 	Default = false,
 })
 
-ImmuneTab:AddCheckbox("AntiAFK", {
-	Text = "Anti-AFK",
-	Default = false,
-})
 
 MainRight:AddButton({
 	Text = "Low Ping Server",
@@ -770,11 +776,6 @@ MainRight:AddButton({
 
 		Library:Notify({ Title = "Ping Spoofer", Description = "Ping spoofing activated!", Time = 2 })
 	end,
-})
-
-MainRight:AddButton("KillswitchToggle", {
-	Text = "Kill Character",
-	Default = false,
 })
 
 MainRight:AddButton({
