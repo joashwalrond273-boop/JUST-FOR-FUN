@@ -52,7 +52,6 @@ local updatePlayerESPVisibility
 local updateFlightVisibility
 local updateImmortalModeVisibility
 local updatePhantomModeVisibility
-local updateAttachVisibility
 
 Library.ShowToggleFrameInKeybinds = true
 
@@ -283,7 +282,7 @@ Library.CornerRadius = 15
 -- Window
 local Window = Library:CreateWindow({
 	Title = "♠ URIEL",
-	Footer = "CODENAME: ♠ URIEL",
+	Footer = "CODENAME:♠ URIEL",
 	Icon = nil,
 	Center = true,
 	AutoShow = true,
@@ -395,17 +394,25 @@ local MainRight = Tabs.Player:AddRightGroupbox("Settings", "settings")
 -- ============================================================================
 local KillswitchGroup = Tabs.Main:AddLeftGroupbox("CODENAME URIEL", "skull")
 
-local urielLabel = KillswitchGroup:AddLabel(
-	"<font face=\"Roboto\"><b>♠ URIEL</b>\n" ..
+KillswitchGroup:AddLabel(
+	"<b>♠ URIEL</b>\n" ..
 	"<i>Advanced • Clean • Precise</i>\n\n" ..
-	"<i>\"The quieter you become, the more you are able to hear.\"</i></font>",
+	"<i>\"The quieter you become, the more you are able to hear.\"</i>",
 	true
 )
-if urielLabel and urielLabel.TextLabel then
-	pcall(function()
-		urielLabel.TextLabel.Font = Enum.Font.Roboto
-	end)
-end
+
+KillswitchGroup:AddDivider()
+
+Toggles.KillswitchToggle:OnChanged(function()
+	if Toggles.KillswitchToggle.Value then
+		local humanoid = getHumanoid()
+		if humanoid then
+			humanoid.Health = 0
+		end
+		task.wait(0.1)
+		Toggles.KillswitchToggle:SetValue(false)
+	end
+end)
 
 local FunAttach = Tabs.Main:AddLeftGroupbox("ATTACH", "link")
 
@@ -420,7 +427,7 @@ FunAttach:AddDropdown("AttachPlayerList", {
         Default = "",
 })
 
-local AttachDivider = FunAttach:AddDivider()
+FunAttach:AddDivider()
 
 local PlusKillPlayerToggle = FunAttach:AddCheckbox("PlusKillPlayerToggle", {
         Text = "+ Kill player",
@@ -438,76 +445,6 @@ FunAttach:AddCheckbox("HideBeneathToggle", {
 FunAttach:AddCheckbox("FloatOverToggle", {
         Text = "Float Over",
         Default = false,
-})
-
-updateAttachVisibility = function()
-	local isAttach = (Toggles.AttachToggle and Toggles.AttachToggle.Value) or false
-
-	if AttachDivider then
-		AttachDivider.Visible = isAttach
-	end
-
-	if Toggles.PlusKillPlayerToggle then
-		if Toggles.PlusKillPlayerToggle.Visible ~= nil then
-			Toggles.PlusKillPlayerToggle.Visible = isAttach
-		end
-		if Toggles.PlusKillPlayerToggle.Holder then
-			Toggles.PlusKillPlayerToggle.Holder.Visible = isAttach
-		end
-	end
-
-	if Toggles.HideBeneathToggle then
-		if Toggles.HideBeneathToggle.Visible ~= nil then
-			Toggles.HideBeneathToggle.Visible = isAttach
-		end
-		if Toggles.HideBeneathToggle.Holder then
-			Toggles.HideBeneathToggle.Holder.Visible = isAttach
-		end
-	end
-
-	if Toggles.FloatOverToggle then
-		if Toggles.FloatOverToggle.Visible ~= nil then
-			Toggles.FloatOverToggle.Visible = isAttach
-		end
-		if Toggles.FloatOverToggle.Holder then
-			Toggles.FloatOverToggle.Holder.Visible = isAttach
-		end
-	end
-
-	if not isAttach then
-		if Toggles.PlusKillPlayerToggle and Toggles.PlusKillPlayerToggle.Value then
-			Toggles.PlusKillPlayerToggle:SetValue(false)
-		end
-		if Toggles.HideBeneathToggle and Toggles.HideBeneathToggle.Value then
-			Toggles.HideBeneathToggle:SetValue(false)
-		end
-		if Toggles.FloatOverToggle and Toggles.FloatOverToggle.Value then
-			Toggles.FloatOverToggle:SetValue(false)
-		end
-	end
-
-	FunAttach:Resize()
-end
-
-updateAttachVisibility()
-task.spawn(function()
-	task.wait(0.05)
-	if updateAttachVisibility then
-		updateAttachVisibility()
-	end
-end)
-
-local SpectateGroup = Tabs.Main:AddRightGroupbox("SPECTATE", "scan-eye")
-
-SpectateGroup:AddToggle("SpectateToggle", {
-	Text = "Spectate",
-	Default = false,
-})
-
-SpectateGroup:AddDropdown("SpectatePlayerList", {
-	Text = "Select Player",
-	Values = {},
-	Default = "",
 })
 
 local TeleportGroup = Tabs.Main:AddRightGroupbox("TELEPORT", "map-pin")
@@ -564,6 +501,19 @@ TeleportGroup:AddButton({
 			player.Character.HumanoidRootPart.CFrame = targetCharacter.HumanoidRootPart.CFrame + Vector3.new(0, 3, 0)
 		end
 	end,
+})
+
+local SpectateGroup = Tabs.Main:AddRightGroupbox("SPECTATE", "scan-eye")
+
+SpectateGroup:AddToggle("SpectateToggle", {
+	Text = "Spectate",
+	Default = false,
+})
+
+SpectateGroup:AddDropdown("SpectatePlayerList", {
+	Text = "Select Player",
+	Values = {},
+	Default = "",
 })
 
 local FunLeft = Tabs.Main:AddRightGroupbox("FLING A BULLY", "swords")
@@ -727,23 +677,6 @@ ImmuneTab:AddCheckbox("AntiAFK", {
 	Default = false,
 })
 
-
-MainRight:AddToggle("KillswitchToggle", {
-	Text = "Kill Character",
-	Default = false,
-})
-
-Toggles.KillswitchToggle:OnChanged(function()
-	if Toggles.KillswitchToggle.Value then
-		local humanoid = getHumanoid()
-		if humanoid then
-			humanoid.Health = 0
-		end
-		task.wait(0.1)
-		Toggles.KillswitchToggle:SetValue(false)
-	end
-end)
-
 MainRight:AddButton({
 	Text = "Low Ping Server",
 	Func = function()
@@ -837,6 +770,11 @@ MainRight:AddButton({
 
 		Library:Notify({ Title = "Ping Spoofer", Description = "Ping spoofing activated!", Time = 2 })
 	end,
+})
+
+MainRight:AddButton("KillswitchToggle", {
+	Text = "Kill Character",
+	Default = false,
 })
 
 MainRight:AddButton({
@@ -6813,12 +6751,7 @@ local function startAttach()
 	end
 end
 
-Toggles.AttachToggle:OnChanged(function()
-	startAttach()
-	if updateAttachVisibility then
-		updateAttachVisibility()
-	end
-end)
+Toggles.AttachToggle:OnChanged(startAttach)
 Toggles.PlusKillPlayerToggle:OnChanged(function()
 	if Toggles.PlusKillPlayerToggle.TextLabel then
 		Toggles.PlusKillPlayerToggle.TextLabel.TextColor3 = Toggles.PlusKillPlayerToggle.Value and Color3.fromRGB(255, 100, 100) or Color3.fromRGB(255, 0, 0)
