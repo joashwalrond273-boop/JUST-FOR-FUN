@@ -4213,6 +4213,11 @@ BossFarm:AddCheckbox("JuggernautAura", {
 	Default = false,
 })
 
+BossFarm:AddCheckbox("BossNotifier", {
+	Text = "Boss Spawn Alert",
+	Default = false,
+})
+
 -- ==========================================
 local FarmMine = Tabs.Farming:AddLeftGroupbox("Auto Mine", "gem")
 
@@ -5069,6 +5074,150 @@ Toggles.JuggernautAura:OnChanged(function()
 			Toggles.AiAura:SetValue(false)
 		end
 		Library:Notify({ Title = "Juggernaut Aura", Description = "Disabled", Time = 2 })
+	end
+end)
+
+-- ==========================================
+-- Boss Spawn Alerts / Status Notifier
+-- ==========================================
+local knownBossKeywords = {
+	"Samurai",
+	"Titan",
+	"Juggernaut",
+	"Kraken",
+	"Spider",
+	"Marvin",
+	"Colossus",
+	"Gladiator",
+}
+
+local function getBossIdentifier(model)
+	if not model or not model:IsA("Model") then return nil end
+	local mName = model.Name
+	for _, kw in ipairs(knownBossKeywords) do
+		if string.find(string.lower(mName), string.lower(kw)) then
+			return kw, mName
+		end
+	end
+	return nil
+end
+
+local function isBossAlive(model)
+	if not model or not model.Parent then return false end
+	local hum = model:FindFirstChildOfClass("Humanoid")
+	if hum and hum.Health <= 0 then return false end
+	local hrp = model:FindFirstChild("HumanoidRootPart") or model.PrimaryPart or model:FindFirstChild("Head")
+	return hrp ~= nil
+end
+
+local function getActiveBosses()
+	local active = {}
+	local seen = {}
+
+	local function checkFolder(folder)
+		if not folder then return end
+		for _, child in ipairs(folder:GetChildren()) do
+			if child:IsA("Model") and isBossAlive(child) then
+				local bossType, fullTitle = getBossIdentifier(child)
+				if bossType and not seen[child] then
+					seen[child] = true
+					table.insert(active, { type = bossType, name = fullTitle, model = child })
+				end
+			end
+		end
+	end
+
+	checkFolder(workspace:FindFirstChild("AI_Server"))
+	checkFolder(workspace:FindFirstChild("AI_Client"))
+	checkFolder(workspace)
+
+	return active
+end
+
+local knownSpawnedBosses = {}
+local function scanAndNotifyBosses(isInitial)
+	local activeList = getActiveBosses()
+	local activeNames = {}
+	local newSpawns = {}
+
+	for _, boss in ipairs(activeList) do
+		table.insert(activeNames, boss.type)
+		if not knownSpawnedBosses[boss.model] then
+			knownSpawnedBosses[boss.model] = boss.type
+			table.insert(newSpawns, boss.type)
+		end
+	end
+
+	for model, _ in pairs(knownSpawnedBosses) do
+		if not isBossAlive(model) then
+			knownSpawnedBosses[model] = nil
+		end
+	end
+
+	if isInitial then
+		if #activeNames > 0 then
+			Library:Notify({
+				Title = "Boss Status",
+				Description = "Active Bosses: " .. table.concat(activeNames, ", "),
+				Time = 4,
+			})
+		else
+			Library:Notify({
+				Title = "Boss Status",
+				Description = "No bosses spawned in yet.",
+				Time = 3.5,
+			})
+		end
+	else
+		for _, bName in ipairs(newSpawns) do
+			Library:Notify({
+				Title = "Boss Spawned!",
+				Description = bName .. " has spawned into the server!",
+				Time = 5,
+			})
+		end
+	end
+end
+
+Toggles.BossNotifier:OnChanged(function()
+	disconnect("BossNotifierServer")
+	disconnect("BossNotifierClient")
+	disconnect("BossNotifierLoop")
+	table.clear(knownSpawnedBosses)
+
+	if Toggles.BossNotifier.Value then
+		scanAndNotifyBosses(true)
+
+		local aiServer = workspace:FindFirstChild("AI_Server")
+		if aiServer then
+			track("BossNotifierServer", aiServer.ChildAdded:Connect(function(child)
+				task.wait(0.15)
+				if isBossAlive(child) and getBossIdentifier(child) then
+					scanAndNotifyBosses(false)
+				end
+			end))
+		end
+
+		local aiClient = workspace:FindFirstChild("AI_Client")
+		if aiClient then
+			track("BossNotifierClient", aiClient.ChildAdded:Connect(function(child)
+				task.wait(0.15)
+				if isBossAlive(child) and getBossIdentifier(child) then
+					scanAndNotifyBosses(false)
+				end
+			end))
+		end
+
+		local lastCheck = 0
+		track("BossNotifierLoop", RunService.Heartbeat:Connect(function()
+			local now = tick()
+			if now - lastCheck >= 3 then
+				lastCheck = now
+				scanAndNotifyBosses(false)
+			end
+		end))
+	else
+		Library:Notify({ Title = "Boss Alerts", Description = "Disabled", Time = 2 })
 	end
 end)
 
@@ -7202,6 +7351,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.JuggernautAura and Toggles.JuggernautAura.Value then
 		Toggles.JuggernautAura:SetValue(false)
+	end
+	if Toggles.BossNotifier and Toggles.BossNotifier.Value then
+		Toggles.BossNotifier:SetValue(false)
 	end
 	if Toggles.WalkOnWater and Toggles.WalkOnWater.Value then
 		Toggles.WalkOnWater:SetValue(false)
