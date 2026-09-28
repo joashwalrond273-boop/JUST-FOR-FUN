@@ -3401,9 +3401,27 @@ MoveSwimBoost:AddCheckbox("SinkFastPVP", {
 	Default = false,
 })
 
+MoveSwimBoost:AddSlider("SinkFastPVPSpeed", {
+	Text = "Sink Speed",
+	Default = 60,
+	Min = 10,
+	Max = 200,
+	Rounding = 0,
+	Compact = true,
+})
+
 MoveSwimBoost:AddCheckbox("RiseFastPVP", {
 	Text = "+ Rise Fast PVP",
 	Default = false,
+})
+
+MoveSwimBoost:AddSlider("RiseFastPVPSpeed", {
+	Text = "Rise Speed",
+	Default = 60,
+	Min = 10,
+	Max = 200,
+	Rounding = 0,
+	Compact = true,
 })
 
 local MoveBoatSpeed = Tabs.Movement:AddLeftGroupbox("Boat Speed", "anchor")
@@ -3941,9 +3959,10 @@ Toggles.SinkFastPVP:OnChanged(function()
 					local cam = workspace.CurrentCamera
 					local lookY = cam and cam.CFrame.LookVector.Y or 0
 					if lookY <= -0.9 then
+						local speed = (Options.SinkFastPVPSpeed and Options.SinkFastPVPSpeed.Value) or 60
 						root.AssemblyLinearVelocity = Vector3.new(
 							root.AssemblyLinearVelocity.X,
-							-60,
+							-speed,
 							root.AssemblyLinearVelocity.Z
 						)
 					end
@@ -3969,9 +3988,10 @@ Toggles.RiseFastPVP:OnChanged(function()
 					local cam = workspace.CurrentCamera
 					local lookY = cam and cam.CFrame.LookVector.Y or 0
 					if lookY >= 0.85 then
+						local speed = (Options.RiseFastPVPSpeed and Options.RiseFastPVPSpeed.Value) or 60
 						root.AssemblyLinearVelocity = Vector3.new(
 							root.AssemblyLinearVelocity.X,
-							60,
+							speed,
 							root.AssemblyLinearVelocity.Z
 						)
 					end
