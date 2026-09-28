@@ -401,7 +401,7 @@ KillswitchGroup:AddCheckbox("KillswitchToggle", {
 
 KillswitchGroup:AddCheckbox("AntiAFK", {
 	Text = "Anti-AFK",
-	Default = false,
+	Default = True,
 })
 
 Toggles.KillswitchToggle:OnChanged(function()
