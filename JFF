@@ -293,15 +293,16 @@ local Window = Library:CreateWindow({
 })
 
 local Tabs = {
-	Main = Window:AddTab("Main", "badge-info"),
-	Player = Window:AddTab("Player", "user"),
-	Combat = Window:AddTab("Combat", "swords"),
+	Main = Window:AddTab("CENTRAL", "badge-info"),
+	Player = Window:AddTab("PLAYER", "user"),
+	Combat = Window:AddTab("COMBAT", "swords"),
 	Movement = Window:AddTab("Movement", "move"),
-	Farming = Window:AddTab("Farming", "sprout"),
-	Teleport = Window:AddTab("Teleport", "map-pin"),
-	Visuals = Window:AddTab("Visuals", "scan-eye"),
-	["UI Settings"] = Window:AddTab("UI Settings", "settings"),
+	Farming = Window:AddTab("AURAS", "sprout"),
+	Teleport = Window:AddTab("TELEPORT", "map-pin"),
+	Visuals = Window:AddTab("ESP", "scan-eye"),
+	["UI Settings"] = Window:AddTab("UI MODULES", "settings"),
 }
+Tabs["UI MODULES"] = Tabs["UI Settings"]
 
 -- Connections (clean up on unload)
 local Connections = {}
@@ -1354,7 +1355,7 @@ CombatLeft:AddToggle("KillAura", {
 })
 
 CombatLeft:AddCheckbox("PhantomMode", {
-	Text = "Phantom Mode",
+	Text = "Rage Mode",
 	Default = false,
 })
 
@@ -3192,7 +3193,7 @@ Toggles.PhantomMode:OnChanged(function()
 			Toggles.KillAura:SetValue(true)
 		end
 		track("PhantomMode", RunService.Heartbeat:Connect(phantomModeLoop))
-		Library:Notify({ Title = "Phantom Mode", Description = "Enabled", Time = 2 })
+		Library:Notify({ Title = "Rage Mode", Description = "Enabled", Time = 2 })
 	else
 		-- Reset
 		phantomModeVars.targetPlayer = nil
@@ -3203,7 +3204,7 @@ Toggles.PhantomMode:OnChanged(function()
 		if Toggles.KillAura and Toggles.KillAura.Value then
 			Toggles.KillAura:SetValue(false)
 		end
-		Library:Notify({ Title = "Phantom Mode", Description = "Disabled", Time = 2 })
+		Library:Notify({ Title = "Rage Mode", Description = "Disabled", Time = 2 })
 	end
 end)
 
