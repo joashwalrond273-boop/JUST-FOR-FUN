@@ -1332,6 +1332,11 @@ CombatCamlock:AddCheckbox("CamlockIgnoreTeam", {
 	Default = true,
 })
 
+CombatCamlock:AddCheckbox("CamlockIgnoreAlliance", {
+	Text = "Ignore Alliance",
+	Default = true,
+})
+
 CombatCamlock:AddCheckbox("SpearSword", {
 	Text = "Spear/Sword(Slot 3/5)",
 	Default = false,
@@ -1709,6 +1714,14 @@ updatePVPModulesVisibility = function()
 		end
 		if Toggles.CamlockIgnoreTeam.Holder then
 			Toggles.CamlockIgnoreTeam.Holder.Visible = isCam
+		end
+	end
+	if Toggles.CamlockIgnoreAlliance then
+		if Toggles.CamlockIgnoreAlliance.Visible ~= nil then
+			Toggles.CamlockIgnoreAlliance.Visible = isCam
+		end
+		if Toggles.CamlockIgnoreAlliance.Holder then
+			Toggles.CamlockIgnoreAlliance.Holder.Visible = isCam
 		end
 	end
 	if Toggles.SpearSword then
@@ -2290,6 +2303,194 @@ local function isTeammate(otherPlayer)
 	return false
 end
 
+local function isAlly(otherPlayer)
+	if not otherPlayer or otherPlayer == LocalPlayer then
+		return true
+	end
+
+	if isTeammate(otherPlayer) then
+		return true
+	end
+
+	local myKingdomName = nil
+	pcall(function()
+		if TSG.ClientData and TSG.ClientData.getKingdom then
+			local kd = TSG.ClientData.getKingdom()
+			if type(kd) == "string" then
+				myKingdomName = kd
+			elseif type(kd) == "table" then
+				myKingdomName = kd.Name or kd.name or kd.Id or kd.id or kd.KingdomName or kd.kingdomName
+			end
+		end
+	end)
+
+	if not myKingdomName then
+		myKingdomName = LocalPlayer:GetAttribute("Kingdom") or LocalPlayer:GetAttribute("Clan") or LocalPlayer:GetAttribute("Tribe") or LocalPlayer:GetAttribute("Team")
+		if not myKingdomName and LocalPlayer.Character then
+			myKingdomName = LocalPlayer.Character:GetAttribute("Kingdom") or LocalPlayer.Character:GetAttribute("Clan") or LocalPlayer.Character:GetAttribute("Tribe")
+		end
+		if not myKingdomName and LocalPlayer.Team then
+			myKingdomName = LocalPlayer.Team.Name
+		end
+	end
+
+	local theirKingdomName = otherPlayer:GetAttribute("Kingdom") or otherPlayer:GetAttribute("Clan") or otherPlayer:GetAttribute("Tribe") or otherPlayer:GetAttribute("Team")
+	if not theirKingdomName and otherPlayer.Character then
+		theirKingdomName = otherPlayer.Character:GetAttribute("Kingdom") or otherPlayer.Character:GetAttribute("Clan") or otherPlayer.Character:GetAttribute("Tribe")
+	end
+	if not theirKingdomName and otherPlayer.Team then
+		theirKingdomName = otherPlayer.Team.Name
+	end
+
+	local success, allyMatch = pcall(function()
+		if TSG.ClientData then
+			if TSG.ClientData.isAlly and type(TSG.ClientData.isAlly) == "function" then
+				if TSG.ClientData.isAlly(otherPlayer) or (theirKingdomName and TSG.ClientData.isAlly(theirKingdomName)) then
+					return true
+				end
+			end
+			if TSG.ClientData.isAllied and type(TSG.ClientData.isAllied) == "function" then
+				if TSG.ClientData.isAllied(otherPlayer) or (myKingdomName and theirKingdomName and TSG.ClientData.isAllied(myKingdomName, theirKingdomName)) then
+					return true
+				end
+			end
+			if TSG.ClientData.getAlliances and type(TSG.ClientData.getAlliances) == "function" then
+				local alliances = TSG.ClientData.getAlliances() or TSG.ClientData.getAlliances(myKingdomName)
+				if type(alliances) == "table" then
+					for k, v in pairs(alliances) do
+						if v == otherPlayer or v == otherPlayer.Name or v == otherPlayer.UserId or (theirKingdomName and (v == theirKingdomName or k == theirKingdomName)) then
+							return true
+						end
+						if type(v) == "table" then
+							if v.Name == theirKingdomName or v.name == theirKingdomName or v.Id == theirKingdomName or v.id == theirKingdomName or table.find(v, otherPlayer.Name) or table.find(v, otherPlayer.UserId) or (theirKingdomName and table.find(v, theirKingdomName)) then
+								return true
+							end
+						end
+					end
+				end
+			end
+			if TSG.ClientData.getKingdomData and type(TSG.ClientData.getKingdomData) == "function" then
+				local kd = TSG.ClientData.getKingdomData(myKingdomName) or TSG.ClientData.getKingdomData()
+				if type(kd) == "table" then
+					local allies = kd.Allies or kd.allies or kd.Alliances or kd.alliances or kd.AlliedKingdoms or kd.alliedKingdoms
+					if type(allies) == "table" then
+						for _, v in pairs(allies) do
+							if v == otherPlayer.Name or v == otherPlayer.UserId or (theirKingdomName and (v == theirKingdomName or _ == theirKingdomName)) then
+								return true
+							end
+						end
+					end
+				end
+			end
+			if TSG.ClientData.getKingdom and type(TSG.ClientData.getKingdom) == "function" then
+				local kd = TSG.ClientData.getKingdom()
+				if type(kd) == "table" then
+					local allies = kd.Allies or kd.allies or kd.Alliances or kd.alliances or kd.AlliedKingdoms or kd.alliedKingdoms
+					if type(allies) == "table" then
+						for _, v in pairs(allies) do
+							if v == otherPlayer.Name or v == otherPlayer.UserId or (theirKingdomName and (v == theirKingdomName or _ == theirKingdomName)) then
+								return true
+							end
+						end
+					end
+				end
+			end
+		end
+		return false
+	end)
+	if success and allyMatch then
+		return true
+	end
+
+	local attrCheck = function(inst)
+		if not inst then return false end
+		local alliesAttr = inst:GetAttribute("Allies") or inst:GetAttribute("Alliances") or inst:GetAttribute("AlliedKingdoms") or inst:GetAttribute("KingdomAllies") or inst:GetAttribute("Alliance")
+		if alliesAttr then
+			if type(alliesAttr) == "table" then
+				if table.find(alliesAttr, otherPlayer.Name) or table.find(alliesAttr, otherPlayer.UserId) or (theirKingdomName and table.find(alliesAttr, theirKingdomName)) then
+					return true
+				end
+			elseif type(alliesAttr) == "string" then
+				if (theirKingdomName and theirKingdomName ~= "" and string.find(alliesAttr, theirKingdomName, 1, true)) or string.find(alliesAttr, otherPlayer.Name, 1, true) or string.find(alliesAttr, tostring(otherPlayer.UserId), 1, true) then
+					return true
+				end
+			end
+		end
+		return false
+	end
+
+	if attrCheck(LocalPlayer) or (LocalPlayer.Character and attrCheck(LocalPlayer.Character)) then
+		return true
+	end
+
+	local otherAttrCheck = function(inst)
+		if not inst then return false end
+		if inst:GetAttribute("IsAlly") == true or inst:GetAttribute("Allied") == true or inst:GetAttribute("Ally") == true then
+			return true
+		end
+		local otherAllies = inst:GetAttribute("Allies") or inst:GetAttribute("Alliances") or inst:GetAttribute("AlliedKingdoms") or inst:GetAttribute("KingdomAllies")
+		if otherAllies then
+			if type(otherAllies) == "table" then
+				if table.find(otherAllies, LocalPlayer.Name) or table.find(otherAllies, LocalPlayer.UserId) or (myKingdomName and table.find(otherAllies, myKingdomName)) then
+					return true
+				end
+			elseif type(otherAllies) == "string" then
+				if (myKingdomName and myKingdomName ~= "" and string.find(otherAllies, myKingdomName, 1, true)) or string.find(otherAllies, LocalPlayer.Name, 1, true) or string.find(otherAllies, tostring(LocalPlayer.UserId), 1, true) then
+					return true
+				end
+			end
+		end
+		return false
+	end
+
+	if otherAttrCheck(otherPlayer) or (otherPlayer.Character and otherAttrCheck(otherPlayer.Character)) then
+		return true
+	end
+
+	local rsSuccess, rsMatch = pcall(function()
+		local kingdomsFolder = ReplicatedStorage:FindFirstChild("Kingdoms") or ReplicatedStorage:FindFirstChild("kingdoms") or ReplicatedStorage:FindFirstChild("Clans") or ReplicatedStorage:FindFirstChild("clans")
+		if kingdomsFolder and myKingdomName then
+			local myKingdomFolder = kingdomsFolder:FindFirstChild(tostring(myKingdomName))
+			if myKingdomFolder then
+				local alliesFolder = myKingdomFolder:FindFirstChild("Allies") or myKingdomFolder:FindFirstChild("allies") or myKingdomFolder:FindFirstChild("Alliances") or myKingdomFolder:FindFirstChild("alliances")
+				if alliesFolder then
+					if theirKingdomName and alliesFolder:FindFirstChild(tostring(theirKingdomName)) then
+						return true
+					end
+					if alliesFolder:FindFirstChild(otherPlayer.Name) or alliesFolder:FindFirstChild(tostring(otherPlayer.UserId)) then
+						return true
+					end
+					for _, allyChild in ipairs(alliesFolder:GetChildren()) do
+						if allyChild.Name == tostring(theirKingdomName) or allyChild.Name == otherPlayer.Name or allyChild.Name == tostring(otherPlayer.UserId) then
+							return true
+						end
+						if allyChild:IsA("ValueBase") and (allyChild.Value == tostring(theirKingdomName) or allyChild.Value == otherPlayer.Name or allyChild.Value == otherPlayer.UserId) then
+							return true
+						end
+					end
+				end
+			end
+		end
+
+		local alliancesFolder = ReplicatedStorage:FindFirstChild("Alliances") or ReplicatedStorage:FindFirstChild("alliances")
+		if alliancesFolder and myKingdomName and theirKingdomName then
+			for _, alliance in ipairs(alliancesFolder:GetChildren()) do
+				local hasMine = (alliance.Name == tostring(myKingdomName)) or alliance:FindFirstChild(tostring(myKingdomName)) ~= nil
+				local hasTheirs = (alliance.Name == tostring(theirKingdomName)) or alliance:FindFirstChild(tostring(theirKingdomName)) ~= nil
+				if hasMine and hasTheirs then
+					return true
+				end
+			end
+		end
+		return false
+	end)
+	if rsSuccess and rsMatch then
+		return true
+	end
+
+	return false
+end
+
 local lastSmartSwing = 0
 Toggles.SmartSwing:OnChanged(function()
 	disconnect("SmartSwing")
@@ -2602,10 +2803,12 @@ Toggles.Camlock:OnChanged(function()
 			local closestDist = math.huge
 			local targetSetting = Options.CamlockTarget and Options.CamlockTarget.Value or "All"
 			local ignoreTeam = Toggles.CamlockIgnoreTeam and Toggles.CamlockIgnoreTeam.Value
+			local ignoreAlliance = Toggles.CamlockIgnoreAlliance and Toggles.CamlockIgnoreAlliance.Value
 
 			for _, otherPlayer in ipairs(Players:GetPlayers()) do
 				if otherPlayer ~= LocalPlayer and otherPlayer.Character then
-					if not ignoreTeam or not isTeammate(otherPlayer) then
+					local shouldIgnore = (ignoreTeam and isTeammate(otherPlayer)) or (ignoreAlliance and isAlly(otherPlayer))
+					if not shouldIgnore then
 						local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
 						local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
 						if otherRoot and otherHum and otherHum.Health > 0 then
@@ -2628,7 +2831,8 @@ Toggles.Camlock:OnChanged(function()
 				local outlineTargetSetting = (Options.OutlineTarget and Options.OutlineTarget.Value) or "All"
 				for _, otherPlayer in ipairs(Players:GetPlayers()) do
 					if otherPlayer ~= LocalPlayer and otherPlayer.Character then
-						if not ignoreTeam or not isTeammate(otherPlayer) then
+						local shouldIgnore = (ignoreTeam and isTeammate(otherPlayer)) or (ignoreAlliance and isAlly(otherPlayer))
+						if not shouldIgnore then
 							local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
 							local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
 							if otherRoot and otherHum and otherHum.Health > 0 then
@@ -2721,6 +2925,14 @@ end
 
 if Toggles.CamlockIgnoreTeam then
 	Toggles.CamlockIgnoreTeam:OnChanged(function()
+		if updatePVPModulesVisibility then
+			updatePVPModulesVisibility()
+		end
+	end)
+end
+
+if Toggles.CamlockIgnoreAlliance then
+	Toggles.CamlockIgnoreAlliance:OnChanged(function()
 		if updatePVPModulesVisibility then
 			updatePVPModulesVisibility()
 		end
@@ -7392,6 +7604,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.CamlockIgnoreTeam and Toggles.CamlockIgnoreTeam.Value then
 		Toggles.CamlockIgnoreTeam:SetValue(false)
+	end
+	if Toggles.CamlockIgnoreAlliance and Toggles.CamlockIgnoreAlliance.Value then
+		Toggles.CamlockIgnoreAlliance:SetValue(false)
 	end
 	if Toggles.SpearSword and Toggles.SpearSword.Value then
 		Toggles.SpearSword:SetValue(false)
