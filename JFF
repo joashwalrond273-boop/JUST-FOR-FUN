@@ -394,14 +394,6 @@ local MainRight = Tabs.Player:AddRightGroupbox("Settings", "settings")
 -- ============================================================================
 local KillswitchGroup = Tabs.Main:AddLeftGroupbox("CODENAME URIEL", "skull")
 
-KillswitchGroup:AddLabel(
-	"<b>♠ URIEL</b>\n" ..
-	"<i>\"The quieter you become, the more you are able to hear.\"</i>",
-	true
-)
-
-KillswitchGroup:AddDivider()
-
 KillswitchGroup:AddCheckbox("KillswitchToggle", {
 	Text = "Kill Character",
 	Default = false,
