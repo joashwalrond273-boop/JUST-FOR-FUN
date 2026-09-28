@@ -395,7 +395,8 @@ local MainRight = Tabs.Player:AddRightGroupbox("Settings", "settings")
 local KillswitchGroup = Tabs.Main:AddLeftGroupbox("CODENAME URIEL", "skull")
 
 KillswitchGroup:AddLabel(
-	"<b>♠ URIEL</b>\n" ..
+	"<b>♠ URIEL • THE SURVIVAL GAME</b>\n" ..
+	
 	"<i>Advanced • Clean • Precise</i>\n\n" ..
 	"<i>\"The quieter you become, the more you are able to hear.\"</i>",
 	true
