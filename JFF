@@ -413,7 +413,7 @@ CombatAutoBlock:AddSlider("ImmortalModeStuds", {
 	Compact = true,
 })
 
-CombatAutoBlock:AddDivider
+CombatAutoBlock:AddDivider()
 
 CombatAutoBlock:AddToggle("QuickVanish", {
 	Text = "Quick Vanish",
