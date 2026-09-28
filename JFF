@@ -240,6 +240,7 @@ TSG.MeleeAnimalRemote = resolvePath(ReplicatedStorage, "remoteInterface", "inter
 TSG.PickupRemote = resolvePath(ReplicatedStorage, "remoteInterface", "inventory", "pickupItem")
 TSG.EquipHotbarRemote = resolvePath(ReplicatedStorage, "remoteInterface", "inventory", "equipHotbar")
 TSG.SetHungerEvent = resolvePath(ReplicatedStorage, "remoteInterface", "playerData", "setHunger")
+TSG.RequestKingdomAlliance = resolvePath(ReplicatedStorage, "remoteInterface", "kingdoms", "requestKingdomAlliance")
 
 TSG.MeleePlayerRemote = (keyedRemotes and rawget(keyedRemotes, "meleePlayer")) or (interactionsFolder and interactionsFolder:FindFirstChild("meleePlayer"))
 TSG.MineRemote = (keyedRemotes and rawget(keyedRemotes, "mine")) or (interactionsFolder and interactionsFolder:FindFirstChild("mine"))
@@ -2247,6 +2248,208 @@ Toggles.AutoSwing:OnChanged(function()
 	end
 end)
 
+local function getKingdomObjectAndName(player)
+	if not player then return nil, nil end
+	local kingdomsFolder = ReplicatedStorage:FindFirstChild("kingdoms")
+
+	-- 1. If LocalPlayer, check TSG.ClientData.getKingdom()
+	if player == LocalPlayer and TSG.ClientData and TSG.ClientData.getKingdom then
+		local k = nil
+		pcall(function() k = TSG.ClientData.getKingdom() end)
+		if k then
+			if typeof(k) == "Instance" then
+				return k, k.Name
+			elseif typeof(k) == "string" and k ~= "" then
+				local kObj = kingdomsFolder and kingdomsFolder:FindFirstChild(k)
+				return kObj, k
+			elseif typeof(k) == "table" then
+				local kName = k.Name or k.name or k.Kingdom or k.kingdom
+				local kObj = (typeof(k.instance) == "Instance" and k.instance) or (kName and kingdomsFolder and kingdomsFolder:FindFirstChild(kName))
+				if kObj or kName then
+					return kObj, (kObj and kObj.Name) or tostring(kName)
+				end
+			end
+		end
+	end
+
+	-- 2. Check Player Attributes
+	for _, attr in ipairs({"Kingdom", "KingdomName", "Clan", "Tribe", "Team"}) do
+		local val = player:GetAttribute(attr)
+		if val and val ~= "" then
+			if typeof(val) == "Instance" then
+				return val, val.Name
+			elseif typeof(val) == "string" then
+				local kObj = kingdomsFolder and kingdomsFolder:FindFirstChild(val)
+				return kObj, val
+			end
+		end
+	end
+
+	-- 3. Check Character Attributes
+	if player.Character then
+		for _, attr in ipairs({"Kingdom", "KingdomName", "Clan", "Tribe", "Team"}) do
+			local val = player.Character:GetAttribute(attr)
+			if val and val ~= "" then
+				if typeof(val) == "Instance" then
+					return val, val.Name
+				elseif typeof(val) == "string" then
+					local kObj = kingdomsFolder and kingdomsFolder:FindFirstChild(val)
+					return kObj, val
+				end
+			end
+		end
+	end
+
+	-- 4. Check ReplicatedStorage.kingdoms folder hierarchy for player membership
+	if kingdomsFolder then
+		local pName = player.Name
+		local pUserId = tostring(player.UserId)
+		for _, kFolder in ipairs(kingdomsFolder:GetChildren()) do
+			if kFolder:FindFirstChild(pName) or kFolder:FindFirstChild(pUserId) then
+				return kFolder, kFolder.Name
+			end
+			for _, subName in ipairs({"members", "Members", "players", "Players"}) do
+				local sub = kFolder:FindFirstChild(subName)
+				if sub then
+					if sub:FindFirstChild(pName) or sub:FindFirstChild(pUserId) then
+						return kFolder, kFolder.Name
+					end
+					for _, m in ipairs(sub:GetChildren()) do
+						if m.Name == pName or m.Name == pUserId then
+							return kFolder, kFolder.Name
+						end
+						if m:IsA("ValueBase") and (m.Value == pName or m.Value == player or m.Value == player.UserId or tostring(m.Value) == pUserId) then
+							return kFolder, kFolder.Name
+						end
+					end
+				end
+			end
+			local owner = kFolder:GetAttribute("Owner") or kFolder:GetAttribute("Leader")
+			if owner and (owner == pName or tostring(owner) == pUserId) then
+				return kFolder, kFolder.Name
+			end
+		end
+	end
+
+	return nil, nil
+end
+
+local function areKingdomsOrPlayersAllied(player1, player2)
+	if not player1 or not player2 then return false end
+	if player1 == player2 then return true end
+
+	local kObj1, kName1 = getKingdomObjectAndName(player1)
+	local kObj2, kName2 = getKingdomObjectAndName(player2)
+
+	-- If in the exact same kingdom
+	if kName1 and kName2 and kName1 == kName2 then
+		return true
+	end
+	if kObj1 and kObj2 and kObj1 == kObj2 then
+		return true
+	end
+
+	-- Check TSG.ClientData alliance methods
+	if TSG.ClientData then
+		local cdMatch = false
+		pcall(function()
+			if TSG.ClientData.getAlliances then
+				local alliances = TSG.ClientData.getAlliances()
+				if typeof(alliances) == "table" then
+					for _, ally in pairs(alliances) do
+						local aName = typeof(ally) == "Instance" and ally.Name or tostring(ally)
+						if ally == kObj2 or (kName2 and aName == kName2) then
+							cdMatch = true
+							return
+						end
+					end
+				end
+			end
+			if TSG.ClientData.getKingdomAllies then
+				local allies = TSG.ClientData.getKingdomAllies()
+				if typeof(allies) == "table" then
+					for _, ally in pairs(allies) do
+						local aName = typeof(ally) == "Instance" and ally.Name or tostring(ally)
+						if ally == kObj2 or (kName2 and aName == kName2) then
+							cdMatch = true
+							return
+						end
+					end
+				end
+			end
+		end)
+		if cdMatch then
+			return true
+		end
+	end
+
+	-- Check ReplicatedStorage.kingdoms folder structures for alliances
+	local function checkKingdomFolderAllies(sourceObj, targetObj, targetName)
+		if not sourceObj or not sourceObj:IsA("Instance") then return false end
+
+		for _, alliesFolderName in ipairs({"allies", "Allies", "alliances", "Alliances", "AlliedKingdoms", "alliedKingdoms"}) do
+			local alliesFolder = sourceObj:FindFirstChild(alliesFolderName)
+			if alliesFolder then
+				if targetName and alliesFolder:FindFirstChild(targetName) then
+					return true
+				end
+				for _, allyItem in ipairs(alliesFolder:GetChildren()) do
+					if targetName and (allyItem.Name == targetName or allyItem.Name:lower() == targetName:lower()) then
+						return true
+					end
+					if allyItem:IsA("ObjectValue") and (allyItem.Value == targetObj or (targetName and allyItem.Value and allyItem.Value.Name == targetName)) then
+						return true
+					end
+					if allyItem:IsA("StringValue") and targetName and (allyItem.Value == targetName or allyItem.Value:lower() == targetName:lower()) then
+						return true
+					end
+				end
+			end
+		end
+
+		for _, child in ipairs(sourceObj:GetChildren()) do
+			if targetName and (child.Name == targetName or child.Name:lower() == targetName:lower()) then
+				return true
+			end
+			if child:IsA("ObjectValue") and (child.Value == targetObj or (targetName and child.Value and child.Value.Name == targetName)) then
+				return true
+			end
+			if child:IsA("StringValue") and targetName and (child.Value == targetName or child.Value:lower() == targetName:lower()) then
+				return true
+			end
+		end
+
+		for _, attrName in ipairs({"Allies", "allies", "Alliances", "alliances", "Allied"}) do
+			local attrVal = sourceObj:GetAttribute(attrName)
+			if attrVal then
+				if typeof(attrVal) == "string" and targetName then
+					if attrVal == targetName or string.find(attrVal, targetName) then
+						return true
+					end
+				elseif typeof(attrVal) == "table" then
+					for _, v in pairs(attrVal) do
+						local vStr = typeof(v) == "Instance" and v.Name or tostring(v)
+						if v == targetObj or (targetName and vStr == targetName) then
+							return true
+						end
+					end
+				end
+			end
+		end
+
+		return false
+	end
+
+	if kObj1 and (checkKingdomFolderAllies(kObj1, kObj2, kName2) or checkKingdomFolderAllies(kObj1, nil, kName2)) then
+		return true
+	end
+	if kObj2 and (checkKingdomFolderAllies(kObj2, kObj1, kName1) or checkKingdomFolderAllies(kObj2, nil, kName1)) then
+		return true
+	end
+
+	return false
+end
+
 local function isTeammate(otherPlayer)
 	if not otherPlayer or otherPlayer == LocalPlayer then
 		return true
@@ -2259,17 +2462,10 @@ local function isTeammate(otherPlayer)
 		return true
 	end
 
-	local success, kingdomMatch = pcall(function()
-		if TSG.ClientData and TSG.ClientData.getKingdom then
-			local myKingdom = TSG.ClientData.getKingdom()
-			local otherKingdom = otherPlayer:GetAttribute("Kingdom") or otherPlayer:GetAttribute("Clan") or otherPlayer:GetAttribute("Team")
-			if myKingdom and otherKingdom and myKingdom == otherKingdom then
-				return true
-			end
-		end
-		return false
+	local allySuccess, isAllyOrSameKingdom = pcall(function()
+		return areKingdomsOrPlayersAllied(LocalPlayer, otherPlayer)
 	end)
-	if success and kingdomMatch then
+	if allySuccess and isAllyOrSameKingdom then
 		return true
 	end
 
