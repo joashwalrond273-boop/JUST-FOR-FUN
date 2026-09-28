@@ -293,16 +293,15 @@ local Window = Library:CreateWindow({
 })
 
 local Tabs = {
-	Main = Window:AddTab("Central", "badge-info"),
-	Player = Window:AddTab("Player", "user"),
-	Combat = Window:AddTab("Combat", "swords"),
-	Movement = Window:AddTab("Movement", "move"),
-	Farming = Window:AddTab("Auras", "sparkles"),
-	Teleport = Window:AddTab("Teleport", "map-pin"),
-	Visuals = Window:AddTab("Esp", "scan-eye"),
-	["UI Settings"] = Window:AddTab("Ui Modules", "settings"),
+	Main = Window:AddTab("CENTRAL", "badge-info"),
+	Player = Window:AddTab("PLAYER", "user"),
+	Combat = Window:AddTab("COMBAT", "swords"),
+	Movement = Window:AddTab("MOVEMENT", "move"),
+	Farming = Window:AddTab("AURAS", "sparkles"),
+	Teleport = Window:AddTab("TELEPORT", "map-pin"),
+	Visuals = Window:AddTab("ESP", "scan-eye"),
+	["UI Settings"] = Window:AddTab("UI MODULES", "settings"),
 }
-Tabs["Ui Modules"] = Tabs["UI Settings"]
 Tabs["UI MODULES"] = Tabs["UI Settings"]
 
 -- Connections (clean up on unload)
