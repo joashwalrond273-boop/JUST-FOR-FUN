@@ -243,7 +243,6 @@ TSG.SetHungerEvent = resolvePath(ReplicatedStorage, "remoteInterface", "playerDa
 TSG.MeleePlayerRemote = (keyedRemotes and rawget(keyedRemotes, "meleePlayer")) or (interactionsFolder and interactionsFolder:FindFirstChild("meleePlayer"))
 TSG.MineRemote = (keyedRemotes and rawget(keyedRemotes, "mine")) or (interactionsFolder and interactionsFolder:FindFirstChild("mine"))
 TSG.ChopRemote = (keyedRemotes and rawget(keyedRemotes, "chop")) or (interactionsFolder and interactionsFolder:FindFirstChild("chop"))
-TSG.HitStructureRemote = (keyedRemotes and rawget(keyedRemotes, "hitStructure")) or (interactionsFolder and interactionsFolder:FindFirstChild("hitStructure")) or resolvePath(ReplicatedStorage, "remoteInterface", "interactions", "hitStructure")
 TSG.MeleeAI = interactionsFolder and interactionsFolder:FindFirstChild("meleeAI")
 
 -- No Bear Trap DMG Remote Interception
@@ -4335,37 +4334,6 @@ FarmAI:AddCheckbox("HighlightAI", {
 })
 
 -- ==========================================
-local FarmWall = Tabs.Farming:AddRightGroupbox("Castle Wall Breaker", "hammer")
-
-FarmWall:AddCheckbox("AutoBreakCastleWall", {
-	Text = "Auto Break Castle Wall",
-	Default = false,
-})
-
-FarmWall:AddDropdown("BreakWallSlot", {
-	Text = "Tool Slot",
-	Values = {"1","2","3","4","5","6","7","8","9","10"},
-	Default = "5",
-})
-
-FarmWall:AddSlider("BreakWallRange", {
-	Text = "Range",
-	Default = 30,
-	Min = 5,
-	Max = 60,
-	Rounding = 1,
-	Compact = true,
-})
-
-FarmWall:AddCheckbox("HighlightWall", {
-	Text = "Highlight Target",
-	Default = true,
-}):AddColorPicker("HighlightWallColor", {
-	Default = Color3.fromRGB(255, 60, 60),
-	Title = "Highlight Target Color",
-})
-
--- ==========================================
 local OreFarm = Tabs.Farming:AddRightGroupbox("Ore Farm", "gem")
 
 OreFarm:AddButton({
@@ -4487,7 +4455,6 @@ OreFarm:AddButton({
 local hlMine = makeAuraHighlight(Options.HighlightMineColor and Options.HighlightMineColor.Value)
 local hlChop = makeAuraHighlight(Options.HighlightChopColor and Options.HighlightChopColor.Value)
 local hlAI   = makeAuraHighlight(Options.HighlightAIColor and Options.HighlightAIColor.Value)
-local hlWall = makeAuraHighlight(Options.HighlightWallColor and Options.HighlightWallColor.Value)
 
 if Options.HighlightMineColor then
 	Options.HighlightMineColor:OnChanged(function()
@@ -4513,14 +4480,6 @@ if Options.HighlightAIColor then
 	end)
 end
 
-if Options.HighlightWallColor then
-	Options.HighlightWallColor:OnChanged(function()
-		if hlWall then
-			hlWall.FillColor = Options.HighlightWallColor.Value
-		end
-	end)
-end
-
 Toggles.HighlightMine:OnChanged(function()
 	if not Toggles.HighlightMine.Value then
 		updateHighlight(hlMine, nil, false)
@@ -4534,11 +4493,6 @@ end)
 Toggles.HighlightAI:OnChanged(function()
 	if not Toggles.HighlightAI.Value then
 		updateHighlight(hlAI, nil, false)
-	end
-end)
-Toggles.HighlightWall:OnChanged(function()
-	if not Toggles.HighlightWall.Value then
-		updateHighlight(hlWall, nil, false)
 	end
 end)
 
@@ -4745,119 +4699,6 @@ Toggles.AiAura:OnChanged(function()
 	else
 		isAiAuraRunning = false
 		updateHighlight(hlAI, nil, false)
-	end
-end)
-
--- ==========================================
--- Castle Wall Breaker Logic
--- ==========================================
-local isAutoBreakWallRunning = false
-local lastBreakWallHit = 0
-
-local function getHitStructureRemote()
-	return TSG.HitStructureRemote
-		or resolvePath(ReplicatedStorage, "remoteInterface", "interactions", "hitStructure")
-		or (interactionsFolder and interactionsFolder:FindFirstChild("hitStructure"))
-end
-
-local function getClosestCastleWall(maxRange)
-	local root = getRootPart()
-	if not root then return nil, nil end
-	local placedStructures = workspace:FindFirstChild("placedStructures")
-	if not placedStructures then return nil, nil end
-
-	local rootPos = root.Position
-	local closest, closestCFrame, minDist = nil, nil, maxRange or 30
-
-	for _, chunk in ipairs(placedStructures:GetChildren()) do
-		if chunk:IsA("Folder") or chunk:IsA("Model") then
-			for _, struct in ipairs(chunk:GetChildren()) do
-				if struct.Name == "Castle Wall" or string.find(struct.Name, "Castle Wall") then
-					local cf = nil
-					if struct:IsA("Model") then
-						if struct.PrimaryPart then
-							cf = struct.PrimaryPart.CFrame
-						else
-							local part = struct:FindFirstChildWhichIsA("BasePart")
-							if part then
-								cf = part.CFrame
-							elseif struct.GetPivot then
-								cf = struct:GetPivot()
-							end
-						end
-					elseif struct:IsA("BasePart") then
-						cf = struct.CFrame
-					end
-
-					if cf then
-						local dist = (rootPos - cf.Position).Magnitude
-						if dist < minDist then
-							minDist = dist
-							closest = struct
-							closestCFrame = cf
-						end
-					end
-				end
-			end
-		elseif chunk:IsA("BasePart") and (chunk.Name == "Castle Wall" or string.find(chunk.Name, "Castle Wall")) then
-			local dist = (rootPos - chunk.Position).Magnitude
-			if dist < minDist then
-				minDist = dist
-				closest = chunk
-				closestCFrame = chunk.CFrame
-			end
-		end
-	end
-
-	return closest, closestCFrame
-end
-
-local function breakWallObject(wallModel, wallCFrame)
-	local slot = tonumber(Options.BreakWallSlot.Value) or 5
-	local remote = getHitStructureRemote()
-	if not remote or not wallModel or not wallCFrame then return end
-
-	updateHighlight(hlWall, wallModel, Toggles.HighlightWall.Value)
-	pcall(function()
-		remote:FireServer(slot, wallModel, wallCFrame)
-	end)
-end
-
-local function autoBreakCastleWallLoop()
-	if not isAlive() or not isAutoBreakWallRunning then return end
-	if tick() - lastBreakWallHit < 0.18 then return end
-
-	local maxRange = (Options.BreakWallRange and Options.BreakWallRange.Value) or 30
-	local closestWall, wallCFrame = getClosestCastleWall(maxRange)
-
-	if closestWall and wallCFrame then
-		lastBreakWallHit = tick()
-		breakWallObject(closestWall, wallCFrame)
-	else
-		updateHighlight(hlWall, nil, false)
-	end
-end
-
-Toggles.AutoBreakCastleWall:OnChanged(function()
-	disconnect("AutoBreakCastleWall")
-	updateHighlight(hlWall, nil, false)
-	if Toggles.AutoBreakCastleWall.Value then
-		local remote = getHitStructureRemote()
-		if not remote then
-			Library:Notify({ Title = "Castle Wall Breaker", Description = "hitStructure remote not found.", Time = 4 })
-			Toggles.AutoBreakCastleWall:SetValue(false)
-			return
-		end
-		isAutoBreakWallRunning = true
-		track("AutoBreakCastleWall", RunService.Heartbeat:Connect(function()
-			if not isAlive() or not isAutoBreakWallRunning then return end
-			autoBreakCastleWallLoop()
-		end))
-		Library:Notify({ Title = "Castle Wall Breaker", Description = "Enabled (Slot " .. tostring(Options.BreakWallSlot.Value) .. ")", Time = 2 })
-	else
-		isAutoBreakWallRunning = false
-		updateHighlight(hlWall, nil, false)
-		Library:Notify({ Title = "Castle Wall Breaker", Description = "Disabled", Time = 2 })
 	end
 end)
 
@@ -7361,9 +7202,6 @@ Library:OnUnload(function()
 	end
 	if Toggles.JuggernautAura and Toggles.JuggernautAura.Value then
 		Toggles.JuggernautAura:SetValue(false)
-	end
-	if Toggles.AutoBreakCastleWall and Toggles.AutoBreakCastleWall.Value then
-		Toggles.AutoBreakCastleWall:SetValue(false)
 	end
 	if Toggles.WalkOnWater and Toggles.WalkOnWater.Value then
 		Toggles.WalkOnWater:SetValue(false)
