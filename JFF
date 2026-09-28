@@ -721,6 +721,11 @@ ImmuneTab:AddCheckbox("NoFallDamage", {
 	Default = false,
 })
 
+ImmuneTab:AddCheckbox("NoVoidDamage", {
+	Text = "No Void Damage",
+	Default = false,
+})
+
 ImmuneTab:AddCheckbox("NoBearTrapDMG", {
 	Text = "No Bear Trap DMG",
 	Default = false,
@@ -859,6 +864,10 @@ local function applyCharacterModuleToggles()
 	end
 	if Toggles.NoFallDamage.Value then
 		setBehaviorDisabled(getCharacterBehavior("fallDamage"), true)
+	end
+	if Toggles.NoVoidDamage and Toggles.NoVoidDamage.Value then
+		setBehaviorDisabled(getCharacterBehavior("voidDamage"), true)
+		setBehaviorDisabled(getCharacterBehavior("hitVoid"), true)
 	end
 	if Toggles.AntiLava.Value then
 		local char = getCharacter()
@@ -1084,22 +1093,50 @@ track("CharacterModuleRespawn", LocalPlayer.CharacterAdded:Connect(function()
 	end
 end))
 
--- No Boss Damage Hook Setup
+-- No Boss & Void Damage Hook Setup
 local BossDamageEvent = resolvePath(ReplicatedStorage, "remoteInterface", "character", "hurtByAIAttack")
+local VoidDamageEvent = resolvePath(ReplicatedStorage, "remoteInterface", "character", "hitVoid") or (ReplicatedStorage:FindFirstChild("remoteInterface") and ReplicatedStorage.remoteInterface:FindFirstChild("character") and ReplicatedStorage.remoteInterface.character:FindFirstChild("hitVoid"))
+
 local originalNamecall
-if BossDamageEvent then
+if BossDamageEvent or VoidDamageEvent then
 	originalNamecall = hookmetamethod(game, "__namecall", function(...)
 		local self = ...
 		local method = getnamecallmethod()
 
-		if rawequal(self, BossDamageEvent) and method == "FireServer" then
+		if BossDamageEvent and rawequal(self, BossDamageEvent) and method == "FireServer" then
 			if Toggles.NoBossDamage and Toggles.NoBossDamage.Value then
 				return -- Block the attack to prevent damage
 			end
 		end
 
+		if (rawequal(self, VoidDamageEvent) or (typeof(self) == "Instance" and self.Name == "hitVoid")) and (method == "FireServer" or method == "InvokeServer") then
+			if Toggles.NoVoidDamage and Toggles.NoVoidDamage.Value then
+				return -- Block void damage remote
+			end
+		end
+
 		return originalNamecall(...)
 	end)
+end
+
+if typeof(hookfunction) == "function" and VoidDamageEvent then
+	if VoidDamageEvent:IsA("RemoteEvent") and VoidDamageEvent.FireServer then
+		local oldFireServer; oldFireServer = hookfunction(VoidDamageEvent.FireServer, function(...)
+			local self = ...
+			if Toggles.NoVoidDamage and Toggles.NoVoidDamage.Value and (rawequal(self, VoidDamageEvent) or (typeof(self) == "Instance" and self.Name == "hitVoid")) then
+				return
+			end
+			return oldFireServer(self, ...)
+		end)
+	elseif VoidDamageEvent:IsA("RemoteFunction") and VoidDamageEvent.InvokeServer then
+		local oldInvokeServer; oldInvokeServer = hookfunction(VoidDamageEvent.InvokeServer, function(...)
+			local self = ...
+			if Toggles.NoVoidDamage and Toggles.NoVoidDamage.Value and (rawequal(self, VoidDamageEvent) or (typeof(self) == "Instance" and self.Name == "hitVoid")) then
+				return nil
+			end
+			return oldInvokeServer(self, ...)
+		end)
+	end
 end
 
 local function noBossDamageToggle(state)
@@ -1111,6 +1148,21 @@ local function noBossDamageToggle(state)
 end
 
 Toggles.NoBossDamage:OnChanged(noBossDamageToggle)
+
+local function noVoidDamageToggle(state)
+	disconnect("NoVoidDamage")
+	if state then
+		applyCharacterModuleToggles()
+		track("NoVoidDamage", RunService.Heartbeat:Connect(applyCharacterModuleToggles))
+		Library:Notify({ Title = "No Void Damage", Description = "Enabled", Time = 2 })
+	else
+		setBehaviorDisabled(getCharacterBehavior("voidDamage"), false)
+		setBehaviorDisabled(getCharacterBehavior("hitVoid"), false)
+		Library:Notify({ Title = "No Void Damage", Description = "Disabled", Time = 2 })
+	end
+end
+
+Toggles.NoVoidDamage:OnChanged(noVoidDamageToggle)
 
  -- Auto pickup (CollectionService tag DROPPED_ITEM -> inventory.pickupItem)
 local droppedItemSpawnTimes = {}
@@ -7365,6 +7417,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.NoBearTrapDMG and Toggles.NoBearTrapDMG.Value then
 		Toggles.NoBearTrapDMG:SetValue(false)
+	end
+	if Toggles.NoVoidDamage and Toggles.NoVoidDamage.Value then
+		Toggles.NoVoidDamage:SetValue(false)
 	end
 	if Toggles.AutoHop and Toggles.AutoHop.Value then
 		Toggles.AutoHop:SetValue(false)
