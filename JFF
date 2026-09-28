@@ -1,9 +1,11 @@
 -- URIEL | Obsidian UI
 -- Docs: https://docs.mspaint.cc/obsidian
 
-if getgenv().TSG_OBSIDIAN_LOADED then
-	return warn("[TSG] Script already loaded - rejoin to re-execute.")
-end
+pcall(function()
+	if getgenv().TSG_OBSIDIAN_UNLOAD then
+		getgenv().TSG_OBSIDIAN_UNLOAD()
+	end
+end)
 getgenv().TSG_OBSIDIAN_LOADED = true
 
 -- Services
@@ -2303,6 +2305,33 @@ local function isTeammate(otherPlayer)
 	return false
 end
 
+local function getPlayerKingdom(player)
+	if not player then return nil end
+	local kd = nil
+
+	if player == LocalPlayer and TSG.ClientData and TSG.ClientData.getKingdom then
+		pcall(function()
+			local res = TSG.ClientData.getKingdom()
+			if type(res) == "string" and res ~= "" then
+				kd = res
+			elseif type(res) == "table" then
+				kd = res.Name or res.name or res.Id or res.id or res.KingdomName or res.kingdomName
+			end
+		end)
+	end
+
+	if not kd or kd == "" then
+		kd = player:GetAttribute("Kingdom") or player:GetAttribute("Clan") or player:GetAttribute("Tribe") or player:GetAttribute("Team")
+	end
+	if (not kd or kd == "") and player.Character then
+		kd = player.Character:GetAttribute("Kingdom") or player.Character:GetAttribute("Clan") or player.Character:GetAttribute("Tribe")
+	end
+	if (not kd or kd == "") and player.Team then
+		kd = player.Team.Name
+	end
+	return kd and tostring(kd) or nil
+end
+
 local function isAlly(otherPlayer)
 	if not otherPlayer or otherPlayer == LocalPlayer then
 		return true
@@ -2312,160 +2341,169 @@ local function isAlly(otherPlayer)
 		return true
 	end
 
-	local myKingdomName = nil
+	local myKingdom = getPlayerKingdom(LocalPlayer)
+	local theirKingdom = getPlayerKingdom(otherPlayer)
+
+	local myAlliance = LocalPlayer:GetAttribute("Alliance") or LocalPlayer:GetAttribute("AllianceId") or LocalPlayer:GetAttribute("AllianceName") or (LocalPlayer.Character and LocalPlayer.Character:GetAttribute("Alliance"))
+	local theirAlliance = otherPlayer:GetAttribute("Alliance") or otherPlayer:GetAttribute("AllianceId") or otherPlayer:GetAttribute("AllianceName") or (otherPlayer.Character and otherPlayer.Character:GetAttribute("Alliance"))
+	if myAlliance and theirAlliance and myAlliance ~= "" and myAlliance == theirAlliance then
+		return true
+	end
+
+	if otherPlayer:GetAttribute("IsAlly") == true or otherPlayer:GetAttribute("Allied") == true or otherPlayer:GetAttribute("Ally") == true then
+		return true
+	end
+	if otherPlayer.Character and (otherPlayer.Character:GetAttribute("IsAlly") == true or otherPlayer.Character:GetAttribute("Allied") == true or otherPlayer.Character:GetAttribute("Ally") == true) then
+		return true
+	end
+
+	local tsgAlly = false
 	pcall(function()
-		if TSG.ClientData and TSG.ClientData.getKingdom then
-			local kd = TSG.ClientData.getKingdom()
-			if type(kd) == "string" then
-				myKingdomName = kd
-			elseif type(kd) == "table" then
-				myKingdomName = kd.Name or kd.name or kd.Id or kd.id or kd.KingdomName or kd.kingdomName
-			end
-		end
-	end)
-
-	if not myKingdomName then
-		myKingdomName = LocalPlayer:GetAttribute("Kingdom") or LocalPlayer:GetAttribute("Clan") or LocalPlayer:GetAttribute("Tribe") or LocalPlayer:GetAttribute("Team")
-		if not myKingdomName and LocalPlayer.Character then
-			myKingdomName = LocalPlayer.Character:GetAttribute("Kingdom") or LocalPlayer.Character:GetAttribute("Clan") or LocalPlayer.Character:GetAttribute("Tribe")
-		end
-		if not myKingdomName and LocalPlayer.Team then
-			myKingdomName = LocalPlayer.Team.Name
-		end
-	end
-
-	local theirKingdomName = otherPlayer:GetAttribute("Kingdom") or otherPlayer:GetAttribute("Clan") or otherPlayer:GetAttribute("Tribe") or otherPlayer:GetAttribute("Team")
-	if not theirKingdomName and otherPlayer.Character then
-		theirKingdomName = otherPlayer.Character:GetAttribute("Kingdom") or otherPlayer.Character:GetAttribute("Clan") or otherPlayer.Character:GetAttribute("Tribe")
-	end
-	if not theirKingdomName and otherPlayer.Team then
-		theirKingdomName = otherPlayer.Team.Name
-	end
-
-	local success, allyMatch = pcall(function()
 		if TSG.ClientData then
-			if TSG.ClientData.isAlly and type(TSG.ClientData.isAlly) == "function" then
-				if TSG.ClientData.isAlly(otherPlayer) or (theirKingdomName and TSG.ClientData.isAlly(theirKingdomName)) then
-					return true
+			if type(TSG.ClientData.isAlly) == "function" then
+				if TSG.ClientData.isAlly(otherPlayer) or TSG.ClientData.isAlly(otherPlayer.Name) or (theirKingdom and TSG.ClientData.isAlly(theirKingdom)) then
+					tsgAlly = true
+					return
 				end
 			end
-			if TSG.ClientData.isAllied and type(TSG.ClientData.isAllied) == "function" then
-				if TSG.ClientData.isAllied(otherPlayer) or (myKingdomName and theirKingdomName and TSG.ClientData.isAllied(myKingdomName, theirKingdomName)) then
-					return true
+			if type(TSG.ClientData.isAllied) == "function" then
+				if TSG.ClientData.isAllied(otherPlayer) or (myKingdom and theirKingdom and TSG.ClientData.isAllied(myKingdom, theirKingdom)) then
+					tsgAlly = true
+					return
 				end
 			end
-			if TSG.ClientData.getAlliances and type(TSG.ClientData.getAlliances) == "function" then
-				local alliances = TSG.ClientData.getAlliances() or TSG.ClientData.getAlliances(myKingdomName)
+			if type(TSG.ClientData.getAlliances) == "function" then
+				local alliances = TSG.ClientData.getAlliances() or (myKingdom and TSG.ClientData.getAlliances(myKingdom))
 				if type(alliances) == "table" then
 					for k, v in pairs(alliances) do
-						if v == otherPlayer or v == otherPlayer.Name or v == otherPlayer.UserId or (theirKingdomName and (v == theirKingdomName or k == theirKingdomName)) then
-							return true
+						if v == otherPlayer.Name or v == otherPlayer.UserId or (theirKingdom and (v == theirKingdom or k == theirKingdom)) then
+							tsgAlly = true
+							return
 						end
 						if type(v) == "table" then
-							if v.Name == theirKingdomName or v.name == theirKingdomName or v.Id == theirKingdomName or v.id == theirKingdomName or table.find(v, otherPlayer.Name) or table.find(v, otherPlayer.UserId) or (theirKingdomName and table.find(v, theirKingdomName)) then
-								return true
+							if (theirKingdom and (v.Name == theirKingdom or v.name == theirKingdom or v.Id == theirKingdom or v.id == theirKingdom)) or table.find(v, otherPlayer.Name) or table.find(v, otherPlayer.UserId) or (theirKingdom and table.find(v, theirKingdom)) then
+								tsgAlly = true
+								return
 							end
 						end
 					end
 				end
 			end
-			if TSG.ClientData.getKingdomData and type(TSG.ClientData.getKingdomData) == "function" then
-				local kd = TSG.ClientData.getKingdomData(myKingdomName) or TSG.ClientData.getKingdomData()
+			if type(TSG.ClientData.getAllies) == "function" then
+				local allies = TSG.ClientData.getAllies() or (myKingdom and TSG.ClientData.getAllies(myKingdom))
+				if type(allies) == "table" then
+					for k, v in pairs(allies) do
+						if v == otherPlayer.Name or v == otherPlayer.UserId or (theirKingdom and (v == theirKingdom or k == theirKingdom)) then
+							tsgAlly = true
+							return
+						end
+					end
+				end
+			end
+			if type(TSG.ClientData.getKingdomData) == "function" then
+				local kd = (myKingdom and TSG.ClientData.getKingdomData(myKingdom)) or TSG.ClientData.getKingdomData()
 				if type(kd) == "table" then
 					local allies = kd.Allies or kd.allies or kd.Alliances or kd.alliances or kd.AlliedKingdoms or kd.alliedKingdoms
 					if type(allies) == "table" then
-						for _, v in pairs(allies) do
-							if v == otherPlayer.Name or v == otherPlayer.UserId or (theirKingdomName and (v == theirKingdomName or _ == theirKingdomName)) then
-								return true
+						for k, v in pairs(allies) do
+							if v == otherPlayer.Name or v == otherPlayer.UserId or (theirKingdom and (v == theirKingdom or k == theirKingdom)) then
+								tsgAlly = true
+								return
 							end
 						end
 					end
 				end
 			end
-			if TSG.ClientData.getKingdom and type(TSG.ClientData.getKingdom) == "function" then
+			if type(TSG.ClientData.getKingdom) == "function" then
 				local kd = TSG.ClientData.getKingdom()
 				if type(kd) == "table" then
 					local allies = kd.Allies or kd.allies or kd.Alliances or kd.alliances or kd.AlliedKingdoms or kd.alliedKingdoms
 					if type(allies) == "table" then
-						for _, v in pairs(allies) do
-							if v == otherPlayer.Name or v == otherPlayer.UserId or (theirKingdomName and (v == theirKingdomName or _ == theirKingdomName)) then
-								return true
+						for k, v in pairs(allies) do
+							if v == otherPlayer.Name or v == otherPlayer.UserId or (theirKingdom and (v == theirKingdom or k == theirKingdom)) then
+								tsgAlly = true
+								return
+							end
+						end
+					end
+				end
+			end
+			if type(TSG.ClientData.getKingdoms) == "function" then
+				local kingdoms = TSG.ClientData.getKingdoms()
+				if type(kingdoms) == "table" and myKingdom then
+					local myKd = kingdoms[myKingdom]
+					if type(myKd) == "table" then
+						local allies = myKd.Allies or myKd.allies or myKd.Alliances or myKd.alliances or myKd.AlliedKingdoms
+						if type(allies) == "table" then
+							for k, v in pairs(allies) do
+								if v == otherPlayer.Name or v == otherPlayer.UserId or (theirKingdom and (v == theirKingdom or k == theirKingdom)) then
+									tsgAlly = true
+									return
+								end
 							end
 						end
 					end
 				end
 			end
 		end
-		return false
 	end)
-	if success and allyMatch then
-		return true
-	end
+	if tsgAlly then return true end
 
-	local attrCheck = function(inst)
-		if not inst then return false end
-		local alliesAttr = inst:GetAttribute("Allies") or inst:GetAttribute("Alliances") or inst:GetAttribute("AlliedKingdoms") or inst:GetAttribute("KingdomAllies") or inst:GetAttribute("Alliance")
-		if alliesAttr then
-			if type(alliesAttr) == "table" then
-				if table.find(alliesAttr, otherPlayer.Name) or table.find(alliesAttr, otherPlayer.UserId) or (theirKingdomName and table.find(alliesAttr, theirKingdomName)) then
-					return true
-				end
-			elseif type(alliesAttr) == "string" then
-				if (theirKingdomName and theirKingdomName ~= "" and string.find(alliesAttr, theirKingdomName, 1, true)) or string.find(alliesAttr, otherPlayer.Name, 1, true) or string.find(alliesAttr, tostring(otherPlayer.UserId), 1, true) then
-					return true
+	local function checkAttr(inst, target)
+		if not inst or not target then return false end
+		for _, name in ipairs({"Allies", "Alliances", "AlliedKingdoms", "KingdomAllies", "AlliedClans", "ClanAllies"}) do
+			local val = inst:GetAttribute(name)
+			if val then
+				if type(val) == "table" then
+					if table.find(val, target) or val[target] ~= nil then return true end
+				elseif type(val) == "string" then
+					if string.find(string.lower(val), string.lower(target), 1, true) then return true end
 				end
 			end
 		end
 		return false
 	end
 
-	if attrCheck(LocalPlayer) or (LocalPlayer.Character and attrCheck(LocalPlayer.Character)) then
+	if theirKingdom and (checkAttr(LocalPlayer, theirKingdom) or (LocalPlayer.Character and checkAttr(LocalPlayer.Character, theirKingdom))) then
+		return true
+	end
+	if checkAttr(LocalPlayer, otherPlayer.Name) or checkAttr(LocalPlayer, tostring(otherPlayer.UserId)) then
+		return true
+	end
+	if LocalPlayer.Character and (checkAttr(LocalPlayer.Character, otherPlayer.Name) or checkAttr(LocalPlayer.Character, tostring(otherPlayer.UserId))) then
 		return true
 	end
 
-	local otherAttrCheck = function(inst)
-		if not inst then return false end
-		if inst:GetAttribute("IsAlly") == true or inst:GetAttribute("Allied") == true or inst:GetAttribute("Ally") == true then
-			return true
-		end
-		local otherAllies = inst:GetAttribute("Allies") or inst:GetAttribute("Alliances") or inst:GetAttribute("AlliedKingdoms") or inst:GetAttribute("KingdomAllies")
-		if otherAllies then
-			if type(otherAllies) == "table" then
-				if table.find(otherAllies, LocalPlayer.Name) or table.find(otherAllies, LocalPlayer.UserId) or (myKingdomName and table.find(otherAllies, myKingdomName)) then
-					return true
-				end
-			elseif type(otherAllies) == "string" then
-				if (myKingdomName and myKingdomName ~= "" and string.find(otherAllies, myKingdomName, 1, true)) or string.find(otherAllies, LocalPlayer.Name, 1, true) or string.find(otherAllies, tostring(LocalPlayer.UserId), 1, true) then
-					return true
-				end
-			end
-		end
-		return false
+	if myKingdom and (checkAttr(otherPlayer, myKingdom) or (otherPlayer.Character and checkAttr(otherPlayer.Character, myKingdom))) then
+		return true
 	end
-
-	if otherAttrCheck(otherPlayer) or (otherPlayer.Character and otherAttrCheck(otherPlayer.Character)) then
+	if checkAttr(otherPlayer, LocalPlayer.Name) or checkAttr(otherPlayer, tostring(LocalPlayer.UserId)) then
+		return true
+	end
+	if otherPlayer.Character and (checkAttr(otherPlayer.Character, LocalPlayer.Name) or checkAttr(otherPlayer.Character, tostring(LocalPlayer.UserId))) then
 		return true
 	end
 
-	local rsSuccess, rsMatch = pcall(function()
+	local rsAlly = false
+	pcall(function()
 		local kingdomsFolder = ReplicatedStorage:FindFirstChild("Kingdoms") or ReplicatedStorage:FindFirstChild("kingdoms") or ReplicatedStorage:FindFirstChild("Clans") or ReplicatedStorage:FindFirstChild("clans")
-		if kingdomsFolder and myKingdomName then
-			local myKingdomFolder = kingdomsFolder:FindFirstChild(tostring(myKingdomName))
+		if kingdomsFolder and myKingdom then
+			local myKingdomFolder = kingdomsFolder:FindFirstChild(myKingdom)
 			if myKingdomFolder then
 				local alliesFolder = myKingdomFolder:FindFirstChild("Allies") or myKingdomFolder:FindFirstChild("allies") or myKingdomFolder:FindFirstChild("Alliances") or myKingdomFolder:FindFirstChild("alliances")
 				if alliesFolder then
-					if theirKingdomName and alliesFolder:FindFirstChild(tostring(theirKingdomName)) then
-						return true
-					end
-					if alliesFolder:FindFirstChild(otherPlayer.Name) or alliesFolder:FindFirstChild(tostring(otherPlayer.UserId)) then
-						return true
+					if (theirKingdom and alliesFolder:FindFirstChild(theirKingdom)) or alliesFolder:FindFirstChild(otherPlayer.Name) or alliesFolder:FindFirstChild(tostring(otherPlayer.UserId)) then
+						rsAlly = true
+						return
 					end
 					for _, allyChild in ipairs(alliesFolder:GetChildren()) do
-						if allyChild.Name == tostring(theirKingdomName) or allyChild.Name == otherPlayer.Name or allyChild.Name == tostring(otherPlayer.UserId) then
-							return true
+						if (theirKingdom and allyChild.Name == theirKingdom) or allyChild.Name == otherPlayer.Name or allyChild.Name == tostring(otherPlayer.UserId) then
+							rsAlly = true
+							return
 						end
-						if allyChild:IsA("ValueBase") and (allyChild.Value == tostring(theirKingdomName) or allyChild.Value == otherPlayer.Name or allyChild.Value == otherPlayer.UserId) then
-							return true
+						if allyChild:IsA("ValueBase") and ((theirKingdom and allyChild.Value == theirKingdom) or allyChild.Value == otherPlayer.Name or tostring(allyChild.Value) == tostring(otherPlayer.UserId)) then
+							rsAlly = true
+							return
 						end
 					end
 				end
@@ -2473,20 +2511,39 @@ local function isAlly(otherPlayer)
 		end
 
 		local alliancesFolder = ReplicatedStorage:FindFirstChild("Alliances") or ReplicatedStorage:FindFirstChild("alliances")
-		if alliancesFolder and myKingdomName and theirKingdomName then
+		if alliancesFolder and myKingdom and theirKingdom then
 			for _, alliance in ipairs(alliancesFolder:GetChildren()) do
-				local hasMine = (alliance.Name == tostring(myKingdomName)) or alliance:FindFirstChild(tostring(myKingdomName)) ~= nil
-				local hasTheirs = (alliance.Name == tostring(theirKingdomName)) or alliance:FindFirstChild(tostring(theirKingdomName)) ~= nil
+				local hasMine = (alliance.Name == myKingdom) or (alliance:FindFirstChild(myKingdom) ~= nil)
+				local hasTheirs = (alliance.Name == theirKingdom) or (alliance:FindFirstChild(theirKingdom) ~= nil)
 				if hasMine and hasTheirs then
-					return true
+					rsAlly = true
+					return
 				end
 			end
 		end
-		return false
 	end)
-	if rsSuccess and rsMatch then
-		return true
-	end
+	if rsAlly then return true end
+
+	pcall(function()
+		if otherPlayer.Character and myKingdom and myKingdom ~= "" then
+			for _, desc in ipairs(otherPlayer.Character:GetDescendants()) do
+				if desc:IsA("TextLabel") or desc:IsA("TextButton") then
+					local txt = desc.Text
+					if txt and txt ~= "" then
+						if string.find(string.lower(txt), string.lower(myKingdom), 1, true) then
+							rsAlly = true
+							return
+						end
+						if myAlliance and myAlliance ~= "" and string.find(string.lower(txt), string.lower(myAlliance), 1, true) then
+							rsAlly = true
+							return
+						end
+					end
+				end
+			end
+		end
+	end)
+	if rsAlly then return true end
 
 	return false
 end
@@ -7485,6 +7542,8 @@ SaveManager:LoadAutoloadConfig()
 if not (Toggles.Noclip and Toggles.Noclip.Value) then
 	restoreCharacterCollisions(getCharacter())
 end
+
+
 
 Library:OnUnload(function()
 	if Toggles.Reach and Toggles.Reach.Value then
