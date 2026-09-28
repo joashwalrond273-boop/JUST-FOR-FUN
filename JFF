@@ -52,6 +52,7 @@ local updatePlayerESPVisibility
 local updateFlightVisibility
 local updateImmortalModeVisibility
 local updatePhantomModeVisibility
+local updateSwimBoostVisibility
 
 Library.ShowToggleFrameInKeybinds = true
 
@@ -3385,6 +3386,18 @@ MoveSwimBoost:AddToggle("SwimBoost", {
 	Default = false,
 })
 
+MoveSwimBoost:AddCheckbox("SwimSlotBoost", {
+	Text = "Slot Boost",
+	Default = false,
+})
+
+MoveSwimBoost:AddDropdown("SwimSlotBoostSlot", {
+	Text = "Tool Slot",
+	Values = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"},
+	Default = {"1"},
+	Multi = true,
+})
+
 MoveSwimBoost:AddSlider("SwimBoostValue", {
 	Text = "Swim Speed Value",
 	Default = 30,
@@ -3423,6 +3436,43 @@ MoveSwimBoost:AddSlider("RiseFastPVPSpeed", {
 	Rounding = 0,
 	Compact = true,
 })
+
+updateSwimBoostVisibility = function()
+	local isSink = (Toggles.SinkFastPVP and Toggles.SinkFastPVP.Value) or false
+	local isRise = (Toggles.RiseFastPVP and Toggles.RiseFastPVP.Value) or false
+	local isSlotBoost = (Toggles.SwimSlotBoost and Toggles.SwimSlotBoost.Value) or false
+
+	if Options.SwimSlotBoostSlot then
+		Options.SwimSlotBoostSlot.Visible = isSlotBoost
+		if Options.SwimSlotBoostSlot.Holder then
+			Options.SwimSlotBoostSlot.Holder.Visible = isSlotBoost
+		end
+	end
+
+	if Options.SinkFastPVPSpeed then
+		Options.SinkFastPVPSpeed.Visible = isSink
+		if Options.SinkFastPVPSpeed.Holder then
+			Options.SinkFastPVPSpeed.Holder.Visible = isSink
+		end
+	end
+
+	if Options.RiseFastPVPSpeed then
+		Options.RiseFastPVPSpeed.Visible = isRise
+		if Options.RiseFastPVPSpeed.Holder then
+			Options.RiseFastPVPSpeed.Holder.Visible = isRise
+		end
+	end
+
+	MoveSwimBoost:Resize()
+end
+
+updateSwimBoostVisibility()
+task.spawn(function()
+	task.wait(0.05)
+	if updateSwimBoostVisibility then
+		updateSwimBoostVisibility()
+	end
+end)
 
 local MoveBoatSpeed = Tabs.Movement:AddLeftGroupbox("Boat Speed", "anchor")
 
@@ -3928,6 +3978,9 @@ end)
 
 Toggles.SwimBoost:OnChanged(function()
 	disconnect("SwimBoost")
+	if updateSwimBoostVisibility then
+		updateSwimBoostVisibility()
+	end
 	if Toggles.SwimBoost.Value then
 		Library:Notify({ Title = "Swim Boost", Description = "Enabled", Time = 2 })
 		track("SwimBoost", RunService.Heartbeat:Connect(function(dt)
@@ -3937,16 +3990,50 @@ Toggles.SwimBoost:OnChanged(function()
 			if not humanoid or not root then return end
 			local isSwimming = humanoid:GetState() == Enum.HumanoidStateType.Swimming or (LocalPlayer.Character and LocalPlayer.Character:GetAttribute("inWater"))
 			if isSwimming then
-				local factor = Options.SwimBoostValue.Value - humanoid.WalkSpeed
+				local factor = (Options.SwimBoostValue and Options.SwimBoostValue.Value or 30) - humanoid.WalkSpeed
 				if factor > 0 and humanoid.MoveDirection.Magnitude > 0 then
 					LocalPlayer.Character:TranslateBy(humanoid.MoveDirection * dt * factor)
 				end
 			end
 		end))
+	else
+		Library:Notify({ Title = "Swim Boost", Description = "Disabled", Time = 2 })
+	end
+end)
+
+Toggles.SwimSlotBoost:OnChanged(function()
+	disconnect("SwimSlotBoost")
+	if updateSwimBoostVisibility then
+		updateSwimBoostVisibility()
+	end
+	if Toggles.SwimSlotBoost.Value then
+		Library:Notify({ Title = "Swim Slot Boost", Description = "Enabled", Time = 2 })
+		track("SwimSlotBoost", RunService.Heartbeat:Connect(function(dt)
+			if not isAlive() then return end
+			if Toggles.SwimBoost and Toggles.SwimBoost.Value then return end
+			local humanoid = getHumanoid()
+			local root = getRootPart()
+			if not humanoid or not root then return end
+			local isSwimming = humanoid:GetState() == Enum.HumanoidStateType.Swimming or (LocalPlayer.Character and LocalPlayer.Character:GetAttribute("inWater"))
+			if isSwimming then
+				if isSpeedBoostSlotAllowed(Options.SwimSlotBoostSlot) then
+					local targetSpeed = Options.SwimBoostValue and Options.SwimBoostValue.Value or 30
+					local factor = targetSpeed - humanoid.WalkSpeed
+					if factor > 0 and humanoid.MoveDirection.Magnitude > 0 then
+						LocalPlayer.Character:TranslateBy(humanoid.MoveDirection * dt * factor)
+					end
+				end
+			end
+		end))
+	else
+		Library:Notify({ Title = "Swim Slot Boost", Description = "Disabled", Time = 2 })
 	end
 end)
 
 Toggles.SinkFastPVP:OnChanged(function()
+	if updateSwimBoostVisibility then
+		updateSwimBoostVisibility()
+	end
 	disconnect("SinkFastPVP")
 	if Toggles.SinkFastPVP.Value then
 		track("SinkFastPVP", RunService.Heartbeat:Connect(function()
@@ -3976,6 +4063,9 @@ Toggles.SinkFastPVP:OnChanged(function()
 end)
 
 Toggles.RiseFastPVP:OnChanged(function()
+	if updateSwimBoostVisibility then
+		updateSwimBoostVisibility()
+	end
 	disconnect("RiseFastPVP")
 	if Toggles.RiseFastPVP.Value then
 		track("RiseFastPVP", RunService.Heartbeat:Connect(function()
@@ -7269,6 +7359,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.MountSpeedBoost and Toggles.MountSpeedBoost.Value then
 		Toggles.MountSpeedBoost:SetValue(false)
+	end
+	if Toggles.SwimSlotBoost and Toggles.SwimSlotBoost.Value then
+		Toggles.SwimSlotBoost:SetValue(false)
 	end
 	if Toggles.AutoShiftlock and Toggles.AutoShiftlock.Value then
 		Toggles.AutoShiftlock:SetValue(false)
