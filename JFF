@@ -392,12 +392,12 @@ AdvanceHealGroup:AddSlider("AutoEatCooldown", {
 local MainRight = Tabs.Player:AddRightGroupbox("Settings", "settings")
 
 -- ============================================================================
--- MAIN TAB (IMMORTAL MODE / SPECTATE)
+-- MAIN TAB (IMMORTAL AURA / SPECTATE)
 -- ============================================================================
-local CombatAutoBlock = Tabs.Main:AddLeftGroupbox("Immortal Mode", "shield")
+local CombatAutoBlock = Tabs.Main:AddLeftGroupbox("Immortal Aura", "shield")
 
 CombatAutoBlock:AddToggle("ImmortalMode", {
-	Text = "Immortal Mode",
+	Text = "Immortal Aura",
 	Default = false,
 })
 
@@ -412,6 +412,15 @@ CombatAutoBlock:AddSlider("ImmortalModeStuds", {
 	Min = 5,
 	Max = 50,
 	Rounding = 0,
+	Compact = true,
+})
+
+CombatAutoBlock:AddSlider("ImmortalShieldSpeed", {
+	Text = "SetShield Speed",
+	Default = 0.1,
+	Min = 0.01,
+	Max = 1,
+	Rounding = 2,
 	Compact = true,
 })
 
@@ -437,6 +446,14 @@ updateImmortalModeVisibility = function()
 		end
 		if Options.ImmortalModeStuds.Holder then
 			Options.ImmortalModeStuds.Holder.Visible = isImmortal
+		end
+	end
+	if Options.ImmortalShieldSpeed then
+		if Options.ImmortalShieldSpeed.Visible ~= nil then
+			Options.ImmortalShieldSpeed.Visible = isImmortal
+		end
+		if Options.ImmortalShieldSpeed.Holder then
+			Options.ImmortalShieldSpeed.Holder.Visible = isImmortal
 		end
 	end
 	if Toggles.BypassShield then
@@ -1894,7 +1911,8 @@ local function updateImmortalMode()
 			root.CFrame = CFrame.lookAt(root.Position, Vector3.new(targetPos.X, root.Position.Y, targetPos.Z))
 		end
 
-		if tick() - lastShieldFire > 0.1 then
+		local shieldSpeed = (Options.ImmortalShieldSpeed and Options.ImmortalShieldSpeed.Value) or 0.1
+		if tick() - lastShieldFire >= shieldSpeed then
 			lastShieldFire = tick()
 			pcall(function()
 				game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(true)
