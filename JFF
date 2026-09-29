@@ -282,8 +282,8 @@ Library.CornerRadius = 15
 
 -- Window
 local Window = Library:CreateWindow({
-	Title = "â™  URIEL",
-	Footer = "CODENAME: â™  URIEL",
+	Title = "URIEL",
+	Footer = "CODENAME: URIEL",
 	Icon = nil,
 	Center = true,
 	AutoShow = true,
@@ -1600,15 +1600,6 @@ CombatAutoPVP:AddSlider("AutoHopStuds", {
 	Compact = true,
 })
 
-CombatAutoPVP:AddSlider("AutoHopSpeed", {
-	Text = "Hop Speed",
-	Default = 10,
-	Min = 1,
-	Max = 20,
-	Rounding = 1,
-	Compact = true,
-})
-
 CombatAutoPVP:AddCheckbox("PlusSpeedBoost", {
 	Text = "+ Speed Boost",
 	Default = false,
@@ -1682,12 +1673,6 @@ updatePVPModulesVisibility = function()
 		Options.AutoHopStuds.Visible = isHop
 		if Options.AutoHopStuds.Holder then
 			Options.AutoHopStuds.Holder.Visible = isHop
-		end
-	end
-	if Options.AutoHopSpeed then
-		Options.AutoHopSpeed.Visible = isHop
-		if Options.AutoHopSpeed.Holder then
-			Options.AutoHopSpeed.Holder.Visible = isHop
 		end
 	end
 	if Toggles.AutoHopIgnoreTeam then
@@ -2357,10 +2342,8 @@ Toggles.SmartSwing:OnChanged(function()
 	end
 end)
 
-local lastHop = 0
 Toggles.AutoHop:OnChanged(function()
 	disconnect("AutoHop")
-	lastHop = 0
 	if updatePVPModulesVisibility then
 		updatePVPModulesVisibility()
 	end
@@ -2403,14 +2386,11 @@ Toggles.AutoHop:OnChanged(function()
 			end
 
 			if playerNearby then
-				local hopSpeed = (Options.AutoHopSpeed and Options.AutoHopSpeed.Value) or 10
-				local hopDelay = 1 / math.max(0.1, hopSpeed)
-				if tick() - lastHop >= hopDelay and hum.FloorMaterial ~= Enum.Material.Air then
+				if hum.FloorMaterial ~= Enum.Material.Air then
 					hum.Jump = true
 					pcall(function()
 						hum:ChangeState(Enum.HumanoidStateType.Jumping)
 					end)
-					lastHop = tick()
 				end
 			end
 		end))
