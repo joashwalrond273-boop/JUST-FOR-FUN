@@ -1,11 +1,9 @@
 -- URIEL | Obsidian UI
 -- Docs: https://docs.mspaint.cc/obsidian
 
-pcall(function()
-	if getgenv().TSG_OBSIDIAN_UNLOAD then
-		getgenv().TSG_OBSIDIAN_UNLOAD()
-	end
-end)
+if getgenv().TSG_OBSIDIAN_LOADED then
+	return warn("[TSG] Script already loaded - rejoin to re-execute.")
+end
 getgenv().TSG_OBSIDIAN_LOADED = true
 
 -- Services
@@ -1334,9 +1332,16 @@ CombatCamlock:AddCheckbox("CamlockIgnoreTeam", {
 	Default = true,
 })
 
-CombatCamlock:AddCheckbox("CamlockIgnoreAlliance", {
-	Text = "Ignore Alliance",
-	Default = true,
+CombatCamlock:AddCheckbox("SlotActivation", {
+	Text = "Slot Activation",
+	Default = false,
+})
+
+CombatCamlock:AddDropdown("SlotActivationSlot", {
+	Text = "Tool Slot",
+	Values = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"},
+	Default = {"1"},
+	Multi = true,
 })
 
 CombatCamlock:AddCheckbox("SpearSword", {
@@ -1663,11 +1668,13 @@ CombatAutoPVP:AddSlider("LookDownSens", {
 updatePVPModulesVisibility = function()
 	local isHop = (Toggles.AutoHop and Toggles.AutoHop.Value) or false
 	local isCam = (Toggles.Camlock and Toggles.Camlock.Value) or false
+	local isSlotActivation = (Toggles.SlotActivation and Toggles.SlotActivation.Value) or false
+	local isCamOrSlot = isCam or isSlotActivation
 	local isSpeedBoost = (Toggles.PlusSpeedBoost and Toggles.PlusSpeedBoost.Value) or false
 	local isAnySpeedBoost = isSpeedBoost
 	local isSwingSpeed = (Toggles.SwingSpeedToggle and Toggles.SwingSpeedToggle.Value) or false
 
-	local isOutline = isCam and ((Toggles.Outline and Toggles.Outline.Value) or (Toggles.Cutline and Toggles.Cutline.Value) or false)
+	local isOutline = (isCam or isSlotActivation) and ((Toggles.Outline and Toggles.Outline.Value) or (Toggles.Cutline and Toggles.Cutline.Value) or false)
 
 	if Options.SwingSpeedVal then
 		Options.SwingSpeedVal.Visible = isSwingSpeed
@@ -1691,47 +1698,53 @@ updatePVPModulesVisibility = function()
 		end
 	end
 	if Options.CamlockTarget then
-		Options.CamlockTarget.Visible = isCam
+		Options.CamlockTarget.Visible = isCamOrSlot
 		if Options.CamlockTarget.Holder then
-			Options.CamlockTarget.Holder.Visible = isCam
+			Options.CamlockTarget.Holder.Visible = isCamOrSlot
 		end
 	end
 	if Options.CamlockStuds then
-		Options.CamlockStuds.Visible = isCam
+		Options.CamlockStuds.Visible = isCamOrSlot
 		if Options.CamlockStuds.Holder then
-			Options.CamlockStuds.Holder.Visible = isCam
+			Options.CamlockStuds.Holder.Visible = isCamOrSlot
 		end
 	end
 	if Toggles.Outline then
 		if Toggles.Outline.Visible ~= nil then
-			Toggles.Outline.Visible = isCam
+			Toggles.Outline.Visible = isCamOrSlot
 		end
 		if Toggles.Outline.Holder then
-			Toggles.Outline.Holder.Visible = isCam
+			Toggles.Outline.Holder.Visible = isCamOrSlot
 		end
 	end
 	if Toggles.CamlockIgnoreTeam then
 		if Toggles.CamlockIgnoreTeam.Visible ~= nil then
-			Toggles.CamlockIgnoreTeam.Visible = isCam
+			Toggles.CamlockIgnoreTeam.Visible = isCamOrSlot
 		end
 		if Toggles.CamlockIgnoreTeam.Holder then
-			Toggles.CamlockIgnoreTeam.Holder.Visible = isCam
+			Toggles.CamlockIgnoreTeam.Holder.Visible = isCamOrSlot
 		end
 	end
-	if Toggles.CamlockIgnoreAlliance then
-		if Toggles.CamlockIgnoreAlliance.Visible ~= nil then
-			Toggles.CamlockIgnoreAlliance.Visible = isCam
+	if Toggles.SlotActivation then
+		if Toggles.SlotActivation.Visible ~= nil then
+			Toggles.SlotActivation.Visible = isCamOrSlot
 		end
-		if Toggles.CamlockIgnoreAlliance.Holder then
-			Toggles.CamlockIgnoreAlliance.Holder.Visible = isCam
+		if Toggles.SlotActivation.Holder then
+			Toggles.SlotActivation.Holder.Visible = isCamOrSlot
+		end
+	end
+	if Options.SlotActivationSlot then
+		Options.SlotActivationSlot.Visible = isSlotActivation and isCamOrSlot
+		if Options.SlotActivationSlot.Holder then
+			Options.SlotActivationSlot.Holder.Visible = isSlotActivation and isCamOrSlot
 		end
 	end
 	if Toggles.SpearSword then
 		if Toggles.SpearSword.Visible ~= nil then
-			Toggles.SpearSword.Visible = isCam
+			Toggles.SpearSword.Visible = isCamOrSlot
 		end
 		if Toggles.SpearSword.Holder then
-			Toggles.SpearSword.Holder.Visible = isCam
+			Toggles.SpearSword.Holder.Visible = isCamOrSlot
 		end
 	end
 	local isLookDown = (Toggles.LookDownFloor and Toggles.LookDownFloor.Value) or false
@@ -2305,249 +2318,6 @@ local function isTeammate(otherPlayer)
 	return false
 end
 
-local function getPlayerKingdom(player)
-	if not player then return nil end
-	local kd = nil
-
-	if player == LocalPlayer and TSG.ClientData and TSG.ClientData.getKingdom then
-		pcall(function()
-			local res = TSG.ClientData.getKingdom()
-			if type(res) == "string" and res ~= "" then
-				kd = res
-			elseif type(res) == "table" then
-				kd = res.Name or res.name or res.Id or res.id or res.KingdomName or res.kingdomName
-			end
-		end)
-	end
-
-	if not kd or kd == "" then
-		kd = player:GetAttribute("Kingdom") or player:GetAttribute("Clan") or player:GetAttribute("Tribe") or player:GetAttribute("Team")
-	end
-	if (not kd or kd == "") and player.Character then
-		kd = player.Character:GetAttribute("Kingdom") or player.Character:GetAttribute("Clan") or player.Character:GetAttribute("Tribe")
-	end
-	if (not kd or kd == "") and player.Team then
-		kd = player.Team.Name
-	end
-	return kd and tostring(kd) or nil
-end
-
-local function isAlly(otherPlayer)
-	if not otherPlayer or otherPlayer == LocalPlayer then
-		return true
-	end
-
-	if isTeammate(otherPlayer) then
-		return true
-	end
-
-	local myKingdom = getPlayerKingdom(LocalPlayer)
-	local theirKingdom = getPlayerKingdom(otherPlayer)
-
-	local myAlliance = LocalPlayer:GetAttribute("Alliance") or LocalPlayer:GetAttribute("AllianceId") or LocalPlayer:GetAttribute("AllianceName") or (LocalPlayer.Character and LocalPlayer.Character:GetAttribute("Alliance"))
-	local theirAlliance = otherPlayer:GetAttribute("Alliance") or otherPlayer:GetAttribute("AllianceId") or otherPlayer:GetAttribute("AllianceName") or (otherPlayer.Character and otherPlayer.Character:GetAttribute("Alliance"))
-	if myAlliance and theirAlliance and myAlliance ~= "" and myAlliance == theirAlliance then
-		return true
-	end
-
-	if otherPlayer:GetAttribute("IsAlly") == true or otherPlayer:GetAttribute("Allied") == true or otherPlayer:GetAttribute("Ally") == true then
-		return true
-	end
-	if otherPlayer.Character and (otherPlayer.Character:GetAttribute("IsAlly") == true or otherPlayer.Character:GetAttribute("Allied") == true or otherPlayer.Character:GetAttribute("Ally") == true) then
-		return true
-	end
-
-	local tsgAlly = false
-	pcall(function()
-		if TSG.ClientData then
-			if type(TSG.ClientData.isAlly) == "function" then
-				if TSG.ClientData.isAlly(otherPlayer) or TSG.ClientData.isAlly(otherPlayer.Name) or (theirKingdom and TSG.ClientData.isAlly(theirKingdom)) then
-					tsgAlly = true
-					return
-				end
-			end
-			if type(TSG.ClientData.isAllied) == "function" then
-				if TSG.ClientData.isAllied(otherPlayer) or (myKingdom and theirKingdom and TSG.ClientData.isAllied(myKingdom, theirKingdom)) then
-					tsgAlly = true
-					return
-				end
-			end
-			if type(TSG.ClientData.getAlliances) == "function" then
-				local alliances = TSG.ClientData.getAlliances() or (myKingdom and TSG.ClientData.getAlliances(myKingdom))
-				if type(alliances) == "table" then
-					for k, v in pairs(alliances) do
-						if v == otherPlayer.Name or v == otherPlayer.UserId or (theirKingdom and (v == theirKingdom or k == theirKingdom)) then
-							tsgAlly = true
-							return
-						end
-						if type(v) == "table" then
-							if (theirKingdom and (v.Name == theirKingdom or v.name == theirKingdom or v.Id == theirKingdom or v.id == theirKingdom)) or table.find(v, otherPlayer.Name) or table.find(v, otherPlayer.UserId) or (theirKingdom and table.find(v, theirKingdom)) then
-								tsgAlly = true
-								return
-							end
-						end
-					end
-				end
-			end
-			if type(TSG.ClientData.getAllies) == "function" then
-				local allies = TSG.ClientData.getAllies() or (myKingdom and TSG.ClientData.getAllies(myKingdom))
-				if type(allies) == "table" then
-					for k, v in pairs(allies) do
-						if v == otherPlayer.Name or v == otherPlayer.UserId or (theirKingdom and (v == theirKingdom or k == theirKingdom)) then
-							tsgAlly = true
-							return
-						end
-					end
-				end
-			end
-			if type(TSG.ClientData.getKingdomData) == "function" then
-				local kd = (myKingdom and TSG.ClientData.getKingdomData(myKingdom)) or TSG.ClientData.getKingdomData()
-				if type(kd) == "table" then
-					local allies = kd.Allies or kd.allies or kd.Alliances or kd.alliances or kd.AlliedKingdoms or kd.alliedKingdoms
-					if type(allies) == "table" then
-						for k, v in pairs(allies) do
-							if v == otherPlayer.Name or v == otherPlayer.UserId or (theirKingdom and (v == theirKingdom or k == theirKingdom)) then
-								tsgAlly = true
-								return
-							end
-						end
-					end
-				end
-			end
-			if type(TSG.ClientData.getKingdom) == "function" then
-				local kd = TSG.ClientData.getKingdom()
-				if type(kd) == "table" then
-					local allies = kd.Allies or kd.allies or kd.Alliances or kd.alliances or kd.AlliedKingdoms or kd.alliedKingdoms
-					if type(allies) == "table" then
-						for k, v in pairs(allies) do
-							if v == otherPlayer.Name or v == otherPlayer.UserId or (theirKingdom and (v == theirKingdom or k == theirKingdom)) then
-								tsgAlly = true
-								return
-							end
-						end
-					end
-				end
-			end
-			if type(TSG.ClientData.getKingdoms) == "function" then
-				local kingdoms = TSG.ClientData.getKingdoms()
-				if type(kingdoms) == "table" and myKingdom then
-					local myKd = kingdoms[myKingdom]
-					if type(myKd) == "table" then
-						local allies = myKd.Allies or myKd.allies or myKd.Alliances or myKd.alliances or myKd.AlliedKingdoms
-						if type(allies) == "table" then
-							for k, v in pairs(allies) do
-								if v == otherPlayer.Name or v == otherPlayer.UserId or (theirKingdom and (v == theirKingdom or k == theirKingdom)) then
-									tsgAlly = true
-									return
-								end
-							end
-						end
-					end
-				end
-			end
-		end
-	end)
-	if tsgAlly then return true end
-
-	local function checkAttr(inst, target)
-		if not inst or not target then return false end
-		for _, name in ipairs({"Allies", "Alliances", "AlliedKingdoms", "KingdomAllies", "AlliedClans", "ClanAllies"}) do
-			local val = inst:GetAttribute(name)
-			if val then
-				if type(val) == "table" then
-					if table.find(val, target) or val[target] ~= nil then return true end
-				elseif type(val) == "string" then
-					if string.find(string.lower(val), string.lower(target), 1, true) then return true end
-				end
-			end
-		end
-		return false
-	end
-
-	if theirKingdom and (checkAttr(LocalPlayer, theirKingdom) or (LocalPlayer.Character and checkAttr(LocalPlayer.Character, theirKingdom))) then
-		return true
-	end
-	if checkAttr(LocalPlayer, otherPlayer.Name) or checkAttr(LocalPlayer, tostring(otherPlayer.UserId)) then
-		return true
-	end
-	if LocalPlayer.Character and (checkAttr(LocalPlayer.Character, otherPlayer.Name) or checkAttr(LocalPlayer.Character, tostring(otherPlayer.UserId))) then
-		return true
-	end
-
-	if myKingdom and (checkAttr(otherPlayer, myKingdom) or (otherPlayer.Character and checkAttr(otherPlayer.Character, myKingdom))) then
-		return true
-	end
-	if checkAttr(otherPlayer, LocalPlayer.Name) or checkAttr(otherPlayer, tostring(LocalPlayer.UserId)) then
-		return true
-	end
-	if otherPlayer.Character and (checkAttr(otherPlayer.Character, LocalPlayer.Name) or checkAttr(otherPlayer.Character, tostring(LocalPlayer.UserId))) then
-		return true
-	end
-
-	local rsAlly = false
-	pcall(function()
-		local kingdomsFolder = ReplicatedStorage:FindFirstChild("Kingdoms") or ReplicatedStorage:FindFirstChild("kingdoms") or ReplicatedStorage:FindFirstChild("Clans") or ReplicatedStorage:FindFirstChild("clans")
-		if kingdomsFolder and myKingdom then
-			local myKingdomFolder = kingdomsFolder:FindFirstChild(myKingdom)
-			if myKingdomFolder then
-				local alliesFolder = myKingdomFolder:FindFirstChild("Allies") or myKingdomFolder:FindFirstChild("allies") or myKingdomFolder:FindFirstChild("Alliances") or myKingdomFolder:FindFirstChild("alliances")
-				if alliesFolder then
-					if (theirKingdom and alliesFolder:FindFirstChild(theirKingdom)) or alliesFolder:FindFirstChild(otherPlayer.Name) or alliesFolder:FindFirstChild(tostring(otherPlayer.UserId)) then
-						rsAlly = true
-						return
-					end
-					for _, allyChild in ipairs(alliesFolder:GetChildren()) do
-						if (theirKingdom and allyChild.Name == theirKingdom) or allyChild.Name == otherPlayer.Name or allyChild.Name == tostring(otherPlayer.UserId) then
-							rsAlly = true
-							return
-						end
-						if allyChild:IsA("ValueBase") and ((theirKingdom and allyChild.Value == theirKingdom) or allyChild.Value == otherPlayer.Name or tostring(allyChild.Value) == tostring(otherPlayer.UserId)) then
-							rsAlly = true
-							return
-						end
-					end
-				end
-			end
-		end
-
-		local alliancesFolder = ReplicatedStorage:FindFirstChild("Alliances") or ReplicatedStorage:FindFirstChild("alliances")
-		if alliancesFolder and myKingdom and theirKingdom then
-			for _, alliance in ipairs(alliancesFolder:GetChildren()) do
-				local hasMine = (alliance.Name == myKingdom) or (alliance:FindFirstChild(myKingdom) ~= nil)
-				local hasTheirs = (alliance.Name == theirKingdom) or (alliance:FindFirstChild(theirKingdom) ~= nil)
-				if hasMine and hasTheirs then
-					rsAlly = true
-					return
-				end
-			end
-		end
-	end)
-	if rsAlly then return true end
-
-	pcall(function()
-		if otherPlayer.Character and myKingdom and myKingdom ~= "" then
-			for _, desc in ipairs(otherPlayer.Character:GetDescendants()) do
-				if desc:IsA("TextLabel") or desc:IsA("TextButton") then
-					local txt = desc.Text
-					if txt and txt ~= "" then
-						if string.find(string.lower(txt), string.lower(myKingdom), 1, true) then
-							rsAlly = true
-							return
-						end
-						if myAlliance and myAlliance ~= "" and string.find(string.lower(txt), string.lower(myAlliance), 1, true) then
-							rsAlly = true
-							return
-						end
-					end
-				end
-			end
-		end
-	end)
-	if rsAlly then return true end
-
-	return false
-end
-
 local lastSmartSwing = 0
 Toggles.SmartSwing:OnChanged(function()
 	disconnect("SmartSwing")
@@ -2860,12 +2630,10 @@ Toggles.Camlock:OnChanged(function()
 			local closestDist = math.huge
 			local targetSetting = Options.CamlockTarget and Options.CamlockTarget.Value or "All"
 			local ignoreTeam = Toggles.CamlockIgnoreTeam and Toggles.CamlockIgnoreTeam.Value
-			local ignoreAlliance = Toggles.CamlockIgnoreAlliance and Toggles.CamlockIgnoreAlliance.Value
 
 			for _, otherPlayer in ipairs(Players:GetPlayers()) do
 				if otherPlayer ~= LocalPlayer and otherPlayer.Character then
-					local shouldIgnore = (ignoreTeam and isTeammate(otherPlayer)) or (ignoreAlliance and isAlly(otherPlayer))
-					if not shouldIgnore then
+					if not ignoreTeam or not isTeammate(otherPlayer) then
 						local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
 						local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
 						if otherRoot and otherHum and otherHum.Health > 0 then
@@ -2888,8 +2656,7 @@ Toggles.Camlock:OnChanged(function()
 				local outlineTargetSetting = (Options.OutlineTarget and Options.OutlineTarget.Value) or "All"
 				for _, otherPlayer in ipairs(Players:GetPlayers()) do
 					if otherPlayer ~= LocalPlayer and otherPlayer.Character then
-						local shouldIgnore = (ignoreTeam and isTeammate(otherPlayer)) or (ignoreAlliance and isAlly(otherPlayer))
-						if not shouldIgnore then
+						if not ignoreTeam or not isTeammate(otherPlayer) then
 							local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
 							local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
 							if otherRoot and otherHum and otherHum.Health > 0 then
@@ -2988,10 +2755,116 @@ if Toggles.CamlockIgnoreTeam then
 	end)
 end
 
-if Toggles.CamlockIgnoreAlliance then
-	Toggles.CamlockIgnoreAlliance:OnChanged(function()
+local function isSlotActivationAllowed(slotOption)
+	if not slotOption then return false end
+	local val = slotOption.Value
+	if val == nil then return false end
+
+	if typeof(val) == "table" then
+		for slotKey, isSelected in pairs(val) do
+			if isSelected == true or (typeof(slotKey) == "number" and typeof(isSelected) == "string") then
+				local targetSlot = (isSelected == true) and slotKey or isSelected
+				if isHoldingSelectedSlot(targetSlot) then
+					return true
+				end
+			end
+		end
+		return false
+	elseif typeof(val) == "string" or typeof(val) == "number" then
+		return isHoldingSelectedSlot(val)
+	end
+
+	return false
+end
+
+local function checkSlotActivation()
+	if not (Toggles.SlotActivation and Toggles.SlotActivation.Value) then return end
+	local shouldActivate = isSlotActivationAllowed(Options.SlotActivationSlot)
+	if shouldActivate then
+		if Toggles.Camlock and not Toggles.Camlock.Value then
+			Toggles.Camlock:SetValue(true)
+		end
+		if Toggles.Outline and not Toggles.Outline.Value then
+			Toggles.Outline:SetValue(true)
+		end
+	else
+		if Toggles.Camlock and Toggles.Camlock.Value then
+			Toggles.Camlock:SetValue(false)
+		end
+		if Toggles.Outline and Toggles.Outline.Value then
+			Toggles.Outline:SetValue(false)
+		end
+	end
+end
+
+if Toggles.SlotActivation then
+	Toggles.SlotActivation:OnChanged(function()
+		disconnect("SlotActivation_Input")
+		disconnect("SlotActivation_ChildAdded")
+		disconnect("SlotActivation_ChildRemoved")
+		disconnect("SlotActivation_CharAdded")
+		disconnect("SlotActivation_Heartbeat")
+
 		if updatePVPModulesVisibility then
 			updatePVPModulesVisibility()
+		end
+
+		if Toggles.SlotActivation.Value then
+			checkSlotActivation()
+
+			track("SlotActivation_Input", UserInputService.InputBegan:Connect(function(input, gameProcessed)
+				if not (Toggles.SlotActivation and Toggles.SlotActivation.Value) then return end
+				task.delay(0.05, function()
+					checkSlotActivation()
+				end)
+			end))
+
+			local function hookSlotChar(char)
+				if not char then return end
+				disconnect("SlotActivation_ChildAdded")
+				disconnect("SlotActivation_ChildRemoved")
+				track("SlotActivation_ChildAdded", char.ChildAdded:Connect(function(child)
+					if child:IsA("Tool") then
+						task.wait()
+						checkSlotActivation()
+					end
+				end))
+				track("SlotActivation_ChildRemoved", char.ChildRemoved:Connect(function(child)
+					if child:IsA("Tool") then
+						task.wait()
+						checkSlotActivation()
+					end
+				end))
+			end
+
+			if LocalPlayer.Character then
+				hookSlotChar(LocalPlayer.Character)
+			end
+			track("SlotActivation_CharAdded", LocalPlayer.CharacterAdded:Connect(hookSlotChar))
+
+			local lastSlotCheck = 0
+			track("SlotActivation_Heartbeat", RunService.Heartbeat:Connect(function()
+				if not (Toggles.SlotActivation and Toggles.SlotActivation.Value) then return end
+				if tick() - lastSlotCheck >= 0.1 then
+					lastSlotCheck = tick()
+					checkSlotActivation()
+				end
+			end))
+		else
+			if Toggles.Camlock and Toggles.Camlock.Value then
+				Toggles.Camlock:SetValue(false)
+			end
+			if Toggles.Outline and Toggles.Outline.Value then
+				Toggles.Outline:SetValue(false)
+			end
+		end
+	end)
+end
+
+if Options.SlotActivationSlot then
+	Options.SlotActivationSlot:OnChanged(function()
+		if Toggles.SlotActivation and Toggles.SlotActivation.Value then
+			checkSlotActivation()
 		end
 	end)
 end
@@ -7662,8 +7535,8 @@ Library:OnUnload(function()
 	if Toggles.CamlockIgnoreTeam and Toggles.CamlockIgnoreTeam.Value then
 		Toggles.CamlockIgnoreTeam:SetValue(false)
 	end
-	if Toggles.CamlockIgnoreAlliance and Toggles.CamlockIgnoreAlliance.Value then
-		Toggles.CamlockIgnoreAlliance:SetValue(false)
+	if Toggles.SlotActivation and Toggles.SlotActivation.Value then
+		Toggles.SlotActivation:SetValue(false)
 	end
 	if Toggles.SpearSword and Toggles.SpearSword.Value then
 		Toggles.SpearSword:SetValue(false)
