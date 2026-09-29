@@ -282,8 +282,8 @@ Library.CornerRadius = 15
 
 -- Window
 local Window = Library:CreateWindow({
-	Title = "♠ URIEL",
-	Footer = "CODENAME: ♠ URIEL",
+	Title = "â™  URIEL",
+	Footer = "CODENAME: â™  URIEL",
 	Icon = nil,
 	Center = true,
 	AutoShow = true,
@@ -1332,18 +1332,6 @@ CombatCamlock:AddCheckbox("CamlockIgnoreTeam", {
 	Default = true,
 })
 
-CombatCamlock:AddCheckbox("SlotActivation", {
-	Text = "Slot Activation",
-	Default = false,
-})
-
-CombatCamlock:AddDropdown("SlotActivationSlot", {
-	Text = "Tool Slot",
-	Values = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"},
-	Default = {"1"},
-	Multi = true,
-})
-
 CombatCamlock:AddCheckbox("SpearSword", {
 	Text = "Spear/Sword(Slot 3/5)",
 	Default = false,
@@ -1668,13 +1656,11 @@ CombatAutoPVP:AddSlider("LookDownSens", {
 updatePVPModulesVisibility = function()
 	local isHop = (Toggles.AutoHop and Toggles.AutoHop.Value) or false
 	local isCam = (Toggles.Camlock and Toggles.Camlock.Value) or false
-	local isSlotActivation = (Toggles.SlotActivation and Toggles.SlotActivation.Value) or false
-	local isCamOrSlot = isCam or isSlotActivation
 	local isSpeedBoost = (Toggles.PlusSpeedBoost and Toggles.PlusSpeedBoost.Value) or false
 	local isAnySpeedBoost = isSpeedBoost
 	local isSwingSpeed = (Toggles.SwingSpeedToggle and Toggles.SwingSpeedToggle.Value) or false
 
-	local isOutline = (isCam or isSlotActivation) and ((Toggles.Outline and Toggles.Outline.Value) or (Toggles.Cutline and Toggles.Cutline.Value) or false)
+	local isOutline = isCam and ((Toggles.Outline and Toggles.Outline.Value) or (Toggles.Cutline and Toggles.Cutline.Value) or false)
 
 	if Options.SwingSpeedVal then
 		Options.SwingSpeedVal.Visible = isSwingSpeed
@@ -1698,53 +1684,39 @@ updatePVPModulesVisibility = function()
 		end
 	end
 	if Options.CamlockTarget then
-		Options.CamlockTarget.Visible = isCamOrSlot
+		Options.CamlockTarget.Visible = isCam
 		if Options.CamlockTarget.Holder then
-			Options.CamlockTarget.Holder.Visible = isCamOrSlot
+			Options.CamlockTarget.Holder.Visible = isCam
 		end
 	end
 	if Options.CamlockStuds then
-		Options.CamlockStuds.Visible = isCamOrSlot
+		Options.CamlockStuds.Visible = isCam
 		if Options.CamlockStuds.Holder then
-			Options.CamlockStuds.Holder.Visible = isCamOrSlot
+			Options.CamlockStuds.Holder.Visible = isCam
 		end
 	end
 	if Toggles.Outline then
 		if Toggles.Outline.Visible ~= nil then
-			Toggles.Outline.Visible = isCamOrSlot
+			Toggles.Outline.Visible = isCam
 		end
 		if Toggles.Outline.Holder then
-			Toggles.Outline.Holder.Visible = isCamOrSlot
+			Toggles.Outline.Holder.Visible = isCam
 		end
 	end
 	if Toggles.CamlockIgnoreTeam then
 		if Toggles.CamlockIgnoreTeam.Visible ~= nil then
-			Toggles.CamlockIgnoreTeam.Visible = isCamOrSlot
+			Toggles.CamlockIgnoreTeam.Visible = isCam
 		end
 		if Toggles.CamlockIgnoreTeam.Holder then
-			Toggles.CamlockIgnoreTeam.Holder.Visible = isCamOrSlot
-		end
-	end
-	if Toggles.SlotActivation then
-		if Toggles.SlotActivation.Visible ~= nil then
-			Toggles.SlotActivation.Visible = isCamOrSlot
-		end
-		if Toggles.SlotActivation.Holder then
-			Toggles.SlotActivation.Holder.Visible = isCamOrSlot
-		end
-	end
-	if Options.SlotActivationSlot then
-		Options.SlotActivationSlot.Visible = isSlotActivation and isCamOrSlot
-		if Options.SlotActivationSlot.Holder then
-			Options.SlotActivationSlot.Holder.Visible = isSlotActivation and isCamOrSlot
+			Toggles.CamlockIgnoreTeam.Holder.Visible = isCam
 		end
 	end
 	if Toggles.SpearSword then
 		if Toggles.SpearSword.Visible ~= nil then
-			Toggles.SpearSword.Visible = isCamOrSlot
+			Toggles.SpearSword.Visible = isCam
 		end
 		if Toggles.SpearSword.Holder then
-			Toggles.SpearSword.Holder.Visible = isCamOrSlot
+			Toggles.SpearSword.Holder.Visible = isCam
 		end
 	end
 	local isLookDown = (Toggles.LookDownFloor and Toggles.LookDownFloor.Value) or false
@@ -2751,120 +2723,6 @@ if Toggles.CamlockIgnoreTeam then
 	Toggles.CamlockIgnoreTeam:OnChanged(function()
 		if updatePVPModulesVisibility then
 			updatePVPModulesVisibility()
-		end
-	end)
-end
-
-local function isSlotActivationAllowed(slotOption)
-	if not slotOption then return false end
-	local val = slotOption.Value
-	if val == nil then return false end
-
-	if typeof(val) == "table" then
-		for slotKey, isSelected in pairs(val) do
-			if isSelected == true or (typeof(slotKey) == "number" and typeof(isSelected) == "string") then
-				local targetSlot = (isSelected == true) and slotKey or isSelected
-				if isHoldingSelectedSlot(targetSlot) then
-					return true
-				end
-			end
-		end
-		return false
-	elseif typeof(val) == "string" or typeof(val) == "number" then
-		return isHoldingSelectedSlot(val)
-	end
-
-	return false
-end
-
-local function checkSlotActivation()
-	if not (Toggles.SlotActivation and Toggles.SlotActivation.Value) then return end
-	local shouldActivate = isSlotActivationAllowed(Options.SlotActivationSlot)
-	if shouldActivate then
-		if Toggles.Camlock and not Toggles.Camlock.Value then
-			Toggles.Camlock:SetValue(true)
-		end
-		if Toggles.Outline and not Toggles.Outline.Value then
-			Toggles.Outline:SetValue(true)
-		end
-	else
-		if Toggles.Camlock and Toggles.Camlock.Value then
-			Toggles.Camlock:SetValue(false)
-		end
-		if Toggles.Outline and Toggles.Outline.Value then
-			Toggles.Outline:SetValue(false)
-		end
-	end
-end
-
-if Toggles.SlotActivation then
-	Toggles.SlotActivation:OnChanged(function()
-		disconnect("SlotActivation_Input")
-		disconnect("SlotActivation_ChildAdded")
-		disconnect("SlotActivation_ChildRemoved")
-		disconnect("SlotActivation_CharAdded")
-		disconnect("SlotActivation_Heartbeat")
-
-		if updatePVPModulesVisibility then
-			updatePVPModulesVisibility()
-		end
-
-		if Toggles.SlotActivation.Value then
-			checkSlotActivation()
-
-			track("SlotActivation_Input", UserInputService.InputBegan:Connect(function(input, gameProcessed)
-				if not (Toggles.SlotActivation and Toggles.SlotActivation.Value) then return end
-				task.delay(0.05, function()
-					checkSlotActivation()
-				end)
-			end))
-
-			local function hookSlotChar(char)
-				if not char then return end
-				disconnect("SlotActivation_ChildAdded")
-				disconnect("SlotActivation_ChildRemoved")
-				track("SlotActivation_ChildAdded", char.ChildAdded:Connect(function(child)
-					if child:IsA("Tool") then
-						task.wait()
-						checkSlotActivation()
-					end
-				end))
-				track("SlotActivation_ChildRemoved", char.ChildRemoved:Connect(function(child)
-					if child:IsA("Tool") then
-						task.wait()
-						checkSlotActivation()
-					end
-				end))
-			end
-
-			if LocalPlayer.Character then
-				hookSlotChar(LocalPlayer.Character)
-			end
-			track("SlotActivation_CharAdded", LocalPlayer.CharacterAdded:Connect(hookSlotChar))
-
-			local lastSlotCheck = 0
-			track("SlotActivation_Heartbeat", RunService.Heartbeat:Connect(function()
-				if not (Toggles.SlotActivation and Toggles.SlotActivation.Value) then return end
-				if tick() - lastSlotCheck >= 0.1 then
-					lastSlotCheck = tick()
-					checkSlotActivation()
-				end
-			end))
-		else
-			if Toggles.Camlock and Toggles.Camlock.Value then
-				Toggles.Camlock:SetValue(false)
-			end
-			if Toggles.Outline and Toggles.Outline.Value then
-				Toggles.Outline:SetValue(false)
-			end
-		end
-	end)
-end
-
-if Options.SlotActivationSlot then
-	Options.SlotActivationSlot:OnChanged(function()
-		if Toggles.SlotActivation and Toggles.SlotActivation.Value then
-			checkSlotActivation()
 		end
 	end)
 end
@@ -7534,9 +7392,6 @@ Library:OnUnload(function()
 	end
 	if Toggles.CamlockIgnoreTeam and Toggles.CamlockIgnoreTeam.Value then
 		Toggles.CamlockIgnoreTeam:SetValue(false)
-	end
-	if Toggles.SlotActivation and Toggles.SlotActivation.Value then
-		Toggles.SlotActivation:SetValue(false)
 	end
 	if Toggles.SpearSword and Toggles.SpearSword.Value then
 		Toggles.SpearSword:SetValue(false)
