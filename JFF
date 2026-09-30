@@ -2596,30 +2596,29 @@ Toggles.Camlock:OnChanged(function()
 			local hum = getHumanoid()
 			if not root or not hum then return end
 
-			local ignoreTeamFlag = Toggles.CamlockIgnoreTeam and Toggles.CamlockIgnoreTeam.Value
-			local function camlockShouldSkipPlayer(otherPlayer)
-				if otherPlayer == LocalPlayer then return true end
-				if not otherPlayer.Character then return true end
-				if ignoreTeamFlag and isTeammate(otherPlayer) then return true end
-				return false
-			end
-
 			local maxDist = Options.CamlockStuds and Options.CamlockStuds.Value or 20
 			local myPos = root.Position
 			local closestPlayer = nil
 			local closestDist = math.huge
 			local targetSetting = Options.CamlockTarget and Options.CamlockTarget.Value or "All"
+			local ignoreTeam = Toggles.CamlockIgnoreTeam and Toggles.CamlockIgnoreTeam.Value
 
 			for _, otherPlayer in ipairs(Players:GetPlayers()) do
-				if not camlockShouldSkipPlayer(otherPlayer) then
-					local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
-					local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
-					if otherRoot and otherHum and otherHum.Health > 0 then
-						if targetSetting == "All" or otherPlayer.Name == targetSetting then
-							local dist = (otherRoot.Position - myPos).Magnitude
-							if dist <= maxDist and dist < closestDist then
-								closestDist = dist
-								closestPlayer = otherPlayer
+				if otherPlayer ~= LocalPlayer and otherPlayer.Character then
+					if not ignoreTeam or not isTeammate(otherPlayer) then
+						local okKA, knownAlly = pcall(isKingdomAllyOf, otherPlayer)
+						if ignoreTeam and okKA and knownAlly then
+							continue
+						end
+						local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
+						local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
+						if otherRoot and otherHum and otherHum.Health > 0 then
+							if targetSetting == "All" or otherPlayer.Name == targetSetting then
+								local dist = (otherRoot.Position - myPos).Magnitude
+								if dist <= maxDist and dist < closestDist then
+									closestDist = dist
+									closestPlayer = otherPlayer
+								end
 							end
 						end
 					end
@@ -2632,47 +2631,53 @@ Toggles.Camlock:OnChanged(function()
 				local minOutlineStuds = (Options.OutlineStuds and Options.OutlineStuds.Value) or (Options.CutlineStuds and Options.CutlineStuds.Value) or 7
 				local outlineTargetSetting = (Options.OutlineTarget and Options.OutlineTarget.Value) or "All"
 				for _, otherPlayer in ipairs(Players:GetPlayers()) do
-					if not camlockShouldSkipPlayer(otherPlayer) then
-						local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
-						local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
-						if otherRoot and otherHum and otherHum.Health > 0 then
-							if outlineTargetSetting == "All" or otherPlayer.Name == outlineTargetSetting then
-								local otherPos = otherRoot.Position
-								local offset = myPos - otherPos
-								local flatOffset = Vector3.new(offset.X, 0, offset.Z)
-								local flatDist = flatOffset.Magnitude
+					if otherPlayer ~= LocalPlayer and otherPlayer.Character then
+						if not ignoreTeam or not isTeammate(otherPlayer) then
+							local okKA2, knownAlly2 = pcall(isKingdomAllyOf, otherPlayer)
+							if ignoreTeam and okKA2 and knownAlly2 then
+								continue
+							end
+							local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
+							local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
+							if otherRoot and otherHum and otherHum.Health > 0 then
+								if outlineTargetSetting == "All" or otherPlayer.Name == outlineTargetSetting then
+									local otherPos = otherRoot.Position
+									local offset = myPos - otherPos
+									local flatOffset = Vector3.new(offset.X, 0, offset.Z)
+									local flatDist = flatOffset.Magnitude
 
-								if flatDist < minOutlineStuds then
-									local pushDir
-									if flatDist > 0.001 then
-										pushDir = flatOffset.Unit
-									else
-										local backDir = -root.CFrame.LookVector
-										local flatBack = Vector3.new(backDir.X, 0, backDir.Z)
-										pushDir = flatBack.Magnitude > 0.001 and flatBack.Unit or Vector3.new(0, 0, 1)
-									end
-
-									myPos = Vector3.new(
-										otherPos.X + pushDir.X * minOutlineStuds,
-										myPos.Y,
-										otherPos.Z + pushDir.Z * minOutlineStuds
-									)
-
-									pcall(function()
-										local vel = root.AssemblyLinearVelocity or root.Velocity
-										if vel then
-											local moveTowards = vel.X * (-pushDir.X) + vel.Z * (-pushDir.Z)
-											if moveTowards > 0 then
-												local correctedVel = Vector3.new(
-													vel.X - (-pushDir.X * moveTowards),
-													vel.Y,
-													vel.Z - (-pushDir.Z * moveTowards)
-												)
-												root.AssemblyLinearVelocity = correctedVel
-												root.Velocity = correctedVel
-											end
+									if flatDist < minOutlineStuds then
+										local pushDir
+										if flatDist > 0.001 then
+											pushDir = flatOffset.Unit
+										else
+											local backDir = -root.CFrame.LookVector
+											local flatBack = Vector3.new(backDir.X, 0, backDir.Z)
+											pushDir = flatBack.Magnitude > 0.001 and flatBack.Unit or Vector3.new(0, 0, 1)
 										end
-									end)
+
+										myPos = Vector3.new(
+											otherPos.X + pushDir.X * minOutlineStuds,
+											myPos.Y,
+											otherPos.Z + pushDir.Z * minOutlineStuds
+										)
+
+										pcall(function()
+											local vel = root.AssemblyLinearVelocity or root.Velocity
+											if vel then
+												local moveTowards = vel.X * (-pushDir.X) + vel.Z * (-pushDir.Z)
+												if moveTowards > 0 then
+													local correctedVel = Vector3.new(
+														vel.X - (-pushDir.X * moveTowards),
+														vel.Y,
+														vel.Z - (-pushDir.Z * moveTowards)
+													)
+													root.AssemblyLinearVelocity = correctedVel
+													root.Velocity = correctedVel
+												end
+											end
+										end)
+									end
 								end
 							end
 						end
