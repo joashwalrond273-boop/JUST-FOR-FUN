@@ -1581,6 +1581,11 @@ CombatAutoPVP:AddSlider("SwingSpeedVal", {
 	Compact = true,
 })
 
+CombatAutoPVP:AddCheckbox("SwordSwingSound", {
+	Text = "+ Sword Swing Sound",
+	Default = false,
+})
+
 CombatAutoPVP:AddCheckbox("AutoHop", {
 	Text = "+ Auto Hop",
 	Default = false,
@@ -4271,6 +4276,102 @@ Options.SwingSpeedVal:OnChanged(function()
 	end
 end)
 
+Toggles.SwordSwingSound:OnChanged(function()
+	if updatePVPModulesVisibility then
+		updatePVPModulesVisibility()
+	end
+	if Toggles.SwordSwingSound.Value then
+		Library:Notify({ Title = "Sword Swing Sound", Description = "Custom Swing Sound Enabled", Time = 2 })
+	end
+end)
+
+local lastSwordSwingSoundTime = 0
+
+local function getSwordSwingSoundAsset()
+	local soundObj = nil
+	pcall(function()
+		soundObj = resolvePath(ReplicatedStorage, "modules", "misc", "Sounds", "GameSounds", "SwordSwing")
+	end)
+	if not soundObj then
+		pcall(function()
+			soundObj = ReplicatedStorage.modules.misc.Sounds.GameSounds.SwordSwing
+		end)
+	end
+	if not soundObj and TSG and TSG.Sounds then
+		pcall(function()
+			if typeof(TSG.Sounds.GameSounds) == "table" and TSG.Sounds.GameSounds.SwordSwing then
+				soundObj = TSG.Sounds.GameSounds.SwordSwing
+			elseif typeof(TSG.Sounds.SwordSwing) ~= "nil" then
+				soundObj = TSG.Sounds.SwordSwing
+			end
+		end)
+	end
+	if not soundObj then
+		pcall(function()
+			local soundsMod = resolvePath(ReplicatedStorage, "modules", "misc", "Sounds")
+			if soundsMod and soundsMod:IsA("ModuleScript") then
+				local req = require(soundsMod)
+				if req and typeof(req) == "table" then
+					if req.GameSounds and req.GameSounds.SwordSwing then
+						soundObj = req.GameSounds.SwordSwing
+					elseif req.SwordSwing then
+						soundObj = req.SwordSwing
+					end
+				end
+			end
+		end)
+	end
+	return soundObj
+end
+
+local function playCustomSwordSwingSound()
+	if not (Toggles.SwordSwingSound and Toggles.SwordSwingSound.Value) then
+		return
+	end
+
+	local now = tick()
+	if now - lastSwordSwingSoundTime < 0.08 then
+		return
+	end
+	lastSwordSwingSoundTime = now
+
+	pcall(function()
+		local soundSource = getSwordSwingSoundAsset()
+		if soundSource then
+			if typeof(soundSource) == "Instance" and soundSource:IsA("Sound") then
+				local soundClone = soundSource:Clone()
+				soundClone.Name = "CustomSwordSwing"
+				soundClone:SetAttribute("CustomSwing", true)
+				local root = getRootPart() or LocalPlayer.Character or game:GetService("SoundService")
+				soundClone.Parent = root
+				soundClone.Volume = math.clamp(soundSource.Volume > 0 and soundSource.Volume or 1, 0.5, 3)
+				soundClone:Play()
+				game:GetService("Debris"):AddItem(soundClone, (soundClone.TimeLength > 0 and soundClone.TimeLength or 2) + 0.5)
+			elseif typeof(soundSource) == "table" and typeof(soundSource.Play) == "function" then
+				soundSource:Play()
+			elseif typeof(soundSource) == "function" then
+				soundSource()
+			end
+		elseif TSG and TSG.Sounds then
+			if typeof(TSG.Sounds.Play) == "function" then
+				TSG.Sounds:Play("SwordSwing")
+			elseif typeof(TSG.Sounds.PlaySound) == "function" then
+				TSG.Sounds.PlaySound("SwordSwing")
+			end
+		end
+	end)
+end
+
+local function handleSoundPlayed(snd)
+	if not (Toggles.SwordSwingSound and Toggles.SwordSwingSound.Value) then return end
+	if snd:GetAttribute("CustomSwing") or snd.Name == "CustomSwordSwing" then return end
+	local sName = snd.Name:lower()
+	if sName:find("swing") or sName:find("slash") or sName:find("whoosh") or sName:find("attack") then
+		snd.Volume = 0
+		pcall(function() snd:Stop() end)
+	end
+end
+
 local function applyAnimationSpeed(trackObj)
 	local targetSpeed = (Toggles.SwingSpeedToggle and Toggles.SwingSpeedToggle.Value) and (Options.SwingSpeedVal and Options.SwingSpeedVal.Value or 1) or 1
 	trackObj:AdjustSpeed(targetSpeed)
@@ -4282,6 +4383,9 @@ local function setupAnimationSpeedHacks(char)
 	if animator then
 		disconnect("AnimSpeedPlayed")
 		track("AnimSpeedPlayed", animator.AnimationPlayed:Connect(function(trackObj)
+			if isSwingAnimation(trackObj) then
+				playCustomSwordSwingSound()
+			end
 			local adjusting = false
 			local function enforceSpeed()
 				if adjusting then return end
@@ -4297,6 +4401,40 @@ local function setupAnimationSpeedHacks(char)
 		end))
 		for _, trackObj in ipairs(animator:GetPlayingAnimationTracks()) do
 			applyAnimationSpeed(trackObj)
+		end
+	end
+
+	local function hookToolForSwing(tool)
+		if tool:IsA("Tool") then
+			tool.Activated:Connect(function()
+				playCustomSwordSwingSound()
+			end)
+		end
+	end
+
+	disconnect("CharChildAddedTool")
+	track("CharChildAddedTool", char.ChildAdded:Connect(function(child)
+		hookToolForSwing(child)
+	end))
+
+	for _, child in ipairs(char:GetChildren()) do
+		hookToolForSwing(child)
+	end
+
+	disconnect("CharDescendantSound")
+	track("CharDescendantSound", char.DescendantAdded:Connect(function(desc)
+		if desc:IsA("Sound") then
+			desc.Played:Connect(function()
+				handleSoundPlayed(desc)
+			end)
+		end
+	end))
+
+	for _, desc in ipairs(char:GetDescendants()) do
+		if desc:IsA("Sound") then
+			desc.Played:Connect(function()
+				handleSoundPlayed(desc)
+			end)
 		end
 	end
 end
