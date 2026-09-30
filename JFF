@@ -739,7 +739,7 @@ ImmuneTab:AddCheckbox("AntiAFK", {
 	Default = false,
 })
 
-ImmuneTab:AddToggle("QuickVanish", {
+ImmuneTab:AddCheckbox("QuickVanish", {
 	Text = "Quick Vanish",
 	Default = false,
 })
