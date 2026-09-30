@@ -1949,9 +1949,6 @@ Toggles.ImmortalMode:OnChanged(function()
 	if Toggles.ImmortalMode.Value then
 		track("ImmortalMode", RunService.Heartbeat:Connect(updateImmortalMode))
 	else
-		if Toggles.Advance and Toggles.Advance.Value then
-			Toggles.Advance:SetValue(false)
-		end
 		if isShielding then
 			isShielding = false
 			pcall(function()
@@ -1983,31 +1980,39 @@ local function isAdvanceSlotAllowed(slotOption)
 	return false
 end
 
-local function checkAdvanceSlotDisengage()
-	if Toggles.Advance and Toggles.Advance.Value then
-		if isAdvanceSlotAllowed(Options.AdvanceSlot) then
-			Toggles.Advance:SetValue(false)
-		end
+local function updateAdvanceState()
+	if not (Toggles.Advance and Toggles.Advance.Value) then return end
+	if not isAlive() then return end
+
+	local isHoldingDisabledSlot = isAdvanceSlotAllowed(Options.AdvanceSlot)
+	local shouldBeImmortal = not isHoldingDisabledSlot
+
+	if Toggles.ImmortalMode and Toggles.ImmortalMode.Value ~= shouldBeImmortal then
+		Toggles.ImmortalMode:SetValue(shouldBeImmortal)
 	end
 end
 
 Toggles.Advance:OnChanged(function()
 	disconnect("AdvanceSlotCheck")
 	disconnect("AdvanceSlot_ChildAdded")
+	disconnect("AdvanceSlot_ChildRemoved")
 	disconnect("AdvanceSlot_CharAdded")
 
 	if Toggles.Advance.Value then
-		if Toggles.ImmortalMode and not Toggles.ImmortalMode.Value then
-			Toggles.ImmortalMode:SetValue(true)
-		end
-
 		local function hookAdvanceChar(char)
 			if not char then return end
 			disconnect("AdvanceSlot_ChildAdded")
+			disconnect("AdvanceSlot_ChildRemoved")
 			track("AdvanceSlot_ChildAdded", char.ChildAdded:Connect(function(child)
 				if child:IsA("Tool") then
 					task.wait()
-					checkAdvanceSlotDisengage()
+					updateAdvanceState()
+				end
+			end))
+			track("AdvanceSlot_ChildRemoved", char.ChildRemoved:Connect(function(child)
+				if child:IsA("Tool") then
+					task.wait()
+					updateAdvanceState()
 				end
 			end))
 		end
@@ -2018,10 +2023,10 @@ Toggles.Advance:OnChanged(function()
 		track("AdvanceSlot_CharAdded", LocalPlayer.CharacterAdded:Connect(hookAdvanceChar))
 
 		track("AdvanceSlotCheck", RunService.Heartbeat:Connect(function()
-			checkAdvanceSlotDisengage()
+			updateAdvanceState()
 		end))
 
-		checkAdvanceSlotDisengage()
+		updateAdvanceState()
 	else
 		if Toggles.ImmortalMode and Toggles.ImmortalMode.Value then
 			Toggles.ImmortalMode:SetValue(false)
@@ -2031,7 +2036,7 @@ end)
 
 if Options.AdvanceSlot then
 	Options.AdvanceSlot:OnChanged(function()
-		checkAdvanceSlotDisengage()
+		updateAdvanceState()
 	end)
 end
 
