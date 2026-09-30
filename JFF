@@ -402,7 +402,7 @@ CombatAutoBlock:AddToggle("ImmortalMode", {
 })
 
 CombatAutoBlock:AddCheckbox("Advance", {
-	Text = "Advance",
+	Text = "ADV Slot System",
 	Default = false,
 })
 
@@ -433,20 +433,6 @@ CombatAutoBlock:AddSlider("ImmortalShieldSpeed", {
 	Min = 0.01,
 	Max = 1,
 	Rounding = 2,
-	Compact = true,
-})
-
-CombatAutoBlock:AddToggle("QuickVanish", {
-	Text = "Quick Vanish",
-	Default = false,
-})
-
-CombatAutoBlock:AddSlider("QuickVanishThreshold", {
-	Text = "Health Threshold",
-	Min = 5,
-	Max = 130,
-	Default = 35,
-	Rounding = 0,
 	Compact = true,
 })
 
@@ -751,6 +737,20 @@ ImmuneTab:AddCheckbox("AutoAirBubbles", {
 ImmuneTab:AddCheckbox("AntiAFK", {
 	Text = "Anti-AFK",
 	Default = false,
+})
+
+ImmuneTab:AddToggle("QuickVanish", {
+	Text = "Quick Vanish",
+	Default = false,
+})
+
+ImmuneTab:AddSlider("QuickVanishThreshold", {
+	Text = "Health Threshold",
+	Min = 5,
+	Max = 130,
+	Default = 35,
+	Rounding = 0,
+	Compact = true,
 })
 
 
