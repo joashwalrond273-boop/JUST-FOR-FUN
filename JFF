@@ -1505,11 +1505,6 @@ CombatAutoSwingGroup:AddToggle("SmartSwingIgnoreTeam", {
 	Default = true,
 })
 
-CombatAutoSwingGroup:AddCheckbox("PlaySwingSound", {
-	Text = "Play Swing Sound",
-	Default = false,
-})
-
 updateAutoSwingSliderVisibility = function()
 	local isAutoSwingToggled = (Toggles.AutoSwing and Toggles.AutoSwing.Value) or false
 	local isSmartSwingToggled = (Toggles.SmartSwing and Toggles.SmartSwing.Value) or false
@@ -2228,59 +2223,6 @@ local function isAutoSwingSlotAllowed(slotOption)
 	return true
 end
 
-local function playSwordSwingSound()
-	if not Toggles.PlaySwingSound or not Toggles.PlaySwingSound.Value then return end
-
-	local resolvedSound = nil
-	pcall(function()
-		if TSG.Sounds and TSG.Sounds.GameSounds then
-			resolvedSound = TSG.Sounds.GameSounds.SwordSwing
-		end
-	end)
-	if not resolvedSound then
-		resolvedSound = resolvePath(ReplicatedStorage, "modules", "misc", "Sounds")
-		if resolvedSound then
-			local ok, result = pcall(function()
-				return require(resolvedSound)
-			end)
-			if ok and result and result.GameSounds then
-				resolvedSound = result.GameSounds.SwordSwing
-			else
-				resolvedSound = nil
-			end
-		end
-	end
-	if not resolvedSound then
-		resolvedSound = resolvePath(ReplicatedStorage, "modules", "misc", "Sounds", "GameSounds", "SwordSwing")
-	end
-
-	if not resolvedSound then return end
-
-	pcall(function()
-		local soundToPlay = nil
-		if typeof(resolvedSound) == "Instance" and resolvedSound:IsA("Sound") then
-			soundToPlay = resolvedSound:Clone()
-		elseif typeof(resolvedSound) == "number" or typeof(resolvedSound) == "string" then
-			soundToPlay = Instance.new("Sound")
-			soundToPlay.SoundId = typeof(resolvedSound) == "number" and "rbxassetid://" .. tostring(resolvedSound) or tostring(resolvedSound)
-		elseif typeof(resolvedSound) == "table" then
-			local rawId = rawget(resolvedSound, "SoundId") or rawget(resolvedSound, "soundId") or rawget(resolvedSound, "id") or rawget(resolvedSound, "Id")
-			if rawId then
-				soundToPlay = Instance.new("Sound")
-				soundToPlay.SoundId = typeof(rawId) == "number" and "rbxassetid://" .. tostring(rawId) or tostring(rawId)
-			end
-		end
-		if soundToPlay then
-			soundToPlay.Volume = 1
-			soundToPlay.Parent = getRootPart() or workspace
-			soundToPlay:Play()
-			soundToPlay.Ended:Connect(function()
-				pcall(function() soundToPlay:Destroy() end)
-			end)
-		end
-	end)
-end
-
 local lastAutoSwing = 0
 Toggles.AutoSwing:OnChanged(function()
 	disconnect("AutoSwing")
@@ -2296,7 +2238,6 @@ Toggles.AutoSwing:OnChanged(function()
 				local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
 				if tool and isAutoSwingSlotAllowed(Options.AutoSwingSlot) then
 					tool:Activate()
-					playSwordSwingSound()
 					lastAutoSwing = tick()
 				end
 			end
@@ -2390,7 +2331,6 @@ Toggles.SmartSwing:OnChanged(function()
 				local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
 				if tool then
 					tool:Activate()
-					playSwordSwingSound()
 					lastSmartSwing = tick()
 				end
 			end
@@ -3132,7 +3072,6 @@ Toggles.SwordBot:OnChanged(function()
 					local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
 					if tool then
 						tool:Activate()
-						playSwordSwingSound()
 						lastSwing = tick()
 					end
 				end
@@ -3435,39 +3374,6 @@ track("ReachCharacterAdded", LocalPlayer.CharacterAdded:Connect(function()
 	setupReachTracking()
 end))
 setupReachTracking()
-
-local function connectSwingSoundTool(tool)
-	if not tool or not tool:IsA("Tool") then return end
-	pcall(function()
-		tool.Activated:Connect(function()
-			playSwordSwingSound()
-		end)
-	end)
-end
-
-local function setupSwingSoundTracking()
-	disconnect("SwingSoundChildAdded")
-
-	local char = LocalPlayer.Character
-	if char then
-		track("SwingSoundChildAdded", char.ChildAdded:Connect(function(child)
-			if child:IsA("Tool") then
-				connectSwingSoundTool(child)
-			end
-		end))
-		for _, tool in ipairs(char:GetChildren()) do
-			if tool:IsA("Tool") then
-				connectSwingSoundTool(tool)
-			end
-		end
-	end
-end
-
-track("SwingSoundCharacterAdded", LocalPlayer.CharacterAdded:Connect(function()
-	task.wait(0.5)
-	setupSwingSoundTracking()
-end))
-setupSwingSoundTracking()
 
 -- ==========================================
 -- MOVEMENT
@@ -7367,8 +7273,6 @@ SaveManager:LoadAutoloadConfig()
 if not (Toggles.Noclip and Toggles.Noclip.Value) then
 	restoreCharacterCollisions(getCharacter())
 end
-
-
 
 Library:OnUnload(function()
 	if Toggles.Reach and Toggles.Reach.Value then
