@@ -424,6 +424,40 @@ CombatAutoBlock:AddSlider("ImmortalShieldSpeed", {
 	Compact = true,
 })
 
+CombatAutoBlock:AddToggle("ShieldWeave", {
+	Text = "Shield Weaving",
+	Default = false,
+})
+
+CombatAutoBlock:AddSlider("ShieldWeaveSpeed", {
+	Text = "Weave Attack Interval",
+	Default = 0.35,
+	Min = 0.1,
+	Max = 1.0,
+	Rounding = 2,
+	Compact = true,
+})
+
+CombatAutoBlock:AddSlider("ShieldWeaveRange", {
+	Text = "Weave Attack Range",
+	Default = 15,
+	Min = 5,
+	Max = 30,
+	Rounding = 0,
+	Compact = true,
+})
+
+CombatAutoBlock:AddDropdown("ShieldWeaveSlot", {
+	Text = "Weave Weapon Slot",
+	Values = {"Auto Best", "Current Tool", "1", "2", "3", "4", "5", "6"},
+	Default = "Auto Best",
+})
+
+CombatAutoBlock:AddCheckbox("ShieldWeaveIgnoreTeam", {
+	Text = "Ignore Tribe / Clan",
+	Default = true,
+})
+
 CombatAutoBlock:AddToggle("QuickVanish", {
 	Text = "Quick Vanish",
 	Default = false,
@@ -440,32 +474,28 @@ CombatAutoBlock:AddSlider("QuickVanishThreshold", {
 
 updateImmortalModeVisibility = function()
 	local isImmortal = (Toggles.ImmortalMode and Toggles.ImmortalMode.Value) or false
-	if Options.ImmortalModeStuds then
-		if Options.ImmortalModeStuds.Visible ~= nil then
-			Options.ImmortalModeStuds.Visible = isImmortal
-		end
-		if Options.ImmortalModeStuds.Holder then
-			Options.ImmortalModeStuds.Holder.Visible = isImmortal
-		end
+	local isWeaving = isImmortal and (Toggles.ShieldWeave and Toggles.ShieldWeave.Value) or false
+
+	local function setElemVisible(elem, visible)
+		if not elem then return end
+		if elem.Visible ~= nil then elem.Visible = visible end
+		if elem.Holder then elem.Holder.Visible = visible end
 	end
-	if Options.ImmortalShieldSpeed then
-		if Options.ImmortalShieldSpeed.Visible ~= nil then
-			Options.ImmortalShieldSpeed.Visible = isImmortal
-		end
-		if Options.ImmortalShieldSpeed.Holder then
-			Options.ImmortalShieldSpeed.Holder.Visible = isImmortal
-		end
-	end
-	if Toggles.BypassShield then
-		if Toggles.BypassShield.Visible ~= nil then
-			Toggles.BypassShield.Visible = isImmortal
-		end
-		if Toggles.BypassShield.Holder then
-			Toggles.BypassShield.Holder.Visible = isImmortal
-		end
-	end
+
+	setElemVisible(Options.ImmortalModeStuds, isImmortal)
+	setElemVisible(Options.ImmortalShieldSpeed, isImmortal)
+	setElemVisible(Toggles.BypassShield, isImmortal)
+	setElemVisible(Toggles.ShieldWeave, isImmortal)
+	setElemVisible(Options.ShieldWeaveSpeed, isWeaving)
+	setElemVisible(Options.ShieldWeaveRange, isWeaving)
+	setElemVisible(Options.ShieldWeaveSlot, isWeaving)
+	setElemVisible(Toggles.ShieldWeaveIgnoreTeam, isWeaving)
+
 	if not isImmortal and Toggles.BypassShield and Toggles.BypassShield.Value then
 		Toggles.BypassShield:SetValue(false)
+	end
+	if not isImmortal and Toggles.ShieldWeave and Toggles.ShieldWeave.Value then
+		Toggles.ShieldWeave:SetValue(false)
 	end
 	CombatAutoBlock:Resize()
 end
@@ -1581,11 +1611,6 @@ CombatAutoPVP:AddSlider("SwingSpeedVal", {
 	Compact = true,
 })
 
-CombatAutoPVP:AddCheckbox("SwordSwingSound", {
-	Text = "+ Sword Swing Sound",
-	Default = false,
-})
-
 CombatAutoPVP:AddCheckbox("AutoHop", {
 	Text = "+ Auto Hop",
 	Default = false,
@@ -1849,7 +1874,122 @@ end
 
 local isShielding = false
 local lastShieldFire = 0
+local lastWeaveAttack = 0
 local multiSnapIndex = 1
+
+local function isTeammate(otherPlayer)
+	if not otherPlayer or otherPlayer == LocalPlayer then
+		return true
+	end
+
+	if LocalPlayer.Team and otherPlayer.Team and LocalPlayer.Team == otherPlayer.Team then
+		return true
+	end
+	if LocalPlayer.TeamColor and otherPlayer.TeamColor and LocalPlayer.TeamColor == otherPlayer.TeamColor and LocalPlayer.TeamColor ~= BrickColor.new("White") then
+		return true
+	end
+
+	local success, kingdomMatch = pcall(function()
+		if TSG.ClientData and TSG.ClientData.getKingdom then
+			local myKingdom = TSG.ClientData.getKingdom()
+			local otherKingdom = otherPlayer:GetAttribute("Kingdom") or otherPlayer:GetAttribute("Clan") or otherPlayer:GetAttribute("Team")
+			if myKingdom and otherKingdom and myKingdom == otherKingdom then
+				return true
+			end
+		end
+		return false
+	end)
+	if success and kingdomMatch then
+		return true
+	end
+
+	local myClan = LocalPlayer:GetAttribute("Clan") or LocalPlayer:GetAttribute("Kingdom") or LocalPlayer:GetAttribute("Tribe") or LocalPlayer:GetAttribute("Team")
+	local theirClan = otherPlayer:GetAttribute("Clan") or otherPlayer:GetAttribute("Kingdom") or otherPlayer:GetAttribute("Tribe") or otherPlayer:GetAttribute("Team")
+	if myClan and theirClan and myClan ~= "" and myClan == theirClan then
+		return true
+	end
+
+	if LocalPlayer.Character and otherPlayer.Character then
+		local myCharClan = LocalPlayer.Character:GetAttribute("Clan") or LocalPlayer.Character:GetAttribute("Kingdom") or LocalPlayer.Character:GetAttribute("Tribe")
+		local theirCharClan = otherPlayer.Character:GetAttribute("Clan") or otherPlayer.Character:GetAttribute("Kingdom") or otherPlayer.Character:GetAttribute("Tribe")
+		if myCharClan and theirCharClan and myCharClan ~= "" and myCharClan == theirCharClan then
+			return true
+		end
+	end
+
+	return false
+end
+
+local function getBestMeleeWeapon()
+	if not TSG.ClientData or not TSG.Items then
+		return nil
+	end
+	local bestId, bestDamage = nil, 0
+	for itemId in pairs(TSG.ClientData.getInventory()) do
+		local data = TSG.Items.getItemData(itemId)
+		if data and table.find(data.itemType, "Melee Weapon") then
+			local dmg = data.meleeDamage or 0
+			if dmg > bestDamage then
+				bestDamage = dmg
+				bestId = itemId
+			end
+		end
+	end
+	return bestId
+end
+
+local function attackPlayerTarget(slot, targetPlayer)
+	if not targetPlayer then return end
+	if Crypt then
+		pcall(function()
+			local k1, k2, k3 = Crypt.checkpublickeys()
+			if k1 and k2 and k3 then
+				local encryptedUserId = Crypt.crypt(k1, math.abs(targetPlayer.UserId) + k3, k2)
+				TSG.MeleePlayerRemote:FireServer(slot, encryptedUserId)
+			end
+		end)
+	else
+		pcall(TSG.MeleePlayerRemote.FireServer, TSG.MeleePlayerRemote, slot, targetPlayer)
+	end
+	pcall(function()
+		local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
+		if tool then
+			tool:Activate()
+		end
+	end)
+end
+
+local function resolveWeaveSlot()
+	local choice = (Options.ShieldWeaveSlot and Options.ShieldWeaveSlot.Value) or "Auto Best"
+	if choice == "Auto Best" then
+		local bestId = getBestMeleeWeapon()
+		if bestId and TSG.ClientData and TSG.ClientData.getInventory then
+			local inv = TSG.ClientData.getInventory()
+			local item = inv[bestId]
+			if item and item.slot then
+				return tonumber(item.slot) or 1
+			end
+		end
+		local char = LocalPlayer.Character
+		local tool = char and char:FindFirstChildOfClass("Tool")
+		if tool then
+			local slotNum = tonumber(tool.Name) or tonumber(tool:GetAttribute("slot") or tool:GetAttribute("Slot"))
+			if slotNum then return slotNum end
+		end
+		return 1
+	elseif choice == "Current Tool" then
+		local char = LocalPlayer.Character
+		local tool = char and char:FindFirstChildOfClass("Tool")
+		if tool then
+			local slotNum = tonumber(tool.Name) or tonumber(tool:GetAttribute("slot") or tool:GetAttribute("Slot"))
+			if slotNum then return slotNum end
+		end
+		return 1
+	else
+		return tonumber(choice) or 1
+	end
+end
+
 local function updateImmortalMode()
 	if not isAlive() or not Toggles.ImmortalMode.Value then
 		if isShielding then
@@ -1867,28 +2007,34 @@ local function updateImmortalMode()
 	local shouldShield = false
 	local checkDistance = (Options.ImmortalModeStuds and Options.ImmortalModeStuds.Value) or 18
 	local nearestEnemy = nil
+	local nearestEnemyPlayer = nil
 	local nearestDist = math.huge
 	local activeAttackers = {}
 
+	local ignoreTeam = Toggles.ShieldWeaveIgnoreTeam and Toggles.ShieldWeaveIgnoreTeam.Value
+
 	for _, player in ipairs(Players:GetPlayers()) do
 		if player ~= LocalPlayer and player.Character then
-			local targetRoot = player.Character:FindFirstChild("HumanoidRootPart")
-			local hum = player.Character:FindFirstChildOfClass("Humanoid")
-			if targetRoot and hum and hum.Health > 0 then
-				local dist = (targetRoot.Position - root.Position).Magnitude
-				if dist <= checkDistance then
-					shouldShield = true
-					if dist < nearestDist then
-						nearestDist = dist
-						nearestEnemy = targetRoot
-					end
+			if not ignoreTeam or not isTeammate(player) then
+				local targetRoot = player.Character:FindFirstChild("HumanoidRootPart")
+				local hum = player.Character:FindFirstChildOfClass("Humanoid")
+				if targetRoot and hum and hum.Health > 0 then
+					local dist = (targetRoot.Position - root.Position).Magnitude
+					if dist <= checkDistance then
+						shouldShield = true
+						if dist < nearestDist then
+							nearestDist = dist
+							nearestEnemy = targetRoot
+							nearestEnemyPlayer = player
+						end
 
-					local animator = hum:FindFirstChild("Animator")
-					if animator then
-						for _, trackObj in ipairs(animator:GetPlayingAnimationTracks()) do
-							if trackObj.Speed > 0 and isSwingAnimation(trackObj) then
-								table.insert(activeAttackers, { root = targetRoot, dist = dist })
-								break
+						local animator = hum:FindFirstChild("Animator")
+						if animator then
+							for _, trackObj in ipairs(animator:GetPlayingAnimationTracks()) do
+								if trackObj.Speed > 0 and isSwingAnimation(trackObj) then
+									table.insert(activeAttackers, { root = targetRoot, dist = dist, player = player })
+									break
+								end
 							end
 						end
 					end
@@ -1899,16 +2045,20 @@ local function updateImmortalMode()
 
 	if shouldShield then
 		local targetToFace = nil
+		local targetPlayerEntity = nil
 		if #activeAttackers > 0 then
 			table.sort(activeAttackers, function(a, b) return a.dist < b.dist end)
 			if #activeAttackers == 1 then
 				targetToFace = activeAttackers[1].root
+				targetPlayerEntity = activeAttackers[1].player
 			else
 				multiSnapIndex = (multiSnapIndex % #activeAttackers) + 1
 				targetToFace = activeAttackers[multiSnapIndex].root
+				targetPlayerEntity = activeAttackers[multiSnapIndex].player
 			end
 		else
 			targetToFace = nearestEnemy
+			targetPlayerEntity = nearestEnemyPlayer
 		end
 
 		if targetToFace then
@@ -1916,13 +2066,42 @@ local function updateImmortalMode()
 			root.CFrame = CFrame.lookAt(root.Position, Vector3.new(targetPos.X, root.Position.Y, targetPos.Z))
 		end
 
-		local shieldSpeed = (Options.ImmortalShieldSpeed and Options.ImmortalShieldSpeed.Value) or 0.1
-		if tick() - lastShieldFire >= shieldSpeed then
-			lastShieldFire = tick()
+		local weaveEnabled = Toggles.ShieldWeave and Toggles.ShieldWeave.Value
+		local weaveSpeed = (Options.ShieldWeaveSpeed and Options.ShieldWeaveSpeed.Value) or 0.35
+		local weaveRange = (Options.ShieldWeaveRange and Options.ShieldWeaveRange.Value) or 15
+		local canWeave = weaveEnabled and targetPlayerEntity and targetToFace and ((targetToFace.Position - root.Position).Magnitude <= weaveRange)
+
+		if canWeave and (tick() - lastWeaveAttack >= weaveSpeed) then
+			lastWeaveAttack = tick()
+			local slot = resolveWeaveSlot()
+
+			-- Drop shield briefly to allow melee swing registration
 			pcall(function()
-				game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(true)
+				game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(false)
 			end)
+
+			-- Strike target
+			attackPlayerTarget(slot, targetPlayerEntity)
+
+			-- Re-engage shield seamlessly
+			task.spawn(function()
+				task.wait(0.03)
+				if isAlive() and Toggles.ImmortalMode and Toggles.ImmortalMode.Value and isShielding then
+					pcall(function()
+						game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(true)
+					end)
+				end
+			end)
+		else
+			local shieldSpeed = (Options.ImmortalShieldSpeed and Options.ImmortalShieldSpeed.Value) or 0.1
+			if tick() - lastShieldFire >= shieldSpeed then
+				lastShieldFire = tick()
+				pcall(function()
+					game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(true)
+				end)
+			end
 		end
+
 		isShielding = true
 	else
 		if isShielding then
@@ -1950,6 +2129,14 @@ Toggles.ImmortalMode:OnChanged(function()
 		end
 	end
 end)
+
+if Toggles.ShieldWeave then
+	Toggles.ShieldWeave:OnChanged(function()
+		if updateImmortalModeVisibility then
+			updateImmortalModeVisibility()
+		end
+	end)
+end
 
 Toggles.BypassShield:OnChanged(function()
 	if Toggles.KillAura then
@@ -1988,24 +2175,6 @@ Toggles.HighlightTarget:OnChanged(function()
 		updateHighlight(highlightTarget, nil, false)
 	end
 end)
-
-local function getBestMeleeWeapon()
-	if not TSG.ClientData or not TSG.Items then
-		return nil
-	end
-	local bestId, bestDamage = nil, 0
-	for itemId in pairs(TSG.ClientData.getInventory()) do
-		local data = TSG.Items.getItemData(itemId)
-		if data and table.find(data.itemType, "Melee Weapon") then
-			local dmg = data.meleeDamage or 0
-			if dmg > bestDamage then
-				bestDamage = dmg
-				bestId = itemId
-			end
-		end
-	end
-	return bestId
-end
 
 local lastKillAuraHit = 0
 
@@ -2088,18 +2257,7 @@ local function killAuraLoop()
 	lastKillAuraHit = tick()
 	local targetPlayer = Players:GetPlayerFromCharacter(nearestTarget)
 	if targetPlayer then
-		-- Player: use Crypt encryption, fire (slot, encryptedUserId)
-		if Crypt then
-			pcall(function()
-				local k1, k2, k3 = Crypt.checkpublickeys()
-				if k1 and k2 and k3 then
-					local encryptedUserId = Crypt.crypt(k1, math.abs(targetPlayer.UserId) + k3, k2)
-					TSG.MeleePlayerRemote:FireServer(slot, encryptedUserId)
-				end
-			end)
-		else
-			pcall(TSG.MeleePlayerRemote.FireServer, TSG.MeleePlayerRemote, slot, targetPlayer)
-		end
+		attackPlayerTarget(slot, targetPlayer)
 	else
 		attackNPC(slot, nearestTarget)
 	end
@@ -2251,49 +2409,6 @@ Toggles.AutoSwing:OnChanged(function()
 		_G.T = false
 	end
 end)
-
-local function isTeammate(otherPlayer)
-	if not otherPlayer or otherPlayer == LocalPlayer then
-		return true
-	end
-
-	if LocalPlayer.Team and otherPlayer.Team and LocalPlayer.Team == otherPlayer.Team then
-		return true
-	end
-	if LocalPlayer.TeamColor and otherPlayer.TeamColor and LocalPlayer.TeamColor == otherPlayer.TeamColor and LocalPlayer.TeamColor ~= BrickColor.new("White") then
-		return true
-	end
-
-	local success, kingdomMatch = pcall(function()
-		if TSG.ClientData and TSG.ClientData.getKingdom then
-			local myKingdom = TSG.ClientData.getKingdom()
-			local otherKingdom = otherPlayer:GetAttribute("Kingdom") or otherPlayer:GetAttribute("Clan") or otherPlayer:GetAttribute("Team")
-			if myKingdom and otherKingdom and myKingdom == otherKingdom then
-				return true
-			end
-		end
-		return false
-	end)
-	if success and kingdomMatch then
-		return true
-	end
-
-	local myClan = LocalPlayer:GetAttribute("Clan") or LocalPlayer:GetAttribute("Kingdom") or LocalPlayer:GetAttribute("Tribe") or LocalPlayer:GetAttribute("Team")
-	local theirClan = otherPlayer:GetAttribute("Clan") or otherPlayer:GetAttribute("Kingdom") or otherPlayer:GetAttribute("Tribe") or otherPlayer:GetAttribute("Team")
-	if myClan and theirClan and myClan ~= "" and myClan == theirClan then
-		return true
-	end
-
-	if LocalPlayer.Character and otherPlayer.Character then
-		local myCharClan = LocalPlayer.Character:GetAttribute("Clan") or LocalPlayer.Character:GetAttribute("Kingdom") or LocalPlayer.Character:GetAttribute("Tribe")
-		local theirCharClan = otherPlayer.Character:GetAttribute("Clan") or otherPlayer.Character:GetAttribute("Kingdom") or otherPlayer.Character:GetAttribute("Tribe")
-		if myCharClan and theirCharClan and myCharClan ~= "" and myCharClan == theirCharClan then
-			return true
-		end
-	end
-
-	return false
-end
 
 local lastSmartSwing = 0
 Toggles.SmartSwing:OnChanged(function()
@@ -4276,102 +4391,6 @@ Options.SwingSpeedVal:OnChanged(function()
 	end
 end)
 
-Toggles.SwordSwingSound:OnChanged(function()
-	if updatePVPModulesVisibility then
-		updatePVPModulesVisibility()
-	end
-	if Toggles.SwordSwingSound.Value then
-		Library:Notify({ Title = "Sword Swing Sound", Description = "Custom Swing Sound Enabled", Time = 2 })
-	end
-end)
-
-local lastSwordSwingSoundTime = 0
-
-local function getSwordSwingSoundAsset()
-	local soundObj = nil
-	pcall(function()
-		soundObj = resolvePath(ReplicatedStorage, "modules", "misc", "Sounds", "GameSounds", "SwordSwing")
-	end)
-	if not soundObj then
-		pcall(function()
-			soundObj = ReplicatedStorage.modules.misc.Sounds.GameSounds.SwordSwing
-		end)
-	end
-	if not soundObj and TSG and TSG.Sounds then
-		pcall(function()
-			if typeof(TSG.Sounds.GameSounds) == "table" and TSG.Sounds.GameSounds.SwordSwing then
-				soundObj = TSG.Sounds.GameSounds.SwordSwing
-			elseif typeof(TSG.Sounds.SwordSwing) ~= "nil" then
-				soundObj = TSG.Sounds.SwordSwing
-			end
-		end)
-	end
-	if not soundObj then
-		pcall(function()
-			local soundsMod = resolvePath(ReplicatedStorage, "modules", "misc", "Sounds")
-			if soundsMod and soundsMod:IsA("ModuleScript") then
-				local req = require(soundsMod)
-				if req and typeof(req) == "table" then
-					if req.GameSounds and req.GameSounds.SwordSwing then
-						soundObj = req.GameSounds.SwordSwing
-					elseif req.SwordSwing then
-						soundObj = req.SwordSwing
-					end
-				end
-			end
-		end)
-	end
-	return soundObj
-end
-
-local function playCustomSwordSwingSound()
-	if not (Toggles.SwordSwingSound and Toggles.SwordSwingSound.Value) then
-		return
-	end
-
-	local now = tick()
-	if now - lastSwordSwingSoundTime < 0.08 then
-		return
-	end
-	lastSwordSwingSoundTime = now
-
-	pcall(function()
-		local soundSource = getSwordSwingSoundAsset()
-		if soundSource then
-			if typeof(soundSource) == "Instance" and soundSource:IsA("Sound") then
-				local soundClone = soundSource:Clone()
-				soundClone.Name = "CustomSwordSwing"
-				soundClone:SetAttribute("CustomSwing", true)
-				local root = getRootPart() or LocalPlayer.Character or game:GetService("SoundService")
-				soundClone.Parent = root
-				soundClone.Volume = math.clamp(soundSource.Volume > 0 and soundSource.Volume or 1, 0.5, 3)
-				soundClone:Play()
-				game:GetService("Debris"):AddItem(soundClone, (soundClone.TimeLength > 0 and soundClone.TimeLength or 2) + 0.5)
-			elseif typeof(soundSource) == "table" and typeof(soundSource.Play) == "function" then
-				soundSource:Play()
-			elseif typeof(soundSource) == "function" then
-				soundSource()
-			end
-		elseif TSG and TSG.Sounds then
-			if typeof(TSG.Sounds.Play) == "function" then
-				TSG.Sounds:Play("SwordSwing")
-			elseif typeof(TSG.Sounds.PlaySound) == "function" then
-				TSG.Sounds.PlaySound("SwordSwing")
-			end
-		end
-	end)
-end
-
-local function handleSoundPlayed(snd)
-	if not (Toggles.SwordSwingSound and Toggles.SwordSwingSound.Value) then return end
-	if snd:GetAttribute("CustomSwing") or snd.Name == "CustomSwordSwing" then return end
-	local sName = snd.Name:lower()
-	if sName:find("swing") or sName:find("slash") or sName:find("whoosh") or sName:find("attack") then
-		snd.Volume = 0
-		pcall(function() snd:Stop() end)
-	end
-end
-
 local function applyAnimationSpeed(trackObj)
 	local targetSpeed = (Toggles.SwingSpeedToggle and Toggles.SwingSpeedToggle.Value) and (Options.SwingSpeedVal and Options.SwingSpeedVal.Value or 1) or 1
 	trackObj:AdjustSpeed(targetSpeed)
@@ -4383,9 +4402,6 @@ local function setupAnimationSpeedHacks(char)
 	if animator then
 		disconnect("AnimSpeedPlayed")
 		track("AnimSpeedPlayed", animator.AnimationPlayed:Connect(function(trackObj)
-			if isSwingAnimation(trackObj) then
-				playCustomSwordSwingSound()
-			end
 			local adjusting = false
 			local function enforceSpeed()
 				if adjusting then return end
@@ -4401,40 +4417,6 @@ local function setupAnimationSpeedHacks(char)
 		end))
 		for _, trackObj in ipairs(animator:GetPlayingAnimationTracks()) do
 			applyAnimationSpeed(trackObj)
-		end
-	end
-
-	local function hookToolForSwing(tool)
-		if tool:IsA("Tool") then
-			tool.Activated:Connect(function()
-				playCustomSwordSwingSound()
-			end)
-		end
-	end
-
-	disconnect("CharChildAddedTool")
-	track("CharChildAddedTool", char.ChildAdded:Connect(function(child)
-		hookToolForSwing(child)
-	end))
-
-	for _, child in ipairs(char:GetChildren()) do
-		hookToolForSwing(child)
-	end
-
-	disconnect("CharDescendantSound")
-	track("CharDescendantSound", char.DescendantAdded:Connect(function(desc)
-		if desc:IsA("Sound") then
-			desc.Played:Connect(function()
-				handleSoundPlayed(desc)
-			end)
-		end
-	end))
-
-	for _, desc in ipairs(char:GetDescendants()) do
-		if desc:IsA("Sound") then
-			desc.Played:Connect(function()
-				handleSoundPlayed(desc)
-			end)
 		end
 	end
 end
@@ -7365,6 +7347,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.ImmortalMode and Toggles.ImmortalMode.Value then
 		Toggles.ImmortalMode:SetValue(false)
+	end
+	if Toggles.ShieldWeave and Toggles.ShieldWeave.Value then
+		Toggles.ShieldWeave:SetValue(false)
 	end
 	if Toggles.BypassShield and Toggles.BypassShield.Value then
 		Toggles.BypassShield:SetValue(false)
