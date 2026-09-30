@@ -1958,6 +1958,27 @@ Toggles.ImmortalMode:OnChanged(function()
 	end
 end)
 
+local function hasAnyAdvanceSlotSelected(slotOption)
+	if not slotOption then return false end
+	local val = slotOption.Value
+	if val == nil then return false end
+
+	if typeof(val) == "table" then
+		for slotKey, isSelected in pairs(val) do
+			if isSelected == true or (typeof(slotKey) == "number" and typeof(isSelected) == "string" and isSelected ~= "") then
+				return true
+			end
+		end
+		return false
+	elseif typeof(val) == "string" then
+		return val ~= ""
+	elseif typeof(val) == "number" then
+		return true
+	end
+
+	return false
+end
+
 local function isAdvanceSlotAllowed(slotOption)
 	if not slotOption then return false end
 	local val = slotOption.Value
@@ -1984,8 +2005,15 @@ local function updateAdvanceState()
 	if not (Toggles.Advance and Toggles.Advance.Value) then return end
 	if not isAlive() then return end
 
-	local isHoldingDisabledSlot = isAdvanceSlotAllowed(Options.AdvanceSlot)
-	local shouldBeImmortal = not isHoldingDisabledSlot
+	local hasSlotsConfigured = hasAnyAdvanceSlotSelected(Options.AdvanceSlot)
+	local shouldBeImmortal = false
+
+	if hasSlotsConfigured then
+		local isHoldingDisabledSlot = isAdvanceSlotAllowed(Options.AdvanceSlot)
+		shouldBeImmortal = not isHoldingDisabledSlot
+	else
+		shouldBeImmortal = false
+	end
 
 	if Toggles.ImmortalMode and Toggles.ImmortalMode.Value ~= shouldBeImmortal then
 		Toggles.ImmortalMode:SetValue(shouldBeImmortal)
@@ -2043,6 +2071,11 @@ end
 Toggles.BypassShield:OnChanged(function()
 	if Toggles.KillAura then
 		Toggles.KillAura:SetValue(Toggles.BypassShield.Value)
+	end
+	if Toggles.BypassShield.Value then
+		if Options.ImmortalShieldSpeed then
+			Options.ImmortalShieldSpeed:SetValue(0.15)
+		end
 	end
 end)
 
