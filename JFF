@@ -406,6 +406,13 @@ CombatAutoBlock:AddCheckbox("Advance", {
 	Default = false,
 })
 
+CombatAutoBlock:AddDropdown("AdvanceSlot", {
+	Text = "Tool Slot",
+	Values = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"},
+	Default = {"1"},
+	Multi = true,
+})
+
 CombatAutoBlock:AddCheckbox("BypassShield", {
 	Text = "Bypass Shield",
 	Default = false,
@@ -1942,6 +1949,9 @@ Toggles.ImmortalMode:OnChanged(function()
 	if Toggles.ImmortalMode.Value then
 		track("ImmortalMode", RunService.Heartbeat:Connect(updateImmortalMode))
 	else
+		if Toggles.Advance and Toggles.Advance.Value then
+			Toggles.Advance:SetValue(false)
+		end
 		if isShielding then
 			isShielding = false
 			pcall(function()
@@ -1951,11 +1961,79 @@ Toggles.ImmortalMode:OnChanged(function()
 	end
 end)
 
+local function isAdvanceSlotAllowed(slotOption)
+	if not slotOption then return false end
+	local val = slotOption.Value
+	if val == nil then return false end
+
+	if typeof(val) == "table" then
+		for slotKey, isSelected in pairs(val) do
+			if isSelected == true or (typeof(slotKey) == "number" and typeof(isSelected) == "string") then
+				local targetSlot = (isSelected == true) and slotKey or isSelected
+				if isHoldingSelectedSlot(targetSlot) then
+					return true
+				end
+			end
+		end
+		return false
+	elseif typeof(val) == "string" or typeof(val) == "number" then
+		return isHoldingSelectedSlot(val)
+	end
+
+	return false
+end
+
+local function checkAdvanceSlotDisengage()
+	if Toggles.Advance and Toggles.Advance.Value then
+		if isAdvanceSlotAllowed(Options.AdvanceSlot) then
+			Toggles.Advance:SetValue(false)
+		end
+	end
+end
+
 Toggles.Advance:OnChanged(function()
-	if Toggles.ImmortalMode then
-		Toggles.ImmortalMode:SetValue(Toggles.Advance.Value)
+	disconnect("AdvanceSlotCheck")
+	disconnect("AdvanceSlot_ChildAdded")
+	disconnect("AdvanceSlot_CharAdded")
+
+	if Toggles.Advance.Value then
+		if Toggles.ImmortalMode and not Toggles.ImmortalMode.Value then
+			Toggles.ImmortalMode:SetValue(true)
+		end
+
+		local function hookAdvanceChar(char)
+			if not char then return end
+			disconnect("AdvanceSlot_ChildAdded")
+			track("AdvanceSlot_ChildAdded", char.ChildAdded:Connect(function(child)
+				if child:IsA("Tool") then
+					task.wait()
+					checkAdvanceSlotDisengage()
+				end
+			end))
+		end
+
+		if LocalPlayer.Character then
+			hookAdvanceChar(LocalPlayer.Character)
+		end
+		track("AdvanceSlot_CharAdded", LocalPlayer.CharacterAdded:Connect(hookAdvanceChar))
+
+		track("AdvanceSlotCheck", RunService.Heartbeat:Connect(function()
+			checkAdvanceSlotDisengage()
+		end))
+
+		checkAdvanceSlotDisengage()
+	else
+		if Toggles.ImmortalMode and Toggles.ImmortalMode.Value then
+			Toggles.ImmortalMode:SetValue(false)
+		end
 	end
 end)
+
+if Options.AdvanceSlot then
+	Options.AdvanceSlot:OnChanged(function()
+		checkAdvanceSlotDisengage()
+	end)
+end
 
 Toggles.BypassShield:OnChanged(function()
 	if Toggles.KillAura then
