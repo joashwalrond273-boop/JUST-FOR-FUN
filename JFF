@@ -2596,25 +2596,30 @@ Toggles.Camlock:OnChanged(function()
 			local hum = getHumanoid()
 			if not root or not hum then return end
 
+			local ignoreTeamFlag = Toggles.CamlockIgnoreTeam and Toggles.CamlockIgnoreTeam.Value
+			local function camlockShouldSkipPlayer(otherPlayer)
+				if otherPlayer == LocalPlayer then return true end
+				if not otherPlayer.Character then return true end
+				if ignoreTeamFlag and isTeammate(otherPlayer) then return true end
+				return false
+			end
+
 			local maxDist = Options.CamlockStuds and Options.CamlockStuds.Value or 20
 			local myPos = root.Position
 			local closestPlayer = nil
 			local closestDist = math.huge
 			local targetSetting = Options.CamlockTarget and Options.CamlockTarget.Value or "All"
-			local ignoreTeam = Toggles.CamlockIgnoreTeam and Toggles.CamlockIgnoreTeam.Value
 
 			for _, otherPlayer in ipairs(Players:GetPlayers()) do
-				if otherPlayer ~= LocalPlayer and otherPlayer.Character then
-					if not ignoreTeam or not isTeammate(otherPlayer) then
-						local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
-						local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
-						if otherRoot and otherHum and otherHum.Health > 0 then
-							if targetSetting == "All" or otherPlayer.Name == targetSetting then
-								local dist = (otherRoot.Position - myPos).Magnitude
-								if dist <= maxDist and dist < closestDist then
-									closestDist = dist
-									closestPlayer = otherPlayer
-								end
+				if not camlockShouldSkipPlayer(otherPlayer) then
+					local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
+					local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
+					if otherRoot and otherHum and otherHum.Health > 0 then
+						if targetSetting == "All" or otherPlayer.Name == targetSetting then
+							local dist = (otherRoot.Position - myPos).Magnitude
+							if dist <= maxDist and dist < closestDist then
+								closestDist = dist
+								closestPlayer = otherPlayer
 							end
 						end
 					end
@@ -2627,49 +2632,47 @@ Toggles.Camlock:OnChanged(function()
 				local minOutlineStuds = (Options.OutlineStuds and Options.OutlineStuds.Value) or (Options.CutlineStuds and Options.CutlineStuds.Value) or 7
 				local outlineTargetSetting = (Options.OutlineTarget and Options.OutlineTarget.Value) or "All"
 				for _, otherPlayer in ipairs(Players:GetPlayers()) do
-					if otherPlayer ~= LocalPlayer and otherPlayer.Character then
-						if not ignoreTeam or not isTeammate(otherPlayer) then
-							local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
-							local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
-							if otherRoot and otherHum and otherHum.Health > 0 then
-								if outlineTargetSetting == "All" or otherPlayer.Name == outlineTargetSetting then
-									local otherPos = otherRoot.Position
-									local offset = myPos - otherPos
-									local flatOffset = Vector3.new(offset.X, 0, offset.Z)
-									local flatDist = flatOffset.Magnitude
+					if not camlockShouldSkipPlayer(otherPlayer) then
+						local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
+						local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
+						if otherRoot and otherHum and otherHum.Health > 0 then
+							if outlineTargetSetting == "All" or otherPlayer.Name == outlineTargetSetting then
+								local otherPos = otherRoot.Position
+								local offset = myPos - otherPos
+								local flatOffset = Vector3.new(offset.X, 0, offset.Z)
+								local flatDist = flatOffset.Magnitude
 
-									if flatDist < minOutlineStuds then
-										local pushDir
-										if flatDist > 0.001 then
-											pushDir = flatOffset.Unit
-										else
-											local backDir = -root.CFrame.LookVector
-											local flatBack = Vector3.new(backDir.X, 0, backDir.Z)
-											pushDir = flatBack.Magnitude > 0.001 and flatBack.Unit or Vector3.new(0, 0, 1)
-										end
-
-										myPos = Vector3.new(
-											otherPos.X + pushDir.X * minOutlineStuds,
-											myPos.Y,
-											otherPos.Z + pushDir.Z * minOutlineStuds
-										)
-
-										pcall(function()
-											local vel = root.AssemblyLinearVelocity or root.Velocity
-											if vel then
-												local moveTowards = vel.X * (-pushDir.X) + vel.Z * (-pushDir.Z)
-												if moveTowards > 0 then
-													local correctedVel = Vector3.new(
-														vel.X - (-pushDir.X * moveTowards),
-														vel.Y,
-														vel.Z - (-pushDir.Z * moveTowards)
-													)
-													root.AssemblyLinearVelocity = correctedVel
-													root.Velocity = correctedVel
-												end
-											end
-										end)
+								if flatDist < minOutlineStuds then
+									local pushDir
+									if flatDist > 0.001 then
+										pushDir = flatOffset.Unit
+									else
+										local backDir = -root.CFrame.LookVector
+										local flatBack = Vector3.new(backDir.X, 0, backDir.Z)
+										pushDir = flatBack.Magnitude > 0.001 and flatBack.Unit or Vector3.new(0, 0, 1)
 									end
+
+									myPos = Vector3.new(
+										otherPos.X + pushDir.X * minOutlineStuds,
+										myPos.Y,
+										otherPos.Z + pushDir.Z * minOutlineStuds
+									)
+
+									pcall(function()
+										local vel = root.AssemblyLinearVelocity or root.Velocity
+										if vel then
+											local moveTowards = vel.X * (-pushDir.X) + vel.Z * (-pushDir.Z)
+											if moveTowards > 0 then
+												local correctedVel = Vector3.new(
+													vel.X - (-pushDir.X * moveTowards),
+													vel.Y,
+													vel.Z - (-pushDir.Z * moveTowards)
+												)
+												root.AssemblyLinearVelocity = correctedVel
+												root.Velocity = correctedVel
+											end
+										end
+									end)
 								end
 							end
 						end
@@ -4268,157 +4271,6 @@ Options.SwingSpeedVal:OnChanged(function()
 				trackObj:AdjustSpeed(Options.SwingSpeedVal.Value)
 			end
 		end
-	end
-end)
-
-local customSwingSoundCache = {
-	soundObject = nil,
-	soundId = nil,
-}
-
-local function getCustomSwingSound()
-	if customSwingSoundCache.soundObject then
-		return customSwingSoundCache.soundObject
-	end
-	if customSwingSoundCache.soundId then
-		return customSwingSoundCache.soundId
-	end
-	local ok, result = pcall(function()
-		local soundsModule = resolvePath(ReplicatedStorage, "modules", "misc", "Sounds")
-		if not soundsModule then
-			local directPath = resolvePath(ReplicatedStorage, "modules", "misc", "Sounds", "GameSounds", "SwordSwing")
-			if directPath then
-				if directPath:IsA("Sound") then
-					customSwingSoundCache.soundId = directPath.SoundId
-					return customSwingSoundCache.soundId
-				end
-			end
-			return nil
-		end
-		local required = nil
-		pcall(function()
-			required = TSG.Sounds or require(soundsModule)
-		end)
-		if required and required.GameSounds and required.GameSounds.SwordSwing then
-			local entry = required.GameSounds.SwordSwing
-			if typeof(entry) == "string" then
-				customSwingSoundCache.soundId = entry
-				return customSwingSoundCache.soundId
-			elseif typeof(entry) == "Instance" and entry:IsA("Sound") then
-				customSwingSoundCache.soundId = entry.SoundId
-				return customSwingSoundCache.soundId
-			elseif typeof(entry) == "table" then
-				if entry.SoundId then
-					customSwingSoundCache.soundId = entry.SoundId
-					return customSwingSoundCache.soundId
-				end
-				if entry.Id then
-					customSwingSoundCache.soundId = entry.Id
-					return customSwingSoundCache.soundId
-				end
-			end
-		end
-		local directSound = resolvePath(ReplicatedStorage, "modules", "misc", "Sounds", "GameSounds", "SwordSwing")
-		if directSound and directSound:IsA("Sound") then
-			customSwingSoundCache.soundId = directSound.SoundId
-			return customSwingSoundCache.soundId
-		end
-		return nil
-	end)
-	return ok and result or nil
-end
-
-local function playCustomSwingSound(target)
-	local soundId = getCustomSwingSound()
-	if not soundId then return end
-	local parent = target or getRootPart() or getCharacter()
-	if not parent then return end
-	pcall(function()
-		local sfx = Instance.new("Sound")
-		sfx.SoundId = soundId
-		sfx.Volume = 1
-		sfx.RollOffMinDistance = 10
-		sfx.RollOffMaxDistance = 200
-		sfx.Parent = parent
-		sfx:Play()
-		sfx.Ended:Connect(function()
-			sfx:Destroy()
-		end)
-		task.delay(5, function()
-			if sfx and sfx.Parent then
-				sfx:Destroy()
-			end
-		end)
-	end)
-end
-
-local function hookCustomSwingOnTool(tool)
-	if not tool or not tool:IsA("Tool") then return end
-	if tool:GetAttribute("CustomSwingHooked") then return end
-	tool:SetAttribute("CustomSwingHooked", true)
-
-	tool.Activated:Connect(function()
-		if Toggles.CustomSwingSound and Toggles.CustomSwingSound.Value then
-			playCustomSwingSound(tool:FindFirstChild("Handle") or tool.Parent or getCharacter())
-		end
-	end)
-end
-
-local function setupCustomSwingHooks(char)
-	if not char then return end
-	local hum = char:WaitForChild("Humanoid", 5)
-	if not hum then return end
-
-	for _, child in ipairs(char:GetChildren()) do
-		if child:IsA("Tool") then
-			hookCustomSwingOnTool(child)
-		end
-	end
-
-	char.ChildAdded:Connect(function(child)
-		if Toggles.CustomSwingSound and Toggles.CustomSwingSound.Value and child:IsA("Tool") then
-			task.defer(function()
-				hookCustomSwingOnTool(child)
-			end)
-		end
-	end)
-
-	local animator = hum:FindFirstChild("Animator")
-	if animator then
-		animator.AnimationPlayed:Connect(function(trackObj)
-			if not (Toggles.CustomSwingSound and Toggles.CustomSwingSound.Value) then return end
-			if not isSwingAnimation(trackObj) then return end
-			local character = char or getCharacter()
-			if character then
-				playCustomSwingSound(character:FindFirstChild("HumanoidRootPart") or character)
-			end
-		end)
-	end
-end
-
-Toggles.CustomSwingSound:OnChanged(function()
-	if Toggles.CustomSwingSound.Value then
-		local soundId = getCustomSwingSound()
-		if not soundId then
-			Library:Notify({ Title = "Custom Swing Sound", Description = "SwordSwing sound not found.", Time = 4 })
-			Toggles.CustomSwingSound:SetValue(false)
-			return
-		end
-		local char = getCharacter()
-		if char then
-			setupCustomSwingHooks(char)
-		end
-		disconnect("CustomSwingCharAdded")
-		track("CustomSwingCharAdded", LocalPlayer.CharacterAdded:Connect(function(newChar)
-			task.wait(0.5)
-			if Toggles.CustomSwingSound and Toggles.CustomSwingSound.Value then
-				setupCustomSwingHooks(newChar)
-			end
-		end))
-		Library:Notify({ Title = "Custom Swing Sound", Description = "Enabled (SwordSwing)", Time = 2 })
-	else
-		disconnect("CustomSwingCharAdded")
-		Library:Notify({ Title = "Custom Swing Sound", Description = "Disabled", Time = 2 })
 	end
 end)
 
