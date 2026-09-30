@@ -2606,10 +2606,6 @@ Toggles.Camlock:OnChanged(function()
 			for _, otherPlayer in ipairs(Players:GetPlayers()) do
 				if otherPlayer ~= LocalPlayer and otherPlayer.Character then
 					if not ignoreTeam or not isTeammate(otherPlayer) then
-						local okKA, knownAlly = pcall(isKingdomAllyOf, otherPlayer)
-						if ignoreTeam and okKA and knownAlly then
-							continue
-						end
 						local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
 						local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
 						if otherRoot and otherHum and otherHum.Health > 0 then
@@ -2633,10 +2629,6 @@ Toggles.Camlock:OnChanged(function()
 				for _, otherPlayer in ipairs(Players:GetPlayers()) do
 					if otherPlayer ~= LocalPlayer and otherPlayer.Character then
 						if not ignoreTeam or not isTeammate(otherPlayer) then
-							local okKA2, knownAlly2 = pcall(isKingdomAllyOf, otherPlayer)
-							if ignoreTeam and okKA2 and knownAlly2 then
-								continue
-							end
 							local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
 							local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
 							if otherRoot and otherHum and otherHum.Health > 0 then
@@ -6965,30 +6957,8 @@ local invisibleFlyVars = {
 	playerClone = nil,
 	wasInvisibleFlyEnabled = false,
 	connection = nil,
-	highlight = nil,
-	originalTransparency = {},
-	characterAddedConn = nil,
-	lastClonePivot = nil
+	highlight = nil
 }
-
-local function applyInvisFlyTranslucency(character)
-	if not character then return end
-	for _, desc in ipairs(character:GetDescendants()) do
-		if desc:IsA("BasePart") or desc:IsA("Decal") or desc:IsA("Texture") then
-			invisibleFlyVars.originalTransparency[desc] = desc.Transparency
-			desc.Transparency = 0.5
-		end
-	end
-end
-
-local function restoreInvisFlyTranslucency()
-	for obj, transp in pairs(invisibleFlyVars.originalTransparency) do
-		if obj and obj.Parent then
-			obj.Transparency = transp
-		end
-	end
-	table.clear(invisibleFlyVars.originalTransparency)
-end
 
 local function onInvisibleFlyToggle(state)
 	if updateFlightVisibility then
@@ -7003,21 +6973,14 @@ local function onInvisibleFlyToggle(state)
 				task.wait()
 			until LocalPlayer.Character
 
-			invisibleFlyVars.characterAddedConn = LocalPlayer.CharacterAdded:Connect(function(newChar)
-				task.wait(0.1)
-				applyInvisFlyTranslucency(newChar)
-			end)
-
-			applyInvisFlyTranslucency(LocalPlayer.Character)
-
 			invisibleFlyVars.playerClone = LocalPlayer.Character:Clone()
 			invisibleFlyVars.playerClone.Parent = workspace
-
+			
 			-- Create and apply highlight
 			local hl = Instance.new("Highlight")
 			hl.FillColor = Options.InvisibleFlyFillColor.Value
 			hl.OutlineColor = Options.InvisibleFlyOutlineColor.Value
-			hl.FillTransparency = 0.65
+			hl.FillTransparency = 0.3
 			hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
 			hl.Adornee = invisibleFlyVars.playerClone
 			hl.Enabled = true
@@ -7030,7 +6993,7 @@ local function onInvisibleFlyToggle(state)
 				if not (invisibleFlyVars.playerClone and invisibleFlyVars.playerClone:FindFirstChild("HumanoidRootPart")) then
 					break
 				end
-
+				
 				-- Update highlight colors in real-time
 				if invisibleFlyVars.highlight then
 					invisibleFlyVars.highlight.FillColor = Options.InvisibleFlyFillColor.Value
@@ -7046,8 +7009,7 @@ local function onInvisibleFlyToggle(state)
 
 				workspace.CurrentCamera.CameraSubject = invisibleFlyVars.playerClone:FindFirstChild("Humanoid") or hum
 				hum:ChangeState("Climbing")
-				invisibleFlyVars.lastClonePivot = invisibleFlyVars.playerClone:GetPivot()
-				LocalPlayer.Character:PivotTo(invisibleFlyVars.lastClonePivot + Vector3.new(0, 500, 0))
+				LocalPlayer.Character:PivotTo(invisibleFlyVars.playerClone:GetPivot() + Vector3.new(0, 500, 0))
 				root.Velocity = Vector3.zero
 
 				local lookPosition = workspace.CurrentCamera.CFrame.Position + workspace.CurrentCamera.CFrame.LookVector * 9999
@@ -7076,58 +7038,35 @@ local function onInvisibleFlyToggle(state)
 						Vector3.new(lookPosition.X, invisibleFlyVars.playerClone.HumanoidRootPart.Position.Y, lookPosition.Z)
 					)
 				end
-
-				invisibleFlyVars.lastClonePivot = invisibleFlyVars.playerClone:GetPivot()
 			end
 
 			workspace.CurrentCamera.CameraSubject = getHumanoid()
 
-			if invisibleFlyVars.characterAddedConn then
-				invisibleFlyVars.characterAddedConn:Disconnect()
-				invisibleFlyVars.characterAddedConn = nil
-			end
-			restoreInvisFlyTranslucency()
-
 			if invisibleFlyVars.highlight then
 				invisibleFlyVars.highlight:Destroy()
 				invisibleFlyVars.highlight = nil
 			end
-
+			
 			if invisibleFlyVars.playerClone then
-				local finalPivot = invisibleFlyVars.lastClonePivot or invisibleFlyVars.playerClone:GetPivot()
+				LocalPlayer.Character:PivotTo(invisibleFlyVars.playerClone:GetPivot())
 				invisibleFlyVars.playerClone:Destroy()
 				invisibleFlyVars.playerClone = nil
-				if finalPivot then
-					pcall(function() LocalPlayer.Character:PivotTo(finalPivot) end)
-				end
 			end
-			invisibleFlyVars.lastClonePivot = nil
 		end)
 	else
 		if invisibleFlyVars.wasInvisibleFlyEnabled then
-			if invisibleFlyVars.characterAddedConn then
-				invisibleFlyVars.characterAddedConn:Disconnect()
-				invisibleFlyVars.characterAddedConn = nil
+			local root = getRootPart()
+			if root then
+				local currentCFrame = root.CFrame
+				local newCFrame = CFrame.new(currentCFrame.Position.X, currentCFrame.Position.Y - 500, currentCFrame.Position.Z)
+				LocalPlayer.Character:PivotTo(newCFrame)
 			end
-			restoreInvisFlyTranslucency()
-
+			invisibleFlyVars.wasInvisibleFlyEnabled = false
+			
 			if invisibleFlyVars.highlight then
 				invisibleFlyVars.highlight:Destroy()
 				invisibleFlyVars.highlight = nil
 			end
-
-			if invisibleFlyVars.playerClone then
-				local finalPivot = invisibleFlyVars.lastClonePivot or invisibleFlyVars.playerClone:GetPivot()
-				invisibleFlyVars.playerClone:Destroy()
-				invisibleFlyVars.playerClone = nil
-				if finalPivot then
-					pcall(function() LocalPlayer.Character:PivotTo(finalPivot) end)
-				end
-			elseif invisibleFlyVars.lastClonePivot then
-				pcall(function() LocalPlayer.Character:PivotTo(invisibleFlyVars.lastClonePivot) end)
-			end
-			invisibleFlyVars.wasInvisibleFlyEnabled = false
-			invisibleFlyVars.lastClonePivot = nil
 		end
 	end
 end
