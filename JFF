@@ -54,8 +54,6 @@ local updateImmortalModeVisibility
 local updatePhantomModeVisibility
 local updateSwimBoostVisibility
 local isTeammate
-local isTeammateCache = {}
-local IS_TEAMMATE_CACHE_TTL = 0.5
 
 Library.ShowToggleFrameInKeybinds = true
 
@@ -1110,7 +1108,6 @@ track("CharacterModuleRespawn", LocalPlayer.CharacterAdded:Connect(function()
 			Library:Notify({ Title = "Reset & Teleport", Description = "Teleported back to last location!", Time = 2 })
 		end
 	end
-	isTeammateCache = {}
 end))
 
 -- No Boss Damage Hook Setup
@@ -2334,53 +2331,42 @@ function isTeammate(otherPlayer)
 		return true
 	end
 
-	local key = otherPlayer.UserId or otherPlayer.Name
-	local now = tick()
-	local cached = isTeammateCache[key]
-	if cached and now - cached.t < IS_TEAMMATE_CACHE_TTL then
-		return cached.v
-	end
-
-	local result = false
-
 	if LocalPlayer.Team and otherPlayer.Team and LocalPlayer.Team == otherPlayer.Team then
-		result = true
-	elseif LocalPlayer.TeamColor and otherPlayer.TeamColor and LocalPlayer.TeamColor == otherPlayer.TeamColor and LocalPlayer.TeamColor ~= BrickColor.new("White") then
-		result = true
-	else
-		local success, kingdomMatch = pcall(function()
-			if TSG.ClientData and TSG.ClientData.getKingdom then
-				local myKingdom = TSG.ClientData.getKingdom()
-				local otherKingdom = otherPlayer:GetAttribute("Kingdom") or otherPlayer:GetAttribute("Clan") or otherPlayer:GetAttribute("Team")
-				if myKingdom and otherKingdom and myKingdom == otherKingdom then
-					return true
-				end
+		return true
+	end
+	if LocalPlayer.TeamColor and otherPlayer.TeamColor and LocalPlayer.TeamColor == otherPlayer.TeamColor and LocalPlayer.TeamColor ~= BrickColor.new("White") then
+		return true
+	end
+
+	local success, kingdomMatch = pcall(function()
+		if TSG.ClientData and TSG.ClientData.getKingdom then
+			local myKingdom = TSG.ClientData.getKingdom()
+			local otherKingdom = otherPlayer:GetAttribute("Kingdom") or otherPlayer:GetAttribute("Clan") or otherPlayer:GetAttribute("Team")
+			if myKingdom and otherKingdom and myKingdom == otherKingdom then
+				return true
 			end
-			return false
-		end)
-		if success and kingdomMatch then
-			result = true
 		end
+		return false
+	end)
+	if success and kingdomMatch then
+		return true
 	end
 
-	if not result then
-		local myClan = LocalPlayer:GetAttribute("Clan") or LocalPlayer:GetAttribute("Kingdom") or LocalPlayer:GetAttribute("Tribe") or LocalPlayer:GetAttribute("Team")
-		local theirClan = otherPlayer:GetAttribute("Clan") or otherPlayer:GetAttribute("Kingdom") or otherPlayer:GetAttribute("Tribe") or otherPlayer:GetAttribute("Team")
-		if myClan and theirClan and myClan ~= "" and myClan == theirClan then
-			result = true
-		end
+	local myClan = LocalPlayer:GetAttribute("Clan") or LocalPlayer:GetAttribute("Kingdom") or LocalPlayer:GetAttribute("Tribe") or LocalPlayer:GetAttribute("Team")
+	local theirClan = otherPlayer:GetAttribute("Clan") or otherPlayer:GetAttribute("Kingdom") or otherPlayer:GetAttribute("Tribe") or otherPlayer:GetAttribute("Team")
+	if myClan and theirClan and myClan ~= "" and myClan == theirClan then
+		return true
 	end
 
-	if not result and LocalPlayer.Character and otherPlayer.Character then
+	if LocalPlayer.Character and otherPlayer.Character then
 		local myCharClan = LocalPlayer.Character:GetAttribute("Clan") or LocalPlayer.Character:GetAttribute("Kingdom") or LocalPlayer.Character:GetAttribute("Tribe")
 		local theirCharClan = otherPlayer.Character:GetAttribute("Clan") or otherPlayer.Character:GetAttribute("Kingdom") or otherPlayer.Character:GetAttribute("Tribe")
 		if myCharClan and theirCharClan and myCharClan ~= "" and myCharClan == theirCharClan then
-			result = true
+			return true
 		end
 	end
 
-	isTeammateCache[key] = { v = result, t = now }
-	return result
+	return false
 end
 
 local lastSmartSwing = 0
@@ -2630,77 +2616,92 @@ Toggles.Camlock:OnChanged(function()
 			if not root or not hum then return end
 
 			local maxDist = Options.CamlockStuds and Options.CamlockStuds.Value or 20
-			local basePos = root.Position
-			local myPos = basePos
+			local myPos = root.Position
 			local closestPlayer = nil
 			local closestDist = math.huge
 			local targetSetting = Options.CamlockTarget and Options.CamlockTarget.Value or "All"
 			local ignoreTeam = Toggles.CamlockIgnoreTeam and Toggles.CamlockIgnoreTeam.Value
 
-			local outlineActive = (Toggles.Outline and Toggles.Outline.Value) or (Toggles.Cutline and Toggles.Cutline.Value)
-			local minOutlineStuds = outlineActive and ((Options.OutlineStuds and Options.OutlineStuds.Value) or (Options.CutlineStuds and Options.CutlineStuds.Value) or 7) or nil
-			local outlineTargetSetting = outlineActive and ((Options.OutlineTarget and Options.OutlineTarget.Value) or "All") or nil
-
-			local playerList = Players:GetPlayers()
-			for _, otherPlayer in ipairs(playerList) do
-				if otherPlayer == LocalPlayer then continue end
-				local otherChar = otherPlayer.Character
-				if not otherChar then continue end
-
-				if ignoreTeam and isTeammate(otherPlayer) then continue end
-
-				local otherRoot = otherChar:FindFirstChild("HumanoidRootPart")
-				local otherHum = otherChar:FindFirstChildOfClass("Humanoid")
-				if not (otherRoot and otherHum and otherHum.Health > 0) then continue end
-
-				local otherPos = otherRoot.Position
-
-				-- Camlock: find closest valid target (uses basePos, unaffected by outline pushes)
-				if (targetSetting == "All" or otherPlayer.Name == targetSetting) then
-					local dist = (otherPos - basePos).Magnitude
-					if dist <= maxDist and dist < closestDist then
-						closestDist = dist
-						closestPlayer = otherPlayer
-					end
+			local function isSameTeamOnly(p)
+				if LocalPlayer.Team and p.Team and LocalPlayer.Team == p.Team then
+					return true
 				end
+				if LocalPlayer.TeamColor and p.TeamColor and LocalPlayer.TeamColor == p.TeamColor and LocalPlayer.TeamColor ~= BrickColor.new("White") then
+					return true
+				end
+				return false
+			end
 
-				-- Outline: push-away (may mutate myPos between players, preserving original order-dependent behavior)
-				if outlineActive and (outlineTargetSetting == "All" or otherPlayer.Name == outlineTargetSetting) then
-					local offset = myPos - otherPos
-					local flatOffset = Vector3.new(offset.X, 0, offset.Z)
-					local flatDist = flatOffset.Magnitude
-
-					if flatDist < minOutlineStuds then
-						local pushDir
-						if flatDist > 0.001 then
-							pushDir = flatOffset.Unit
-						else
-							local backDir = -root.CFrame.LookVector
-							local flatBack = Vector3.new(backDir.X, 0, backDir.Z)
-							pushDir = flatBack.Magnitude > 0.001 and flatBack.Unit or Vector3.new(0, 0, 1)
-						end
-
-						myPos = Vector3.new(
-							otherPos.X + pushDir.X * minOutlineStuds,
-							myPos.Y,
-							otherPos.Z + pushDir.Z * minOutlineStuds
-						)
-
-						pcall(function()
-							local vel = root.AssemblyLinearVelocity or root.Velocity
-							if vel then
-								local moveTowards = vel.X * (-pushDir.X) + vel.Z * (-pushDir.Z)
-								if moveTowards > 0 then
-									local correctedVel = Vector3.new(
-										vel.X - (-pushDir.X * moveTowards),
-										vel.Y,
-										vel.Z - (-pushDir.Z * moveTowards)
-									)
-									root.AssemblyLinearVelocity = correctedVel
-									root.Velocity = correctedVel
+			for _, otherPlayer in ipairs(Players:GetPlayers()) do
+				if otherPlayer ~= LocalPlayer and otherPlayer.Character then
+					if not ignoreTeam or not isSameTeamOnly(otherPlayer) then
+						local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
+						local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
+						if otherRoot and otherHum and otherHum.Health > 0 then
+							if targetSetting == "All" or otherPlayer.Name == targetSetting then
+								local dist = (otherRoot.Position - myPos).Magnitude
+								if dist <= maxDist and dist < closestDist then
+									closestDist = dist
+									closestPlayer = otherPlayer
 								end
 							end
-						end)
+						end
+					end
+				end
+			end
+
+			-- Outline: Stop player from getting closer than studs to players while using Camlock
+			local outlineActive = (Toggles.Outline and Toggles.Outline.Value) or (Toggles.Cutline and Toggles.Cutline.Value)
+			if outlineActive then
+				local minOutlineStuds = (Options.OutlineStuds and Options.OutlineStuds.Value) or (Options.CutlineStuds and Options.CutlineStuds.Value) or 7
+				local outlineTargetSetting = (Options.OutlineTarget and Options.OutlineTarget.Value) or "All"
+				for _, otherPlayer in ipairs(Players:GetPlayers()) do
+					if otherPlayer ~= LocalPlayer and otherPlayer.Character then
+						if not ignoreTeam or not isSameTeamOnly(otherPlayer) then
+							local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
+							local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
+							if otherRoot and otherHum and otherHum.Health > 0 then
+								if outlineTargetSetting == "All" or otherPlayer.Name == outlineTargetSetting then
+									local otherPos = otherRoot.Position
+									local offset = myPos - otherPos
+									local flatOffset = Vector3.new(offset.X, 0, offset.Z)
+									local flatDist = flatOffset.Magnitude
+
+									if flatDist < minOutlineStuds then
+										local pushDir
+										if flatDist > 0.001 then
+											pushDir = flatOffset.Unit
+										else
+											local backDir = -root.CFrame.LookVector
+											local flatBack = Vector3.new(backDir.X, 0, backDir.Z)
+											pushDir = flatBack.Magnitude > 0.001 and flatBack.Unit or Vector3.new(0, 0, 1)
+										end
+
+										myPos = Vector3.new(
+											otherPos.X + pushDir.X * minOutlineStuds,
+											myPos.Y,
+											otherPos.Z + pushDir.Z * minOutlineStuds
+										)
+
+										pcall(function()
+											local vel = root.AssemblyLinearVelocity or root.Velocity
+											if vel then
+												local moveTowards = vel.X * (-pushDir.X) + vel.Z * (-pushDir.Z)
+												if moveTowards > 0 then
+													local correctedVel = Vector3.new(
+														vel.X - (-pushDir.X * moveTowards),
+														vel.Y,
+														vel.Z - (-pushDir.Z * moveTowards)
+													)
+													root.AssemblyLinearVelocity = correctedVel
+													root.Velocity = correctedVel
+												end
+											end
+										end)
+									end
+								end
+							end
+						end
 					end
 				end
 			end
@@ -2709,7 +2710,7 @@ Toggles.Camlock:OnChanged(function()
 				UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
 				UserInputService.MouseIconEnabled = false
 
-				local targetRoot = closestPlayer.Character and closestPlayer.Character:FindFirstChild("HumanoidRootPart")
+				local targetRoot = closestPlayer.Character:FindFirstChild("HumanoidRootPart")
 				if targetRoot then
 					local targetPos = targetRoot.Position
 					local lookDir = Vector3.new(targetPos.X - myPos.X, 0, targetPos.Z - myPos.Z).Unit
