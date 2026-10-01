@@ -99,6 +99,29 @@ local function isAlive()
 	return humanoid and humanoid.Health > 0
 end
 
+local function safeTeleport(target)
+	local root = getRootPart()
+	if not root then return false end
+
+	local targetCF
+	if typeof(target) == "Vector3" then
+		targetCF = CFrame.new(target)
+	elseif typeof(target) == "CFrame" then
+		targetCF = target
+	else
+		return false
+	end
+
+	local cam = workspace.CurrentCamera
+	local delta = targetCF.Position - root.Position
+
+	root.CFrame = targetCF
+	if cam then
+		cam.CFrame = cam.CFrame + delta
+	end
+	return true
+end
+
 local function isHoldingSelectedSlot(selectedSlot)
 	if not selectedSlot then return false end
 	local character = getCharacter()
@@ -559,8 +582,8 @@ TeleportGroup:AddButton({
 			return
 		end
 
-		if targetCharacter:FindFirstChild("HumanoidRootPart") and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-			player.Character.HumanoidRootPart.CFrame = targetCharacter.HumanoidRootPart.CFrame + Vector3.new(0, 3, 0)
+		if targetCharacter:FindFirstChild("HumanoidRootPart") then
+			safeTeleport(targetCharacter.HumanoidRootPart.CFrame + Vector3.new(0, 3, 0))
 		end
 	end,
 })
@@ -1088,9 +1111,7 @@ track("CharacterModuleRespawn", LocalPlayer.CharacterAdded:Connect(function()
 	applyCharacterModuleToggles()
 	if shouldTeleportBack and lastDeathPosition then
 		shouldTeleportBack = false
-		local root = getRootPart()
-		if root then
-			root.CFrame = CFrame.new(lastDeathPosition + Vector3.new(0, 3, 0))
+		if safeTeleport(lastDeathPosition + Vector3.new(0, 3, 0)) then
 			Library:Notify({ Title = "Reset & Teleport", Description = "Teleported back to last location!", Time = 2 })
 		end
 	end
@@ -4666,9 +4687,7 @@ OreFarm:AddButton({
                    end
            end
            if targetPos then
-                   local root = getRootPart()
-                   if root then
-                           root.CFrame = CFrame.new(targetPos)
+                   if safeTeleport(targetPos) then
                            Library:Notify({ Title = "Teleport", Description = "Teleported to " .. selected, Time = 1.5 })
                    else
                            Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
@@ -5218,10 +5237,10 @@ end)
 Toggles.TitanAura:OnChanged(function()
 	disconnect("TitanAuraFloat")
 	if Toggles.TitanAura.Value then
+		safeTeleport(Vector3.new(1654.57, 35, 2312.14))
 		local root = getRootPart()
 		if root then
 			root.Velocity = Vector3.zero
-			root.CFrame = CFrame.new(1654.57, 35, 2312.14)
 		end
 		track("TitanAuraFloat", RunService.Heartbeat:Connect(function()
 			if not isAlive() then return end
@@ -5246,10 +5265,10 @@ end)
 Toggles.SamuraiAura:OnChanged(function()
 	disconnect("SamuraiAuraFloat")
 	if Toggles.SamuraiAura.Value then
+		safeTeleport(Vector3.new(-1727.48, 528, 7305.50))
 		local root = getRootPart()
 		if root then
 			root.Velocity = Vector3.zero
-			root.CFrame = CFrame.new(-1727.48, 528, 7305.50)
 		end
 		track("SamuraiAuraFloat", RunService.Heartbeat:Connect(function()
 			if not isAlive() then return end
@@ -5274,10 +5293,10 @@ end)
 Toggles.JuggernautAura:OnChanged(function()
 	disconnect("JuggernautAuraFloat")
 	if Toggles.JuggernautAura.Value then
+		safeTeleport(Vector3.new(-1601.49, 118, -2890.59))
 		local root = getRootPart()
 		if root then
 			root.Velocity = Vector3.zero
-			root.CFrame = CFrame.new(-1601.49, 118, -2890.59)
 		end
 		track("JuggernautAuraFloat", RunService.Heartbeat:Connect(function()
 			if not isAlive() then return end
@@ -5319,9 +5338,7 @@ for _, loc in ipairs(bossLocations) do
 	BossLocationsGroup:AddButton({
 		Text = loc.name,
 		Func = function()
-			local root = getRootPart()
-			if root then
-				root.CFrame = CFrame.new(loc.pos)
+			if safeTeleport(loc.pos) then
 				Library:Notify({ Title = "Teleport", Description = "Teleported to " .. loc.name, Time = 1.5 })
 			else
 				Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
@@ -5350,9 +5367,7 @@ for _, loc in ipairs(extraLocations) do
 	TeleportExtra:AddButton({
 		Text = loc.name,
 		Func = function()
-			local root = getRootPart()
-			if root then
-				root.CFrame = CFrame.new(loc.pos)
+			if safeTeleport(loc.pos) then
 				Library:Notify({ Title = "Teleport", Description = "Teleported to " .. loc.name, Time = 1.5 })
 			else
 				Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
@@ -5377,9 +5392,7 @@ for _, loc in ipairs(mountLocations) do
 	MountsGroup:AddButton({
 		Text = loc.name,
 		Func = function()
-			local root = getRootPart()
-			if root then
-				root.CFrame = CFrame.new(loc.pos)
+			if safeTeleport(loc.pos) then
 				Library:Notify({ Title = "Teleport", Description = "Teleported to " .. loc.name, Time = 1.5 })
 			else
 				Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
@@ -5404,9 +5417,7 @@ for _, loc in ipairs(merchantLocations) do
 	MerchantsGroup:AddButton({
 		Text = loc.name,
 		Func = function()
-			local root = getRootPart()
-			if root then
-				root.CFrame = CFrame.new(loc.pos)
+			if safeTeleport(loc.pos) then
 				Library:Notify({ Title = "Teleport", Description = "Teleported to " .. loc.name, Time = 1.5 })
 			else
 				Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
@@ -6048,11 +6059,6 @@ VisualEnv:AddToggle("Midday", {
 
 VisualEnv:AddToggle("AlwaysNight", {
 	Text = "Always Night",
-	Default = false,
-})
-
-VisualEnv:AddToggle("InfiniteZoom", {
-	Text = "Infinite Zoom",
 	Default = false,
 })
 
@@ -6716,17 +6722,6 @@ Toggles.AlwaysNight:OnChanged(function()
 		if not Toggles.AlwaysDay.Value and not Toggles.Midday.Value then
 			applyClockTime(nil)
 		end
-	end
-end)
-
-Toggles.InfiniteZoom:OnChanged(function()
-	if Toggles.InfiniteZoom.Value then
-		LocalPlayer.CameraMaxZoomDistance = 100000
-		LocalPlayer.CameraMinZoomDistance = 0.5
-		Library:Notify({ Title = "Infinite Zoom", Description = "Enabled", Time = 2 })
-	else
-		LocalPlayer.CameraMaxZoomDistance = 400
-		LocalPlayer.CameraMinZoomDistance = 0.5
 	end
 end)
 
@@ -7480,8 +7475,6 @@ Library:OnUnload(function()
 	pcall(function() clearOreESPHighlights() end)
 	highlightTarget:Destroy()
 	workspace.Gravity = 196.2
-	LocalPlayer.CameraMaxZoomDistance = 400
-	LocalPlayer.CameraMinZoomDistance = 0.5
 	getgenv().TSG_OBSIDIAN_LOADED = nil
 end)
 
