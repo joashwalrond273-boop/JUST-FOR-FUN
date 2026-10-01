@@ -389,6 +389,8 @@ AdvanceHealGroup:AddSlider("AutoEatCooldown", {
 	Compact = true,
 })
 
+local MainRight = Tabs.Player:AddRightGroupbox("Settings", "settings")
+
 -- ============================================================================
 -- MAIN TAB (IMMORTAL AURA / SPECTATE)
 -- ============================================================================
@@ -575,8 +577,6 @@ SpectateGroup:AddDropdown("SpectatePlayerList", {
 	Values = {},
 	Default = "",
 })
-
-local MainRight = Tabs.Main:AddRightGroupbox("Settings", "settings")
 
 local FunLeft = Tabs.Main:AddRightGroupbox("FLING A BULLY", "swords")
 
