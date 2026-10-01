@@ -509,7 +509,9 @@ FunAttach:AddCheckbox("FloatOverToggle", {
         Default = false,
 })
 
-local TeleportGroup = Tabs.Main:AddRightGroupbox("TELEPORT", "map-pin")
+local TeleportTabBox = Tabs.Main:AddRightTabbox()
+local TeleportGroup = TeleportTabBox:AddTab("Teleport", "map-pin")
+local SpectateGroup = TeleportTabBox:AddTab("Spectate", "scan-eye")
 
 TeleportGroup:AddDropdown("TeleportPlayerList", {
 	Text = "Select Player",
@@ -565,17 +567,15 @@ TeleportGroup:AddButton({
 	end,
 })
 
-local SpectateGroup = Tabs.Main:AddRightGroupbox("SPECTATE", "scan-eye")
-
-SpectateGroup:AddToggle("SpectateToggle", {
-	Text = "Spectate",
-	Default = false,
-})
-
 SpectateGroup:AddDropdown("SpectatePlayerList", {
 	Text = "Select Player",
 	Values = {},
 	Default = "",
+})
+
+SpectateGroup:AddCheckbox("SpectateToggle", {
+	Text = "Spectate",
+	Default = false,
 })
 
 local FunLeft = Tabs.Main:AddRightGroupbox("FLING A BULLY", "swords")
