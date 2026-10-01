@@ -1984,8 +1984,8 @@ local function updateAdvanceState()
 	if not (Toggles.Advance and Toggles.Advance.Value) then return end
 	if not isAlive() then return end
 
-	local isHoldingDisabledSlot = isAdvanceSlotAllowed(Options.AdvanceSlot)
-	local shouldBeImmortal = not isHoldingDisabledSlot
+	local isHoldingSelectedSlot = isAdvanceSlotAllowed(Options.AdvanceSlot)
+	local shouldBeImmortal = isHoldingSelectedSlot
 
 	if Toggles.ImmortalMode and Toggles.ImmortalMode.Value ~= shouldBeImmortal then
 		Toggles.ImmortalMode:SetValue(shouldBeImmortal)
