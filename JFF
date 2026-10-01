@@ -389,8 +389,6 @@ AdvanceHealGroup:AddSlider("AutoEatCooldown", {
 	Compact = true,
 })
 
-local MainRight = Tabs.Player:AddRightGroupbox("Settings", "settings")
-
 -- ============================================================================
 -- MAIN TAB (IMMORTAL AURA / SPECTATE)
 -- ============================================================================
@@ -509,7 +507,9 @@ FunAttach:AddCheckbox("FloatOverToggle", {
         Default = false,
 })
 
-local TeleportGroup = Tabs.Main:AddRightGroupbox("TELEPORT", "map-pin")
+local TeleportTabBox = Tabs.Main:AddRightTabbox()
+local TeleportGroup = TeleportTabBox:AddTab("Teleport", "map-pin")
+local SpectateGroup = TeleportTabBox:AddTab("Spectate", "scan-eye")
 
 TeleportGroup:AddDropdown("TeleportPlayerList", {
 	Text = "Select Player",
@@ -565,9 +565,7 @@ TeleportGroup:AddButton({
 	end,
 })
 
-local SpectateGroup = Tabs.Main:AddRightGroupbox("SPECTATE", "scan-eye")
-
-SpectateGroup:AddToggle("SpectateToggle", {
+SpectateGroup:AddCheckbox("SpectateToggle", {
 	Text = "Spectate",
 	Default = false,
 })
@@ -577,6 +575,8 @@ SpectateGroup:AddDropdown("SpectatePlayerList", {
 	Values = {},
 	Default = "",
 })
+
+local MainRight = Tabs.Main:AddRightGroupbox("Settings", "settings")
 
 local FunLeft = Tabs.Main:AddRightGroupbox("FLING A BULLY", "swords")
 
