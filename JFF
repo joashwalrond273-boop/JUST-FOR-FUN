@@ -1647,8 +1647,6 @@ CombatAutoPVP:AddSlider("SpeedBoostValue", {
 	Compact = true,
 })
 
-
-
 CombatAutoPVP:AddCheckbox("LookDownFloor", {
 	Text = "+ Look at Floor",
 	Default = false,
