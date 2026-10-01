@@ -6,6 +6,16 @@ if getgenv().TSG_OBSIDIAN_LOADED then
 end
 getgenv().TSG_OBSIDIAN_LOADED = true
 
+-- Built-in Uncap FPS
+local function uncapFPS()
+	pcall(function()
+		if setfpscap then
+			setfpscap(999)
+		end
+	end)
+end
+uncapFPS()
+
 -- Services
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -5761,20 +5771,6 @@ do
 		end,
 	})
 end
-
-VisualFPS:AddToggle("UncapFPS", {
-	Text = "Uncap FPS",
-	Default = false,
-	Callback = function(state)
-		pcall(function()
-			if state then
-				setfpscap(999)
-			else
-				setfpscap(60)
-			end
-		end)
-	end,
-})
 
 do
 	local HEAVY_POST_CLASSES = {
