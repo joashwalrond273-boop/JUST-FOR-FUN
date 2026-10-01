@@ -53,6 +53,7 @@ local updateFlightVisibility
 local updateImmortalModeVisibility
 local updatePhantomModeVisibility
 local updateSwimBoostVisibility
+local isTeammate
 
 Library.ShowToggleFrameInKeybinds = true
 
@@ -411,6 +412,11 @@ CombatAutoBlock:AddCheckbox("BypassShield", {
 	Default = false,
 })
 
+CombatAutoBlock:AddCheckbox("ImmortalIgnoreTeam", {
+	Text = "Ignore Team",
+	Default = true,
+})
+
 CombatAutoBlock:AddDropdown("AdvanceSlot", {
 	Text = "ADV Slot System",
 	Values = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"},
@@ -460,6 +466,14 @@ updateImmortalModeVisibility = function()
 		end
 		if Toggles.BypassShield.Holder then
 			Toggles.BypassShield.Holder.Visible = isImmortal
+		end
+	end
+	if Toggles.ImmortalIgnoreTeam then
+		if Toggles.ImmortalIgnoreTeam.Visible ~= nil then
+			Toggles.ImmortalIgnoreTeam.Visible = isImmortal
+		end
+		if Toggles.ImmortalIgnoreTeam.Holder then
+			Toggles.ImmortalIgnoreTeam.Holder.Visible = isImmortal
 		end
 	end
 	if not isImmortal and Toggles.BypassShield and Toggles.BypassShield.Value then
@@ -1828,45 +1842,35 @@ CombatReach:AddSlider("ReachAngle", {
 	Compact = true,
 })
 
-local MOVEMENT_ANIM_IDS = {
-	["507766388"] = true, ["507777826"] = true, ["507767714"] = true,
-	["507765000"] = true, ["507767968"] = true, ["507765644"] = true,
-	["507784064"] = true, ["180426354"] = true, ["180415668"] = true,
-	["180419271"] = true, ["180435571"] = true
-}
-local swingAnimCache = {}
-
 local function isSwingAnimation(trackObj)
 	local anim = trackObj.Animation
 	if not anim then return false end
 	local id = anim.AnimationId
-	if id and swingAnimCache[id] ~= nil then
-		return swingAnimCache[id]
-	end
-
 	local name = anim.Name:lower()
+
 	if name:find("idle") or name:find("walk") or name:find("run") or name:find("jump") or
 	   name:find("fall") or name:find("swim") or name:find("climb") or name:find("strafe") then
-		if id then swingAnimCache[id] = false end
 		return false
 	end
 
-	for mId in pairs(MOVEMENT_ANIM_IDS) do
+	local movementIds = {
+		["507766388"] = true, ["507777826"] = true, ["507767714"] = true,
+		["507765000"] = true, ["507767968"] = true, ["507765644"] = true,
+		["507784064"] = true, ["180426354"] = true, ["180415668"] = true,
+		["180419271"] = true, ["180435571"] = true
+	}
+	for mId in pairs(movementIds) do
 		if id:find(mId) then
-			if id then swingAnimCache[id] = false end
 			return false
 		end
 	end
 
-	if id then swingAnimCache[id] = true end
 	return true
 end
 
 local isShielding = false
 local lastShieldFire = 0
 local multiSnapIndex = 1
-local activeAttackersBuffer = {}
-
 local function updateImmortalMode()
 	if not isAlive() or not Toggles.ImmortalMode.Value then
 		if isShielding then
@@ -1885,17 +1889,16 @@ local function updateImmortalMode()
 	local checkDistance = (Options.ImmortalModeStuds and Options.ImmortalModeStuds.Value) or 18
 	local nearestEnemy = nil
 	local nearestDist = math.huge
-	table.clear(activeAttackersBuffer)
-
-	local myPos = root.Position
+	local activeAttackers = {}
+	local ignoreTeam = Toggles.ImmortalIgnoreTeam and Toggles.ImmortalIgnoreTeam.Value
 
 	for _, player in ipairs(Players:GetPlayers()) do
 		if player ~= LocalPlayer and player.Character then
-			if not isTeammate(player) then
+			if not ignoreTeam or not isTeammate(player) then
 				local targetRoot = player.Character:FindFirstChild("HumanoidRootPart")
 				local hum = player.Character:FindFirstChildOfClass("Humanoid")
 				if targetRoot and hum and hum.Health > 0 then
-					local dist = (targetRoot.Position - myPos).Magnitude
+					local dist = (targetRoot.Position - root.Position).Magnitude
 					if dist <= checkDistance then
 						shouldShield = true
 						if dist < nearestDist then
@@ -1905,11 +1908,9 @@ local function updateImmortalMode()
 
 						local animator = hum:FindFirstChild("Animator")
 						if animator then
-							local tracks = animator:GetPlayingAnimationTracks()
-							for i = 1, #tracks do
-								local trackObj = tracks[i]
+							for _, trackObj in ipairs(animator:GetPlayingAnimationTracks()) do
 								if trackObj.Speed > 0 and isSwingAnimation(trackObj) then
-									table.insert(activeAttackersBuffer, { root = targetRoot, dist = dist })
+									table.insert(activeAttackers, { root = targetRoot, dist = dist })
 									break
 								end
 							end
@@ -1922,14 +1923,13 @@ local function updateImmortalMode()
 
 	if shouldShield then
 		local targetToFace = nil
-		local count = #activeAttackersBuffer
-		if count > 0 then
-			if count > 1 then
-				table.sort(activeAttackersBuffer, function(a, b) return a.dist < b.dist end)
-				multiSnapIndex = (multiSnapIndex % count) + 1
-				targetToFace = activeAttackersBuffer[multiSnapIndex].root
+		if #activeAttackers > 0 then
+			table.sort(activeAttackers, function(a, b) return a.dist < b.dist end)
+			if #activeAttackers == 1 then
+				targetToFace = activeAttackers[1].root
 			else
-				targetToFace = activeAttackersBuffer[1].root
+				multiSnapIndex = (multiSnapIndex % #activeAttackers) + 1
+				targetToFace = activeAttackers[multiSnapIndex].root
 			end
 		else
 			targetToFace = nearestEnemy
@@ -2363,80 +2363,47 @@ Toggles.AutoSwing:OnChanged(function()
 	end
 end)
 
-local teammateCache = setmetatable({}, { __mode = "k" })
-local lastMyClanCheck = 0
-local cachedMyKingdom = nil
-local cachedMyClan = nil
-local cachedMyCharClan = nil
-
-local function getMyClanInfo()
-	local now = tick()
-	if now - lastMyClanCheck < 0.5 then
-		return cachedMyKingdom, cachedMyClan, cachedMyCharClan
-	end
-	lastMyClanCheck = now
-
-	if TSG.ClientData and TSG.ClientData.getKingdom then
-		pcall(function()
-			cachedMyKingdom = TSG.ClientData.getKingdom()
-		end)
-	else
-		cachedMyKingdom = nil
-	end
-
-	cachedMyClan = LocalPlayer:GetAttribute("Clan") or LocalPlayer:GetAttribute("Kingdom") or LocalPlayer:GetAttribute("Tribe") or LocalPlayer:GetAttribute("Team")
-	if LocalPlayer.Character then
-		cachedMyCharClan = LocalPlayer.Character:GetAttribute("Clan") or LocalPlayer.Character:GetAttribute("Kingdom") or LocalPlayer.Character:GetAttribute("Tribe")
-	else
-		cachedMyCharClan = nil
-	end
-
-	return cachedMyKingdom, cachedMyClan, cachedMyCharClan
-end
-
-local function isTeammate(otherPlayer)
+function isTeammate(otherPlayer)
 	if not otherPlayer or otherPlayer == LocalPlayer then
 		return true
 	end
 
-	local now = tick()
-	local cache = teammateCache[otherPlayer]
-	if cache and (now - cache.time < 0.5) then
-		return cache.result
-	end
-
-	local result = false
 	if LocalPlayer.Team and otherPlayer.Team and LocalPlayer.Team == otherPlayer.Team then
-		result = true
-	elseif LocalPlayer.TeamColor and otherPlayer.TeamColor and LocalPlayer.TeamColor == otherPlayer.TeamColor and LocalPlayer.TeamColor ~= BrickColor.new("White") then
-		result = true
-	else
-		local myKingdom, myClan, myCharClan = getMyClanInfo()
+		return true
+	end
+	if LocalPlayer.TeamColor and otherPlayer.TeamColor and LocalPlayer.TeamColor == otherPlayer.TeamColor and LocalPlayer.TeamColor ~= BrickColor.new("White") then
+		return true
+	end
 
-		if myKingdom then
+	local success, kingdomMatch = pcall(function()
+		if TSG.ClientData and TSG.ClientData.getKingdom then
+			local myKingdom = TSG.ClientData.getKingdom()
 			local otherKingdom = otherPlayer:GetAttribute("Kingdom") or otherPlayer:GetAttribute("Clan") or otherPlayer:GetAttribute("Team")
-			if otherKingdom and myKingdom == otherKingdom then
-				result = true
+			if myKingdom and otherKingdom and myKingdom == otherKingdom then
+				return true
 			end
 		end
+		return false
+	end)
+	if success and kingdomMatch then
+		return true
+	end
 
-		if not result and myClan and myClan ~= "" then
-			local theirClan = otherPlayer:GetAttribute("Clan") or otherPlayer:GetAttribute("Kingdom") or otherPlayer:GetAttribute("Tribe") or otherPlayer:GetAttribute("Team")
-			if theirClan and myClan == theirClan then
-				result = true
-			end
-		end
+	local myClan = LocalPlayer:GetAttribute("Clan") or LocalPlayer:GetAttribute("Kingdom") or LocalPlayer:GetAttribute("Tribe") or LocalPlayer:GetAttribute("Team")
+	local theirClan = otherPlayer:GetAttribute("Clan") or otherPlayer:GetAttribute("Kingdom") or otherPlayer:GetAttribute("Tribe") or otherPlayer:GetAttribute("Team")
+	if myClan and theirClan and myClan ~= "" and myClan == theirClan then
+		return true
+	end
 
-		if not result and myCharClan and myCharClan ~= "" and otherPlayer.Character then
-			local theirCharClan = otherPlayer.Character:GetAttribute("Clan") or otherPlayer.Character:GetAttribute("Kingdom") or otherPlayer.Character:GetAttribute("Tribe")
-			if theirCharClan and myCharClan == theirCharClan then
-				result = true
-			end
+	if LocalPlayer.Character and otherPlayer.Character then
+		local myCharClan = LocalPlayer.Character:GetAttribute("Clan") or LocalPlayer.Character:GetAttribute("Kingdom") or LocalPlayer.Character:GetAttribute("Tribe")
+		local theirCharClan = otherPlayer.Character:GetAttribute("Clan") or otherPlayer.Character:GetAttribute("Kingdom") or otherPlayer.Character:GetAttribute("Tribe")
+		if myCharClan and theirCharClan and myCharClan ~= "" and myCharClan == theirCharClan then
+			return true
 		end
 	end
 
-	teammateCache[otherPlayer] = { result = result, time = now }
-	return result
+	return false
 end
 
 local lastSmartSwing = 0
@@ -2752,64 +2719,72 @@ Toggles.Camlock:OnChanged(function()
 			local targetSetting = Options.CamlockTarget and Options.CamlockTarget.Value or "All"
 			local ignoreTeam = Toggles.CamlockIgnoreTeam and Toggles.CamlockIgnoreTeam.Value
 
-			local outlineActive = (Toggles.Outline and Toggles.Outline.Value) or (Toggles.Cutline and Toggles.Cutline.Value)
-			local minOutlineStuds = (Options.OutlineStuds and Options.OutlineStuds.Value) or (Options.CutlineStuds and Options.CutlineStuds.Value) or 7
-			local outlineTargetSetting = (Options.OutlineTarget and Options.OutlineTarget.Value) or "All"
-
-			-- Single high-performance pass over all players
-			local players = Players:GetPlayers()
-			for i = 1, #players do
-				local otherPlayer = players[i]
+			for _, otherPlayer in ipairs(Players:GetPlayers()) do
 				if otherPlayer ~= LocalPlayer and otherPlayer.Character then
 					if not ignoreTeam or not isTeammate(otherPlayer) then
 						local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
 						local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
 						if otherRoot and otherHum and otherHum.Health > 0 then
-							local otherPos = otherRoot.Position
-							local dist = (otherPos - myPos).Magnitude
-
-							-- Camlock targeting
 							if targetSetting == "All" or otherPlayer.Name == targetSetting then
+								local dist = (otherRoot.Position - myPos).Magnitude
 								if dist <= maxDist and dist < closestDist then
 									closestDist = dist
 									closestPlayer = otherPlayer
 								end
 							end
+						end
+					end
+				end
+			end
 
-							-- Outline pushback
-							if outlineActive and (outlineTargetSetting == "All" or otherPlayer.Name == outlineTargetSetting) then
-								local offset = myPos - otherPos
-								local flatOffset = Vector3.new(offset.X, 0, offset.Z)
-								local flatDist = flatOffset.Magnitude
+			-- Outline: Stop player from getting closer than studs to players while using Camlock
+			local outlineActive = (Toggles.Outline and Toggles.Outline.Value) or (Toggles.Cutline and Toggles.Cutline.Value)
+			if outlineActive then
+				local minOutlineStuds = (Options.OutlineStuds and Options.OutlineStuds.Value) or (Options.CutlineStuds and Options.CutlineStuds.Value) or 7
+				local outlineTargetSetting = (Options.OutlineTarget and Options.OutlineTarget.Value) or "All"
+				for _, otherPlayer in ipairs(Players:GetPlayers()) do
+					if otherPlayer ~= LocalPlayer and otherPlayer.Character then
+						if not ignoreTeam or not isTeammate(otherPlayer) then
+							local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
+							local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
+							if otherRoot and otherHum and otherHum.Health > 0 then
+								if outlineTargetSetting == "All" or otherPlayer.Name == outlineTargetSetting then
+									local otherPos = otherRoot.Position
+									local offset = myPos - otherPos
+									local flatOffset = Vector3.new(offset.X, 0, offset.Z)
+									local flatDist = flatOffset.Magnitude
 
-								if flatDist < minOutlineStuds then
-									local pushDir
-									if flatDist > 0.001 then
-										pushDir = flatOffset.Unit
-									else
-										local backDir = -root.CFrame.LookVector
-										local flatBack = Vector3.new(backDir.X, 0, backDir.Z)
-										pushDir = flatBack.Magnitude > 0.001 and flatBack.Unit or Vector3.new(0, 0, 1)
-									end
-
-									myPos = Vector3.new(
-										otherPos.X + pushDir.X * minOutlineStuds,
-										myPos.Y,
-										otherPos.Z + pushDir.Z * minOutlineStuds
-									)
-
-									local vel = root.AssemblyLinearVelocity or root.Velocity
-									if vel then
-										local moveTowards = vel.X * (-pushDir.X) + vel.Z * (-pushDir.Z)
-										if moveTowards > 0 then
-											local correctedVel = Vector3.new(
-												vel.X - (-pushDir.X * moveTowards),
-												vel.Y,
-												vel.Z - (-pushDir.Z * moveTowards)
-											)
-											root.AssemblyLinearVelocity = correctedVel
-											root.Velocity = correctedVel
+									if flatDist < minOutlineStuds then
+										local pushDir
+										if flatDist > 0.001 then
+											pushDir = flatOffset.Unit
+										else
+											local backDir = -root.CFrame.LookVector
+											local flatBack = Vector3.new(backDir.X, 0, backDir.Z)
+											pushDir = flatBack.Magnitude > 0.001 and flatBack.Unit or Vector3.new(0, 0, 1)
 										end
+
+										myPos = Vector3.new(
+											otherPos.X + pushDir.X * minOutlineStuds,
+											myPos.Y,
+											otherPos.Z + pushDir.Z * minOutlineStuds
+										)
+
+										pcall(function()
+											local vel = root.AssemblyLinearVelocity or root.Velocity
+											if vel then
+												local moveTowards = vel.X * (-pushDir.X) + vel.Z * (-pushDir.Z)
+												if moveTowards > 0 then
+													local correctedVel = Vector3.new(
+														vel.X - (-pushDir.X * moveTowards),
+														vel.Y,
+														vel.Z - (-pushDir.Z * moveTowards)
+													)
+													root.AssemblyLinearVelocity = correctedVel
+													root.Velocity = correctedVel
+												end
+											end
+										end)
 									end
 								end
 							end
