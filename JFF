@@ -5865,6 +5865,118 @@ do
 	})
 end
 
+do
+	local savedLTM = setmetatable({}, { __mode = "k" })
+	local farCullRunning = false
+
+	local function restoreOne(part)
+		if not part or not part:IsA("BasePart") then return end
+		local original = savedLTM[part]
+		if original ~= nil then
+			pcall(function() part.LocalTransparencyModifier = original end)
+			savedLTM[part] = nil
+		end
+	end
+
+	local function cullIfFar(pos, maxDistSq, part)
+		if not part or not part:IsA("BasePart") then return end
+		if not part:IsDescendantOf(workspace) then return end
+		if savedLTM[part] == nil then
+			savedLTM[part] = part.LocalTransparencyModifier
+		end
+		local dx = part.Position.X - pos.X
+		local dy = part.Position.Y - pos.Y
+		local dz = part.Position.Z - pos.Z
+		local distSq = dx*dx + dy*dy + dz*dz
+		if distSq > maxDistSq then
+			pcall(function() part.LocalTransparencyModifier = 1 end)
+		else
+			pcall(function() part.LocalTransparencyModifier = savedLTM[part] end)
+		end
+	end
+
+	local function processChildren(pos, maxDistSq, container)
+		if not container then return end
+		for _, obj in ipairs(container:GetChildren()) do
+			if not obj or not obj.Parent then continue end
+			if obj:IsA("BasePart") then
+				if obj ~= workspace.Terrain then
+					cullIfFar(pos, maxDistSq, obj)
+				end
+			elseif obj:IsA("Folder") or obj:IsA("Model") then
+				if obj:IsA("Model") and obj:FindFirstChildOfClass("Humanoid") then continue end
+				processChildren(pos, maxDistSq, obj)
+			end
+		end
+	end
+
+	VisualFPS:AddToggle("FarCull", {
+		Text = "Far Cull World",
+		Default = false,
+		Callback = function(state)
+			farCullRunning = false
+			if not state then
+				for part, _ in pairs(savedLTM) do
+					restoreOne(part)
+				end
+				table.clear(savedLTM)
+				Library:Notify({ Title = "Far Cull World", Description = "Disabled", Time = 2 })
+				return
+			end
+
+			farCullRunning = true
+			task.spawn(function()
+				while farCullRunning and Toggles.FarCull and Toggles.FarCull.Value do
+					local maxDist = VisualFPS.FarCullDistance and VisualFPS.FarCullDistance.Value or 250
+					local maxDistSq = maxDist * maxDist
+
+					local pos = nil
+					local root = getRootPart()
+					if root then
+						pos = root.Position
+					else
+						local cam = workspace.CurrentCamera
+						if cam then pos = cam.CFrame.Position end
+					end
+					if not pos then
+						task.wait(0.5)
+						continue
+					end
+
+					local Players = game:GetService("Players")
+					local skipModels = {}
+					for _, p in ipairs(Players:GetPlayers()) do
+						local char = p.Character
+						if char then skipModels[char] = true end
+					end
+
+					for _, obj in ipairs(workspace:GetChildren()) do
+						if not obj or not obj.Parent then continue end
+						if skipModels[obj] then continue end
+						if obj:IsA("BasePart") then
+							if obj ~= workspace.Terrain then
+								cullIfFar(pos, maxDistSq, obj)
+							end
+						elseif obj:IsA("Folder") or obj:IsA("Model") then
+							processChildren(pos, maxDistSq, obj)
+						end
+					end
+
+					task.wait(0.5)
+				end
+			end)
+
+			Library:Notify({ Title = "Far Cull World", Description = "Enabled", Time = 2 })
+		end,
+	}):AddSlider("FarCullDistance", {
+		Text = "Cull Distance",
+		Default = 250,
+		Min = 100,
+		Max = 600,
+		Rounding = 0,
+	})
+end
+
 VisualLeft:AddToggle("PlayerESP", {
 	Text = "Enabled",
 	Default = false,
@@ -7357,6 +7469,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.NoSkyFx and Toggles.NoSkyFx.Value then
 		Toggles.NoSkyFx:SetValue(false)
+	end
+	if Toggles.FarCull and Toggles.FarCull.Value then
+		Toggles.FarCull:SetValue(false)
 	end
 	if Toggles.DisableRenderFog and Toggles.DisableRenderFog.Value then
 		Toggles.DisableRenderFog:SetValue(false)
