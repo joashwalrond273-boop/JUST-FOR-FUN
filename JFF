@@ -5786,6 +5786,85 @@ do
 	})
 end
 
+do
+	local SKY_FX_CLASSES = {
+		Sky = true,
+		Atmosphere = true,
+		Clouds = true,
+	}
+	local savedNoSkyFx = setmetatable({}, { __mode = "k" })
+
+	local function isSkyFx(v)
+		return v and SKY_FX_CLASSES[v.ClassName]
+	end
+
+	local function hideSkyFx(v)
+		if not isSkyFx(v) then return end
+		if savedNoSkyFx[v] ~= nil then return end
+		savedNoSkyFx[v] = v.Parent
+		pcall(function() v.Parent = nil end)
+	end
+
+	local function restoreSkyFx(v)
+		if not isSkyFx(v) then return end
+		local originalParent = savedNoSkyFx[v]
+		if originalParent ~= nil then
+			pcall(function() v.Parent = originalParent end)
+		end
+		savedNoSkyFx[v] = nil
+	end
+
+	VisualFPS:AddToggle("NoSkyFx", {
+		Text = "No Sky/Cloud/Atmos",
+		Default = false,
+		Callback = function(state)
+			disconnect("NoSkyFx_ChildAdded")
+
+			local Lighting = game:GetService("Lighting")
+
+			if state then
+				local children = nil
+				pcall(function() children = Lighting:GetChildren() end)
+				if children then
+					for _, v in ipairs(children) do
+						hideSkyFx(v)
+					end
+				end
+
+				for hidden, _ in pairs(savedNoSkyFx) do
+					if hidden and hidden.Parent ~= nil then
+						-- already-restored edge case; sync the table
+						savedNoSkyFx[hidden] = hidden.Parent
+						pcall(function() hidden.Parent = nil end)
+					end
+				end
+
+				track("NoSkyFx_ChildAdded", Lighting.ChildAdded:Connect(function(child)
+					if Toggles.NoSkyFx and Toggles.NoSkyFx.Value then
+						task.defer(function() hideSkyFx(child) end)
+					end
+				end))
+
+				Library:Notify({ Title = "No Sky/Cloud/Atmos", Description = "Enabled", Time = 2 })
+			else
+				local children = nil
+				pcall(function() children = Lighting:GetChildren() end)
+				if children then
+					for _, v in ipairs(children) do
+						if isSkyFx(v) then
+							restoreSkyFx(v)
+						end
+					end
+				end
+				for v, _ in pairs(savedNoSkyFx) do
+					restoreSkyFx(v)
+				end
+				Library:Notify({ Title = "No Sky/Cloud/Atmos", Description = "Disabled", Time = 2 })
+			end
+		end,
+	})
+end
+
 VisualLeft:AddToggle("PlayerESP", {
 	Text = "Enabled",
 	Default = false,
@@ -7275,6 +7354,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.KillHeavyPostEffects and Toggles.KillHeavyPostEffects.Value then
 		Toggles.KillHeavyPostEffects:SetValue(false)
+	end
+	if Toggles.NoSkyFx and Toggles.NoSkyFx.Value then
+		Toggles.NoSkyFx:SetValue(false)
 	end
 	if Toggles.DisableRenderFog and Toggles.DisableRenderFog.Value then
 		Toggles.DisableRenderFog:SetValue(false)
