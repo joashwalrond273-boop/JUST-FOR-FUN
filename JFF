@@ -53,6 +53,7 @@ local updateFlightVisibility
 local updateImmortalModeVisibility
 local updatePhantomModeVisibility
 local updateSwimBoostVisibility
+local toggleSpectate, stopSpectate
 
 Library.ShowToggleFrameInKeybinds = true
 
@@ -573,9 +574,13 @@ SpectateGroup:AddDropdown("SpectatePlayerList", {
 	Default = "",
 })
 
-SpectateGroup:AddCheckbox("SpectateToggle", {
+SpectateGroup:AddButton({
 	Text = "Spectate",
-	Default = false,
+	Func = function()
+		if toggleSpectate then
+			toggleSpectate()
+		end
+	end,
 })
 
 local FunLeft = Tabs.Main:AddRightGroupbox("FLING A BULLY", "swords")
@@ -6989,48 +6994,67 @@ track("SpectatePlayerAdded", Players.PlayerAdded:Connect(updateSpectatePlayerLis
 track("SpectatePlayerRemoving", Players.PlayerRemoving:Connect(updateSpectatePlayerList))
 task.spawn(updateSpectatePlayerList)
 
-local function startSpectate()
-	disconnect("SpectateLoop")
-	if Toggles.SpectateToggle.Value then
-		track("SpectateLoop", RunService.Heartbeat:Connect(function()
-			if not Toggles.SpectateToggle.Value then return end
-			local targetName = Options.SpectatePlayerList.Value
-			local targetPlayer = targetName and Players:FindFirstChild(targetName)
-			local targetHum = targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChildOfClass("Humanoid")
-			local camera = workspace.CurrentCamera
+local isSpectating = false
+local currentSpectateTarget = nil
 
-			if targetHum then
-				if camera.CameraSubject ~= targetHum then
-					camera.CameraSubject = targetHum
-				end
-			else
-				local localHum = getHumanoid()
-				if localHum and camera.CameraSubject ~= localHum then
-					camera.CameraSubject = localHum
-				end
-			end
-		end))
-	else
-		local camera = workspace.CurrentCamera
-		local localHum = getHumanoid()
-		if localHum then
-			camera.CameraSubject = localHum
-		end
+stopSpectate = function()
+	isSpectating = false
+	currentSpectateTarget = nil
+	disconnect("SpectateLoop")
+	local camera = workspace.CurrentCamera
+	local localHum = getHumanoid()
+	if camera and localHum then
+		camera.CameraSubject = localHum
 	end
 end
 
-Toggles.SpectateToggle:OnChanged(function()
-	startSpectate()
-	if Toggles.SpectateToggle.Value then
-		Library:Notify({ Title = "SPECTATE", Description = "Spectating: " .. tostring(Options.SpectatePlayerList.Value), Time = 2 })
-	else
-		Library:Notify({ Title = "SPECTATE", Description = "Spectate Disabled", Time = 2 })
+local function startSpectate(targetName)
+	if not targetName or targetName == "" then return end
+	isSpectating = true
+	currentSpectateTarget = targetName
+	disconnect("SpectateLoop")
+	track("SpectateLoop", RunService.Heartbeat:Connect(function()
+		if not isSpectating then return end
+		local targetPlayer = currentSpectateTarget and Players:FindFirstChild(currentSpectateTarget)
+		local targetHum = targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChildOfClass("Humanoid")
+		local camera = workspace.CurrentCamera
+
+		if targetHum and camera then
+			if camera.CameraSubject ~= targetHum then
+				camera.CameraSubject = targetHum
+			end
+		else
+			local localHum = getHumanoid()
+			if localHum and camera and camera.CameraSubject ~= localHum then
+				camera.CameraSubject = localHum
+			end
+		end
+	end))
+end
+
+toggleSpectate = function()
+	local targetName = Options.SpectatePlayerList and Options.SpectatePlayerList.Value
+	if not targetName or targetName == "" then
+		Library:Notify({ Title = "SPECTATE", Description = "Please select a player.", Time = 2 })
+		return
 	end
-end)
+
+	if isSpectating and currentSpectateTarget == targetName then
+		stopSpectate()
+		Library:Notify({ Title = "SPECTATE", Description = "Spectate Disabled", Time = 2 })
+	else
+		startSpectate(targetName)
+		Library:Notify({ Title = "SPECTATE", Description = "Spectating: " .. tostring(targetName), Time = 2 })
+	end
+end
 
 Options.SpectatePlayerList:OnChanged(function()
-	if Toggles.SpectateToggle.Value then
-		startSpectate()
+	if isSpectating then
+		local newTarget = Options.SpectatePlayerList.Value
+		if newTarget and newTarget ~= "" then
+			startSpectate(newTarget)
+			Library:Notify({ Title = "SPECTATE", Description = "Spectating: " .. tostring(newTarget), Time = 2 })
+		end
 	end
 end)
 
@@ -7385,9 +7409,11 @@ Library:OnUnload(function()
 	if Toggles.FloatOverToggle and Toggles.FloatOverToggle.Value then
 		Toggles.FloatOverToggle:SetValue(false)
 	end
-	if Toggles.SpectateToggle and Toggles.SpectateToggle.Value then
-		Toggles.SpectateToggle:SetValue(false)
-	end
+	pcall(function()
+		if stopSpectate then
+			stopSpectate()
+		end
+	end)
 	if Toggles.TouchFling and Toggles.TouchFling.Value then
 		Toggles.TouchFling:SetValue(false)
 	end
