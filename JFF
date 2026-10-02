@@ -1516,6 +1516,7 @@ do
 	}
 	local restoring = false
 	local fromSlotSystem = false
+	local slotSystemEnabledDD = false
 
 	local function doubleTapApplyPreset()
 		if Toggles.AutoSwing then
@@ -1540,27 +1541,53 @@ do
 	end
 
 	local function doubleTapRestore()
-		if Options.KillAuraRange and ddSaved.KillAuraRange ~= nil then
-			Options.KillAuraRange:SetValue(ddSaved.KillAuraRange)
-		end
-		if Options.KillAuraAngle and ddSaved.KillAuraAngle ~= nil then
-			Options.KillAuraAngle:SetValue(ddSaved.KillAuraAngle)
-		end
-		if Options.KillAuraSpeed and ddSaved.KillAuraSpeed ~= nil then
-			Options.KillAuraSpeed:SetValue(ddSaved.KillAuraSpeed)
-		end
-		if Options.KillAuraSlot and ddSaved.KillAuraSlot ~= nil then
-			Options.KillAuraSlot:SetValue(ddSaved.KillAuraSlot)
-		end
-		if Toggles.KillAura and ddSaved.KillAura ~= nil then
-			restoring = true
-			Toggles.KillAura:SetValue(ddSaved.KillAura)
-			restoring = false
-		end
-		if Toggles.AutoSwing and ddSaved.AutoSwing ~= nil then
-			restoring = true
-			Toggles.AutoSwing:SetValue(ddSaved.AutoSwing)
-			restoring = false
+		local turnOffExplicit = slotSystemEnabledDD
+		if turnOffExplicit then
+			if Options.KillAuraRange then
+				Options.KillAuraRange:SetValue(ddSaved.KillAuraRange or 15)
+			end
+			if Options.KillAuraAngle then
+				Options.KillAuraAngle:SetValue(ddSaved.KillAuraAngle or 90)
+			end
+			if Options.KillAuraSpeed then
+				Options.KillAuraSpeed:SetValue(ddSaved.KillAuraSpeed or 0.2)
+			end
+			if Options.KillAuraSlot then
+				Options.KillAuraSlot:SetValue(ddSaved.KillAuraSlot or "1")
+			end
+			if Toggles.KillAura then
+				restoring = true
+				Toggles.KillAura:SetValue(false)
+				restoring = false
+			end
+			if Toggles.AutoSwing then
+				restoring = true
+				Toggles.AutoSwing:SetValue(false)
+				restoring = false
+			end
+		else
+			if Options.KillAuraRange and ddSaved.KillAuraRange ~= nil then
+				Options.KillAuraRange:SetValue(ddSaved.KillAuraRange)
+			end
+			if Options.KillAuraAngle and ddSaved.KillAuraAngle ~= nil then
+				Options.KillAuraAngle:SetValue(ddSaved.KillAuraAngle)
+			end
+			if Options.KillAuraSpeed and ddSaved.KillAuraSpeed ~= nil then
+				Options.KillAuraSpeed:SetValue(ddSaved.KillAuraSpeed)
+			end
+			if Options.KillAuraSlot and ddSaved.KillAuraSlot ~= nil then
+				Options.KillAuraSlot:SetValue(ddSaved.KillAuraSlot)
+			end
+			if Toggles.KillAura and ddSaved.KillAura ~= nil then
+				restoring = true
+				Toggles.KillAura:SetValue(ddSaved.KillAura)
+				restoring = false
+			end
+			if Toggles.AutoSwing and ddSaved.AutoSwing ~= nil then
+				restoring = true
+				Toggles.AutoSwing:SetValue(ddSaved.AutoSwing)
+				restoring = false
+			end
 		end
 	end
 
@@ -1571,7 +1598,10 @@ do
 			if restoring then return end
 			if state then
 				local wasSlotTrigger = fromSlotSystem
-				if not wasSlotTrigger then
+				if wasSlotTrigger then
+					slotSystemEnabledDD = true
+				else
+					slotSystemEnabledDD = false
 					ddSaved.AutoSwing = Toggles.AutoSwing and Toggles.AutoSwing.Value or false
 					ddSaved.KillAura = Toggles.KillAura and Toggles.KillAura.Value or false
 					ddSaved.KillAuraRange = Options.KillAuraRange and Options.KillAuraRange.Value or 15
@@ -1584,10 +1614,14 @@ do
 
 				Library:Notify({ Title = "Double Tap(BETA)", Description = "Enabled", Time = 2 })
 			else
+				doubleTapRestore()
+
 				local wasSlotTrigger = fromSlotSystem
 				if not wasSlotTrigger then
-					doubleTapRestore()
 					table.clear(ddSaved)
+				end
+				if wasSlotTrigger then
+					slotSystemEnabledDD = false
 				end
 
 				Library:Notify({ Title = "Double Tap(BETA)", Description = "Disabled", Time = 2 })
