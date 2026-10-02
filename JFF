@@ -1640,6 +1640,11 @@ do
 		end,
 	})
 
+	CombatAutoSwingGroup:AddCheckbox("DoubleTapSlotSystem", {
+		Text = "Slot System",
+		Default = false,
+	})
+
 	CombatAutoSwingGroup:AddDropdown("DoubleTapSlot", {
 		Text = "Tool Slot",
 		Values = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" },
@@ -1649,6 +1654,7 @@ do
 
 	local function updateDoubleTapSlotState()
 		if not isAlive() then return end
+		if not (Toggles.DoubleTapSlotSystem and Toggles.DoubleTapSlotSystem.Value) then return end
 		if not (Toggles.DoubleDamageBETA and Options.DoubleTapSlot) then return end
 
 		local isHolding, heldSlot, hasAnySelected = isDoubleTapSlotAllowed(Options.DoubleTapSlot)
@@ -1702,6 +1708,20 @@ do
 			updateDoubleTapSlotState()
 		end)
 	end
+
+	if Toggles.DoubleTapSlotSystem then
+		Toggles.DoubleTapSlotSystem:OnChanged(function()
+			if updateAutoSwingSliderVisibility then
+				updateAutoSwingSliderVisibility()
+			end
+			if Toggles.DoubleTapSlotSystem.Value then
+				updateDoubleTapSlotState()
+				Library:Notify({ Title = "Double Tap Slot System", Description = "Enabled", Time = 2 })
+			else
+				Library:Notify({ Title = "Double Tap Slot System", Description = "Disabled", Time = 2 })
+			end
+		end)
+	end
 end
 
 CombatAutoSwingGroup:AddDivider()
@@ -1744,8 +1764,15 @@ CombatAutoSwingGroup:AddToggle("SmartSwingIgnoreTeam", {
 updateAutoSwingSliderVisibility = function()
 	local isAutoSwingToggled = (Toggles.AutoSwing and Toggles.AutoSwing.Value) or false
 	local isSmartSwingToggled = (Toggles.SmartSwing and Toggles.SmartSwing.Value) or false
+	local isDTSlot = (Toggles.DoubleTapSlotSystem and Toggles.DoubleTapSlotSystem.Value) or false
 	local isAnyToggled = isAutoSwingToggled or isSmartSwingToggled
 
+	if Options.DoubleTapSlot then
+		Options.DoubleTapSlot.Visible = isDTSlot
+		if Options.DoubleTapSlot.Holder then
+			Options.DoubleTapSlot.Holder.Visible = isDTSlot
+		end
+	end
 	if Options.AutoSwingSlot then
 		Options.AutoSwingSlot.Visible = isAutoSwingToggled
 		if Options.AutoSwingSlot.Holder then
@@ -7776,6 +7803,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.DoubleDamageBETA and Toggles.DoubleDamageBETA.Value then
 		Toggles.DoubleDamageBETA:SetValue(false)
+	end
+	if Toggles.DoubleTapSlotSystem and Toggles.DoubleTapSlotSystem.Value then
+		Toggles.DoubleTapSlotSystem:SetValue(false)
 	end
 	if Toggles.SpearSword and Toggles.SpearSword.Value then
 		Toggles.SpearSword:SetValue(false)
