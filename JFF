@@ -1512,11 +1512,12 @@ do
 		KillAuraRange = nil,
 		KillAuraAngle = nil,
 		KillAuraSpeed = nil,
+		KillAuraSlot = nil,
 	}
 	local restoring = false
 
 	CombatAutoSwingGroup:AddCheckbox("DoubleDamageBETA", {
-		Text = "Double Damage(BETA)",
+		Text = "Double Tap(BETA)",
 		Default = false,
 		Callback = function(state)
 			if restoring then return end
@@ -1526,6 +1527,7 @@ do
 				ddSaved.KillAuraRange = Options.KillAuraRange and Options.KillAuraRange.Value or 15
 				ddSaved.KillAuraAngle = Options.KillAuraAngle and Options.KillAuraAngle.Value or 90
 				ddSaved.KillAuraSpeed = Options.KillAuraSpeed and Options.KillAuraSpeed.Value or 0.2
+				ddSaved.KillAuraSlot = Options.KillAuraSlot and Options.KillAuraSlot.Value or "1"
 
 				if Toggles.AutoSwing then
 					Toggles.AutoSwing:SetValue(true)
@@ -1534,16 +1536,16 @@ do
 					Toggles.KillAura:SetValue(true)
 				end
 				if Options.KillAuraRange then
-					Options.KillAuraRange:SetValue(7)
+					Options.KillAuraRange:SetValue(5)
 				end
 				if Options.KillAuraAngle then
 					Options.KillAuraAngle:SetValue(10)
 				end
 				if Options.KillAuraSpeed then
-					Options.KillAuraSpeed:SetValue(0.25)
+					Options.KillAuraSpeed:SetValue(1)
 				end
 
-				Library:Notify({ Title = "Double Damage(BETA)", Description = "Enabled", Time = 2 })
+				Library:Notify({ Title = "Double Tap(BETA)", Description = "Enabled", Time = 2 })
 			else
 				if Options.KillAuraRange and ddSaved.KillAuraRange ~= nil then
 					Options.KillAuraRange:SetValue(ddSaved.KillAuraRange)
@@ -1553,6 +1555,9 @@ do
 				end
 				if Options.KillAuraSpeed and ddSaved.KillAuraSpeed ~= nil then
 					Options.KillAuraSpeed:SetValue(ddSaved.KillAuraSpeed)
+				end
+				if Options.KillAuraSlot and ddSaved.KillAuraSlot ~= nil then
+					Options.KillAuraSlot:SetValue(ddSaved.KillAuraSlot)
 				end
 				if Toggles.KillAura and ddSaved.KillAura ~= nil then
 					restoring = true
@@ -1566,11 +1571,55 @@ do
 				end
 				table.clear(ddSaved)
 
-				Library:Notify({ Title = "Double Damage(BETA)", Description = "Disabled", Time = 2 })
+				Library:Notify({ Title = "Double Tap(BETA)", Description = "Disabled", Time = 2 })
+			end
+		end,
+	})
+
+	CombatAutoSwingGroup:AddCheckbox("SlotSystem", {
+		Text = "Slot System",
+		Default = false,
+		Callback = function(state)
+			updateSlotSystemVisibility()
+		end,
+	}):AddDropdown("SlotSystemSlot", {
+		Text = "Select Slot",
+		Values = {"1","2","3","4","5","6","7","8","9","10"},
+		Default = "1",
+		Callback = function(value)
+			if Toggles.SlotSystem and Toggles.SlotSystem.Value then
+				if Options.KillAuraSlot then
+					Options.KillAuraSlot:SetValue(value)
+				end
+				if Toggles.DoubleDamageBETA and not Toggles.DoubleDamageBETA.Value then
+					restoring = true
+					Toggles.DoubleDamageBETA:SetValue(true)
+					restoring = false
+				end
 			end
 		end,
 	})
 end
+
+updateSlotSystemVisibility = function()
+	local isSlotSystem = (Toggles.SlotSystem and Toggles.SlotSystem.Value) or false
+
+	if Options.SlotSystemSlot then
+		Options.SlotSystemSlot.Visible = isSlotSystem
+		if Options.SlotSystemSlot.Holder then
+			Options.SlotSystemSlot.Holder.Visible = isSlotSystem
+		end
+	end
+	CombatAutoSwingGroup:Resize()
+end
+
+updateSlotSystemVisibility()
+task.spawn(function()
+	task.wait(0.05)
+	if updateSlotSystemVisibility then
+		updateSlotSystemVisibility()
+	end
+end)
 
 CombatAutoSwingGroup:AddCheckbox("SmartSwing", {
 	Text = "+ Smart Swing",
