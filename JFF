@@ -1348,6 +1348,157 @@ CombatCamlock:AddToggle("Camlock", {
 	Default = false,
 })
 
+do
+	local clSaved = {
+		Outline = nil,
+	}
+	local restoringCL = false
+	local fromCLSlotSystem = false
+	local slotSystemEnabledCL = false
+
+	CombatCamlock:AddCheckbox("CamlockSlotSystem", {
+		Text = "Slot System",
+		Default = false,
+		Callback = function(state)
+			updateCamlockSlotSystemVisibility()
+			if state then
+				updateCamlockSlotSystemState()
+			end
+		end,
+	})
+
+	CombatCamlock:AddDropdown("CamlockSlotSystemSlot", {
+		Text = "Select Slot",
+		Values = {"1","2","3","4","5","6","7","8","9","10"},
+		Default = "1",
+	})
+
+	local function setCamlockEnabled(value)
+		fromCLSlotSystem = true
+		if Toggles.Camlock then
+			Toggles.Camlock:SetValue(value)
+		end
+		fromCLSlotSystem = false
+	end
+
+	local function setOutlineEnabled(value)
+		if Toggles.Outline and Toggles.Outline.Value ~= value then
+			restoringCL = true
+			Toggles.Outline:SetValue(value)
+			restoringCL = false
+		end
+	end
+
+	function updateCamlockSlotSystemState()
+		if not (Toggles.CamlockSlotSystem and Toggles.CamlockSlotSystem.Value) then return end
+		if not isAlive() then return end
+
+		local targetSlot = Options.CamlockSlotSystemSlot and Options.CamlockSlotSystemSlot.Value
+		local isHolding = targetSlot and isHoldingSelectedSlot(targetSlot)
+
+		local camlockVal = Toggles.Camlock and Toggles.Camlock.Value
+		local outlineVal = Toggles.Outline and Toggles.Outline.Value
+
+		if isHolding then
+			if not slotSystemEnabledCL then
+				slotSystemEnabledCL = true
+				clSaved.Outline = outlineVal or false
+			end
+			if not camlockVal then
+				setCamlockEnabled(true)
+			end
+			if not outlineVal then
+				setOutlineEnabled(true)
+			end
+		else
+			if slotSystemEnabledCL then
+				if camlockVal then
+					setCamlockEnabled(false)
+				end
+				if outlineVal then
+					setOutlineEnabled(false)
+				end
+				slotSystemEnabledCL = false
+				table.clear(clSaved)
+			end
+		end
+	end
+
+	Toggles.CamlockSlotSystem:OnChanged(function()
+		disconnect("CamlockSlotSystem_ChildAdded")
+		disconnect("CamlockSlotSystem_ChildRemoved")
+		disconnect("CamlockSlotSystem_CharAdded")
+		disconnect("CamlockSlotSystem_Check")
+
+		if Toggles.CamlockSlotSystem.Value then
+			local function hookCamlockSlotSystemChar(char)
+				if not char then return end
+				disconnect("CamlockSlotSystem_ChildAdded")
+				disconnect("CamlockSlotSystem_ChildRemoved")
+				track("CamlockSlotSystem_ChildAdded", char.ChildAdded:Connect(function(child)
+					if child:IsA("Tool") then
+						task.wait()
+						updateCamlockSlotSystemState()
+					end
+				end))
+				track("CamlockSlotSystem_ChildRemoved", char.ChildRemoved:Connect(function(child)
+					if child:IsA("Tool") then
+						task.wait()
+						updateCamlockSlotSystemState()
+					end
+				end))
+			end
+
+			if LocalPlayer.Character then
+				hookCamlockSlotSystemChar(LocalPlayer.Character)
+			end
+			track("CamlockSlotSystem_CharAdded", LocalPlayer.CharacterAdded:Connect(hookCamlockSlotSystemChar))
+
+			track("CamlockSlotSystem_Check", RunService.Heartbeat:Connect(function()
+				updateCamlockSlotSystemState()
+			end))
+
+			updateCamlockSlotSystemState()
+		else
+			if slotSystemEnabledCL then
+				if Toggles.Camlock and Toggles.Camlock.Value then
+					setCamlockEnabled(false)
+				end
+				if Toggles.Outline and Toggles.Outline.Value then
+					setOutlineEnabled(false)
+				end
+				slotSystemEnabledCL = false
+				table.clear(clSaved)
+			end
+		end
+	end)
+
+	if Options.CamlockSlotSystemSlot then
+		Options.CamlockSlotSystemSlot:OnChanged(function()
+			updateCamlockSlotSystemState()
+		end)
+	end
+end
+
+updateCamlockSlotSystemVisibility = function()
+	local isCLSlotSystem = (Toggles.CamlockSlotSystem and Toggles.CamlockSlotSystem.Value) or false
+	if Options.CamlockSlotSystemSlot then
+		Options.CamlockSlotSystemSlot.Visible = isCLSlotSystem
+		if Options.CamlockSlotSystemSlot.Holder then
+			Options.CamlockSlotSystemSlot.Holder.Visible = isCLSlotSystem
+		end
+	end
+	CombatCamlock:Resize()
+end
+
+updateCamlockSlotSystemVisibility()
+task.spawn(function()
+	task.wait(0.05)
+	if updateCamlockSlotSystemVisibility then
+		updateCamlockSlotSystemVisibility()
+	end
+end)
+
 CombatCamlock:AddCheckbox("Outline", {
 	Text = "Outline",
 	Default = false,
@@ -1730,6 +1881,8 @@ task.spawn(function()
 		updateSlotSystemVisibility()
 	end
 end)
+
+CombatAutoSwingGroup:AddDivider()
 
 CombatAutoSwingGroup:AddCheckbox("SmartSwing", {
 	Text = "+ Smart Swing",
