@@ -1615,7 +1615,7 @@ do
 	end
 
 	CombatAutoSwingGroup:AddCheckbox("DoubleDamageBETA", {
-		Text = "Double Tap(BETA)",
+		Text = "2x DAMAGE",
 		Default = false,
 		Callback = function(state)
 			if restoring then return end
@@ -1630,12 +1630,12 @@ do
 				local isHolding, heldSlot = isDoubleTapSlotAllowed(Options.DoubleTapSlot)
 				doubleTapApplyPreset(heldSlot)
 
-				Library:Notify({ Title = "Double Tap(BETA)", Description = "Enabled", Time = 2 })
+				Library:Notify({ Title = "2x DAMAGE", Description = "Enabled", Time = 2 })
 			else
 				doubleTapRestore()
 				table.clear(ddSaved)
 
-				Library:Notify({ Title = "Double Tap(BETA)", Description = "Disabled", Time = 2 })
+				Library:Notify({ Title = "2x DAMAGE", Description = "Disabled", Time = 2 })
 			end
 		end,
 	})
@@ -1716,9 +1716,9 @@ do
 			end
 			if Toggles.DoubleTapSlotSystem.Value then
 				updateDoubleTapSlotState()
-				Library:Notify({ Title = "Double Tap Slot System", Description = "Enabled", Time = 2 })
+				Library:Notify({ Title = "2x DAMAGE Slot System", Description = "Enabled", Time = 2 })
 			else
-				Library:Notify({ Title = "Double Tap Slot System", Description = "Disabled", Time = 2 })
+				Library:Notify({ Title = "2x DAMAGE Slot System", Description = "Disabled", Time = 2 })
 			end
 		end)
 	end
