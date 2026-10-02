@@ -1581,6 +1581,9 @@ do
 		Default = false,
 		Callback = function(state)
 			updateSlotSystemVisibility()
+			if state then
+				updateSlotSystemState()
+			end
 		end,
 	})
 
@@ -1590,19 +1593,67 @@ do
 		Default = "1",
 	})
 
+	function updateSlotSystemState()
+		if not (Toggles.SlotSystem and Toggles.SlotSystem.Value) then return end
+		if not isAlive() then return end
+
+		local targetSlot = Options.SlotSystemSlot and Options.SlotSystemSlot.Value
+		local isHolding = targetSlot and isHoldingSelectedSlot(targetSlot)
+
+		if Toggles.DoubleDamageBETA and Toggles.DoubleDamageBETA.Value ~= isHolding then
+			restoring = true
+			Toggles.DoubleDamageBETA:SetValue(isHolding)
+			restoring = false
+		end
+	end
+
+	Toggles.SlotSystem:OnChanged(function()
+		disconnect("SlotSystem_ChildAdded")
+		disconnect("SlotSystem_ChildRemoved")
+		disconnect("SlotSystem_CharAdded")
+		disconnect("SlotSystem_Check")
+
+		if Toggles.SlotSystem.Value then
+			local function hookSlotSystemChar(char)
+				if not char then return end
+				disconnect("SlotSystem_ChildAdded")
+				disconnect("SlotSystem_ChildRemoved")
+				track("SlotSystem_ChildAdded", char.ChildAdded:Connect(function(child)
+					if child:IsA("Tool") then
+						task.wait()
+						updateSlotSystemState()
+					end
+				end))
+				track("SlotSystem_ChildRemoved", char.ChildRemoved:Connect(function(child)
+					if child:IsA("Tool") then
+						task.wait()
+						updateSlotSystemState()
+					end
+				end))
+			end
+
+			if LocalPlayer.Character then
+				hookSlotSystemChar(LocalPlayer.Character)
+			end
+			track("SlotSystem_CharAdded", LocalPlayer.CharacterAdded:Connect(hookSlotSystemChar))
+
+			track("SlotSystem_Check", RunService.Heartbeat:Connect(function()
+				updateSlotSystemState()
+			end))
+
+			updateSlotSystemState()
+		else
+			if Toggles.DoubleDamageBETA and Toggles.DoubleDamageBETA.Value then
+				restoring = true
+				Toggles.DoubleDamageBETA:SetValue(false)
+				restoring = false
+			end
+		end
+	end)
+
 	if Options.SlotSystemSlot then
 		Options.SlotSystemSlot:OnChanged(function()
-			local value = Options.SlotSystemSlot.Value
-			if Toggles.SlotSystem and Toggles.SlotSystem.Value then
-				if Options.KillAuraSlot then
-					Options.KillAuraSlot:SetValue(value)
-				end
-				if Toggles.DoubleDamageBETA and not Toggles.DoubleDamageBETA.Value then
-					restoring = true
-					Toggles.DoubleDamageBETA:SetValue(true)
-					restoring = false
-				end
-			end
+			updateSlotSystemState()
 		end)
 	end
 end
