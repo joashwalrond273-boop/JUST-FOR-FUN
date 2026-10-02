@@ -3769,7 +3769,7 @@ MoveLeft:AddToggle("SpeedHack", {
 })
 
 MoveLeft:AddCheckbox("PlusSpeedBoost", {
-	Text = "+ Speed Boost",
+	Text = "Slot Boost",
 	Default = false,
 })
 
@@ -3778,15 +3778,6 @@ MoveLeft:AddDropdown("SpeedBoostSlot", {
 	Values = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"},
 	Default = {"1"},
 	Multi = true,
-})
-
-MoveLeft:AddSlider("SpeedBoostValue", {
-	Text = "Speed Boost Value",
-	Default = 16,
-	Min = 16,
-	Max = 30,
-	Rounding = 1,
-	Compact = true,
 })
 
 MoveLeft:AddSlider("SpeedValue", {
@@ -3804,12 +3795,6 @@ updateSpeedBoostVisibility = function()
 		Options.SpeedBoostSlot.Visible = isPlus
 		if Options.SpeedBoostSlot.Holder then
 			Options.SpeedBoostSlot.Holder.Visible = isPlus
-		end
-	end
-	if Options.SpeedBoostValue then
-		Options.SpeedBoostValue.Visible = isPlus
-		if Options.SpeedBoostValue.Holder then
-			Options.SpeedBoostValue.Holder.Visible = isPlus
 		end
 	end
 	MoveLeft:Resize()
@@ -4395,7 +4380,7 @@ Toggles.PlusSpeedBoost:OnChanged(function()
 		updateSpeedBoostVisibility()
 	end
 	if Toggles.PlusSpeedBoost.Value then
-		Library:Notify({ Title = "+ Speed Boost", Description = "Enabled", Time = 2 })
+		Library:Notify({ Title = "Slot Boost", Description = "Enabled", Time = 2 })
 		track("PlusSpeedBoost", RunService.Heartbeat:Connect(function(dt)
 			if not isAlive() then return end
 			if Toggles.SpeedHack and Toggles.SpeedHack.Value then return end
@@ -4405,7 +4390,7 @@ Toggles.PlusSpeedBoost:OnChanged(function()
 			local isSwimming = humanoid:GetState() == Enum.HumanoidStateType.Swimming or (LocalPlayer.Character and LocalPlayer.Character:GetAttribute("inWater"))
 			if not isSwimming then
 				if isSpeedBoostSlotAllowed(Options.SpeedBoostSlot) then
-					local targetSpeed = Options.SpeedBoostValue and Options.SpeedBoostValue.Value or 16
+					local targetSpeed = Options.SpeedValue and Options.SpeedValue.Value or 24
 					local factor = targetSpeed - humanoid.WalkSpeed
 					if factor > 0 and humanoid.MoveDirection.Magnitude > 0 then
 						LocalPlayer.Character:TranslateBy(humanoid.MoveDirection * dt * factor)
@@ -4414,7 +4399,7 @@ Toggles.PlusSpeedBoost:OnChanged(function()
 			end
 		end))
 	else
-		Library:Notify({ Title = "+ Speed Boost", Description = "Disabled", Time = 2 })
+		Library:Notify({ Title = "Slot Boost", Description = "Disabled", Time = 2 })
 	end
 end)
 
