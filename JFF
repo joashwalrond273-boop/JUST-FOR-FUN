@@ -1355,6 +1355,7 @@ do
 	local restoringCL = false
 	local fromCLSlotSystem = false
 	local slotSystemEnabledCL = false
+	local _camlockSlotFrame = 0
 
 	CombatCamlock:AddCheckbox("CamlockSlotSystem", {
 		Text = "Slot System",
@@ -1454,14 +1455,11 @@ do
 			end
 			track("CamlockSlotSystem_CharAdded", LocalPlayer.CharacterAdded:Connect(hookCamlockSlotSystemChar))
 
-			track("CamlockSlotSystem_Check", RunService.Heartbeat:Connect((function()
-				local localFrame = 0
-				return function()
-					localFrame = localFrame + 1
-					if localFrame % 6 ~= 0 then return end
-					updateCamlockSlotSystemState()
-				end
-			end)()))
+			track("CamlockSlotSystem_Check", RunService.Heartbeat:Connect(function()
+				_camlockSlotFrame = _camlockSlotFrame + 1
+				if _camlockSlotFrame % 6 ~= 0 then return end
+				updateCamlockSlotSystemState()
+			end))
 
 			updateCamlockSlotSystemState()
 		else
@@ -1673,6 +1671,7 @@ do
 	local restoring = false
 	local fromSlotSystem = false
 	local slotSystemEnabledDD = false
+	local _autoSlotFrame = 0
 
 	local function doubleTapApplyPreset()
 		if Toggles.AutoSwing then
@@ -1846,14 +1845,11 @@ do
 			end
 			track("SlotSystem_CharAdded", LocalPlayer.CharacterAdded:Connect(hookSlotSystemChar))
 
-			track("SlotSystem_Check", RunService.Heartbeat:Connect((function()
-				local localFrame = 0
-				return function()
-					localFrame = localFrame + 1
-					if localFrame % 6 ~= 0 then return end
-					updateSlotSystemState()
-				end
-			end)()))
+			track("SlotSystem_Check", RunService.Heartbeat:Connect(function()
+				_autoSlotFrame = _autoSlotFrame + 1
+				if _autoSlotFrame % 6 ~= 0 then return end
+				updateSlotSystemState()
+			end))
 
 			updateSlotSystemState()
 		else
@@ -2323,6 +2319,8 @@ local function isAdvanceSlotAllowed(slotOption)
 	return false
 end
 
+local _advanceSlotFrame = 0
+
 local function updateAdvanceState()
 	if not (Toggles.Advance and Toggles.Advance.Value) then return end
 	if not isAlive() then return end
@@ -2365,14 +2363,11 @@ Toggles.Advance:OnChanged(function()
 		end
 		track("AdvanceSlot_CharAdded", LocalPlayer.CharacterAdded:Connect(hookAdvanceChar))
 
-		track("AdvanceSlotCheck", RunService.Heartbeat:Connect((function()
-			local localFrame = 0
-			return function()
-				localFrame = localFrame + 1
-				if localFrame % 6 ~= 0 then return end
-				updateAdvanceState()
-			end
-		end)()))
+		track("AdvanceSlotCheck", RunService.Heartbeat:Connect(function()
+			_advanceSlotFrame = _advanceSlotFrame + 1
+			if _advanceSlotFrame % 6 ~= 0 then return end
+			updateAdvanceState()
+		end))
 
 		updateAdvanceState()
 	else
