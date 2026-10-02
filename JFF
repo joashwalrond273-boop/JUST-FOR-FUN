@@ -100,39 +100,57 @@ local function isAlive()
 	return humanoid and humanoid.Health > 0
 end
 
+local _slotCheckVersion = 0
+local _slotCheckCache = {}
+
+local function invalidateSlotCheckCache()
+	_slotCheckVersion = _slotCheckVersion + 1
+end
+
 local function isHoldingSelectedSlot(selectedSlot)
 	if not selectedSlot then return false end
 	local character = getCharacter()
 	if not character then return false end
 	local tool = character:FindFirstChildOfClass("Tool")
-	if not tool then return false end
+	local cacheKey = tostring(selectedSlot) .. "|" .. (tool and tostring(tool) or "nil")
 
-	local slotStr = tostring(selectedSlot)
-	local slotNum = tonumber(selectedSlot)
+	local cacheEntry = _slotCheckCache[cacheKey]
+	if cacheEntry and cacheEntry.version == _slotCheckVersion and cacheEntry.tool == tool then
+		return cacheEntry.result
+	end
 
-	if tool.Name == slotStr then
-		return true
-	end
-	if slotNum and tonumber(tool.Name) == slotNum then
-		return true
-	end
-	if slotNum then
-		local attrSlot = tool:GetAttribute("slot") or tool:GetAttribute("Slot") or tool:GetAttribute("HotbarSlot")
-		if attrSlot and (attrSlot == slotNum or tostring(attrSlot) == slotStr) then
-			return true
-		end
-		if tool:FindFirstChild("toolModel") then
-			local tmSlot = tool.toolModel:GetAttribute("slot") or tool.toolModel:GetAttribute("Slot") or tool.toolModel:GetAttribute("HotbarSlot")
-			if tmSlot and (tmSlot == slotNum or tostring(tmSlot) == slotStr) then
-				return true
+	local result = false
+	if tool then
+		local slotStr = tostring(selectedSlot)
+		local slotNum = tonumber(selectedSlot)
+
+		if tool.Name == slotStr then
+			result = true
+		elseif slotNum and tonumber(tool.Name) == slotNum then
+			result = true
+		elseif slotNum then
+			local attrSlot = tool:GetAttribute("slot") or tool:GetAttribute("Slot") or tool:GetAttribute("HotbarSlot")
+			if attrSlot and (attrSlot == slotNum or tostring(attrSlot) == slotStr) then
+				result = true
+			end
+			if not result and tool:FindFirstChild("toolModel") then
+				local tmSlot = tool.toolModel:GetAttribute("slot") or tool.toolModel:GetAttribute("Slot") or tool.toolModel:GetAttribute("HotbarSlot")
+				if tmSlot and (tmSlot == slotNum or tostring(tmSlot) == slotStr) then
+					result = true
+				end
 			end
 		end
-	end
-	if tool.Name:match("^Slot%s*" .. slotStr .. "$") or tool.Name:match("^slot%s*" .. slotStr .. "$") then
-		return true
+		if not result and (tool.Name:match("^Slot%s*" .. slotStr .. "$") or tool.Name:match("^slot%s*" .. slotStr .. "$")) then
+			result = true
+		end
 	end
 
-	return false
+	_slotCheckCache[cacheKey] = {
+		version = _slotCheckVersion,
+		tool = tool,
+		result = result
+	}
+	return result
 end
 
 local function getCharacterFolder()
@@ -1433,16 +1451,19 @@ do
 		if Toggles.CamlockSlotSystem.Value then
 			local function hookCamlockSlotSystemChar(char)
 				if not char then return end
+				invalidateSlotCheckCache()
 				disconnect("CamlockSlotSystem_ChildAdded")
 				disconnect("CamlockSlotSystem_ChildRemoved")
 				track("CamlockSlotSystem_ChildAdded", char.ChildAdded:Connect(function(child)
 					if child:IsA("Tool") then
+						invalidateSlotCheckCache()
 						task.wait()
 						updateCamlockSlotSystemState()
 					end
 				end))
 				track("CamlockSlotSystem_ChildRemoved", char.ChildRemoved:Connect(function(child)
 					if child:IsA("Tool") then
+						invalidateSlotCheckCache()
 						task.wait()
 						updateCamlockSlotSystemState()
 					end
@@ -1454,9 +1475,14 @@ do
 			end
 			track("CamlockSlotSystem_CharAdded", LocalPlayer.CharacterAdded:Connect(hookCamlockSlotSystemChar))
 
-			track("CamlockSlotSystem_Check", RunService.Heartbeat:Connect(function()
-				updateCamlockSlotSystemState()
-			end))
+			track("CamlockSlotSystem_Check", RunService.Heartbeat:Connect((function()
+				local localFrame = 0
+				return function()
+					localFrame = localFrame + 1
+					if localFrame % 6 ~= 0 then return end
+					updateCamlockSlotSystemState()
+				end
+			end)()))
 
 			updateCamlockSlotSystemState()
 		else
@@ -1820,16 +1846,19 @@ do
 		if Toggles.SlotSystem.Value then
 			local function hookSlotSystemChar(char)
 				if not char then return end
+				invalidateSlotCheckCache()
 				disconnect("SlotSystem_ChildAdded")
 				disconnect("SlotSystem_ChildRemoved")
 				track("SlotSystem_ChildAdded", char.ChildAdded:Connect(function(child)
 					if child:IsA("Tool") then
+						invalidateSlotCheckCache()
 						task.wait()
 						updateSlotSystemState()
 					end
 				end))
 				track("SlotSystem_ChildRemoved", char.ChildRemoved:Connect(function(child)
 					if child:IsA("Tool") then
+						invalidateSlotCheckCache()
 						task.wait()
 						updateSlotSystemState()
 					end
@@ -1841,9 +1870,14 @@ do
 			end
 			track("SlotSystem_CharAdded", LocalPlayer.CharacterAdded:Connect(hookSlotSystemChar))
 
-			track("SlotSystem_Check", RunService.Heartbeat:Connect(function()
-				updateSlotSystemState()
-			end))
+			track("SlotSystem_Check", RunService.Heartbeat:Connect((function()
+				local localFrame = 0
+				return function()
+					localFrame = localFrame + 1
+					if localFrame % 6 ~= 0 then return end
+					updateSlotSystemState()
+				end
+			end)()))
 
 			updateSlotSystemState()
 		else
@@ -2334,16 +2368,19 @@ Toggles.Advance:OnChanged(function()
 	if Toggles.Advance.Value then
 		local function hookAdvanceChar(char)
 			if not char then return end
+			invalidateSlotCheckCache()
 			disconnect("AdvanceSlot_ChildAdded")
 			disconnect("AdvanceSlot_ChildRemoved")
 			track("AdvanceSlot_ChildAdded", char.ChildAdded:Connect(function(child)
 				if child:IsA("Tool") then
+					invalidateSlotCheckCache()
 					task.wait()
 					updateAdvanceState()
 				end
 			end))
 			track("AdvanceSlot_ChildRemoved", char.ChildRemoved:Connect(function(child)
 				if child:IsA("Tool") then
+					invalidateSlotCheckCache()
 					task.wait()
 					updateAdvanceState()
 				end
@@ -2355,9 +2392,14 @@ Toggles.Advance:OnChanged(function()
 		end
 		track("AdvanceSlot_CharAdded", LocalPlayer.CharacterAdded:Connect(hookAdvanceChar))
 
-		track("AdvanceSlotCheck", RunService.Heartbeat:Connect(function()
-			updateAdvanceState()
-		end))
+		track("AdvanceSlotCheck", RunService.Heartbeat:Connect((function()
+			local localFrame = 0
+			return function()
+				localFrame = localFrame + 1
+				if localFrame % 6 ~= 0 then return end
+				updateAdvanceState()
+			end
+		end)()))
 
 		updateAdvanceState()
 	else
