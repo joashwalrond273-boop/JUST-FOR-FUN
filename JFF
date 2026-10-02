@@ -1803,11 +1803,20 @@ do
 		if not isAlive() then return end
 
 		local isHolding = isAdvanceSlotAllowed(Options.SlotSystemSlot)
+		local ddVal = Toggles.DoubleDamageBETA and Toggles.DoubleDamageBETA.Value
 
-		if Toggles.DoubleDamageBETA and Toggles.DoubleDamageBETA.Value ~= isHolding then
-			fromSlotSystem = true
-			Toggles.DoubleDamageBETA:SetValue(isHolding)
-			fromSlotSystem = false
+		if isHolding then
+			if not ddVal then
+				fromSlotSystem = true
+				Toggles.DoubleDamageBETA:SetValue(true)
+				fromSlotSystem = false
+			end
+		else
+			if slotSystemEnabledDD and ddVal then
+				fromSlotSystem = true
+				Toggles.DoubleDamageBETA:SetValue(false)
+				fromSlotSystem = false
+			end
 		end
 	end
 
@@ -1847,10 +1856,14 @@ do
 
 			updateSlotSystemState()
 		else
-			if Toggles.DoubleDamageBETA and Toggles.DoubleDamageBETA.Value then
-				fromSlotSystem = true
-				Toggles.DoubleDamageBETA:SetValue(false)
-				fromSlotSystem = false
+			if slotSystemEnabledDD then
+				if Toggles.DoubleDamageBETA and Toggles.DoubleDamageBETA.Value then
+					fromSlotSystem = true
+					Toggles.DoubleDamageBETA:SetValue(false)
+					fromSlotSystem = false
+				end
+				slotSystemEnabledDD = false
+				table.clear(ddSaved)
 			end
 		end
 	end)
@@ -2298,8 +2311,15 @@ local function isAdvanceSlotAllowed(slotOption)
 
 	if typeof(val) == "table" then
 		for slotKey, isSelected in pairs(val) do
-			if isSelected == true or (typeof(slotKey) == "number" and typeof(isSelected) == "string") then
-				local targetSlot = (isSelected == true) and slotKey or isSelected
+			local targetSlot = nil
+			if isSelected == true then
+				targetSlot = slotKey
+			elseif typeof(isSelected) == "string" then
+				targetSlot = isSelected
+			elseif typeof(isSelected) == "number" then
+				targetSlot = isSelected
+			end
+			if targetSlot ~= nil then
 				if isHoldingSelectedSlot(targetSlot) then
 					return true
 				end
