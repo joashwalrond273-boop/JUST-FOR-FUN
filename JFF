@@ -1348,157 +1348,6 @@ CombatCamlock:AddToggle("Camlock", {
 	Default = false,
 })
 
-do
-	local clSaved = {
-		Outline = nil,
-	}
-	local restoringCL = false
-	local fromCLSlotSystem = false
-	local slotSystemEnabledCL = false
-
-	CombatCamlock:AddCheckbox("CamlockSlotSystem", {
-		Text = "Slot System",
-		Default = false,
-		Callback = function(state)
-			updateCamlockSlotSystemVisibility()
-			if state then
-				updateCamlockSlotSystemState()
-			end
-		end,
-	})
-
-	CombatCamlock:AddDropdown("CamlockSlotSystemSlot", {
-		Text = "Select Slot",
-		Values = {"1","2","3","4","5","6","7","8","9","10"},
-		Default = {"1"},
-		Multi = true,
-	})
-
-	local function setCamlockEnabled(value)
-		fromCLSlotSystem = true
-		if Toggles.Camlock then
-			Toggles.Camlock:SetValue(value)
-		end
-		fromCLSlotSystem = false
-	end
-
-	local function setOutlineEnabled(value)
-		if Toggles.Outline and Toggles.Outline.Value ~= value then
-			restoringCL = true
-			Toggles.Outline:SetValue(value)
-			restoringCL = false
-		end
-	end
-
-	function updateCamlockSlotSystemState()
-		if not (Toggles.CamlockSlotSystem and Toggles.CamlockSlotSystem.Value) then return end
-		if not isAlive() then return end
-
-		local isHolding = isAdvanceSlotAllowed(Options.CamlockSlotSystemSlot)
-
-		local camlockVal = Toggles.Camlock and Toggles.Camlock.Value
-		local outlineVal = Toggles.Outline and Toggles.Outline.Value
-
-		if isHolding then
-			if not slotSystemEnabledCL then
-				slotSystemEnabledCL = true
-				clSaved.Outline = outlineVal or false
-			end
-			if not camlockVal then
-				setCamlockEnabled(true)
-			end
-			if not outlineVal then
-				setOutlineEnabled(true)
-			end
-		else
-			if slotSystemEnabledCL then
-				if camlockVal then
-					setCamlockEnabled(false)
-				end
-				if outlineVal then
-					setOutlineEnabled(false)
-				end
-				slotSystemEnabledCL = false
-				table.clear(clSaved)
-			end
-		end
-	end
-
-	Toggles.CamlockSlotSystem:OnChanged(function()
-		disconnect("CamlockSlotSystem_ChildAdded")
-		disconnect("CamlockSlotSystem_ChildRemoved")
-		disconnect("CamlockSlotSystem_CharAdded")
-		disconnect("CamlockSlotSystem_Check")
-
-		if Toggles.CamlockSlotSystem.Value then
-			local function hookCamlockSlotSystemChar(char)
-				if not char then return end
-				disconnect("CamlockSlotSystem_ChildAdded")
-				disconnect("CamlockSlotSystem_ChildRemoved")
-				track("CamlockSlotSystem_ChildAdded", char.ChildAdded:Connect(function(child)
-					if child:IsA("Tool") then
-						task.wait()
-						updateCamlockSlotSystemState()
-					end
-				end))
-				track("CamlockSlotSystem_ChildRemoved", char.ChildRemoved:Connect(function(child)
-					if child:IsA("Tool") then
-						task.wait()
-						updateCamlockSlotSystemState()
-					end
-				end))
-			end
-
-			if LocalPlayer.Character then
-				hookCamlockSlotSystemChar(LocalPlayer.Character)
-			end
-			track("CamlockSlotSystem_CharAdded", LocalPlayer.CharacterAdded:Connect(hookCamlockSlotSystemChar))
-
-			track("CamlockSlotSystem_Check", RunService.Heartbeat:Connect(function()
-				updateCamlockSlotSystemState()
-			end))
-
-			updateCamlockSlotSystemState()
-		else
-			if slotSystemEnabledCL then
-				if Toggles.Camlock and Toggles.Camlock.Value then
-					setCamlockEnabled(false)
-				end
-				if Toggles.Outline and Toggles.Outline.Value then
-					setOutlineEnabled(false)
-				end
-				slotSystemEnabledCL = false
-				table.clear(clSaved)
-			end
-		end
-	end)
-
-	if Options.CamlockSlotSystemSlot then
-		Options.CamlockSlotSystemSlot:OnChanged(function()
-			updateCamlockSlotSystemState()
-		end)
-	end
-end
-
-updateCamlockSlotSystemVisibility = function()
-	local isCLSlotSystem = (Toggles.CamlockSlotSystem and Toggles.CamlockSlotSystem.Value) or false
-	if Options.CamlockSlotSystemSlot then
-		Options.CamlockSlotSystemSlot.Visible = isCLSlotSystem
-		if Options.CamlockSlotSystemSlot.Holder then
-			Options.CamlockSlotSystemSlot.Holder.Visible = isCLSlotSystem
-		end
-	end
-	CombatCamlock:Resize()
-end
-
-updateCamlockSlotSystemVisibility()
-task.spawn(function()
-	task.wait(0.05)
-	if updateCamlockSlotSystemVisibility then
-		updateCamlockSlotSystemVisibility()
-	end
-end)
-
 CombatCamlock:AddCheckbox("Outline", {
 	Text = "Outline",
 	Default = false,
@@ -1666,8 +1515,6 @@ do
 		KillAuraSlot = nil,
 	}
 	local restoring = false
-	local fromSlotSystem = false
-	local slotSystemEnabledDD = false
 
 	local function doubleTapApplyPreset()
 		if Toggles.AutoSwing then
@@ -1692,53 +1539,27 @@ do
 	end
 
 	local function doubleTapRestore()
-		local turnOffExplicit = slotSystemEnabledDD
-		if turnOffExplicit then
-			if Options.KillAuraRange then
-				Options.KillAuraRange:SetValue(ddSaved.KillAuraRange or 15)
-			end
-			if Options.KillAuraAngle then
-				Options.KillAuraAngle:SetValue(ddSaved.KillAuraAngle or 90)
-			end
-			if Options.KillAuraSpeed then
-				Options.KillAuraSpeed:SetValue(ddSaved.KillAuraSpeed or 0.2)
-			end
-			if Options.KillAuraSlot then
-				Options.KillAuraSlot:SetValue(ddSaved.KillAuraSlot or "1")
-			end
-			if Toggles.KillAura then
-				restoring = true
-				Toggles.KillAura:SetValue(false)
-				restoring = false
-			end
-			if Toggles.AutoSwing then
-				restoring = true
-				Toggles.AutoSwing:SetValue(false)
-				restoring = false
-			end
-		else
-			if Options.KillAuraRange and ddSaved.KillAuraRange ~= nil then
-				Options.KillAuraRange:SetValue(ddSaved.KillAuraRange)
-			end
-			if Options.KillAuraAngle and ddSaved.KillAuraAngle ~= nil then
-				Options.KillAuraAngle:SetValue(ddSaved.KillAuraAngle)
-			end
-			if Options.KillAuraSpeed and ddSaved.KillAuraSpeed ~= nil then
-				Options.KillAuraSpeed:SetValue(ddSaved.KillAuraSpeed)
-			end
-			if Options.KillAuraSlot and ddSaved.KillAuraSlot ~= nil then
-				Options.KillAuraSlot:SetValue(ddSaved.KillAuraSlot)
-			end
-			if Toggles.KillAura and ddSaved.KillAura ~= nil then
-				restoring = true
-				Toggles.KillAura:SetValue(ddSaved.KillAura)
-				restoring = false
-			end
-			if Toggles.AutoSwing and ddSaved.AutoSwing ~= nil then
-				restoring = true
-				Toggles.AutoSwing:SetValue(ddSaved.AutoSwing)
-				restoring = false
-			end
+		if Options.KillAuraRange and ddSaved.KillAuraRange ~= nil then
+			Options.KillAuraRange:SetValue(ddSaved.KillAuraRange)
+		end
+		if Options.KillAuraAngle and ddSaved.KillAuraAngle ~= nil then
+			Options.KillAuraAngle:SetValue(ddSaved.KillAuraAngle)
+		end
+		if Options.KillAuraSpeed and ddSaved.KillAuraSpeed ~= nil then
+			Options.KillAuraSpeed:SetValue(ddSaved.KillAuraSpeed)
+		end
+		if Options.KillAuraSlot and ddSaved.KillAuraSlot ~= nil then
+			Options.KillAuraSlot:SetValue(ddSaved.KillAuraSlot)
+		end
+		if Toggles.KillAura and ddSaved.KillAura ~= nil then
+			restoring = true
+			Toggles.KillAura:SetValue(ddSaved.KillAura)
+			restoring = false
+		end
+		if Toggles.AutoSwing and ddSaved.AutoSwing ~= nil then
+			restoring = true
+			Toggles.AutoSwing:SetValue(ddSaved.AutoSwing)
+			restoring = false
 		end
 	end
 
@@ -1748,152 +1569,25 @@ do
 		Callback = function(state)
 			if restoring then return end
 			if state then
-				local wasSlotTrigger = fromSlotSystem
-				if wasSlotTrigger then
-					slotSystemEnabledDD = true
-				else
-					slotSystemEnabledDD = false
-					ddSaved.AutoSwing = Toggles.AutoSwing and Toggles.AutoSwing.Value or false
-					ddSaved.KillAura = Toggles.KillAura and Toggles.KillAura.Value or false
-					ddSaved.KillAuraRange = Options.KillAuraRange and Options.KillAuraRange.Value or 15
-					ddSaved.KillAuraAngle = Options.KillAuraAngle and Options.KillAuraAngle.Value or 90
-					ddSaved.KillAuraSpeed = Options.KillAuraSpeed and Options.KillAuraSpeed.Value or 0.2
-					ddSaved.KillAuraSlot = Options.KillAuraSlot and Options.KillAuraSlot.Value or "1"
-				end
+				ddSaved.AutoSwing = Toggles.AutoSwing and Toggles.AutoSwing.Value or false
+				ddSaved.KillAura = Toggles.KillAura and Toggles.KillAura.Value or false
+				ddSaved.KillAuraRange = Options.KillAuraRange and Options.KillAuraRange.Value or 15
+				ddSaved.KillAuraAngle = Options.KillAuraAngle and Options.KillAuraAngle.Value or 90
+				ddSaved.KillAuraSpeed = Options.KillAuraSpeed and Options.KillAuraSpeed.Value or 0.2
+				ddSaved.KillAuraSlot = Options.KillAuraSlot and Options.KillAuraSlot.Value or "1"
 
 				doubleTapApplyPreset()
 
 				Library:Notify({ Title = "Double Tap(BETA)", Description = "Enabled", Time = 2 })
 			else
 				doubleTapRestore()
-
-				local wasSlotTrigger = fromSlotSystem
-				if not wasSlotTrigger then
-					table.clear(ddSaved)
-				end
-				if wasSlotTrigger then
-					slotSystemEnabledDD = false
-				end
+				table.clear(ddSaved)
 
 				Library:Notify({ Title = "Double Tap(BETA)", Description = "Disabled", Time = 2 })
 			end
 		end,
 	})
-
-	CombatAutoSwingGroup:AddCheckbox("SlotSystem", {
-		Text = "Slot System",
-		Default = false,
-		Callback = function(state)
-			updateSlotSystemVisibility()
-			if state then
-				updateSlotSystemState()
-			end
-		end,
-	})
-
-	CombatAutoSwingGroup:AddDropdown("SlotSystemSlot", {
-		Text = "Select Slot",
-		Values = {"1","2","3","4","5","6","7","8","9","10"},
-		Default = {"1"},
-		Multi = true,
-	})
-
-	function updateSlotSystemState()
-		if not (Toggles.SlotSystem and Toggles.SlotSystem.Value) then return end
-		if not isAlive() then return end
-
-		local isHolding = isAdvanceSlotAllowed(Options.SlotSystemSlot)
-		local ddVal = Toggles.DoubleDamageBETA and Toggles.DoubleDamageBETA.Value
-
-		if isHolding then
-			if not ddVal then
-				fromSlotSystem = true
-				Toggles.DoubleDamageBETA:SetValue(true)
-				fromSlotSystem = false
-			end
-		else
-			if slotSystemEnabledDD and ddVal then
-				fromSlotSystem = true
-				Toggles.DoubleDamageBETA:SetValue(false)
-				fromSlotSystem = false
-			end
-		end
-	end
-
-	Toggles.SlotSystem:OnChanged(function()
-		disconnect("SlotSystem_ChildAdded")
-		disconnect("SlotSystem_ChildRemoved")
-		disconnect("SlotSystem_CharAdded")
-		disconnect("SlotSystem_Check")
-
-		if Toggles.SlotSystem.Value then
-			local function hookSlotSystemChar(char)
-				if not char then return end
-				disconnect("SlotSystem_ChildAdded")
-				disconnect("SlotSystem_ChildRemoved")
-				track("SlotSystem_ChildAdded", char.ChildAdded:Connect(function(child)
-					if child:IsA("Tool") then
-						task.wait()
-						updateSlotSystemState()
-					end
-				end))
-				track("SlotSystem_ChildRemoved", char.ChildRemoved:Connect(function(child)
-					if child:IsA("Tool") then
-						task.wait()
-						updateSlotSystemState()
-					end
-				end))
-			end
-
-			if LocalPlayer.Character then
-				hookSlotSystemChar(LocalPlayer.Character)
-			end
-			track("SlotSystem_CharAdded", LocalPlayer.CharacterAdded:Connect(hookSlotSystemChar))
-
-			track("SlotSystem_Check", RunService.Heartbeat:Connect(function()
-				updateSlotSystemState()
-			end))
-
-			updateSlotSystemState()
-		else
-			if slotSystemEnabledDD then
-				if Toggles.DoubleDamageBETA and Toggles.DoubleDamageBETA.Value then
-					fromSlotSystem = true
-					Toggles.DoubleDamageBETA:SetValue(false)
-					fromSlotSystem = false
-				end
-				slotSystemEnabledDD = false
-				table.clear(ddSaved)
-			end
-		end
-	end)
-
-	if Options.SlotSystemSlot then
-		Options.SlotSystemSlot:OnChanged(function()
-			updateSlotSystemState()
-		end)
-	end
 end
-
-updateSlotSystemVisibility = function()
-	local isSlotSystem = (Toggles.SlotSystem and Toggles.SlotSystem.Value) or false
-
-	if Options.SlotSystemSlot then
-		Options.SlotSystemSlot.Visible = isSlotSystem
-		if Options.SlotSystemSlot.Holder then
-			Options.SlotSystemSlot.Holder.Visible = isSlotSystem
-		end
-	end
-	CombatAutoSwingGroup:Resize()
-end
-
-updateSlotSystemVisibility()
-task.spawn(function()
-	task.wait(0.05)
-	if updateSlotSystemVisibility then
-		updateSlotSystemVisibility()
-	end
-end)
 
 CombatAutoSwingGroup:AddDivider()
 
