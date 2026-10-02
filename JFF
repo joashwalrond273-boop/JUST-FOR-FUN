@@ -1582,11 +1582,17 @@ do
 		Callback = function(state)
 			updateSlotSystemVisibility()
 		end,
-	}):AddDropdown("SlotSystemSlot", {
+	})
+
+	CombatAutoSwingGroup:AddDropdown("SlotSystemSlot", {
 		Text = "Select Slot",
 		Values = {"1","2","3","4","5","6","7","8","9","10"},
 		Default = "1",
-		Callback = function(value)
+	})
+
+	if Options.SlotSystemSlot then
+		Options.SlotSystemSlot:OnChanged(function()
+			local value = Options.SlotSystemSlot.Value
 			if Toggles.SlotSystem and Toggles.SlotSystem.Value then
 				if Options.KillAuraSlot then
 					Options.KillAuraSlot:SetValue(value)
@@ -1597,8 +1603,8 @@ do
 					restoring = false
 				end
 			end
-		end,
-	})
+		end)
+	end
 end
 
 updateSlotSystemVisibility = function()
