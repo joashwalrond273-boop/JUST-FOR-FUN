@@ -1370,7 +1370,8 @@ do
 	CombatCamlock:AddDropdown("CamlockSlotSystemSlot", {
 		Text = "Select Slot",
 		Values = {"1","2","3","4","5","6","7","8","9","10"},
-		Default = "1",
+		Default = {"1"},
+		Multi = true,
 	})
 
 	local function setCamlockEnabled(value)
@@ -1393,8 +1394,7 @@ do
 		if not (Toggles.CamlockSlotSystem and Toggles.CamlockSlotSystem.Value) then return end
 		if not isAlive() then return end
 
-		local targetSlot = Options.CamlockSlotSystemSlot and Options.CamlockSlotSystemSlot.Value
-		local isHolding = targetSlot and isHoldingSelectedSlot(targetSlot)
+		local isHolding = isAdvanceSlotAllowed(Options.CamlockSlotSystemSlot)
 
 		local camlockVal = Toggles.Camlock and Toggles.Camlock.Value
 		local outlineVal = Toggles.Outline and Toggles.Outline.Value
@@ -1794,15 +1794,15 @@ do
 	CombatAutoSwingGroup:AddDropdown("SlotSystemSlot", {
 		Text = "Select Slot",
 		Values = {"1","2","3","4","5","6","7","8","9","10"},
-		Default = "1",
+		Default = {"1"},
+		Multi = true,
 	})
 
 	function updateSlotSystemState()
 		if not (Toggles.SlotSystem and Toggles.SlotSystem.Value) then return end
 		if not isAlive() then return end
 
-		local targetSlot = Options.SlotSystemSlot and Options.SlotSystemSlot.Value
-		local isHolding = targetSlot and isHoldingSelectedSlot(targetSlot)
+		local isHolding = isAdvanceSlotAllowed(Options.SlotSystemSlot)
 
 		if Toggles.DoubleDamageBETA and Toggles.DoubleDamageBETA.Value ~= isHolding then
 			fromSlotSystem = true
@@ -1995,27 +1995,6 @@ CombatAutoPVP:AddSlider("SwingSpeedVal", {
 	Compact = true,
 })
 
-CombatAutoPVP:AddCheckbox("PlusSpeedBoost", {
-	Text = "+ Speed Boost",
-	Default = false,
-})
-
-CombatAutoPVP:AddDropdown("SpeedBoostSlot", {
-	Text = "Tool Slot",
-	Values = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"},
-	Default = {"1"},
-	Multi = true,
-})
-
-CombatAutoPVP:AddSlider("SpeedBoostValue", {
-	Text = "Speed Boost Value",
-	Default = 16,
-	Min = 16,
-	Max = 30,
-	Rounding = 1,
-	Compact = true,
-})
-
 CombatAutoPVP:AddCheckbox("LookDownFloor", {
 	Text = "+ Look at Floor",
 	Default = false,
@@ -2048,8 +2027,6 @@ CombatAutoPVP:AddSlider("LookDownSens", {
 
 updatePVPModulesVisibility = function()
 	local isCam = (Toggles.Camlock and Toggles.Camlock.Value) or false
-	local isSpeedBoost = (Toggles.PlusSpeedBoost and Toggles.PlusSpeedBoost.Value) or false
-	local isAnySpeedBoost = isSpeedBoost
 	local isSwingSpeed = (Toggles.SwingSpeedToggle and Toggles.SwingSpeedToggle.Value) or false
 
 	local isOutline = isCam and ((Toggles.Outline and Toggles.Outline.Value) or (Toggles.Cutline and Toggles.Cutline.Value) or false)
@@ -2125,18 +2102,6 @@ updatePVPModulesVisibility = function()
 		Options.OutlineStuds.Visible = isOutline
 		if Options.OutlineStuds.Holder then
 			Options.OutlineStuds.Holder.Visible = isOutline
-		end
-	end
-	if Options.SpeedBoostSlot then
-		Options.SpeedBoostSlot.Visible = isAnySpeedBoost
-		if Options.SpeedBoostSlot.Holder then
-			Options.SpeedBoostSlot.Holder.Visible = isAnySpeedBoost
-		end
-	end
-	if Options.SpeedBoostValue then
-		Options.SpeedBoostValue.Visible = isAnySpeedBoost
-		if Options.SpeedBoostValue.Holder then
-			Options.SpeedBoostValue.Holder.Visible = isAnySpeedBoost
 		end
 	end
 	CombatAutoPVP:Resize()
@@ -3803,7 +3768,26 @@ MoveLeft:AddToggle("SpeedHack", {
 	Default = false,
 })
 
+MoveLeft:AddCheckbox("PlusSpeedBoost", {
+	Text = "+ Speed Boost",
+	Default = false,
+})
 
+MoveLeft:AddDropdown("SpeedBoostSlot", {
+	Text = "Tool Slot",
+	Values = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"},
+	Default = {"1"},
+	Multi = true,
+})
+
+MoveLeft:AddSlider("SpeedBoostValue", {
+	Text = "Speed Boost Value",
+	Default = 16,
+	Min = 16,
+	Max = 30,
+	Rounding = 1,
+	Compact = true,
+})
 
 MoveLeft:AddSlider("SpeedValue", {
 	Text = "Speed Value",
@@ -3813,6 +3797,31 @@ MoveLeft:AddSlider("SpeedValue", {
 	Rounding = 1,
 	Compact = true,
 })
+
+updateSpeedBoostVisibility = function()
+	local isPlus = (Toggles.PlusSpeedBoost and Toggles.PlusSpeedBoost.Value) or false
+	if Options.SpeedBoostSlot then
+		Options.SpeedBoostSlot.Visible = isPlus
+		if Options.SpeedBoostSlot.Holder then
+			Options.SpeedBoostSlot.Holder.Visible = isPlus
+		end
+	end
+	if Options.SpeedBoostValue then
+		Options.SpeedBoostValue.Visible = isPlus
+		if Options.SpeedBoostValue.Holder then
+			Options.SpeedBoostValue.Holder.Visible = isPlus
+		end
+	end
+	MoveLeft:Resize()
+end
+
+updateSpeedBoostVisibility()
+task.spawn(function()
+	task.wait(0.05)
+	if updateSpeedBoostVisibility then
+		updateSpeedBoostVisibility()
+	end
+end)
 
 local MoveSwimBoost = Tabs.Movement:AddLeftGroupbox("Swim Boost", "droplet")
 
@@ -4382,8 +4391,8 @@ end
 
 Toggles.PlusSpeedBoost:OnChanged(function()
 	disconnect("PlusSpeedBoost")
-	if updatePVPModulesVisibility then
-		updatePVPModulesVisibility()
+	if updateSpeedBoostVisibility then
+		updateSpeedBoostVisibility()
 	end
 	if Toggles.PlusSpeedBoost.Value then
 		Library:Notify({ Title = "+ Speed Boost", Description = "Enabled", Time = 2 })
