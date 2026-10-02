@@ -1528,7 +1528,43 @@ do
 	}
 	local restoring = false
 
-	local function doubleTapApplyPreset()
+	local function isDoubleTapSlotAllowed(slotOption)
+		if not slotOption then return false end
+		local val = slotOption.Value
+		if val == nil then return false end
+
+		if typeof(val) == "table" then
+			local hasAnySelected = false
+			for slotKey, isSelected in pairs(val) do
+				local targetSlot = nil
+				if isSelected == true then
+					targetSlot = slotKey
+					hasAnySelected = true
+				elseif typeof(isSelected) == "string" then
+					targetSlot = isSelected
+					hasAnySelected = true
+				elseif typeof(isSelected) == "number" then
+					targetSlot = isSelected
+					hasAnySelected = true
+				end
+				if targetSlot ~= nil and isHoldingSelectedSlot(targetSlot) then
+					return true, tostring(targetSlot), true
+				end
+			end
+			return false, nil, hasAnySelected
+		elseif typeof(val) == "string" or typeof(val) == "number" then
+			if tostring(val) ~= "" then
+				if isHoldingSelectedSlot(val) then
+					return true, tostring(val), true
+				end
+				return false, nil, true
+			end
+		end
+
+		return false, nil, false
+	end
+
+	local function doubleTapApplyPreset(heldSlot)
 		if Toggles.AutoSwing then
 			restoring = true
 			Toggles.AutoSwing:SetValue(true)
@@ -1547,6 +1583,9 @@ do
 		end
 		if Options.KillAuraSpeed then
 			Options.KillAuraSpeed:SetValue(1)
+		end
+		if heldSlot and Options.KillAuraSlot then
+			Options.KillAuraSlot:SetValue(tostring(heldSlot))
 		end
 	end
 
@@ -1588,7 +1627,8 @@ do
 				ddSaved.KillAuraSpeed = Options.KillAuraSpeed and Options.KillAuraSpeed.Value or 0.2
 				ddSaved.KillAuraSlot = Options.KillAuraSlot and Options.KillAuraSlot.Value or "1"
 
-				doubleTapApplyPreset()
+				local isHolding, heldSlot = isDoubleTapSlotAllowed(Options.DoubleTapSlot)
+				doubleTapApplyPreset(heldSlot)
 
 				Library:Notify({ Title = "Double Tap(BETA)", Description = "Enabled", Time = 2 })
 			else
@@ -1599,6 +1639,69 @@ do
 			end
 		end,
 	})
+
+	CombatAutoSwingGroup:AddDropdown("DoubleTapSlot", {
+		Text = "Tool Slot",
+		Values = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" },
+		Default = { "1" },
+		Multi = true,
+	})
+
+	local function updateDoubleTapSlotState()
+		if not isAlive() then return end
+		if not (Toggles.DoubleDamageBETA and Options.DoubleTapSlot) then return end
+
+		local isHolding, heldSlot, hasAnySelected = isDoubleTapSlotAllowed(Options.DoubleTapSlot)
+
+		if hasAnySelected then
+			if isHolding then
+				if not Toggles.DoubleDamageBETA.Value then
+					Toggles.DoubleDamageBETA:SetValue(true)
+				else
+					if heldSlot and Options.KillAuraSlot and Options.KillAuraSlot.Value ~= heldSlot then
+						Options.KillAuraSlot:SetValue(heldSlot)
+					end
+				end
+			else
+				if Toggles.DoubleDamageBETA.Value then
+					Toggles.DoubleDamageBETA:SetValue(false)
+				end
+			end
+		end
+	end
+
+	local function hookDoubleTapChar(char)
+		if not char then return end
+		disconnect("DoubleTapSlot_ChildAdded")
+		disconnect("DoubleTapSlot_ChildRemoved")
+		track("DoubleTapSlot_ChildAdded", char.ChildAdded:Connect(function(child)
+			if child:IsA("Tool") then
+				task.wait()
+				updateDoubleTapSlotState()
+			end
+		end))
+		track("DoubleTapSlot_ChildRemoved", char.ChildRemoved:Connect(function(child)
+			if child:IsA("Tool") then
+				task.wait()
+				updateDoubleTapSlotState()
+			end
+		end))
+	end
+
+	if LocalPlayer.Character then
+		hookDoubleTapChar(LocalPlayer.Character)
+	end
+	track("DoubleTapSlot_CharAdded", LocalPlayer.CharacterAdded:Connect(hookDoubleTapChar))
+
+	track("DoubleTapSlot_Poll", RunService.Heartbeat:Connect(function()
+		updateDoubleTapSlotState()
+	end))
+
+	if Options.DoubleTapSlot then
+		Options.DoubleTapSlot:OnChanged(function()
+			updateDoubleTapSlotState()
+		end)
+	end
 end
 
 CombatAutoSwingGroup:AddDivider()
