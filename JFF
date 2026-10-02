@@ -1348,6 +1348,18 @@ CombatCamlock:AddToggle("Camlock", {
 	Default = false,
 })
 
+CombatCamlock:AddCheckbox("CamlockSlotSystem", {
+	Text = "Slot System",
+	Default = false,
+})
+
+CombatCamlock:AddDropdown("CamlockSlotSystemSlot", {
+	Text = "Tool Slot",
+	Values = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"},
+	Default = {"1"},
+	Multi = true,
+})
+
 CombatCamlock:AddCheckbox("Outline", {
 	Text = "Outline",
 	Default = false,
@@ -1735,6 +1747,7 @@ CombatAutoPVP:AddSlider("LookDownSens", {
 updatePVPModulesVisibility = function()
 	local isCam = (Toggles.Camlock and Toggles.Camlock.Value) or false
 	local isSwingSpeed = (Toggles.SwingSpeedToggle and Toggles.SwingSpeedToggle.Value) or false
+	local isCLSlot = (Toggles.CamlockSlotSystem and Toggles.CamlockSlotSystem.Value) or false
 
 	local isOutline = isCam and ((Toggles.Outline and Toggles.Outline.Value) or (Toggles.Cutline and Toggles.Cutline.Value) or false)
 
@@ -1742,6 +1755,12 @@ updatePVPModulesVisibility = function()
 		Options.SwingSpeedVal.Visible = isSwingSpeed
 		if Options.SwingSpeedVal.Holder then
 			Options.SwingSpeedVal.Holder.Visible = isSwingSpeed
+		end
+	end
+	if Options.CamlockSlotSystemSlot then
+		Options.CamlockSlotSystemSlot.Visible = isCLSlot
+		if Options.CamlockSlotSystemSlot.Holder then
+			Options.CamlockSlotSystemSlot.Holder.Visible = isCLSlot
 		end
 	end
 	if Options.CamlockTarget then
@@ -2821,6 +2840,139 @@ if Toggles.CamlockIgnoreTeam then
 			updatePVPModulesVisibility()
 		end
 	end)
+end
+
+do
+	local clSlotSaved = {
+		Camlock = nil,
+		Outline = nil,
+	}
+	local fromCLSlotSystem = false
+
+	local function updateCamlockSlotSystemState()
+		if not (Toggles.CamlockSlotSystem and Toggles.CamlockSlotSystem.Value) then return end
+		if not isAlive() then return end
+
+		local holding = isAdvanceSlotAllowed(Options.CamlockSlotSystemSlot)
+
+		if holding then
+			if clSlotSaved.Camlock == nil then
+				clSlotSaved.Camlock = Toggles.Camlock and Toggles.Camlock.Value or false
+			end
+			if clSlotSaved.Outline == nil then
+				clSlotSaved.Outline = Toggles.Outline and Toggles.Outline.Value or false
+			end
+
+			if Toggles.Camlock and not Toggles.Camlock.Value then
+				fromCLSlotSystem = true
+				Toggles.Camlock:SetValue(true)
+				fromCLSlotSystem = false
+			end
+			if Toggles.Outline and not Toggles.Outline.Value then
+				fromCLSlotSystem = true
+				Toggles.Outline:SetValue(true)
+				fromCLSlotSystem = false
+			end
+		else
+			if clSlotSaved.Camlock ~= nil then
+				if Toggles.Camlock and Toggles.Camlock.Value ~= clSlotSaved.Camlock then
+					fromCLSlotSystem = true
+					Toggles.Camlock:SetValue(clSlotSaved.Camlock)
+					fromCLSlotSystem = false
+				end
+				clSlotSaved.Camlock = nil
+			end
+			if clSlotSaved.Outline ~= nil then
+				if Toggles.Outline and Toggles.Outline.Value ~= clSlotSaved.Outline then
+					fromCLSlotSystem = true
+					Toggles.Outline:SetValue(clSlotSaved.Outline)
+					fromCLSlotSystem = false
+				end
+				clSlotSaved.Outline = nil
+			end
+		end
+	end
+
+	if Toggles.Camlock then
+		Toggles.Camlock:OnChanged(function()
+			if fromCLSlotSystem then return end
+			if Toggles.CamlockSlotSystem and Toggles.CamlockSlotSystem.Value and isAdvanceSlotAllowed(Options.CamlockSlotSystemSlot) then
+				return
+			end
+			clSlotSaved.Camlock = nil
+			clSlotSaved.Outline = nil
+		end)
+	end
+
+	Toggles.CamlockSlotSystem:OnChanged(function()
+		disconnect("CamlockSlotSystem_Poll")
+		disconnect("CamlockSlotSystem_ChildAdded")
+		disconnect("CamlockSlotSystem_ChildRemoved")
+		disconnect("CamlockSlotSystem_CharAdded")
+
+		if updatePVPModulesVisibility then
+			updatePVPModulesVisibility()
+		end
+
+		if Toggles.CamlockSlotSystem.Value then
+			local function hookCamlockSlotChar(char)
+				if not char then return end
+				disconnect("CamlockSlotSystem_ChildAdded")
+				disconnect("CamlockSlotSystem_ChildRemoved")
+				track("CamlockSlotSystem_ChildAdded", char.ChildAdded:Connect(function(child)
+					if child:IsA("Tool") then
+						task.wait()
+						updateCamlockSlotSystemState()
+					end
+				end))
+				track("CamlockSlotSystem_ChildRemoved", char.ChildRemoved:Connect(function(child)
+					if child:IsA("Tool") then
+						task.wait()
+						updateCamlockSlotSystemState()
+					end
+				end))
+			end
+
+			if LocalPlayer.Character then
+				hookCamlockSlotChar(LocalPlayer.Character)
+			end
+			track("CamlockSlotSystem_CharAdded", LocalPlayer.CharacterAdded:Connect(hookCamlockSlotChar))
+
+			track("CamlockSlotSystem_Poll", RunService.Heartbeat:Connect(function()
+				updateCamlockSlotSystemState()
+			end))
+
+			updateCamlockSlotSystemState()
+
+			Library:Notify({ Title = "Camlock Slot System", Description = "Enabled", Time = 2 })
+		else
+			if clSlotSaved.Camlock ~= nil then
+				if Toggles.Camlock and Toggles.Camlock.Value ~= clSlotSaved.Camlock then
+					fromCLSlotSystem = true
+					Toggles.Camlock:SetValue(clSlotSaved.Camlock)
+					fromCLSlotSystem = false
+				end
+				clSlotSaved.Camlock = nil
+			end
+			if clSlotSaved.Outline ~= nil then
+				if Toggles.Outline and Toggles.Outline.Value ~= clSlotSaved.Outline then
+					fromCLSlotSystem = true
+					Toggles.Outline:SetValue(clSlotSaved.Outline)
+					fromCLSlotSystem = false
+				end
+				clSlotSaved.Outline = nil
+			end
+			table.clear(clSlotSaved)
+
+			Library:Notify({ Title = "Camlock Slot System", Description = "Disabled", Time = 2 })
+		end
+	end)
+
+	if Options.CamlockSlotSystemSlot then
+		Options.CamlockSlotSystemSlot:OnChanged(function()
+			updateCamlockSlotSystemState()
+		end)
+	end
 end
 
 local function applySpearSwordSlot(slot)
