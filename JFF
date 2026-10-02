@@ -2893,17 +2893,6 @@ do
 		end
 	end
 
-	if Toggles.Camlock then
-		Toggles.Camlock:OnChanged(function()
-			if fromCLSlotSystem then return end
-			if Toggles.CamlockSlotSystem and Toggles.CamlockSlotSystem.Value and isAdvanceSlotAllowed(Options.CamlockSlotSystemSlot) then
-				return
-			end
-			clSlotSaved.Camlock = nil
-			clSlotSaved.Outline = nil
-		end)
-	end
-
 	Toggles.CamlockSlotSystem:OnChanged(function()
 		disconnect("CamlockSlotSystem_Poll")
 		disconnect("CamlockSlotSystem_ChildAdded")
