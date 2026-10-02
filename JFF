@@ -135,6 +135,35 @@ local function isHoldingSelectedSlot(selectedSlot)
 	return false
 end
 
+local function isAdvanceSlotAllowed(slotOption)
+	if not slotOption then return false end
+	local val = slotOption.Value
+	if val == nil then return false end
+
+	if typeof(val) == "table" then
+		for slotKey, isSelected in pairs(val) do
+			local targetSlot = nil
+			if isSelected == true then
+				targetSlot = slotKey
+			elseif typeof(isSelected) == "string" then
+				targetSlot = isSelected
+			elseif typeof(isSelected) == "number" then
+				targetSlot = isSelected
+			end
+			if targetSlot ~= nil then
+				if isHoldingSelectedSlot(targetSlot) then
+					return true
+				end
+			end
+		end
+		return false
+	elseif typeof(val) == "string" or typeof(val) == "number" then
+		return isHoldingSelectedSlot(val)
+	end
+
+	return false
+end
+
 local function getCharacterFolder()
 	local characters = workspace:FindFirstChild("Characters")
 	return characters and characters:FindFirstChild(LocalPlayer.Name)
@@ -1525,20 +1554,33 @@ do
 		KillAuraAngle = nil,
 		KillAuraSpeed = nil,
 		KillAuraSlot = nil,
+		Saved = false,
 	}
+	local isPresetApplied = false
 	local restoring = false
 
 	local function doubleTapApplyPreset()
-		if Toggles.AutoSwing then
-			restoring = true
+		if isPresetApplied then return end
+
+		if not ddSaved.Saved then
+			ddSaved.AutoSwing = Toggles.AutoSwing and Toggles.AutoSwing.Value or false
+			ddSaved.KillAura = Toggles.KillAura and Toggles.KillAura.Value or false
+			ddSaved.KillAuraRange = Options.KillAuraRange and Options.KillAuraRange.Value or 15
+			ddSaved.KillAuraAngle = Options.KillAuraAngle and Options.KillAuraAngle.Value or 90
+			ddSaved.KillAuraSpeed = Options.KillAuraSpeed and Options.KillAuraSpeed.Value or 0.2
+			ddSaved.KillAuraSlot = Options.KillAuraSlot and Options.KillAuraSlot.Value or "1"
+			ddSaved.Saved = true
+		end
+
+		restoring = true
+		if Toggles.AutoSwing and not Toggles.AutoSwing.Value then
 			Toggles.AutoSwing:SetValue(true)
-			restoring = false
 		end
-		if Toggles.KillAura then
-			restoring = true
+		if Toggles.KillAura and not Toggles.KillAura.Value then
 			Toggles.KillAura:SetValue(true)
-			restoring = false
 		end
+		restoring = false
+
 		if Options.KillAuraRange then
 			Options.KillAuraRange:SetValue(5)
 		end
@@ -1548,9 +1590,24 @@ do
 		if Options.KillAuraSpeed then
 			Options.KillAuraSpeed:SetValue(1)
 		end
+
+		local heldSlot = nil
+		for s = 1, 10 do
+			if isHoldingSelectedSlot(s) then
+				heldSlot = tostring(s)
+				break
+			end
+		end
+		if heldSlot and Options.KillAuraSlot then
+			Options.KillAuraSlot:SetValue(heldSlot)
+		end
+
+		isPresetApplied = true
 	end
 
 	local function doubleTapRestore()
+		if not isPresetApplied and not ddSaved.Saved then return end
+
 		if Options.KillAuraRange and ddSaved.KillAuraRange ~= nil then
 			Options.KillAuraRange:SetValue(ddSaved.KillAuraRange)
 		end
@@ -1563,42 +1620,101 @@ do
 		if Options.KillAuraSlot and ddSaved.KillAuraSlot ~= nil then
 			Options.KillAuraSlot:SetValue(ddSaved.KillAuraSlot)
 		end
-		if Toggles.KillAura and ddSaved.KillAura ~= nil then
-			restoring = true
+
+		restoring = true
+		if Toggles.KillAura and ddSaved.KillAura ~= nil and Toggles.KillAura.Value ~= ddSaved.KillAura then
 			Toggles.KillAura:SetValue(ddSaved.KillAura)
-			restoring = false
 		end
-		if Toggles.AutoSwing and ddSaved.AutoSwing ~= nil then
-			restoring = true
+		if Toggles.AutoSwing and ddSaved.AutoSwing ~= nil and Toggles.AutoSwing.Value ~= ddSaved.AutoSwing then
 			Toggles.AutoSwing:SetValue(ddSaved.AutoSwing)
-			restoring = false
+		end
+		restoring = false
+
+		ddSaved.Saved = false
+		isPresetApplied = false
+	end
+
+	local function updateDoubleTapState()
+		if not (Toggles.DoubleDamageBETA and Toggles.DoubleDamageBETA.Value) then return end
+		if not isAlive() then return end
+
+		local holding = isAdvanceSlotAllowed(Options.DoubleTapSlot)
+
+		if holding then
+			doubleTapApplyPreset()
+		else
+			doubleTapRestore()
 		end
 	end
 
 	CombatAutoSwingGroup:AddCheckbox("DoubleDamageBETA", {
 		Text = "Double Tap(BETA)",
 		Default = false,
-		Callback = function(state)
-			if restoring then return end
-			if state then
-				ddSaved.AutoSwing = Toggles.AutoSwing and Toggles.AutoSwing.Value or false
-				ddSaved.KillAura = Toggles.KillAura and Toggles.KillAura.Value or false
-				ddSaved.KillAuraRange = Options.KillAuraRange and Options.KillAuraRange.Value or 15
-				ddSaved.KillAuraAngle = Options.KillAuraAngle and Options.KillAuraAngle.Value or 90
-				ddSaved.KillAuraSpeed = Options.KillAuraSpeed and Options.KillAuraSpeed.Value or 0.2
-				ddSaved.KillAuraSlot = Options.KillAuraSlot and Options.KillAuraSlot.Value or "1"
-
-				doubleTapApplyPreset()
-
-				Library:Notify({ Title = "Double Tap(BETA)", Description = "Enabled", Time = 2 })
-			else
-				doubleTapRestore()
-				table.clear(ddSaved)
-
-				Library:Notify({ Title = "Double Tap(BETA)", Description = "Disabled", Time = 2 })
-			end
-		end,
 	})
+
+	CombatAutoSwingGroup:AddDropdown("DoubleTapSlot", {
+		Text = "Tool Slot",
+		Values = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" },
+		Default = { "1" },
+		Multi = true,
+	})
+
+	Toggles.DoubleDamageBETA:OnChanged(function()
+		disconnect("DoubleTap_Poll")
+		disconnect("DoubleTap_ChildAdded")
+		disconnect("DoubleTap_ChildRemoved")
+		disconnect("DoubleTap_CharAdded")
+
+		if updateAutoSwingSliderVisibility then
+			updateAutoSwingSliderVisibility()
+		end
+
+		if Toggles.DoubleDamageBETA.Value then
+			local function hookDoubleTapChar(char)
+				if not char then return end
+				disconnect("DoubleTap_ChildAdded")
+				disconnect("DoubleTap_ChildRemoved")
+				track("DoubleTap_ChildAdded", char.ChildAdded:Connect(function(child)
+					if child:IsA("Tool") then
+						task.wait()
+						updateDoubleTapState()
+					end
+				end))
+				track("DoubleTap_ChildRemoved", char.ChildRemoved:Connect(function(child)
+					if child:IsA("Tool") then
+						task.wait()
+						updateDoubleTapState()
+					end
+				end))
+			end
+
+			if LocalPlayer.Character then
+				hookDoubleTapChar(LocalPlayer.Character)
+			end
+			track("DoubleTap_CharAdded", LocalPlayer.CharacterAdded:Connect(hookDoubleTapChar))
+
+			track("DoubleTap_Poll", RunService.Heartbeat:Connect(function()
+				updateDoubleTapState()
+			end))
+
+			updateDoubleTapState()
+
+			Library:Notify({ Title = "Double Tap(BETA)", Description = "Enabled", Time = 2 })
+		else
+			doubleTapRestore()
+			table.clear(ddSaved)
+			ddSaved.Saved = false
+			isPresetApplied = false
+
+			Library:Notify({ Title = "Double Tap(BETA)", Description = "Disabled", Time = 2 })
+		end
+	end)
+
+	if Options.DoubleTapSlot then
+		Options.DoubleTapSlot:OnChanged(function()
+			updateDoubleTapState()
+		end)
+	end
 end
 
 CombatAutoSwingGroup:AddDivider()
@@ -1641,8 +1757,15 @@ CombatAutoSwingGroup:AddToggle("SmartSwingIgnoreTeam", {
 updateAutoSwingSliderVisibility = function()
 	local isAutoSwingToggled = (Toggles.AutoSwing and Toggles.AutoSwing.Value) or false
 	local isSmartSwingToggled = (Toggles.SmartSwing and Toggles.SmartSwing.Value) or false
+	local isDoubleTapToggled = (Toggles.DoubleDamageBETA and Toggles.DoubleDamageBETA.Value) or false
 	local isAnyToggled = isAutoSwingToggled or isSmartSwingToggled
 
+	if Options.DoubleTapSlot then
+		Options.DoubleTapSlot.Visible = isDoubleTapToggled
+		if Options.DoubleTapSlot.Holder then
+			Options.DoubleTapSlot.Holder.Visible = isDoubleTapToggled
+		end
+	end
 	if Options.AutoSwingSlot then
 		Options.AutoSwingSlot.Visible = isAutoSwingToggled
 		if Options.AutoSwingSlot.Holder then
