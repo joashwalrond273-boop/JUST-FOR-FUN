@@ -3100,6 +3100,9 @@ local function applySpearSwordSlot(slot)
 		if Options.CamlockStuds then
 			Options.CamlockStuds:SetValue(15)
 		end
+		if Toggles.Outline then
+			Toggles.Outline:SetValue(true)
+		end
 		if Options.OutlineStuds then
 			Options.OutlineStuds:SetValue(7)
 		end
@@ -3107,8 +3110,8 @@ local function applySpearSwordSlot(slot)
 		if Options.CamlockStuds then
 			Options.CamlockStuds:SetValue(15)
 		end
-		if Options.OutlineStuds then
-			Options.OutlineStuds:SetValue(1)
+		if Toggles.Outline then
+			Toggles.Outline:SetValue(false)
 		end
 	end
 end
