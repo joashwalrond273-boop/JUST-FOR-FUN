@@ -1726,7 +1726,7 @@ end
 
 CombatAutoSwingGroup:AddDivider()
 
-CombatAutoSwingGroup:AddToggle("SmartSwing", {
+CombatAutoSwingGroup:AddCheckbox("SmartSwing", {
 	Text = "Smart Swing",
 	Default = false,
 })
@@ -7821,9 +7821,6 @@ Library:OnUnload(function()
 	end
 	if Toggles.OreESPToggle and Toggles.OreESPToggle.Value then
 		Toggles.OreESPToggle:SetValue(false)
-	end
-	if Toggles.LastStand and Toggles.LastStand.Value then
-		Toggles.LastStand:SetValue(false)
 	end
 
 	if Toggles.FastPickup and Toggles.FastPickup.Value then
