@@ -1726,8 +1726,8 @@ end
 
 CombatAutoSwingGroup:AddDivider()
 
-CombatAutoSwingGroup:AddCheckbox("SmartSwing", {
-	Text = "+ Smart Swing",
+CombatAutoSwingGroup:AddToggle("SmartSwing", {
+	Text = "Smart Swing",
 	Default = false,
 })
 
@@ -1983,6 +1983,39 @@ CombatReach:AddToggle("Reach", {
 	Text = "Reach",
 	Default = false,
 })
+
+CombatReach:AddCheckbox("LastStand", {
+	Text = "Last Stand",
+	Default = false,
+})
+
+CombatReach:AddSlider("LastStandHealthThreshold", {
+	Text = "Health Threshold",
+	Min = 5,
+	Max = 100,
+	Default = 35,
+	Rounding = 0,
+	Compact = true,
+})
+
+local updateReachVisibility = function()
+	local isLastStand = (Toggles.LastStand and Toggles.LastStand.Value) or false
+	if Options.LastStandHealthThreshold then
+		Options.LastStandHealthThreshold.Visible = isLastStand
+		if Options.LastStandHealthThreshold.Holder then
+			Options.LastStandHealthThreshold.Holder.Visible = isLastStand
+		end
+	end
+	CombatReach:Resize()
+end
+
+updateReachVisibility()
+task.spawn(function()
+	task.wait(0.05)
+	if updateReachVisibility then
+		updateReachVisibility()
+	end
+end)
 
 CombatReach:AddDropdown("ReachTarget", {
 	Text = "Target Player",
@@ -3101,7 +3134,7 @@ local function applySpearSwordSlot(slot)
 			Options.CamlockStuds:SetValue(15)
 		end
 		if Options.OutlineStuds then
-			Options.OutlineStuds:SetValue(8)
+			Options.OutlineStuds:SetValue(7)
 		end
 	elseif slot == 5 or slot == "5" then
 		if Options.CamlockStuds then
@@ -3607,6 +3640,111 @@ Toggles.Reach:OnChanged(function()
 		Library:Notify({ Title = "Reach", Description = "Enabled", Time = 2 })
 	end
 end)
+
+do
+	local lastStandSaved = {
+		Reach = nil,
+		ReachRange = nil,
+		ReachAngle = nil,
+	}
+	local lastStandActive = false
+
+	local function checkLastStand()
+		if not isAlive() then return end
+		if not (Toggles.LastStand and Toggles.LastStand.Value) then return end
+		local humanoid = getHumanoid()
+		if not humanoid then return end
+		local threshold = (Options.LastStandHealthThreshold and Options.LastStandHealthThreshold.Value) or 35
+
+		if humanoid.Health <= threshold and humanoid.Health > 0 then
+			if not lastStandActive then
+				lastStandActive = true
+				lastStandSaved.Reach = Toggles.Reach and Toggles.Reach.Value or false
+				lastStandSaved.ReachRange = Options.ReachRange and Options.ReachRange.Value or 15
+				lastStandSaved.ReachAngle = Options.ReachAngle and Options.ReachAngle.Value or 35
+
+				if Toggles.Reach and not Toggles.Reach.Value then
+					Toggles.Reach:SetValue(true)
+				end
+				if Options.ReachRange then
+					Options.ReachRange:SetValue(10)
+				end
+				if Options.ReachAngle then
+					Options.ReachAngle:SetValue(10)
+				end
+				Library:Notify({ Title = "Last Stand", Description = "Activated! (Health <= " .. tostring(threshold) .. ")", Time = 2 })
+			end
+		else
+			if lastStandActive then
+				lastStandActive = false
+				if lastStandSaved.Reach ~= nil and Toggles.Reach and Toggles.Reach.Value ~= lastStandSaved.Reach then
+					Toggles.Reach:SetValue(lastStandSaved.Reach)
+				end
+				if lastStandSaved.ReachRange ~= nil and Options.ReachRange then
+					Options.ReachRange:SetValue(lastStandSaved.ReachRange)
+				end
+				if lastStandSaved.ReachAngle ~= nil and Options.ReachAngle then
+					Options.ReachAngle:SetValue(lastStandSaved.ReachAngle)
+				end
+				table.clear(lastStandSaved)
+				Library:Notify({ Title = "Last Stand", Description = "Deactivated (Health recovered)", Time = 2 })
+			end
+		end
+	end
+
+	Toggles.LastStand:OnChanged(function()
+		disconnect("LastStand_Health")
+		disconnect("LastStand_Poll")
+		disconnect("LastStand_CharAdded")
+
+		if updateReachVisibility then
+			updateReachVisibility()
+		end
+
+		if Toggles.LastStand.Value then
+			local function hookLastStandChar(char)
+				if not char then return end
+				local hum = char:WaitForChild("Humanoid", 5) or char:FindFirstChildOfClass("Humanoid")
+				if hum then
+					disconnect("LastStand_Health")
+					track("LastStand_Health", hum:GetPropertyChangedSignal("Health"):Connect(checkLastStand))
+				end
+			end
+
+			if LocalPlayer.Character then
+				hookLastStandChar(LocalPlayer.Character)
+			end
+			track("LastStand_CharAdded", LocalPlayer.CharacterAdded:Connect(hookLastStandChar))
+
+			track("LastStand_Poll", RunService.Heartbeat:Connect(checkLastStand))
+
+			checkLastStand()
+
+			Library:Notify({ Title = "Last Stand", Description = "Enabled", Time = 2 })
+		else
+			if lastStandActive then
+				lastStandActive = false
+				if lastStandSaved.Reach ~= nil and Toggles.Reach and Toggles.Reach.Value ~= lastStandSaved.Reach then
+					Toggles.Reach:SetValue(lastStandSaved.Reach)
+				end
+				if lastStandSaved.ReachRange ~= nil and Options.ReachRange then
+					Options.ReachRange:SetValue(lastStandSaved.ReachRange)
+				end
+				if lastStandSaved.ReachAngle ~= nil and Options.ReachAngle then
+					Options.ReachAngle:SetValue(lastStandSaved.ReachAngle)
+				end
+				table.clear(lastStandSaved)
+			end
+			Library:Notify({ Title = "Last Stand", Description = "Disabled", Time = 2 })
+		end
+	end)
+
+	if Options.LastStandHealthThreshold then
+		Options.LastStandHealthThreshold:OnChanged(function()
+			checkLastStand()
+		end)
+	end
+end
 
 Options.AdvancePreset:OnChanged(function()
 	local val = Options.AdvancePreset.Value
@@ -7821,6 +7959,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.OreESPToggle and Toggles.OreESPToggle.Value then
 		Toggles.OreESPToggle:SetValue(false)
+	end
+	if Toggles.LastStand and Toggles.LastStand.Value then
+		Toggles.LastStand:SetValue(false)
 	end
 
 	if Toggles.FastPickup and Toggles.FastPickup.Value then
