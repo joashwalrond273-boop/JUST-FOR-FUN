@@ -1576,13 +1576,13 @@ do
 			restoring = false
 		end
 		if Options.KillAuraRange then
-			Options.KillAuraRange:SetValue(5)
+			Options.KillAuraRange:SetValue(10)
 		end
 		if Options.KillAuraAngle then
 			Options.KillAuraAngle:SetValue(10)
 		end
 		if Options.KillAuraSpeed then
-			Options.KillAuraSpeed:SetValue(1)
+			Options.KillAuraSpeed:SetValue(0.4)
 		end
 		if heldSlot and Options.KillAuraSlot then
 			Options.KillAuraSlot:SetValue(tostring(heldSlot))
