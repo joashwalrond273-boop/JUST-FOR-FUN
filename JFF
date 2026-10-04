@@ -1911,6 +1911,18 @@ CombatAutoPVP:AddCheckbox("AutoJump", {
 	Default = false,
 })
 
+CombatAutoPVP:AddCheckbox("AutoJumpSlotSystem", {
+	Text = "Slot System",
+	Default = false,
+})
+
+CombatAutoPVP:AddDropdown("AutoJumpSlotSystemSlot", {
+	Text = "Tool Slot",
+	Values = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" },
+	Default = { "1" },
+	Multi = true,
+})
+
 CombatAutoPVP:AddCheckbox("AutoJumpIgnoreTeam", {
 	Text = "Ignore Team",
 	Default = true,
@@ -2039,6 +2051,21 @@ updatePVPModulesVisibility = function()
 		end
 	end
 	local isAutoJump = (Toggles.AutoJump and Toggles.AutoJump.Value) or false
+	local isAJSlot = (Toggles.AutoJumpSlotSystem and Toggles.AutoJumpSlotSystem.Value) or false
+	if Toggles.AutoJumpSlotSystem then
+		if Toggles.AutoJumpSlotSystem.Visible ~= nil then
+			Toggles.AutoJumpSlotSystem.Visible = isAutoJump
+		end
+		if Toggles.AutoJumpSlotSystem.Holder then
+			Toggles.AutoJumpSlotSystem.Holder.Visible = isAutoJump
+		end
+	end
+	if Options.AutoJumpSlotSystemSlot then
+		Options.AutoJumpSlotSystemSlot.Visible = isAutoJump and isAJSlot
+		if Options.AutoJumpSlotSystemSlot.Holder then
+			Options.AutoJumpSlotSystemSlot.Holder.Visible = isAutoJump and isAJSlot
+		end
+	end
 	if Toggles.AutoJumpIgnoreTeam then
 		if Toggles.AutoJumpIgnoreTeam.Visible ~= nil then
 			Toggles.AutoJumpIgnoreTeam.Visible = isAutoJump
@@ -3496,6 +3523,24 @@ if Toggles.LookDownFloor then
 	end)
 end
 
+if Toggles.AutoJumpSlotSystem then
+	Toggles.AutoJumpSlotSystem:OnChanged(function()
+		if updatePVPModulesVisibility then
+			updatePVPModulesVisibility()
+		end
+		if Toggles.AutoJumpSlotSystem.Value then
+			Library:Notify({ Title = "Auto Jump Slot System", Description = "Enabled", Time = 2 })
+		else
+			Library:Notify({ Title = "Auto Jump Slot System", Description = "Disabled", Time = 2 })
+		end
+	end)
+end
+
+if Options.AutoJumpSlotSystemSlot then
+	Options.AutoJumpSlotSystemSlot:OnChanged(function()
+	end)
+end
+
 if Toggles.AutoJumpIgnoreTeam then
 	Toggles.AutoJumpIgnoreTeam:OnChanged(function()
 		if updatePVPModulesVisibility then
@@ -3520,6 +3565,12 @@ if Toggles.AutoJump then
 				local myRoot = getRootPart()
 				local myHum = getHumanoid()
 				if not myRoot or not myHum then return end
+
+				if Toggles.AutoJumpSlotSystem and Toggles.AutoJumpSlotSystem.Value then
+					if not isAdvanceSlotAllowed(Options.AutoJumpSlotSystemSlot) then
+						return
+					end
+				end
 
 				local maxStuds = (Options.AutoJumpStuds and Options.AutoJumpStuds.Value) or 20
 				local ignoreTeam = Toggles.AutoJumpIgnoreTeam and Toggles.AutoJumpIgnoreTeam.Value
@@ -8047,6 +8098,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.AutoJump and Toggles.AutoJump.Value then
 		Toggles.AutoJump:SetValue(false)
+	end
+	if Toggles.AutoJumpSlotSystem and Toggles.AutoJumpSlotSystem.Value then
+		Toggles.AutoJumpSlotSystem:SetValue(false)
 	end
 	if Toggles.AutoJumpIgnoreTeam and Toggles.AutoJumpIgnoreTeam.Value then
 		Toggles.AutoJumpIgnoreTeam:SetValue(false)
