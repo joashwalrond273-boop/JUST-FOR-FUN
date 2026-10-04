@@ -1414,6 +1414,29 @@ CombatCamlock:AddSlider("OutlineStuds", {
 	Compact = true,
 })
 
+CombatCamlock:AddCheckbox("CamlockPull", {
+	Text = "Pull In Close (< 7 Studs)",
+	Default = true,
+})
+
+CombatCamlock:AddSlider("CamlockPullDist", {
+	Text = "Pull Trigger (< Studs)",
+	Default = 7,
+	Min = 1,
+	Max = 20,
+	Rounding = 0,
+	Compact = true,
+})
+
+CombatCamlock:AddSlider("CamlockPullTargetDist", {
+	Text = "Pull Stop Distance",
+	Default = 2,
+	Min = 0,
+	Max = 6,
+	Rounding = 1,
+	Compact = true,
+})
+
 CombatLeft:AddToggle("KillAura", {
 	Text = "Kill Aura",
 	Default = false,
@@ -1942,6 +1965,27 @@ updatePVPModulesVisibility = function()
 		Options.Slot3AngleOffset.Visible = isCam
 		if Options.Slot3AngleOffset.Holder then
 			Options.Slot3AngleOffset.Holder.Visible = isCam
+		end
+	end
+	local isPull = isCam and ((Toggles.CamlockPull and Toggles.CamlockPull.Value) or false)
+	if Toggles.CamlockPull then
+		if Toggles.CamlockPull.Visible ~= nil then
+			Toggles.CamlockPull.Visible = isCam
+		end
+		if Toggles.CamlockPull.Holder then
+			Toggles.CamlockPull.Holder.Visible = isCam
+		end
+	end
+	if Options.CamlockPullDist then
+		Options.CamlockPullDist.Visible = isPull
+		if Options.CamlockPullDist.Holder then
+			Options.CamlockPullDist.Holder.Visible = isPull
+		end
+	end
+	if Options.CamlockPullTargetDist then
+		Options.CamlockPullTargetDist.Visible = isPull
+		if Options.CamlockPullTargetDist.Holder then
+			Options.CamlockPullTargetDist.Holder.Visible = isPull
 		end
 	end
 	local isLookDown = (Toggles.LookDownFloor and Toggles.LookDownFloor.Value) or false
@@ -2883,6 +2927,10 @@ Toggles.Camlock:OnChanged(function()
 
 			-- Outline: Stop player from getting closer than studs to players while using Camlock
 			local outlineActive = (Toggles.Outline and Toggles.Outline.Value) or (Toggles.Cutline and Toggles.Cutline.Value)
+			local isPullActive = (Toggles.CamlockPull and Toggles.CamlockPull.Value) or false
+			local pullTriggerDist = (Options.CamlockPullDist and Options.CamlockPullDist.Value) or 7
+			local pullTargetDist = (Options.CamlockPullTargetDist and Options.CamlockPullTargetDist.Value) or 2
+
 			if outlineActive then
 				local minOutlineStuds = (Options.OutlineStuds and Options.OutlineStuds.Value) or (Options.CutlineStuds and Options.CutlineStuds.Value) or 7
 				local outlineTargetSetting = (Options.OutlineTarget and Options.OutlineTarget.Value) or "All"
@@ -2898,7 +2946,7 @@ Toggles.Camlock:OnChanged(function()
 									local flatOffset = Vector3.new(offset.X, 0, offset.Z)
 									local flatDist = flatOffset.Magnitude
 
-									if flatDist < minOutlineStuds then
+									if not (isPullActive and flatDist <= pullTriggerDist) and flatDist < minOutlineStuds then
 										local pushDir
 										if flatDist > 0.001 then
 											pushDir = flatOffset.Unit
@@ -2933,6 +2981,35 @@ Toggles.Camlock:OnChanged(function()
 								end
 							end
 						end
+					end
+				end
+			end
+
+			-- Camlock Pull In: Pull body closer to target when within trigger distance (< 7 studs)
+			if isPullActive and closestPlayer and closestPlayer.Character then
+				local targetRoot = closestPlayer.Character:FindFirstChild("HumanoidRootPart")
+				if targetRoot then
+					local targetPos = targetRoot.Position
+					local offset = targetPos - myPos
+					local flatOffset = Vector3.new(offset.X, 0, offset.Z)
+					local currentDist = flatOffset.Magnitude
+
+					if currentDist <= pullTriggerDist and currentDist > pullTargetDist then
+						local pullDir = flatOffset.Unit
+						local pullStep = math.min(currentDist - pullTargetDist, 1.2)
+						myPos = Vector3.new(
+							myPos.X + pullDir.X * pullStep,
+							myPos.Y,
+							myPos.Z + pullDir.Z * pullStep
+						)
+
+						pcall(function()
+							local pullVel = pullDir * 24
+							local curVel = root.AssemblyLinearVelocity or root.Velocity or Vector3.zero
+							local newVel = Vector3.new(pullVel.X, curVel.Y, pullVel.Z)
+							root.AssemblyLinearVelocity = newVel
+							root.Velocity = newVel
+						end)
 					end
 				end
 			end
@@ -2977,6 +3054,14 @@ Toggles.Camlock:OnChanged(function()
 		end
 	end
 end)
+
+if Toggles.CamlockPull then
+	Toggles.CamlockPull:OnChanged(function()
+		if updatePVPModulesVisibility then
+			updatePVPModulesVisibility()
+		end
+	end)
+end
 
 if Toggles.Outline then
 	Toggles.Outline:OnChanged(function()
@@ -7816,6 +7901,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.Camlock and Toggles.Camlock.Value then
 		Toggles.Camlock:SetValue(false)
+	end
+	if Toggles.CamlockPull and Toggles.CamlockPull.Value then
+		Toggles.CamlockPull:SetValue(false)
 	end
 	if Toggles.Outline and Toggles.Outline.Value then
 		Toggles.Outline:SetValue(false)
