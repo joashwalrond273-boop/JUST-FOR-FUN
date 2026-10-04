@@ -1916,13 +1916,6 @@ CombatAutoPVP:AddCheckbox("AutoJumpIgnoreTeam", {
 	Default = true,
 })
 
-CombatAutoPVP:AddDropdown("AutoJumpSlot", {
-	Text = "Tool Slot",
-	Values = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"},
-	Default = {"1"},
-	Multi = true,
-})
-
 CombatAutoPVP:AddSlider("AutoJumpStuds", {
 	Text = "Auto Jump Studs",
 	Default = 20,
@@ -2052,12 +2045,6 @@ updatePVPModulesVisibility = function()
 		end
 		if Toggles.AutoJumpIgnoreTeam.Holder then
 			Toggles.AutoJumpIgnoreTeam.Holder.Visible = isAutoJump
-		end
-	end
-	if Options.AutoJumpSlot then
-		Options.AutoJumpSlot.Visible = isAutoJump
-		if Options.AutoJumpSlot.Holder then
-			Options.AutoJumpSlot.Holder.Visible = isAutoJump
 		end
 	end
 	if Options.AutoJumpStuds then
@@ -3517,33 +3504,6 @@ if Toggles.AutoJumpIgnoreTeam then
 	end)
 end
 
-local function isAutoJumpSlotAllowed(slotOption)
-	if not slotOption then return false end
-	local val = slotOption.Value
-	if val == nil then return false end
-
-	if typeof(val) == "table" then
-		for slotKey, isSelected in pairs(val) do
-			local targetSlot = nil
-			if isSelected == true then
-				targetSlot = slotKey
-			elseif typeof(isSelected) == "string" then
-				targetSlot = isSelected
-			elseif typeof(isSelected) == "number" then
-				targetSlot = isSelected
-			end
-			if targetSlot ~= nil and isHoldingSelectedSlot(targetSlot) then
-				return true
-			end
-		end
-		return false
-	elseif typeof(val) == "string" or typeof(val) == "number" then
-		return isHoldingSelectedSlot(val)
-	end
-
-	return false
-end
-
 if Toggles.AutoJump then
 	Toggles.AutoJump:OnChanged(function()
 		disconnect("AutoJump")
@@ -3557,9 +3517,6 @@ if Toggles.AutoJump then
 
 			track("AutoJump", RunService.Heartbeat:Connect(function()
 				if not isAlive() then return end
-				if Options.AutoJumpSlot and not isAutoJumpSlotAllowed(Options.AutoJumpSlot) then
-					return
-				end
 				local myRoot = getRootPart()
 				local myHum = getHumanoid()
 				if not myRoot or not myHum then return end
