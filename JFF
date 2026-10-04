@@ -2980,8 +2980,20 @@ Toggles.Camlock:OnChanged(function()
 					local pullTriggerDist = (Options.CamlockPullDist and Options.CamlockPullDist.Value) or 8
 					local stopBoundary = outlineActive and minOutlineStuds or 7
 
-					if currentDist <= pullTriggerDist and currentDist > stopBoundary then
-						local pullDir = flatOffset.Unit
+					local pullDir = flatOffset.Unit
+
+					-- Check if the player is actively trying to move / pull away from the target
+					local isMovingAway = false
+					if hum and hum.MoveDirection.Magnitude > 0.05 then
+						if hum.MoveDirection:Dot(pullDir) < -0.05 then
+							isMovingAway = true
+						end
+					end
+					if not isMovingAway and (UserInputService:IsKeyDown(Enum.KeyCode.S) or UserInputService:IsKeyDown(Enum.KeyCode.Down)) then
+						isMovingAway = true
+					end
+
+					if not isMovingAway and currentDist <= pullTriggerDist and currentDist > stopBoundary then
 						local pullStep = math.min(currentDist - stopBoundary, 0.4)
 						myPos = Vector3.new(
 							myPos.X + pullDir.X * pullStep,
