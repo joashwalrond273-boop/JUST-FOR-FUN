@@ -53,6 +53,7 @@ local updateFlightVisibility
 local updateImmortalModeVisibility
 local updatePhantomModeVisibility
 local updateSwimBoostVisibility
+local updateSpectateVisibility
 local isTeammate
 
 Library.ShowToggleFrameInKeybinds = true
@@ -591,6 +592,79 @@ SpectateGroup:AddDropdown("SpectatePlayerList", {
 	Values = {},
 	Default = "",
 })
+
+SpectateGroup:AddCheckbox("SpectateOrbit", {
+	Text = "Orbit View",
+	Default = false,
+})
+
+SpectateGroup:AddSlider("SpectateOrbitSpeed", {
+	Text = "Orbit Speed",
+	Default = 1,
+	Min = 0.1,
+	Max = 5,
+	Rounding = 1,
+	Compact = true,
+})
+
+SpectateGroup:AddSlider("SpectateOrbitDistance", {
+	Text = "Orbit Distance",
+	Default = 15,
+	Min = 5,
+	Max = 60,
+	Rounding = 0,
+	Compact = true,
+})
+
+SpectateGroup:AddSlider("SpectateOrbitHeight", {
+	Text = "Orbit Height",
+	Default = 4,
+	Min = -5,
+	Max = 30,
+	Rounding = 0,
+	Compact = true,
+})
+
+updateSpectateVisibility = function()
+	local isOrbit = (Toggles.SpectateOrbit and Toggles.SpectateOrbit.Value) or false
+
+	if Options.SpectateOrbitSpeed then
+		if Options.SpectateOrbitSpeed.Visible ~= nil then
+			Options.SpectateOrbitSpeed.Visible = isOrbit
+		end
+		if Options.SpectateOrbitSpeed.Holder then
+			Options.SpectateOrbitSpeed.Holder.Visible = isOrbit
+		end
+	end
+
+	if Options.SpectateOrbitDistance then
+		if Options.SpectateOrbitDistance.Visible ~= nil then
+			Options.SpectateOrbitDistance.Visible = isOrbit
+		end
+		if Options.SpectateOrbitDistance.Holder then
+			Options.SpectateOrbitDistance.Holder.Visible = isOrbit
+		end
+	end
+
+	if Options.SpectateOrbitHeight then
+		if Options.SpectateOrbitHeight.Visible ~= nil then
+			Options.SpectateOrbitHeight.Visible = isOrbit
+		end
+		if Options.SpectateOrbitHeight.Holder then
+			Options.SpectateOrbitHeight.Holder.Visible = isOrbit
+		end
+	end
+
+	SpectateGroup:Resize()
+end
+
+updateSpectateVisibility()
+task.spawn(function()
+	task.wait(0.05)
+	if updateSpectateVisibility then
+		updateSpectateVisibility()
+	end
+end)
 
 local FunLeft = Tabs.Main:AddRightGroupbox("FLING A BULLY", "swords")
 
@@ -7638,6 +7712,8 @@ Toggles.FloatOverToggle:OnChanged(function()
 end)
 
 -- Spectate Script Logic
+local spectateOrbitAngle = 0
+
 local function updateSpectatePlayerList()
 	local list = {}
 	for _, player in ipairs(Players:GetPlayers()) do
@@ -7663,19 +7739,47 @@ task.spawn(updateSpectatePlayerList)
 
 local function startSpectate()
 	disconnect("SpectateLoop")
+	local camera = workspace.CurrentCamera
+
 	if Toggles.SpectateToggle.Value then
-		track("SpectateLoop", RunService.Heartbeat:Connect(function()
+		track("SpectateLoop", RunService.RenderStepped:Connect(function(dt)
 			if not Toggles.SpectateToggle.Value then return end
 			local targetName = Options.SpectatePlayerList.Value
 			local targetPlayer = targetName and Players:FindFirstChild(targetName)
-			local targetHum = targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChildOfClass("Humanoid")
-			local camera = workspace.CurrentCamera
+			local targetChar = targetPlayer and targetPlayer.Character
+			local targetHum = targetChar and targetChar:FindFirstChildOfClass("Humanoid")
+			local targetRoot = targetChar and (targetChar:FindFirstChild("HumanoidRootPart") or targetChar:FindFirstChild("Head") or targetChar:FindFirstChild("Torso"))
 
-			if targetHum then
-				if camera.CameraSubject ~= targetHum then
-					camera.CameraSubject = targetHum
+			local isOrbit = Toggles.SpectateOrbit and Toggles.SpectateOrbit.Value
+
+			if targetChar and (targetHum or targetRoot) then
+				if isOrbit and targetRoot then
+					camera.CameraType = Enum.CameraType.Scriptable
+					local speed = (Options.SpectateOrbitSpeed and Options.SpectateOrbitSpeed.Value) or 1
+					local distance = (Options.SpectateOrbitDistance and Options.SpectateOrbitDistance.Value) or 15
+					local height = (Options.SpectateOrbitHeight and Options.SpectateOrbitHeight.Value) or 4
+
+					spectateOrbitAngle = (spectateOrbitAngle + (speed * dt)) % (math.pi * 2)
+
+					local targetPos = targetRoot.Position + Vector3.new(0, 1.5, 0)
+					local camPos = targetPos + Vector3.new(
+						math.cos(spectateOrbitAngle) * distance,
+						height,
+						math.sin(spectateOrbitAngle) * distance
+					)
+					camera.CFrame = CFrame.lookAt(camPos, targetPos)
+				else
+					if camera.CameraType ~= Enum.CameraType.Custom then
+						camera.CameraType = Enum.CameraType.Custom
+					end
+					if targetHum and camera.CameraSubject ~= targetHum then
+						camera.CameraSubject = targetHum
+					end
 				end
 			else
+				if camera.CameraType ~= Enum.CameraType.Custom then
+					camera.CameraType = Enum.CameraType.Custom
+				end
 				local localHum = getHumanoid()
 				if localHum and camera.CameraSubject ~= localHum then
 					camera.CameraSubject = localHum
@@ -7683,10 +7787,12 @@ local function startSpectate()
 			end
 		end))
 	else
-		local camera = workspace.CurrentCamera
-		local localHum = getHumanoid()
-		if localHum then
-			camera.CameraSubject = localHum
+		if camera then
+			camera.CameraType = Enum.CameraType.Custom
+			local localHum = getHumanoid()
+			if localHum then
+				camera.CameraSubject = localHum
+			end
 		end
 	end
 end
@@ -7701,6 +7807,15 @@ Toggles.SpectateToggle:OnChanged(function()
 end)
 
 Options.SpectatePlayerList:OnChanged(function()
+	if Toggles.SpectateToggle.Value then
+		startSpectate()
+	end
+end)
+
+Toggles.SpectateOrbit:OnChanged(function()
+	if updateSpectateVisibility then
+		updateSpectateVisibility()
+	end
 	if Toggles.SpectateToggle.Value then
 		startSpectate()
 	end
@@ -8062,6 +8177,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.SpectateToggle and Toggles.SpectateToggle.Value then
 		Toggles.SpectateToggle:SetValue(false)
+	end
+	if Toggles.SpectateOrbit and Toggles.SpectateOrbit.Value then
+		Toggles.SpectateOrbit:SetValue(false)
 	end
 	if Toggles.TouchFling and Toggles.TouchFling.Value then
 		Toggles.TouchFling:SetValue(false)
