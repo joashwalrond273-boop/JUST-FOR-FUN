@@ -693,6 +693,15 @@ MainLeft:AddCheckbox("Noclip", {
 	Default = false,
 })
 
+MainLeft:AddSlider("ScreenSensitivity", {
+	Text = "Screen Sensitivity",
+	Default = 1,
+	Min = 0.01,
+	Max = 10,
+	Rounding = 2,
+	Compact = true,
+})
+
 updateAutoPickupVisibility = function()
 	local isPickup = (Toggles.FastPickup and Toggles.FastPickup.Value) or false
 	if Options.AutoPickupRange then
@@ -1279,6 +1288,49 @@ Toggles.FastPickup:OnChanged(function()
 		Library:Notify({ Title = "Auto Pickup", Description = "Disabled", Time = 2 })
 	end
 end)
+
+-- Screen Sensitivity Handler
+local isSettingSensitivity = false
+local function applyScreenSensitivity(val)
+	if isSettingSensitivity or typeof(val) ~= "number" then return end
+	isSettingSensitivity = true
+	pcall(function()
+		local userGameSettings = UserSettings():GetService("UserGameSettings")
+		if userGameSettings then
+			userGameSettings.MouseSensitivity = val
+			pcall(function()
+				userGameSettings.GamepadCameraSensitivity = val
+			end)
+		end
+	end)
+	isSettingSensitivity = false
+end
+
+if Options.ScreenSensitivity then
+	Options.ScreenSensitivity:OnChanged(function()
+		applyScreenSensitivity(Options.ScreenSensitivity.Value)
+	end)
+
+	pcall(function()
+		local userGameSettings = UserSettings():GetService("UserGameSettings")
+		if userGameSettings then
+			local current = userGameSettings.MouseSensitivity
+			if typeof(current) == "number" and current > 0 then
+				Options.ScreenSensitivity:SetValue(math.clamp(math.floor(current * 100 + 0.5) / 100, 0.01, 10))
+			end
+			track("ScreenSensitivity_Sync", userGameSettings:GetPropertyChangedSignal("MouseSensitivity"):Connect(function()
+				if not isSettingSensitivity and Options.ScreenSensitivity then
+					local newSens = userGameSettings.MouseSensitivity
+					if typeof(newSens) == "number" and math.abs(Options.ScreenSensitivity.Value - newSens) > 0.005 then
+						isSettingSensitivity = true
+						Options.ScreenSensitivity:SetValue(math.clamp(math.floor(newSens * 100 + 0.5) / 100, 0.01, 10))
+						isSettingSensitivity = false
+					end
+				end
+			end))
+		end
+	end)
+end
 
 local FoodIdMap = {
 	["Cabbage"] = 210,
