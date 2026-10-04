@@ -1911,11 +1911,9 @@ CombatAutoPVP:AddCheckbox("AutoJump", {
 	Default = false,
 })
 
-CombatAutoPVP:AddDropdown("AutoJumpSlot", {
-	Text = "Tool Slot",
-	Values = {"All", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"},
-	Default = {"All"},
-	Multi = true,
+CombatAutoPVP:AddCheckbox("AutoJumpIgnoreTeam", {
+	Text = "Ignore Team",
+	Default = true,
 })
 
 CombatAutoPVP:AddSlider("AutoJumpStuds", {
@@ -1924,15 +1922,6 @@ CombatAutoPVP:AddSlider("AutoJumpStuds", {
 	Min = 1,
 	Max = 50,
 	Rounding = 0,
-	Compact = true,
-})
-
-CombatAutoPVP:AddSlider("AutoJumpDelay", {
-	Text = "Auto Jump Delay (s)",
-	Default = 0,
-	Min = 0,
-	Max = 1,
-	Rounding = 2,
 	Compact = true,
 })
 
@@ -2050,22 +2039,18 @@ updatePVPModulesVisibility = function()
 		end
 	end
 	local isAutoJump = (Toggles.AutoJump and Toggles.AutoJump.Value) or false
-	if Options.AutoJumpSlot then
-		Options.AutoJumpSlot.Visible = isAutoJump
-		if Options.AutoJumpSlot.Holder then
-			Options.AutoJumpSlot.Holder.Visible = isAutoJump
+	if Toggles.AutoJumpIgnoreTeam then
+		if Toggles.AutoJumpIgnoreTeam.Visible ~= nil then
+			Toggles.AutoJumpIgnoreTeam.Visible = isAutoJump
+		end
+		if Toggles.AutoJumpIgnoreTeam.Holder then
+			Toggles.AutoJumpIgnoreTeam.Holder.Visible = isAutoJump
 		end
 	end
 	if Options.AutoJumpStuds then
 		Options.AutoJumpStuds.Visible = isAutoJump
 		if Options.AutoJumpStuds.Holder then
 			Options.AutoJumpStuds.Holder.Visible = isAutoJump
-		end
-	end
-	if Options.AutoJumpDelay then
-		Options.AutoJumpDelay.Visible = isAutoJump
-		if Options.AutoJumpDelay.Holder then
-			Options.AutoJumpDelay.Holder.Visible = isAutoJump
 		end
 	end
 	CombatAutoPVP:Resize()
@@ -3511,28 +3496,12 @@ if Toggles.LookDownFloor then
 	end)
 end
 
-local function isAutoJumpSlotAllowed(slotOption)
-	if not slotOption then return true end
-	local val = slotOption.Value
-	if val == nil then return true end
-	if typeof(val) == "table" then
-		if val["All"] == true or table.find(val, "All") then
-			return true
+if Toggles.AutoJumpIgnoreTeam then
+	Toggles.AutoJumpIgnoreTeam:OnChanged(function()
+		if updatePVPModulesVisibility then
+			updatePVPModulesVisibility()
 		end
-		for slotKey, isSelected in pairs(val) do
-			if isSelected == true or (typeof(slotKey) == "number" and typeof(isSelected) == "string") then
-				local targetSlot = (isSelected == true) and slotKey or isSelected
-				if isHoldingSelectedSlot(targetSlot) then
-					return true
-				end
-			end
-		end
-		return false
-	elseif typeof(val) == "string" or typeof(val) == "number" then
-		if tostring(val) == "All" then return true end
-		return isHoldingSelectedSlot(val)
-	end
-	return true
+	end)
 end
 
 if Toggles.AutoJump then
@@ -3548,46 +3517,32 @@ if Toggles.AutoJump then
 
 			track("AutoJump", RunService.Heartbeat:Connect(function()
 				if not isAlive() then return end
-				if not isAutoJumpSlotAllowed(Options.AutoJumpSlot) then return end
 				local myRoot = getRootPart()
 				local myHum = getHumanoid()
 				if not myRoot or not myHum then return end
 
 				local maxStuds = (Options.AutoJumpStuds and Options.AutoJumpStuds.Value) or 20
+				local ignoreTeam = Toggles.AutoJumpIgnoreTeam and Toggles.AutoJumpIgnoreTeam.Value
 				local myPos = myRoot.Position
 
 				for _, p in ipairs(Players:GetPlayers()) do
 					if p ~= LocalPlayer and p.Character then
-						local otherRoot = p.Character:FindFirstChild("HumanoidRootPart")
-						local otherHum = p.Character:FindFirstChildOfClass("Humanoid")
-						if otherRoot and otherHum and otherHum.Health > 0 then
-							local dist = (otherRoot.Position - myPos).Magnitude
-							if dist <= maxStuds then
-								local isJumpingNow = (otherHum:GetState() == Enum.HumanoidStateType.Jumping)
-									or (otherHum.Jump == true)
-									or (otherHum.FloorMaterial == Enum.Material.Air and (otherRoot.AssemblyLinearVelocity or otherRoot.Velocity or Vector3.zero).Y > 6)
+						if not ignoreTeam or not isTeammate(p) then
+							local otherRoot = p.Character:FindFirstChild("HumanoidRootPart")
+							local otherHum = p.Character:FindFirstChildOfClass("Humanoid")
+							if otherRoot and otherHum and otherHum.Health > 0 then
+								local dist = (otherRoot.Position - myPos).Magnitude
+								if dist <= maxStuds then
+									local isJumpingNow = (otherHum:GetState() == Enum.HumanoidStateType.Jumping)
+										or (otherHum.Jump == true)
+										or (otherHum.FloorMaterial == Enum.Material.Air and (otherRoot.AssemblyLinearVelocity or otherRoot.Velocity or Vector3.zero).Y > 6)
 
-								local wasJumping = trackedPlayerJumps[p] or false
-								trackedPlayerJumps[p] = isJumpingNow
+									local wasJumping = trackedPlayerJumps[p] or false
+									trackedPlayerJumps[p] = isJumpingNow
 
-								if isJumpingNow and not wasJumping then
-									if tick() - lastJumpTime >= 0.25 then
-										lastJumpTime = tick()
-										local jumpDelay = (Options.AutoJumpDelay and Options.AutoJumpDelay.Value) or 0
-										if jumpDelay > 0 then
-											task.delay(jumpDelay, function()
-												if not (Toggles.AutoJump and Toggles.AutoJump.Value) then return end
-												if not isAlive() then return end
-												if not isAutoJumpSlotAllowed(Options.AutoJumpSlot) then return end
-												local h = getHumanoid()
-												if h and h.FloorMaterial ~= Enum.Material.Air then
-													h.Jump = true
-													pcall(function()
-														h:ChangeState(Enum.HumanoidStateType.Jumping)
-													end)
-												end
-											end)
-										else
+									if isJumpingNow and not wasJumping then
+										if tick() - lastJumpTime >= 0.25 then
+											lastJumpTime = tick()
 											if myHum.FloorMaterial ~= Enum.Material.Air then
 												myHum.Jump = true
 												pcall(function()
@@ -3596,6 +3551,8 @@ if Toggles.AutoJump then
 											end
 										end
 									end
+								else
+									trackedPlayerJumps[p] = nil
 								end
 							else
 								trackedPlayerJumps[p] = nil
@@ -8090,6 +8047,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.AutoJump and Toggles.AutoJump.Value then
 		Toggles.AutoJump:SetValue(false)
+	end
+	if Toggles.AutoJumpIgnoreTeam and Toggles.AutoJumpIgnoreTeam.Value then
+		Toggles.AutoJumpIgnoreTeam:SetValue(false)
 	end
 	if Toggles.InvisibleFlyToggle and Toggles.InvisibleFlyToggle.Value then
 		Toggles.InvisibleFlyToggle:SetValue(false)
