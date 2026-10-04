@@ -1428,6 +1428,15 @@ CombatCamlock:AddSlider("CamlockPullDist", {
 	Compact = true,
 })
 
+CombatCamlock:AddSlider("CamlockPullStrength", {
+	Text = "Tug / Pull Strength",
+	Default = 5,
+	Min = 1,
+	Max = 20,
+	Rounding = 1,
+	Compact = true,
+})
+
 CombatLeft:AddToggle("KillAura", {
 	Text = "Kill Aura",
 	Default = false,
@@ -1971,6 +1980,12 @@ updatePVPModulesVisibility = function()
 		Options.CamlockPullDist.Visible = isPull
 		if Options.CamlockPullDist.Holder then
 			Options.CamlockPullDist.Holder.Visible = isPull
+		end
+	end
+	if Options.CamlockPullStrength then
+		Options.CamlockPullStrength.Visible = isPull
+		if Options.CamlockPullStrength.Holder then
+			Options.CamlockPullStrength.Holder.Visible = isPull
 		end
 	end
 	local isLookDown = (Toggles.LookDownFloor and Toggles.LookDownFloor.Value) or false
@@ -2993,8 +3008,12 @@ Toggles.Camlock:OnChanged(function()
 						isMovingAway = true
 					end
 
+					local pullStrength = (Options.CamlockPullStrength and Options.CamlockPullStrength.Value) or 5
+					local maxStep = pullStrength * 0.08
+					local velMag = pullStrength * 2.8
+
 					if not isMovingAway and currentDist <= pullTriggerDist and currentDist > stopBoundary then
-						local pullStep = math.min(currentDist - stopBoundary, 0.4)
+						local pullStep = math.min(currentDist - stopBoundary, maxStep)
 						myPos = Vector3.new(
 							myPos.X + pullDir.X * pullStep,
 							myPos.Y,
@@ -3002,7 +3021,7 @@ Toggles.Camlock:OnChanged(function()
 						)
 
 						pcall(function()
-							local pullVel = pullDir * 14
+							local pullVel = pullDir * velMag
 							local curVel = root.AssemblyLinearVelocity or root.Velocity or Vector3.zero
 							local newVel = Vector3.new(pullVel.X, curVel.Y, pullVel.Z)
 							root.AssemblyLinearVelocity = newVel
