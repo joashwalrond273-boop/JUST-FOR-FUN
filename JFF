@@ -1375,6 +1375,15 @@ CombatCamlock:AddCheckbox("SpearSword", {
 	Default = false,
 })
 
+CombatCamlock:AddSlider("Slot3AngleOffset", {
+	Text = "Slot 3 Tip Angle (Right)",
+	Default = 8,
+	Min = 0,
+	Max = 30,
+	Rounding = 1,
+	Compact = true,
+})
+
 CombatCamlock:AddDropdown("CamlockTarget", {
 	Text = "Target Player",
 	Values = {"All"},
@@ -1399,9 +1408,9 @@ CombatCamlock:AddDropdown("OutlineTarget", {
 CombatCamlock:AddSlider("OutlineStuds", {
 	Text = "Outline Studs",
 	Default = 7,
-	Min = 0.5,
+	Min = 1,
 	Max = 50,
-	Rounding = 1,
+	Rounding = 0,
 	Compact = true,
 })
 
@@ -1927,6 +1936,12 @@ updatePVPModulesVisibility = function()
 		end
 		if Toggles.SpearSword.Holder then
 			Toggles.SpearSword.Holder.Visible = isCam
+		end
+	end
+	if Options.Slot3AngleOffset then
+		Options.Slot3AngleOffset.Visible = isCam
+		if Options.Slot3AngleOffset.Holder then
+			Options.Slot3AngleOffset.Holder.Visible = isCam
 		end
 	end
 	local isLookDown = (Toggles.LookDownFloor and Toggles.LookDownFloor.Value) or false
@@ -2932,7 +2947,14 @@ Toggles.Camlock:OnChanged(function()
 					local lookDir = Vector3.new(targetPos.X - myPos.X, 0, targetPos.Z - myPos.Z).Unit
 					if lookDir.Magnitude > 0 then
 						hum.AutoRotate = false
-						root.CFrame = CFrame.new(myPos, myPos + lookDir)
+
+						local angleOffset = 0
+						if isHoldingSelectedSlot(3) or isHoldingSelectedSlot("3") then
+							local deg = (Options.Slot3AngleOffset and Options.Slot3AngleOffset.Value) or 8
+							angleOffset = -math.rad(deg)
+						end
+
+						root.CFrame = CFrame.new(myPos, myPos + lookDir) * CFrame.Angles(0, angleOffset, 0)
 					else
 						root.CFrame = CFrame.new(myPos, myPos + root.CFrame.LookVector)
 					end
@@ -3100,9 +3122,6 @@ local function applySpearSwordSlot(slot)
 		if Options.CamlockStuds then
 			Options.CamlockStuds:SetValue(15)
 		end
-		if Toggles.Outline then
-			Toggles.Outline:SetValue(true)
-		end
 		if Options.OutlineStuds then
 			Options.OutlineStuds:SetValue(7)
 		end
@@ -3110,11 +3129,8 @@ local function applySpearSwordSlot(slot)
 		if Options.CamlockStuds then
 			Options.CamlockStuds:SetValue(15)
 		end
-		if Toggles.Outline then
-			Toggles.Outline:SetValue(true)
-		end
 		if Options.OutlineStuds then
-			Options.OutlineStuds:SetValue(0.5)
+			Options.OutlineStuds:SetValue(1)
 		end
 	end
 end
