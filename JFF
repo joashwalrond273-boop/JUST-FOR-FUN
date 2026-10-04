@@ -1916,16 +1916,16 @@ CombatAutoPVP:AddCheckbox("AutoJumpSlotSystem", {
 	Default = false,
 })
 
+CombatAutoPVP:AddCheckbox("AutoJumpIgnoreTeam", {
+	Text = "Ignore Team",
+	Default = true,
+})
+
 CombatAutoPVP:AddDropdown("AutoJumpSlotSystemSlot", {
 	Text = "Tool Slot",
 	Values = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" },
 	Default = { "1" },
 	Multi = true,
-})
-
-CombatAutoPVP:AddCheckbox("AutoJumpIgnoreTeam", {
-	Text = "Ignore Team",
-	Default = true,
 })
 
 CombatAutoPVP:AddSlider("AutoJumpStuds", {
@@ -1934,6 +1934,15 @@ CombatAutoPVP:AddSlider("AutoJumpStuds", {
 	Min = 1,
 	Max = 50,
 	Rounding = 0,
+	Compact = true,
+})
+
+CombatAutoPVP:AddSlider("AutoJumpDelay", {
+	Text = "Auto Jump Delay",
+	Default = 0.25,
+	Min = 0.05,
+	Max = 2,
+	Rounding = 2,
 	Compact = true,
 })
 
@@ -2078,6 +2087,12 @@ updatePVPModulesVisibility = function()
 		Options.AutoJumpStuds.Visible = isAutoJump
 		if Options.AutoJumpStuds.Holder then
 			Options.AutoJumpStuds.Holder.Visible = isAutoJump
+		end
+	end
+	if Options.AutoJumpDelay then
+		Options.AutoJumpDelay.Visible = isAutoJump
+		if Options.AutoJumpDelay.Holder then
+			Options.AutoJumpDelay.Holder.Visible = isAutoJump
 		end
 	end
 	CombatAutoPVP:Resize()
@@ -3573,6 +3588,7 @@ if Toggles.AutoJump then
 				end
 
 				local maxStuds = (Options.AutoJumpStuds and Options.AutoJumpStuds.Value) or 20
+				local jumpDelay = (Options.AutoJumpDelay and Options.AutoJumpDelay.Value) or 0.25
 				local ignoreTeam = Toggles.AutoJumpIgnoreTeam and Toggles.AutoJumpIgnoreTeam.Value
 				local myPos = myRoot.Position
 
@@ -3592,7 +3608,7 @@ if Toggles.AutoJump then
 									trackedPlayerJumps[p] = isJumpingNow
 
 									if isJumpingNow and not wasJumping then
-										if tick() - lastJumpTime >= 0.25 then
+										if tick() - lastJumpTime >= jumpDelay then
 											lastJumpTime = tick()
 											if myHum.FloorMaterial ~= Enum.Material.Air then
 												myHum.Jump = true
