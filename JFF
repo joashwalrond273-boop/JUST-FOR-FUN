@@ -693,17 +693,18 @@ MainLeft:AddCheckbox("Noclip", {
 	Default = false,
 })
 
-MainLeft:AddSlider("ScreenSensitivity", {
+MainLeft:AddSlider("ScreenSens", {
 	Text = "Screen Sensitivity",
 	Default = 1,
-	Min = 0.01,
-	Max = 10,
+	Min = 0.05,
+	Max = 5,
 	Rounding = 2,
 	Compact = true,
 })
 
 updateAutoPickupVisibility = function()
 	local isPickup = (Toggles.FastPickup and Toggles.FastPickup.Value) or false
+	local isNoclip = (Toggles.Noclip and Toggles.Noclip.Value) or false
 	if Options.AutoPickupRange then
 		Options.AutoPickupRange.Visible = isPickup
 		if Options.AutoPickupRange.Holder then
@@ -714,6 +715,12 @@ updateAutoPickupVisibility = function()
 		Toggles.VacuumPickup.Visible = isPickup
 		if Toggles.VacuumPickup.Holder then
 			Toggles.VacuumPickup.Holder.Visible = isPickup
+		end
+	end
+	if Options.ScreenSens then
+		Options.ScreenSens.Visible = isNoclip
+		if Options.ScreenSens.Holder then
+			Options.ScreenSens.Holder.Visible = isNoclip
 		end
 	end
 	if MainLeft.Resize then
@@ -1288,49 +1295,6 @@ Toggles.FastPickup:OnChanged(function()
 		Library:Notify({ Title = "Auto Pickup", Description = "Disabled", Time = 2 })
 	end
 end)
-
--- Screen Sensitivity Handler
-local isSettingSensitivity = false
-local function applyScreenSensitivity(val)
-	if isSettingSensitivity or typeof(val) ~= "number" then return end
-	isSettingSensitivity = true
-	pcall(function()
-		local userGameSettings = UserSettings():GetService("UserGameSettings")
-		if userGameSettings then
-			userGameSettings.MouseSensitivity = val
-			pcall(function()
-				userGameSettings.GamepadCameraSensitivity = val
-			end)
-		end
-	end)
-	isSettingSensitivity = false
-end
-
-if Options.ScreenSensitivity then
-	Options.ScreenSensitivity:OnChanged(function()
-		applyScreenSensitivity(Options.ScreenSensitivity.Value)
-	end)
-
-	pcall(function()
-		local userGameSettings = UserSettings():GetService("UserGameSettings")
-		if userGameSettings then
-			local current = userGameSettings.MouseSensitivity
-			if typeof(current) == "number" and current > 0 then
-				Options.ScreenSensitivity:SetValue(math.clamp(math.floor(current * 100 + 0.5) / 100, 0.01, 10))
-			end
-			track("ScreenSensitivity_Sync", userGameSettings:GetPropertyChangedSignal("MouseSensitivity"):Connect(function()
-				if not isSettingSensitivity and Options.ScreenSensitivity then
-					local newSens = userGameSettings.MouseSensitivity
-					if typeof(newSens) == "number" and math.abs(Options.ScreenSensitivity.Value - newSens) > 0.005 then
-						isSettingSensitivity = true
-						Options.ScreenSensitivity:SetValue(math.clamp(math.floor(newSens * 100 + 0.5) / 100, 0.01, 10))
-						isSettingSensitivity = false
-					end
-				end
-			end))
-		end
-	end)
-end
 
 local FoodIdMap = {
 	["Cabbage"] = 210,
@@ -4579,6 +4543,9 @@ end
 
 Toggles.Noclip:OnChanged(function()
 	disconnect("Noclip")
+	if updateAutoPickupVisibility then
+		updateAutoPickupVisibility()
+	end
 	if Toggles.Noclip.Value then
 		updateNoclipParts(getCharacter())
 		track("Noclip", RunService.Stepped:Connect(function()
@@ -4593,6 +4560,47 @@ Toggles.Noclip:OnChanged(function()
 	end
 end)
 
+local screenSensAccum = Vector2.zero
+local screenSensInputConn = nil
+
+screenSensInputConn = UserInputService.InputChanged:Connect(function(input, gameProcessed)
+	if input.UserInputType ~= Enum.UserInputType.MouseMovement then return end
+	local mult = Options.ScreenSens and Options.ScreenSens.Value or 1
+	if mult == 1 then return end
+
+	local d = input.Delta
+	if d.X == 0 and d.Y == 0 then return end
+	local extra = d * (mult - 1)
+	screenSensAccum += extra
+end)
+
+track("ScreenSens", RunService.RenderStepped:Connect(function()
+	if screenSensAccum.X == 0 and screenSensAccum.Y == 0 then return end
+
+	local camera = workspace.CurrentCamera
+	if not camera then
+		screenSensAccum = Vector2.zero
+		return
+	end
+
+	local fov = math.rad(camera.FieldOfView)
+	local viewport = camera.ViewportSize
+	if viewport.Y <= 0 then
+		screenSensAccum = Vector2.zero
+		return
+	end
+	local pixelsPerRad = viewport.Y / (2 * math.tan(fov / 2))
+	local yaw = -screenSensAccum.X / pixelsPerRad
+	local pitch = -screenSensAccum.Y / pixelsPerRad
+	screenSensAccum = Vector2.zero
+
+	local cf = camera.CFrame
+	local pos = cf.Position
+	local rot = cf - pos
+	local yawCf = CFrame.Angles(0, yaw, 0)
+	local pitchCf = CFrame.Angles(pitch, 0, 0)
+	camera.CFrame = CFrame.new(pos) * yawCf * rot * pitchCf
+end))
 
 
 
