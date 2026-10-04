@@ -1376,7 +1376,7 @@ CombatCamlock:AddCheckbox("SpearSword", {
 })
 
 CombatCamlock:AddSlider("Slot3AngleOffset", {
-	Text = "Slot 3 Tip Angle (Right)",
+	Text = "Spear Tip Angle",
 	Default = 8,
 	Min = 0,
 	Max = 30,
@@ -1415,7 +1415,7 @@ CombatCamlock:AddSlider("OutlineStuds", {
 })
 
 CombatCamlock:AddCheckbox("CamlockPull", {
-	Text = "Slight Pull In (8 Studs)",
+	Text = "Slight Pull In",
 	Default = true,
 })
 
