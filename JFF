@@ -3120,14 +3120,14 @@ local function applySpearSwordSlot(slot)
 	if not (Toggles.SpearSword and Toggles.SpearSword.Value) then return end
 	if slot == 3 or slot == "3" then
 		if Options.CamlockStuds then
-			Options.CamlockStuds:SetValue(15)
+			Options.CamlockStuds:SetValue(17)
 		end
 		if Options.OutlineStuds then
 			Options.OutlineStuds:SetValue(7)
 		end
 	elseif slot == 5 or slot == "5" then
 		if Options.CamlockStuds then
-			Options.CamlockStuds:SetValue(15)
+			Options.CamlockStuds:SetValue(17)
 		end
 		if Options.OutlineStuds then
 			Options.OutlineStuds:SetValue(1)
