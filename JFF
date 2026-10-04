@@ -1906,6 +1906,20 @@ CombatAutoPVP:AddSlider("LookDownSens", {
 	Compact = true,
 })
 
+CombatAutoPVP:AddCheckbox("AutoJump", {
+	Text = "Auto Jump",
+	Default = false,
+})
+
+CombatAutoPVP:AddSlider("AutoJumpStuds", {
+	Text = "Auto Jump Studs",
+	Default = 20,
+	Min = 1,
+	Max = 50,
+	Rounding = 0,
+	Compact = true,
+})
+
 updatePVPModulesVisibility = function()
 	local isCam = (Toggles.Camlock and Toggles.Camlock.Value) or false
 	local isSwingSpeed = (Toggles.SwingSpeedToggle and Toggles.SwingSpeedToggle.Value) or false
@@ -2017,6 +2031,13 @@ updatePVPModulesVisibility = function()
 		Options.OutlineStuds.Visible = isOutline
 		if Options.OutlineStuds.Holder then
 			Options.OutlineStuds.Holder.Visible = isOutline
+		end
+	end
+	local isAutoJump = (Toggles.AutoJump and Toggles.AutoJump.Value) or false
+	if Options.AutoJumpStuds then
+		Options.AutoJumpStuds.Visible = isAutoJump
+		if Options.AutoJumpStuds.Holder then
+			Options.AutoJumpStuds.Holder.Visible = isAutoJump
 		end
 	end
 	CombatAutoPVP:Resize()
@@ -3458,6 +3479,64 @@ if Toggles.LookDownFloor then
 				workspace.CurrentCamera.CameraSubject = hum
 			end
 			workspace.CurrentCamera.CameraType = Enum.CameraType.Custom
+		end
+	end)
+end
+
+if Toggles.AutoJump then
+	Toggles.AutoJump:OnChanged(function()
+		disconnect("AutoJump")
+		if updatePVPModulesVisibility then
+			updatePVPModulesVisibility()
+		end
+
+		if Toggles.AutoJump.Value then
+			local lastJumpTime = 0
+			local trackedPlayerJumps = {}
+
+			track("AutoJump", RunService.Heartbeat:Connect(function()
+				if not isAlive() then return end
+				local myRoot = getRootPart()
+				local myHum = getHumanoid()
+				if not myRoot or not myHum then return end
+
+				local maxStuds = (Options.AutoJumpStuds and Options.AutoJumpStuds.Value) or 20
+				local myPos = myRoot.Position
+
+				for _, p in ipairs(Players:GetPlayers()) do
+					if p ~= LocalPlayer and p.Character then
+						local otherRoot = p.Character:FindFirstChild("HumanoidRootPart")
+						local otherHum = p.Character:FindFirstChildOfClass("Humanoid")
+						if otherRoot and otherHum and otherHum.Health > 0 then
+							local dist = (otherRoot.Position - myPos).Magnitude
+							if dist <= maxStuds then
+								local isJumpingNow = (otherHum:GetState() == Enum.HumanoidStateType.Jumping)
+									or (otherHum.Jump == true)
+									or (otherHum.FloorMaterial == Enum.Material.Air and (otherRoot.AssemblyLinearVelocity or otherRoot.Velocity or Vector3.zero).Y > 6)
+
+								local wasJumping = trackedPlayerJumps[p] or false
+								trackedPlayerJumps[p] = isJumpingNow
+
+								if isJumpingNow and not wasJumping then
+									if tick() - lastJumpTime >= 0.25 then
+										if myHum.FloorMaterial ~= Enum.Material.Air then
+											lastJumpTime = tick()
+											myHum.Jump = true
+											pcall(function()
+												myHum:ChangeState(Enum.HumanoidStateType.Jumping)
+											end)
+										end
+									end
+								end
+							else
+								trackedPlayerJumps[p] = nil
+							end
+						else
+							trackedPlayerJumps[p] = nil
+						end
+					end
+				end
+			end))
 		end
 	end)
 end
@@ -7939,6 +8018,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.LookDownFloor and Toggles.LookDownFloor.Value then
 		Toggles.LookDownFloor:SetValue(false)
+	end
+	if Toggles.AutoJump and Toggles.AutoJump.Value then
+		Toggles.AutoJump:SetValue(false)
 	end
 	if Toggles.InvisibleFlyToggle and Toggles.InvisibleFlyToggle.Value then
 		Toggles.InvisibleFlyToggle:SetValue(false)
