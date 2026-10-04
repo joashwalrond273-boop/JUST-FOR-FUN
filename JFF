@@ -1911,12 +1911,28 @@ CombatAutoPVP:AddCheckbox("AutoJump", {
 	Default = false,
 })
 
+CombatAutoPVP:AddDropdown("AutoJumpSlot", {
+	Text = "Tool Slot",
+	Values = {"All", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"},
+	Default = {"All"},
+	Multi = true,
+})
+
 CombatAutoPVP:AddSlider("AutoJumpStuds", {
 	Text = "Auto Jump Studs",
 	Default = 20,
 	Min = 1,
 	Max = 50,
 	Rounding = 0,
+	Compact = true,
+})
+
+CombatAutoPVP:AddSlider("AutoJumpDelay", {
+	Text = "Auto Jump Delay (s)",
+	Default = 0,
+	Min = 0,
+	Max = 1,
+	Rounding = 2,
 	Compact = true,
 })
 
@@ -2034,10 +2050,22 @@ updatePVPModulesVisibility = function()
 		end
 	end
 	local isAutoJump = (Toggles.AutoJump and Toggles.AutoJump.Value) or false
+	if Options.AutoJumpSlot then
+		Options.AutoJumpSlot.Visible = isAutoJump
+		if Options.AutoJumpSlot.Holder then
+			Options.AutoJumpSlot.Holder.Visible = isAutoJump
+		end
+	end
 	if Options.AutoJumpStuds then
 		Options.AutoJumpStuds.Visible = isAutoJump
 		if Options.AutoJumpStuds.Holder then
 			Options.AutoJumpStuds.Holder.Visible = isAutoJump
+		end
+	end
+	if Options.AutoJumpDelay then
+		Options.AutoJumpDelay.Visible = isAutoJump
+		if Options.AutoJumpDelay.Holder then
+			Options.AutoJumpDelay.Holder.Visible = isAutoJump
 		end
 	end
 	CombatAutoPVP:Resize()
@@ -3483,6 +3511,30 @@ if Toggles.LookDownFloor then
 	end)
 end
 
+local function isAutoJumpSlotAllowed(slotOption)
+	if not slotOption then return true end
+	local val = slotOption.Value
+	if val == nil then return true end
+	if typeof(val) == "table" then
+		if val["All"] == true or table.find(val, "All") then
+			return true
+		end
+		for slotKey, isSelected in pairs(val) do
+			if isSelected == true or (typeof(slotKey) == "number" and typeof(isSelected) == "string") then
+				local targetSlot = (isSelected == true) and slotKey or isSelected
+				if isHoldingSelectedSlot(targetSlot) then
+					return true
+				end
+			end
+		end
+		return false
+	elseif typeof(val) == "string" or typeof(val) == "number" then
+		if tostring(val) == "All" then return true end
+		return isHoldingSelectedSlot(val)
+	end
+	return true
+end
+
 if Toggles.AutoJump then
 	Toggles.AutoJump:OnChanged(function()
 		disconnect("AutoJump")
@@ -3496,6 +3548,7 @@ if Toggles.AutoJump then
 
 			track("AutoJump", RunService.Heartbeat:Connect(function()
 				if not isAlive() then return end
+				if not isAutoJumpSlotAllowed(Options.AutoJumpSlot) then return end
 				local myRoot = getRootPart()
 				local myHum = getHumanoid()
 				if not myRoot or not myHum then return end
@@ -3519,12 +3572,28 @@ if Toggles.AutoJump then
 
 								if isJumpingNow and not wasJumping then
 									if tick() - lastJumpTime >= 0.25 then
-										if myHum.FloorMaterial ~= Enum.Material.Air then
-											lastJumpTime = tick()
-											myHum.Jump = true
-											pcall(function()
-												myHum:ChangeState(Enum.HumanoidStateType.Jumping)
+										lastJumpTime = tick()
+										local jumpDelay = (Options.AutoJumpDelay and Options.AutoJumpDelay.Value) or 0
+										if jumpDelay > 0 then
+											task.delay(jumpDelay, function()
+												if not (Toggles.AutoJump and Toggles.AutoJump.Value) then return end
+												if not isAlive() then return end
+												if not isAutoJumpSlotAllowed(Options.AutoJumpSlot) then return end
+												local h = getHumanoid()
+												if h and h.FloorMaterial ~= Enum.Material.Air then
+													h.Jump = true
+													pcall(function()
+														h:ChangeState(Enum.HumanoidStateType.Jumping)
+													end)
+												end
 											end)
+										else
+											if myHum.FloorMaterial ~= Enum.Material.Air then
+												myHum.Jump = true
+												pcall(function()
+													myHum:ChangeState(Enum.HumanoidStateType.Jumping)
+												end)
+											end
 										end
 									end
 								end
