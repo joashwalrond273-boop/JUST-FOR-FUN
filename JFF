@@ -2154,6 +2154,18 @@ CombatReach:AddToggle("Reach", {
 	Default = false,
 })
 
+CombatReach:AddCheckbox("ReachSlotSystem", {
+	Text = "Slot System",
+	Default = false,
+})
+
+CombatReach:AddDropdown("ReachSlotSystemSlot", {
+	Text = "Tool Slot",
+	Values = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" },
+	Default = { "1" },
+	Multi = true,
+})
+
 CombatReach:AddDropdown("ReachTarget", {
 	Text = "Target Player",
 	Values = {"All"},
@@ -2183,6 +2195,27 @@ CombatReach:AddSlider("ReachAngle", {
 	Rounding = 0,
 	Compact = true,
 })
+
+local function updateReachVisibility()
+	local isReachSlot = (Toggles.ReachSlotSystem and Toggles.ReachSlotSystem.Value) or false
+	if Options.ReachSlotSystemSlot then
+		Options.ReachSlotSystemSlot.Visible = isReachSlot
+		if Options.ReachSlotSystemSlot.Holder then
+			Options.ReachSlotSystemSlot.Holder.Visible = isReachSlot
+		end
+	end
+	if CombatReach and CombatReach.Resize then
+		pcall(function() CombatReach:Resize() end)
+	end
+end
+
+updateReachVisibility()
+task.spawn(function()
+	task.wait(0.05)
+	if updateReachVisibility then
+		updateReachVisibility()
+	end
+end)
 
 local function isSwingAnimation(trackObj)
 	local anim = trackObj.Animation
@@ -4060,8 +4093,109 @@ end)
 Toggles.Reach:OnChanged(function()
 	if Toggles.Reach.Value then
 		Library:Notify({ Title = "Reach", Description = "Enabled", Time = 2 })
+	else
+		Library:Notify({ Title = "Reach", Description = "Disabled", Time = 2 })
 	end
 end)
+
+do
+	local reachSlotSaved = {
+		Reach = nil,
+	}
+	local fromReachSlotSystem = false
+
+	local function updateReachSlotSystemState()
+		if not (Toggles.ReachSlotSystem and Toggles.ReachSlotSystem.Value) then return end
+		if not isAlive() then return end
+
+		local holding = isAdvanceSlotAllowed(Options.ReachSlotSystemSlot)
+
+		if holding then
+			if reachSlotSaved.Reach == nil then
+				reachSlotSaved.Reach = Toggles.Reach and Toggles.Reach.Value or false
+			end
+
+			if Toggles.Reach and not Toggles.Reach.Value then
+				fromReachSlotSystem = true
+				Toggles.Reach:SetValue(true)
+				fromReachSlotSystem = false
+			end
+		else
+			if reachSlotSaved.Reach ~= nil then
+				if Toggles.Reach and Toggles.Reach.Value ~= reachSlotSaved.Reach then
+					fromReachSlotSystem = true
+					Toggles.Reach:SetValue(reachSlotSaved.Reach)
+					fromReachSlotSystem = false
+				end
+				reachSlotSaved.Reach = nil
+			end
+		end
+	end
+
+	if Toggles.ReachSlotSystem then
+		Toggles.ReachSlotSystem:OnChanged(function()
+			disconnect("ReachSlotSystem_Poll")
+			disconnect("ReachSlotSystem_ChildAdded")
+			disconnect("ReachSlotSystem_ChildRemoved")
+			disconnect("ReachSlotSystem_CharAdded")
+
+			if updateReachVisibility then
+				updateReachVisibility()
+			end
+
+			if Toggles.ReachSlotSystem.Value then
+				local function hookReachSlotChar(char)
+					if not char then return end
+					disconnect("ReachSlotSystem_ChildAdded")
+					disconnect("ReachSlotSystem_ChildRemoved")
+					track("ReachSlotSystem_ChildAdded", char.ChildAdded:Connect(function(child)
+						if child:IsA("Tool") then
+							task.wait()
+							updateReachSlotSystemState()
+						end
+					end))
+					track("ReachSlotSystem_ChildRemoved", char.ChildRemoved:Connect(function(child)
+						if child:IsA("Tool") then
+							task.wait()
+							updateReachSlotSystemState()
+						end
+					end))
+				end
+
+				if LocalPlayer.Character then
+					hookReachSlotChar(LocalPlayer.Character)
+				end
+				track("ReachSlotSystem_CharAdded", LocalPlayer.CharacterAdded:Connect(hookReachSlotChar))
+
+				track("ReachSlotSystem_Poll", RunService.Heartbeat:Connect(function()
+					updateReachSlotSystemState()
+				end))
+
+				updateReachSlotSystemState()
+
+				Library:Notify({ Title = "Reach Slot System", Description = "Enabled", Time = 2 })
+			else
+				if reachSlotSaved.Reach ~= nil then
+					if Toggles.Reach and Toggles.Reach.Value ~= reachSlotSaved.Reach then
+						fromReachSlotSystem = true
+						Toggles.Reach:SetValue(reachSlotSaved.Reach)
+						fromReachSlotSystem = false
+					end
+					reachSlotSaved.Reach = nil
+				end
+				table.clear(reachSlotSaved)
+
+				Library:Notify({ Title = "Reach Slot System", Description = "Disabled", Time = 2 })
+			end
+		end)
+	end
+
+	if Options.ReachSlotSystemSlot then
+		Options.ReachSlotSystemSlot:OnChanged(function()
+			updateReachSlotSystemState()
+		end)
+	end
+end
 
 Options.AdvancePreset:OnChanged(function()
 	local val = Options.AdvancePreset.Value
@@ -4721,6 +4855,8 @@ Toggles.SpeedHack:OnChanged(function()
 	end
 end)
 
+
+
 local originalMountSpeeds = {}
 
 local function getCurrentMount()
@@ -5194,18 +5330,6 @@ FarmMine:AddToggle("AutoMine", {
 	Default = false,
 })
 
-FarmMine:AddCheckbox("AutoMineSlotSystem", {
-	Text = "Slot System",
-	Default = false,
-})
-
-FarmMine:AddDropdown("AutoMineSlot", {
-	Text = "Tool Slot",
-	Values = {"1","2","3","4","5","6","7","8","9","10"},
-	Default = {"1"},
-	Multi = true,
-})
-
 FarmMine:AddSlider("AutoMineRange", {
 	Text = "Range",
 	Default = 30,
@@ -5213,6 +5337,12 @@ FarmMine:AddSlider("AutoMineRange", {
 	Max = 60,
 	Rounding = 1,
 	Compact = true,
+})
+
+FarmMine:AddDropdown("AutoMineSlot", {
+	Text = "Tool Slot",
+	Values = {"1","2","3","4","5","6","7","8","9","10"},
+	Default = "1",
 })
 
 FarmMine:AddCheckbox("HighlightMine", {
@@ -5231,18 +5361,6 @@ FarmChop:AddToggle("AutoChop", {
 	Default = false,
 })
 
-FarmChop:AddCheckbox("AutoChopSlotSystem", {
-	Text = "Slot System",
-	Default = false,
-})
-
-FarmChop:AddDropdown("AutoChopSlot", {
-	Text = "Tool Slot",
-	Values = {"1","2","3","4","5","6","7","8","9","10"},
-	Default = {"1"},
-	Multi = true,
-})
-
 FarmChop:AddSlider("AutoChopRange", {
 	Text = "Range",
 	Default = 30,
@@ -5250,6 +5368,12 @@ FarmChop:AddSlider("AutoChopRange", {
 	Max = 60,
 	Rounding = 1,
 	Compact = true,
+})
+
+FarmChop:AddDropdown("AutoChopSlot", {
+	Text = "Tool Slot",
+	Values = {"1","2","3","4","5","6","7","8","9","10"},
+	Default = "1",
 })
 
 FarmChop:AddCheckbox("HighlightChop", {
@@ -5295,16 +5419,10 @@ FarmAI:AddToggle("AiAura", {
 	Default = false,
 })
 
-FarmAI:AddCheckbox("AiAuraSlotSystem", {
-	Text = "Slot System",
-	Default = false,
-})
-
 FarmAI:AddDropdown("AiAuraSlot", {
 	Text = "Tool Slot",
 	Values = {"1","2","3","4","5","6","7","8","9","10"},
-	Default = {"1"},
-	Multi = true,
+	Default = "1",
 })
 
 FarmAI:AddSlider("AiAuraRange", {
@@ -5323,42 +5441,6 @@ FarmAI:AddCheckbox("HighlightAI", {
 	Default = Color3.fromRGB(255, 200, 0),
 	Title = "Highlight Target Color",
 })
-
-local updateFarmingVisibility = function()
-	local isMineSlot = (Toggles.AutoMineSlotSystem and Toggles.AutoMineSlotSystem.Value) or false
-	local isChopSlot = (Toggles.AutoChopSlotSystem and Toggles.AutoChopSlotSystem.Value) or false
-	local isAiSlot = (Toggles.AiAuraSlotSystem and Toggles.AiAuraSlotSystem.Value) or false
-
-	if Options.AutoMineSlot then
-		Options.AutoMineSlot.Visible = isMineSlot
-		if Options.AutoMineSlot.Holder then
-			Options.AutoMineSlot.Holder.Visible = isMineSlot
-		end
-	end
-	if Options.AutoChopSlot then
-		Options.AutoChopSlot.Visible = isChopSlot
-		if Options.AutoChopSlot.Holder then
-			Options.AutoChopSlot.Holder.Visible = isChopSlot
-		end
-	end
-	if Options.AiAuraSlot then
-		Options.AiAuraSlot.Visible = isAiSlot
-		if Options.AiAuraSlot.Holder then
-			Options.AiAuraSlot.Holder.Visible = isAiSlot
-		end
-	end
-	FarmMine:Resize()
-	FarmChop:Resize()
-	FarmAI:Resize()
-end
-
-updateFarmingVisibility()
-task.spawn(function()
-	task.wait(0.05)
-	if updateFarmingVisibility then
-		updateFarmingVisibility()
-	end
-end)
 
 -- ==========================================
 local OreFarm = Tabs.Farming:AddRightGroupbox("Ore Farm", "gem")
@@ -5540,56 +5622,8 @@ local function mineObject(obj)
 	end
 end
 
-local function getFarmingActiveSlot(slotOpt, default)
-	default = default or 1
-	if not slotOpt then return default end
-	local val = slotOpt.Value
-	if typeof(val) == "number" then
-		return val
-	elseif typeof(val) == "string" then
-		return tonumber(val) or default
-	elseif typeof(val) == "table" then
-		for slotKey, isSelected in pairs(val) do
-			if isSelected == true then
-				local sNum = tonumber(slotKey)
-				if sNum and isHoldingSelectedSlot(slotKey) then
-					return sNum
-				end
-			elseif typeof(isSelected) == "string" then
-				local sNum = tonumber(isSelected)
-				if sNum and isHoldingSelectedSlot(isSelected) then
-					return sNum
-				end
-			end
-		end
-		for slotKey, isSelected in pairs(val) do
-			if isSelected == true and tonumber(slotKey) then
-				return tonumber(slotKey)
-			elseif typeof(isSelected) == "string" and tonumber(isSelected) then
-				return tonumber(isSelected)
-			end
-		end
-	end
-	return default
-end
-
-local function mineObject(obj)
-	local slot = getFarmingActiveSlot(Options.AutoMineSlot, 1)
-	if obj and obj.PrimaryPart then
-		updateHighlight(hlMine, obj, Toggles.HighlightMine.Value)
-		pcall(function()
-			TSG.MineRemote:FireServer(slot, obj, CFrame.new(obj.PrimaryPart.Position))
-		end)
-	end
-end
-
 local function autoMine()
 	if not isAlive() or not isAutoMineRunning then return end
-	if Toggles.AutoMineSlotSystem and Toggles.AutoMineSlotSystem.Value then
-		if not isAdvanceSlotAllowed(Options.AutoMineSlot) then
-			return
-		end
-	end
 	if tick() - lastAutoMineHit < 0.2 then return end
 
 	local root = getRootPart()
@@ -5639,108 +5673,9 @@ Toggles.AutoMine:OnChanged(function()
 	end
 end)
 
-do
-	local mineSlotSaved = {
-		AutoMine = nil,
-	}
-	local fromMineSlotSystem = false
-
-	local function updateMineSlotState()
-		if not (Toggles.AutoMineSlotSystem and Toggles.AutoMineSlotSystem.Value) then return end
-		if not isAlive() then return end
-
-		local holding = isAdvanceSlotAllowed(Options.AutoMineSlot)
-
-		if holding then
-			if mineSlotSaved.AutoMine == nil then
-				mineSlotSaved.AutoMine = Toggles.AutoMine and Toggles.AutoMine.Value or false
-			end
-
-			if Toggles.AutoMine and not Toggles.AutoMine.Value then
-				fromMineSlotSystem = true
-				Toggles.AutoMine:SetValue(true)
-				fromMineSlotSystem = false
-			end
-		else
-			if mineSlotSaved.AutoMine ~= nil then
-				if Toggles.AutoMine and Toggles.AutoMine.Value ~= mineSlotSaved.AutoMine then
-					fromMineSlotSystem = true
-					Toggles.AutoMine:SetValue(mineSlotSaved.AutoMine)
-					fromMineSlotSystem = false
-				end
-				mineSlotSaved.AutoMine = nil
-			end
-		end
-	end
-
-	if Toggles.AutoMineSlotSystem then
-		Toggles.AutoMineSlotSystem:OnChanged(function()
-			disconnect("AutoMineSlotSystem_Poll")
-			disconnect("AutoMineSlotSystem_ChildAdded")
-			disconnect("AutoMineSlotSystem_ChildRemoved")
-			disconnect("AutoMineSlotSystem_CharAdded")
-
-			if updateFarmingVisibility then
-				updateFarmingVisibility()
-			end
-
-			if Toggles.AutoMineSlotSystem.Value then
-				local function hookMineSlotChar(char)
-					if not char then return end
-					disconnect("AutoMineSlotSystem_ChildAdded")
-					disconnect("AutoMineSlotSystem_ChildRemoved")
-					track("AutoMineSlotSystem_ChildAdded", char.ChildAdded:Connect(function(child)
-						if child:IsA("Tool") then
-							task.wait()
-							updateMineSlotState()
-						end
-					end))
-					track("AutoMineSlotSystem_ChildRemoved", char.ChildRemoved:Connect(function(child)
-						if child:IsA("Tool") then
-							task.wait()
-							updateMineSlotState()
-						end
-					end))
-				end
-
-				if LocalPlayer.Character then
-					hookMineSlotChar(LocalPlayer.Character)
-				end
-				track("AutoMineSlotSystem_CharAdded", LocalPlayer.CharacterAdded:Connect(hookMineSlotChar))
-
-				track("AutoMineSlotSystem_Poll", RunService.Heartbeat:Connect(function()
-					updateMineSlotState()
-				end))
-
-				updateMineSlotState()
-
-				Library:Notify({ Title = "Auto Mine Slot System", Description = "Enabled", Time = 2 })
-			else
-				if mineSlotSaved.AutoMine ~= nil then
-					if Toggles.AutoMine and Toggles.AutoMine.Value ~= mineSlotSaved.AutoMine then
-						fromMineSlotSystem = true
-						Toggles.AutoMine:SetValue(mineSlotSaved.AutoMine)
-						fromMineSlotSystem = false
-					end
-					mineSlotSaved.AutoMine = nil
-				end
-				table.clear(mineSlotSaved)
-
-				Library:Notify({ Title = "Auto Mine Slot System", Description = "Disabled", Time = 2 })
-			end
-		end)
-	end
-
-	if Options.AutoMineSlot then
-		Options.AutoMineSlot:OnChanged(function()
-			updateMineSlotState()
-		end)
-	end
-end
-
 -- ==========================================
 local function chopObject(obj)
-	local slot = getFarmingActiveSlot(Options.AutoChopSlot, 1)
+	local slot = tonumber(Options.AutoChopSlot.Value) or 1
 	local part = getChopTargetPart(obj)
 	if part then
 		updateHighlight(hlChop, obj, Toggles.HighlightChop.Value)
@@ -5752,11 +5687,6 @@ end
 
 local function autoChop()
 	if not isAlive() or not isAutoChopRunning then return end
-	if Toggles.AutoChopSlotSystem and Toggles.AutoChopSlotSystem.Value then
-		if not isAdvanceSlotAllowed(Options.AutoChopSlot) then
-			return
-		end
-	end
 	if tick() - lastAutoChopHit < 0.2 then return end
 
 	local root = getRootPart()
@@ -5807,105 +5737,6 @@ Toggles.AutoChop:OnChanged(function()
 	end
 end)
 
-do
-	local chopSlotSaved = {
-		AutoChop = nil,
-	}
-	local fromChopSlotSystem = false
-
-	local function updateChopSlotState()
-		if not (Toggles.AutoChopSlotSystem and Toggles.AutoChopSlotSystem.Value) then return end
-		if not isAlive() then return end
-
-		local holding = isAdvanceSlotAllowed(Options.AutoChopSlot)
-
-		if holding then
-			if chopSlotSaved.AutoChop == nil then
-				chopSlotSaved.AutoChop = Toggles.AutoChop and Toggles.AutoChop.Value or false
-			end
-
-			if Toggles.AutoChop and not Toggles.AutoChop.Value then
-				fromChopSlotSystem = true
-				Toggles.AutoChop:SetValue(true)
-				fromChopSlotSystem = false
-			end
-		else
-			if chopSlotSaved.AutoChop ~= nil then
-				if Toggles.AutoChop and Toggles.AutoChop.Value ~= chopSlotSaved.AutoChop then
-					fromChopSlotSystem = true
-					Toggles.AutoChop:SetValue(chopSlotSaved.AutoChop)
-					fromChopSlotSystem = false
-				end
-				chopSlotSaved.AutoChop = nil
-			end
-		end
-	end
-
-	if Toggles.AutoChopSlotSystem then
-		Toggles.AutoChopSlotSystem:OnChanged(function()
-			disconnect("AutoChopSlotSystem_Poll")
-			disconnect("AutoChopSlotSystem_ChildAdded")
-			disconnect("AutoChopSlotSystem_ChildRemoved")
-			disconnect("AutoChopSlotSystem_CharAdded")
-
-			if updateFarmingVisibility then
-				updateFarmingVisibility()
-			end
-
-			if Toggles.AutoChopSlotSystem.Value then
-				local function hookChopSlotChar(char)
-					if not char then return end
-					disconnect("AutoChopSlotSystem_ChildAdded")
-					disconnect("AutoChopSlotSystem_ChildRemoved")
-					track("AutoChopSlotSystem_ChildAdded", char.ChildAdded:Connect(function(child)
-						if child:IsA("Tool") then
-							task.wait()
-							updateChopSlotState()
-						end
-					end))
-					track("AutoChopSlotSystem_ChildRemoved", char.ChildRemoved:Connect(function(child)
-						if child:IsA("Tool") then
-							task.wait()
-							updateChopSlotState()
-						end
-					end))
-				end
-
-				if LocalPlayer.Character then
-					hookChopSlotChar(LocalPlayer.Character)
-				end
-				track("AutoChopSlotSystem_CharAdded", LocalPlayer.CharacterAdded:Connect(hookChopSlotChar))
-
-				track("AutoChopSlotSystem_Poll", RunService.Heartbeat:Connect(function()
-					updateChopSlotState()
-				end))
-
-				updateChopSlotState()
-
-				Library:Notify({ Title = "Auto Chop Slot System", Description = "Enabled", Time = 2 })
-			else
-				if chopSlotSaved.AutoChop ~= nil then
-					if Toggles.AutoChop and Toggles.AutoChop.Value ~= chopSlotSaved.AutoChop then
-						fromChopSlotSystem = true
-						Toggles.AutoChop:SetValue(chopSlotSaved.AutoChop)
-						fromChopSlotSystem = false
-					end
-					chopSlotSaved.AutoChop = nil
-				end
-				table.clear(chopSlotSaved)
-
-				Library:Notify({ Title = "Auto Chop Slot System", Description = "Disabled", Time = 2 })
-			end
-		end)
-	end
-
-	if Options.AutoChopSlot then
-		Options.AutoChopSlot:OnChanged(function()
-			updateChopSlotState()
-		end)
-	end
-end
-
 -- ==========================================
 local lastAiAuraHit = 0
 
@@ -5913,12 +5744,6 @@ local function aiAuraLoop()
 	if not isAlive() or tick() - lastAiAuraHit < 0.25 then return end
 	local root = getRootPart()
 	if not root then return end
-
-	if Toggles.AiAuraSlotSystem and Toggles.AiAuraSlotSystem.Value then
-		if not isAdvanceSlotAllowed(Options.AiAuraSlot) then
-			return
-		end
-	end
 
 	local range = Options.AiAuraRange.Value
 	local closest, dist = nil, range
@@ -5959,7 +5784,7 @@ local function aiAuraLoop()
 		return
 	end
 
-	local slot = getFarmingActiveSlot(Options.AiAuraSlot, 1)
+	local slot = tonumber(Options.AiAuraSlot.Value) or 1
 	lastAiAuraHit = tick()
 
 	attackNPC(slot, closest) -- Use attackNPC for proper server model handling
@@ -5985,105 +5810,6 @@ Toggles.AiAura:OnChanged(function()
 		updateHighlight(hlAI, nil, false)
 	end
 end)
-
-do
-	local aiSlotSaved = {
-		AiAura = nil,
-	}
-	local fromAiSlotSystem = false
-
-	local function updateAiSlotState()
-		if not (Toggles.AiAuraSlotSystem and Toggles.AiAuraSlotSystem.Value) then return end
-		if not isAlive() then return end
-
-		local holding = isAdvanceSlotAllowed(Options.AiAuraSlot)
-
-		if holding then
-			if aiSlotSaved.AiAura == nil then
-				aiSlotSaved.AiAura = Toggles.AiAura and Toggles.AiAura.Value or false
-			end
-
-			if Toggles.AiAura and not Toggles.AiAura.Value then
-				fromAiSlotSystem = true
-				Toggles.AiAura:SetValue(true)
-				fromAiSlotSystem = false
-			end
-		else
-			if aiSlotSaved.AiAura ~= nil then
-				if Toggles.AiAura and Toggles.AiAura.Value ~= aiSlotSaved.AiAura then
-					fromAiSlotSystem = true
-					Toggles.AiAura:SetValue(aiSlotSaved.AiAura)
-					fromAiSlotSystem = false
-				end
-				aiSlotSaved.AiAura = nil
-			end
-		end
-	end
-
-	if Toggles.AiAuraSlotSystem then
-		Toggles.AiAuraSlotSystem:OnChanged(function()
-			disconnect("AiAuraSlotSystem_Poll")
-			disconnect("AiAuraSlotSystem_ChildAdded")
-			disconnect("AiAuraSlotSystem_ChildRemoved")
-			disconnect("AiAuraSlotSystem_CharAdded")
-
-			if updateFarmingVisibility then
-				updateFarmingVisibility()
-			end
-
-			if Toggles.AiAuraSlotSystem.Value then
-				local function hookAiSlotChar(char)
-					if not char then return end
-					disconnect("AiAuraSlotSystem_ChildAdded")
-					disconnect("AiAuraSlotSystem_ChildRemoved")
-					track("AiAuraSlotSystem_ChildAdded", char.ChildAdded:Connect(function(child)
-						if child:IsA("Tool") then
-							task.wait()
-							updateAiSlotState()
-						end
-					end))
-					track("AiAuraSlotSystem_ChildRemoved", char.ChildRemoved:Connect(function(child)
-						if child:IsA("Tool") then
-							task.wait()
-							updateAiSlotState()
-						end
-					end))
-				end
-
-				if LocalPlayer.Character then
-					hookAiSlotChar(LocalPlayer.Character)
-				end
-				track("AiAuraSlotSystem_CharAdded", LocalPlayer.CharacterAdded:Connect(hookAiSlotChar))
-
-				track("AiAuraSlotSystem_Poll", RunService.Heartbeat:Connect(function()
-					updateAiSlotState()
-				end))
-
-				updateAiSlotState()
-
-				Library:Notify({ Title = "AI Aura Slot System", Description = "Enabled", Time = 2 })
-			else
-				if aiSlotSaved.AiAura ~= nil then
-					if Toggles.AiAura and Toggles.AiAura.Value ~= aiSlotSaved.AiAura then
-						fromAiSlotSystem = true
-						Toggles.AiAura:SetValue(aiSlotSaved.AiAura)
-						fromAiSlotSystem = false
-					end
-					aiSlotSaved.AiAura = nil
-				end
-				table.clear(aiSlotSaved)
-
-				Library:Notify({ Title = "AI Aura Slot System", Description = "Disabled", Time = 2 })
-			end
-		end)
-	end
-
-	if Options.AiAuraSlot then
-		Options.AiAuraSlot:OnChanged(function()
-			updateAiSlotState()
-		end)
-	end
-end
 
 -- ==========================================
 -- Ore ESP (reads ore names from workspace.worldResources.mineable, per-ore filters)
@@ -8543,6 +8269,9 @@ Library:OnUnload(function()
 	if Toggles.Reach and Toggles.Reach.Value then
 		Toggles.Reach:SetValue(false)
 	end
+	if Toggles.ReachSlotSystem and Toggles.ReachSlotSystem.Value then
+		Toggles.ReachSlotSystem:SetValue(false)
+	end
 	if Toggles.ImmortalMode and Toggles.ImmortalMode.Value then
 		Toggles.ImmortalMode:SetValue(false)
 	end
@@ -8700,15 +8429,6 @@ Library:OnUnload(function()
 		Toggles.OreESPToggle:SetValue(false)
 	end
 
-	if Toggles.AutoMineSlotSystem and Toggles.AutoMineSlotSystem.Value then
-		Toggles.AutoMineSlotSystem:SetValue(false)
-	end
-	if Toggles.AutoChopSlotSystem and Toggles.AutoChopSlotSystem.Value then
-		Toggles.AutoChopSlotSystem:SetValue(false)
-	end
-	if Toggles.AiAuraSlotSystem and Toggles.AiAuraSlotSystem.Value then
-		Toggles.AiAuraSlotSystem:SetValue(false)
-	end
 	if Toggles.FastPickup and Toggles.FastPickup.Value then
 		Toggles.FastPickup:SetValue(false)
 	end
