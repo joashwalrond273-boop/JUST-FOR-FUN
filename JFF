@@ -2240,73 +2240,13 @@ end
 local isShielding = false
 local lastShieldFire = 0
 local multiSnapIndex = 1
-
-local function findShieldInBackpack()
-	local backpack = LocalPlayer and LocalPlayer:FindFirstChildOfClass("Backpack")
-	if not backpack then return nil end
-	local fallback = nil
-	for _, tool in ipairs(backpack:GetChildren()) do
-		if tool:IsA("Tool") then
-			local tname = tool.Name:lower()
-			local isShieldType = false
-			pcall(function()
-				if TSG and TSG.Items and TSG.Items.getItemData then
-					local itemId = nil
-					local idAttr = tool:GetAttribute("itemId") or tool:GetAttribute("ItemId") or (tool:FindFirstChild("toolModel") and tool.toolModel:GetAttribute("itemId"))
-					if idAttr then itemId = idAttr end
-					if not itemId and tonumber(tname) then itemId = tonumber(tname) end
-					if itemId then
-						local data = TSG.Items.getItemData(itemId)
-						if data and data.itemType and table.find(data.itemType, "Shield") then
-							isShieldType = true
-						end
-					end
-				end
-			end)
-			if isShieldType or tname:find("shield") then
-				return tool
-			end
-			if not fallback then
-				fallback = tool
-			end
-		end
-	end
-	return fallback
-end
-
-local function fireSetShield(state)
-	local setShieldRemote = game:GetService("ReplicatedStorage").remoteInterface.character.setShield
-	pcall(function()
-		local char = getCharacter()
-		local backpack = LocalPlayer and LocalPlayer:FindFirstChildOfClass("Backpack")
-		local shieldTool = findShieldInBackpack()
-		local originalHeld = char and char:FindFirstChildOfClass("Tool")
-		local originalHeldParent = originalHeld and originalHeld.Parent
-		local shieldOriginalParent = shieldTool and shieldTool.Parent
-
-		if shieldTool and char and (not originalHeld or originalHeld ~= shieldTool) then
-			if originalHeld and backpack then
-				originalHeld.Parent = backpack
-			end
-			shieldTool.Parent = char
-			task.wait()
-			setShieldRemote:FireServer(state)
-			task.wait()
-			shieldTool.Parent = shieldOriginalParent or backpack
-			if originalHeld and originalHeldParent then
-				originalHeld.Parent = originalHeldParent
-			end
-		else
-			setShieldRemote:FireServer(state)
-		end
-	end)
-end
-
 local function updateImmortalMode()
 	if not isAlive() or not Toggles.ImmortalMode.Value then
 		if isShielding then
 			isShielding = false
-			fireSetShield(false)
+			pcall(function()
+				game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(false)
+			end)
 		end
 		return
 	end
@@ -2372,13 +2312,17 @@ local function updateImmortalMode()
 		local shieldSpeed = (Options.ImmortalShieldSpeed and Options.ImmortalShieldSpeed.Value) or 0.1
 		if tick() - lastShieldFire >= shieldSpeed then
 			lastShieldFire = tick()
-			fireSetShield(true)
+			pcall(function()
+				game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(true)
+			end)
 		end
 		isShielding = true
 	else
 		if isShielding then
 			isShielding = false
-			fireSetShield(false)
+			pcall(function()
+				game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(false)
+			end)
 		end
 	end
 end
@@ -2393,7 +2337,9 @@ Toggles.ImmortalMode:OnChanged(function()
 	else
 		if isShielding then
 			isShielding = false
-			fireSetShield(false)
+			pcall(function()
+				game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(false)
+			end)
 		end
 	end
 end)
