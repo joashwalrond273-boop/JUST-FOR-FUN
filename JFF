@@ -2805,12 +2805,96 @@ Toggles.SmartSwing:OnChanged(function()
 	end
 end)
 
+local function isSmartSwingSlotAllowed(slotOption)
+	if not slotOption then return false, nil, false end
+	local val = slotOption.Value
+	if val == nil then return false, nil, false end
+
+	if typeof(val) == "table" then
+		local hasAnySelected = false
+		for slotKey, isSelected in pairs(val) do
+			local targetSlot = nil
+			if isSelected == true then
+				targetSlot = slotKey
+				hasAnySelected = true
+			elseif typeof(isSelected) == "string" then
+				targetSlot = isSelected
+				hasAnySelected = true
+			elseif typeof(isSelected) == "number" then
+				targetSlot = isSelected
+				hasAnySelected = true
+			end
+			if targetSlot ~= nil and isHoldingSelectedSlot(targetSlot) then
+				return true, tostring(targetSlot), true
+			end
+		end
+		return false, nil, hasAnySelected
+	elseif typeof(val) == "string" or typeof(val) == "number" then
+		if tostring(val) ~= "" then
+			if isHoldingSelectedSlot(val) then
+				return true, tostring(val), true
+			end
+			return false, nil, true
+		end
+	end
+
+	return false, nil, false
+end
+
+local function updateSmartSwingSlotState()
+	if not isAlive() then return end
+	if not (Toggles.SmartSwingSlotSystem and Toggles.SmartSwingSlotSystem.Value) then return end
+	if not (Toggles.SmartSwing and Options.SmartSwingSlot) then return end
+
+	local isHolding, heldSlot, hasAnySelected = isSmartSwingSlotAllowed(Options.SmartSwingSlot)
+
+	if hasAnySelected then
+		if isHolding then
+			if not Toggles.SmartSwing.Value then
+				Toggles.SmartSwing:SetValue(true)
+			end
+		else
+			if Toggles.SmartSwing.Value then
+				Toggles.SmartSwing:SetValue(false)
+			end
+		end
+	end
+end
+
+local function hookSmartSwingChar(char)
+	if not char then return end
+	disconnect("SmartSwingSlot_ChildAdded")
+	disconnect("SmartSwingSlot_ChildRemoved")
+	track("SmartSwingSlot_ChildAdded", char.ChildAdded:Connect(function(child)
+		if child:IsA("Tool") then
+			task.wait()
+			updateSmartSwingSlotState()
+		end
+	end))
+	track("SmartSwingSlot_ChildRemoved", char.ChildRemoved:Connect(function(child)
+		if child:IsA("Tool") then
+			task.wait()
+			updateSmartSwingSlotState()
+		end
+	end))
+end
+
+if LocalPlayer.Character then
+	hookSmartSwingChar(LocalPlayer.Character)
+end
+track("SmartSwingSlot_CharAdded", LocalPlayer.CharacterAdded:Connect(hookSmartSwingChar))
+
+track("SmartSwingSlot_Poll", RunService.Heartbeat:Connect(function()
+	updateSmartSwingSlotState()
+end))
+
 if Toggles.SmartSwingSlotSystem then
 	Toggles.SmartSwingSlotSystem:OnChanged(function()
 		if updateAutoSwingSliderVisibility then
 			updateAutoSwingSliderVisibility()
 		end
 		if Toggles.SmartSwingSlotSystem.Value then
+			updateSmartSwingSlotState()
 			Library:Notify({ Title = "Smart Swing Slot System", Description = "Enabled", Time = 2 })
 		else
 			Library:Notify({ Title = "Smart Swing Slot System", Description = "Disabled", Time = 2 })
@@ -2820,6 +2904,7 @@ end
 
 if Options.SmartSwingSlot then
 	Options.SmartSwingSlot:OnChanged(function()
+		updateSmartSwingSlotState()
 	end)
 end
 
