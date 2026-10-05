@@ -5201,6 +5201,13 @@ FarmMine:AddCheckbox("AutoMineSlotSystem", {
 	Default = false,
 })
 
+FarmMine:AddDropdown("AutoMineSlot", {
+	Text = "Tool Slot",
+	Values = {"1","2","3","4","5","6","7","8","9","10"},
+	Default = {"1"},
+	Multi = true,
+})
+
 FarmMine:AddSlider("AutoMineRange", {
 	Text = "Range",
 	Default = 30,
@@ -5208,12 +5215,6 @@ FarmMine:AddSlider("AutoMineRange", {
 	Max = 60,
 	Rounding = 1,
 	Compact = true,
-})
-
-FarmMine:AddDropdown("AutoMineSlot", {
-	Text = "Tool Slot",
-	Values = {"1","2","3","4","5","6","7","8","9","10"},
-	Default = "1",
 })
 
 FarmMine:AddCheckbox("HighlightMine", {
@@ -5237,6 +5238,13 @@ FarmChop:AddCheckbox("AutoChopSlotSystem", {
 	Default = false,
 })
 
+FarmChop:AddDropdown("AutoChopSlot", {
+	Text = "Tool Slot",
+	Values = {"1","2","3","4","5","6","7","8","9","10"},
+	Default = {"1"},
+	Multi = true,
+})
+
 FarmChop:AddSlider("AutoChopRange", {
 	Text = "Range",
 	Default = 30,
@@ -5244,12 +5252,6 @@ FarmChop:AddSlider("AutoChopRange", {
 	Max = 60,
 	Rounding = 1,
 	Compact = true,
-})
-
-FarmChop:AddDropdown("AutoChopSlot", {
-	Text = "Tool Slot",
-	Values = {"1","2","3","4","5","6","7","8","9","10"},
-	Default = "1",
 })
 
 FarmChop:AddCheckbox("HighlightChop", {
@@ -5303,7 +5305,8 @@ FarmAI:AddCheckbox("AiAuraSlotSystem", {
 FarmAI:AddDropdown("AiAuraSlot", {
 	Text = "Tool Slot",
 	Values = {"1","2","3","4","5","6","7","8","9","10"},
-	Default = "1",
+	Default = {"1"},
+	Multi = true,
 })
 
 FarmAI:AddSlider("AiAuraRange", {
@@ -5322,6 +5325,42 @@ FarmAI:AddCheckbox("HighlightAI", {
 	Default = Color3.fromRGB(255, 200, 0),
 	Title = "Highlight Target Color",
 })
+
+local updateFarmingVisibility = function()
+	local isMineSlot = (Toggles.AutoMineSlotSystem and Toggles.AutoMineSlotSystem.Value) or false
+	local isChopSlot = (Toggles.AutoChopSlotSystem and Toggles.AutoChopSlotSystem.Value) or false
+	local isAiSlot = (Toggles.AiAuraSlotSystem and Toggles.AiAuraSlotSystem.Value) or false
+
+	if Options.AutoMineSlot then
+		Options.AutoMineSlot.Visible = isMineSlot
+		if Options.AutoMineSlot.Holder then
+			Options.AutoMineSlot.Holder.Visible = isMineSlot
+		end
+	end
+	if Options.AutoChopSlot then
+		Options.AutoChopSlot.Visible = isChopSlot
+		if Options.AutoChopSlot.Holder then
+			Options.AutoChopSlot.Holder.Visible = isChopSlot
+		end
+	end
+	if Options.AiAuraSlot then
+		Options.AiAuraSlot.Visible = isAiSlot
+		if Options.AiAuraSlot.Holder then
+			Options.AiAuraSlot.Holder.Visible = isAiSlot
+		end
+	end
+	FarmMine:Resize()
+	FarmChop:Resize()
+	FarmAI:Resize()
+end
+
+updateFarmingVisibility()
+task.spawn(function()
+	task.wait(0.05)
+	if updateFarmingVisibility then
+		updateFarmingVisibility()
+	end
+end)
 
 -- ==========================================
 local OreFarm = Tabs.Farming:AddRightGroupbox("Ore Farm", "gem")
@@ -5503,6 +5542,49 @@ local function mineObject(obj)
 	end
 end
 
+local function getFarmingActiveSlot(slotOpt, default)
+	default = default or 1
+	if not slotOpt then return default end
+	local val = slotOpt.Value
+	if typeof(val) == "number" then
+		return val
+	elseif typeof(val) == "string" then
+		return tonumber(val) or default
+	elseif typeof(val) == "table" then
+		for slotKey, isSelected in pairs(val) do
+			if isSelected == true then
+				local sNum = tonumber(slotKey)
+				if sNum and isHoldingSelectedSlot(slotKey) then
+					return sNum
+				end
+			elseif typeof(isSelected) == "string" then
+				local sNum = tonumber(isSelected)
+				if sNum and isHoldingSelectedSlot(isSelected) then
+					return sNum
+				end
+			end
+		end
+		for slotKey, isSelected in pairs(val) do
+			if isSelected == true and tonumber(slotKey) then
+				return tonumber(slotKey)
+			elseif typeof(isSelected) == "string" and tonumber(isSelected) then
+				return tonumber(isSelected)
+			end
+		end
+	end
+	return default
+end
+
+local function mineObject(obj)
+	local slot = getFarmingActiveSlot(Options.AutoMineSlot, 1)
+	if obj and obj.PrimaryPart then
+		updateHighlight(hlMine, obj, Toggles.HighlightMine.Value)
+		pcall(function()
+			TSG.MineRemote:FireServer(slot, obj, CFrame.new(obj.PrimaryPart.Position))
+		end)
+	end
+end
+
 local function autoMine()
 	if not isAlive() or not isAutoMineRunning then return end
 	if Toggles.AutoMineSlotSystem and Toggles.AutoMineSlotSystem.Value then
@@ -5600,6 +5682,10 @@ do
 			disconnect("AutoMineSlotSystem_ChildRemoved")
 			disconnect("AutoMineSlotSystem_CharAdded")
 
+			if updateFarmingVisibility then
+				updateFarmingVisibility()
+			end
+
 			if Toggles.AutoMineSlotSystem.Value then
 				local function hookMineSlotChar(char)
 					if not char then return end
@@ -5656,7 +5742,7 @@ end
 
 -- ==========================================
 local function chopObject(obj)
-	local slot = tonumber(Options.AutoChopSlot.Value) or 1
+	local slot = getFarmingActiveSlot(Options.AutoChopSlot, 1)
 	local part = getChopTargetPart(obj)
 	if part then
 		updateHighlight(hlChop, obj, Toggles.HighlightChop.Value)
@@ -5763,6 +5849,10 @@ do
 			disconnect("AutoChopSlotSystem_ChildAdded")
 			disconnect("AutoChopSlotSystem_ChildRemoved")
 			disconnect("AutoChopSlotSystem_CharAdded")
+
+			if updateFarmingVisibility then
+				updateFarmingVisibility()
+			end
 
 			if Toggles.AutoChopSlotSystem.Value then
 				local function hookChopSlotChar(char)
@@ -5871,7 +5961,7 @@ local function aiAuraLoop()
 		return
 	end
 
-	local slot = tonumber(Options.AiAuraSlot.Value) or 1
+	local slot = getFarmingActiveSlot(Options.AiAuraSlot, 1)
 	lastAiAuraHit = tick()
 
 	attackNPC(slot, closest) -- Use attackNPC for proper server model handling
@@ -5938,6 +6028,10 @@ do
 			disconnect("AiAuraSlotSystem_ChildAdded")
 			disconnect("AiAuraSlotSystem_ChildRemoved")
 			disconnect("AiAuraSlotSystem_CharAdded")
+
+			if updateFarmingVisibility then
+				updateFarmingVisibility()
+			end
 
 			if Toggles.AiAuraSlotSystem.Value then
 				local function hookAiSlotChar(char)
