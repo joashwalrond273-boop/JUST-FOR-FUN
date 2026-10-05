@@ -8071,6 +8071,9 @@ Library:OnUnload(function()
 	if Toggles.Reach and Toggles.Reach.Value then
 		Toggles.Reach:SetValue(false)
 	end
+	if Toggles.ReachHealthAutoEnable and Toggles.ReachHealthAutoEnable.Value then
+		Toggles.ReachHealthAutoEnable:SetValue(false)
+	end
 	if Toggles.ImmortalMode and Toggles.ImmortalMode.Value then
 		Toggles.ImmortalMode:SetValue(false)
 	end
