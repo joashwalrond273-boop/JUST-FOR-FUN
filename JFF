@@ -1818,6 +1818,14 @@ updateAutoSwingSliderVisibility = function()
 			Options.AutoSwingSlot.Holder.Visible = isAutoSwingToggled
 		end
 	end
+	if Toggles.DoubleTapSlotSystem then
+		if Toggles.DoubleTapSlotSystem.Visible ~= nil then
+			Toggles.DoubleTapSlotSystem.Visible = true
+		end
+		if Toggles.DoubleTapSlotSystem.Holder then
+			Toggles.DoubleTapSlotSystem.Holder.Visible = true
+		end
+	end
 	if Options.DoubleTapSlot then
 		Options.DoubleTapSlot.Visible = isDTSlot
 		if Options.DoubleTapSlot.Holder then
@@ -1826,17 +1834,16 @@ updateAutoSwingSliderVisibility = function()
 	end
 	if Toggles.SmartSwingSlotSystem then
 		if Toggles.SmartSwingSlotSystem.Visible ~= nil then
-			Toggles.SmartSwingSlotSystem.Visible = isSmartSwingToggled
+			Toggles.SmartSwingSlotSystem.Visible = true
 		end
 		if Toggles.SmartSwingSlotSystem.Holder then
-			Toggles.SmartSwingSlotSystem.Holder.Visible = isSmartSwingToggled
+			Toggles.SmartSwingSlotSystem.Holder.Visible = true
 		end
 	end
 	if Options.SmartSwingSlot then
-		local showSSSlot = isSmartSwingToggled and isSSSlot
-		Options.SmartSwingSlot.Visible = showSSSlot
+		Options.SmartSwingSlot.Visible = isSSSlot
 		if Options.SmartSwingSlot.Holder then
-			Options.SmartSwingSlot.Holder.Visible = showSSSlot
+			Options.SmartSwingSlot.Holder.Visible = isSSSlot
 		end
 	end
 	if Options.AutoSwingSpeed then
