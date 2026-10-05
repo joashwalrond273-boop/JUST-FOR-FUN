@@ -1758,7 +1758,7 @@ end
 
 CombatAutoSwingGroup:AddDivider()
 
-CombatAutoSwingGroup:AddCheckbox("SmartSwing", {
+CombatAutoSwingGroup:AddToggle("SmartSwing", {
 	Text = "Smart Swing",
 	Default = false,
 })
@@ -1820,16 +1820,16 @@ updateAutoSwingSliderVisibility = function()
 	end
 	if Toggles.SmartSwingSlotSystem then
 		if Toggles.SmartSwingSlotSystem.Visible ~= nil then
-			Toggles.SmartSwingSlotSystem.Visible = isSmartSwingToggled
+			Toggles.SmartSwingSlotSystem.Visible = true
 		end
 		if Toggles.SmartSwingSlotSystem.Holder then
-			Toggles.SmartSwingSlotSystem.Holder.Visible = isSmartSwingToggled
+			Toggles.SmartSwingSlotSystem.Holder.Visible = true
 		end
 	end
 	if Options.SmartSwingSlot then
-		Options.SmartSwingSlot.Visible = isSmartSwingToggled and isSSSlot
+		Options.SmartSwingSlot.Visible = isSSSlot
 		if Options.SmartSwingSlot.Holder then
-			Options.SmartSwingSlot.Holder.Visible = isSmartSwingToggled and isSSSlot
+			Options.SmartSwingSlot.Holder.Visible = isSSSlot
 		end
 	end
 	if Options.AutoSwingSlot then
