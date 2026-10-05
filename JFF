@@ -2211,6 +2211,79 @@ CombatReach:AddSlider("ReachAngle", {
 	Compact = true,
 })
 
+CombatReach:AddCheckbox("ReachHealthAutoEnable", {
+	Text = "Auto Enable on Low Health",
+	Default = false,
+})
+
+CombatReach:AddSlider("ReachHealthThreshold", {
+	Text = "Health Threshold",
+	Min = 5,
+	Max = 130,
+	Default = 50,
+	Rounding = 0,
+	Compact = true,
+})
+
+local function updateReachHealthVisibility()
+	local isEnabled = (Toggles.ReachHealthAutoEnable and Toggles.ReachHealthAutoEnable.Value) or false
+	if Options.ReachHealthThreshold then
+		if Options.ReachHealthThreshold.Visible ~= nil then
+			Options.ReachHealthThreshold.Visible = isEnabled
+		end
+		if Options.ReachHealthThreshold.Holder then
+			Options.ReachHealthThreshold.Holder.Visible = isEnabled
+		end
+	end
+	CombatReach:Resize()
+end
+
+updateReachHealthVisibility()
+task.spawn(function()
+	task.wait(0.05)
+	if updateReachHealthVisibility then
+		updateReachHealthVisibility()
+	end
+end)
+
+local reachHealthTriggered = false
+
+local function checkReachHealthThreshold()
+	if not Toggles.ReachHealthAutoEnable or not Toggles.ReachHealthAutoEnable.Value or not isAlive() then return end
+	local hum = getHumanoid()
+	if not hum or hum.Health <= 0 then return end
+
+	local threshold = Options.ReachHealthThreshold and Options.ReachHealthThreshold.Value or 50
+
+	if hum.Health > threshold then
+		reachHealthTriggered = false
+	elseif hum.Health <= threshold and not reachHealthTriggered then
+		if not (Toggles.Reach and Toggles.Reach.Value) then
+			reachHealthTriggered = true
+			if Toggles.Reach then
+				Toggles.Reach:SetValue(true)
+			end
+			Library:Notify({
+				Title = "Reach",
+				Description = string.format("Health low (%.0f HP)! Reach activated.", hum.Health),
+				Time = 3,
+			})
+		end
+	end
+end
+
+Toggles.ReachHealthAutoEnable:OnChanged(function()
+	disconnect("ReachHealthAutoEnable")
+	reachHealthTriggered = false
+	updateReachHealthVisibility()
+	if Toggles.ReachHealthAutoEnable.Value then
+		track("ReachHealthAutoEnable", RunService.Heartbeat:Connect(checkReachHealthThreshold))
+		Library:Notify({ Title = "Reach Auto-Enable", Description = "Enabled", Time = 2 })
+	else
+		Library:Notify({ Title = "Reach Auto-Enable", Description = "Disabled", Time = 2 })
+	end
+end)
+
 local function isSwingAnimation(trackObj)
 	local anim = trackObj.Animation
 	if not anim then return false end
@@ -8070,6 +8143,9 @@ end
 Library:OnUnload(function()
 	if Toggles.Reach and Toggles.Reach.Value then
 		Toggles.Reach:SetValue(false)
+	end
+	if Toggles.ReachHealthAutoEnable and Toggles.ReachHealthAutoEnable.Value then
+		Toggles.ReachHealthAutoEnable:SetValue(false)
 	end
 	if Toggles.ImmortalMode and Toggles.ImmortalMode.Value then
 		Toggles.ImmortalMode:SetValue(false)
