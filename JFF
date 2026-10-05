@@ -4830,9 +4830,6 @@ Toggles.Noclip:OnChanged(function()
 	end
 end)
 
-
-
-
 Toggles.SpeedHack:OnChanged(function()
 	disconnect("SpeedHack")
 	if Toggles.SpeedHack.Value then
