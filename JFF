@@ -1549,6 +1549,13 @@ CombatAutoSwingGroup:AddToggle("AutoSwing", {
 	Default = false,
 })
 
+CombatAutoSwingGroup:AddDropdown("AutoSwingSlot", {
+	Text = "Tool Slot",
+	Values = { "Normal", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" },
+	Default = { "Normal" },
+	Multi = true,
+})
+
 do
 	local ddSaved = {
 		AutoSwing = nil,
@@ -1768,10 +1775,10 @@ CombatAutoSwingGroup:AddCheckbox("SmartSwingSlotSystem", {
 	Default = false,
 })
 
-CombatAutoSwingGroup:AddDropdown("AutoSwingSlot", {
+CombatAutoSwingGroup:AddDropdown("SmartSwingSlot", {
 	Text = "Tool Slot",
-	Values = { "Normal", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" },
-	Default = { "Normal" },
+	Values = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" },
+	Default = { "1" },
 	Multi = true,
 })
 
@@ -1802,8 +1809,15 @@ updateAutoSwingSliderVisibility = function()
 	local isAutoSwingToggled = (Toggles.AutoSwing and Toggles.AutoSwing.Value) or false
 	local isSmartSwingToggled = (Toggles.SmartSwing and Toggles.SmartSwing.Value) or false
 	local isDTSlot = (Toggles.DoubleTapSlotSystem and Toggles.DoubleTapSlotSystem.Value) or false
+	local isSSSlot = (Toggles.SmartSwingSlotSystem and Toggles.SmartSwingSlotSystem.Value) or false
 	local isAnyToggled = isAutoSwingToggled or isSmartSwingToggled
 
+	if Options.AutoSwingSlot then
+		Options.AutoSwingSlot.Visible = isAutoSwingToggled
+		if Options.AutoSwingSlot.Holder then
+			Options.AutoSwingSlot.Holder.Visible = isAutoSwingToggled
+		end
+	end
 	if Options.DoubleTapSlot then
 		Options.DoubleTapSlot.Visible = isDTSlot
 		if Options.DoubleTapSlot.Holder then
@@ -1812,22 +1826,17 @@ updateAutoSwingSliderVisibility = function()
 	end
 	if Toggles.SmartSwingSlotSystem then
 		if Toggles.SmartSwingSlotSystem.Visible ~= nil then
-			Toggles.SmartSwingSlotSystem.Visible = true
+			Toggles.SmartSwingSlotSystem.Visible = isSmartSwingToggled
 		end
 		if Toggles.SmartSwingSlotSystem.Holder then
-			Toggles.SmartSwingSlotSystem.Holder.Visible = true
+			Toggles.SmartSwingSlotSystem.Holder.Visible = isSmartSwingToggled
 		end
 	end
 	if Options.SmartSwingSlot then
-		Options.SmartSwingSlot.Visible = isSSSlot
+		local showSSSlot = isSmartSwingToggled and isSSSlot
+		Options.SmartSwingSlot.Visible = showSSSlot
 		if Options.SmartSwingSlot.Holder then
-			Options.SmartSwingSlot.Holder.Visible = isSSSlot
-		end
-	end
-	if Options.AutoSwingSlot then
-		Options.AutoSwingSlot.Visible = isAutoSwingToggled
-		if Options.AutoSwingSlot.Holder then
-			Options.AutoSwingSlot.Holder.Visible = isAutoSwingToggled
+			Options.SmartSwingSlot.Holder.Visible = showSSSlot
 		end
 	end
 	if Options.AutoSwingSpeed then
@@ -8163,6 +8172,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.DoubleTapSlotSystem and Toggles.DoubleTapSlotSystem.Value then
 		Toggles.DoubleTapSlotSystem:SetValue(false)
+	end
+	if Toggles.SmartSwing and Toggles.SmartSwing.Value then
+		Toggles.SmartSwing:SetValue(false)
 	end
 	if Toggles.SmartSwingSlotSystem and Toggles.SmartSwingSlotSystem.Value then
 		Toggles.SmartSwingSlotSystem:SetValue(false)
