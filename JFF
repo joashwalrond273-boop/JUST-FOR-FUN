@@ -5261,14 +5261,6 @@ FarmAI:AddSlider("AiAuraRange", {
 	Compact = true,
 })
 
-FarmAI:AddCheckbox("HighlightAI", {
-	Text = "Highlight Target",
-	Default = true,
-}):AddColorPicker("HighlightAIColor", {
-	Default = Color3.fromRGB(255, 200, 0),
-	Title = "Highlight Target Color",
-})
-
 -- ==========================================
 local OreFarm = Tabs.Farming:AddRightGroupbox("Ore Farm", "gem")
 
@@ -5390,7 +5382,6 @@ OreFarm:AddButton({
 -- Aura highlights (one per aura type, created after makeAuraHighlight is defined)
 local hlMine = makeAuraHighlight(Options.HighlightMineColor and Options.HighlightMineColor.Value)
 local hlChop = makeAuraHighlight(Options.HighlightChopColor and Options.HighlightChopColor.Value)
-local hlAI   = makeAuraHighlight(Options.HighlightAIColor and Options.HighlightAIColor.Value)
 
 if Options.HighlightMineColor then
 	Options.HighlightMineColor:OnChanged(function()
@@ -5408,14 +5399,6 @@ if Options.HighlightChopColor then
 	end)
 end
 
-if Options.HighlightAIColor then
-	Options.HighlightAIColor:OnChanged(function()
-		if hlAI then
-			hlAI.FillColor = Options.HighlightAIColor.Value
-		end
-	end)
-end
-
 Toggles.HighlightMine:OnChanged(function()
 	if not Toggles.HighlightMine.Value then
 		updateHighlight(hlMine, nil, false)
@@ -5424,11 +5407,6 @@ end)
 Toggles.HighlightChop:OnChanged(function()
 	if not Toggles.HighlightChop.Value then
 		updateHighlight(hlChop, nil, false)
-	end
-end)
-Toggles.HighlightAI:OnChanged(function()
-	if not Toggles.HighlightAI.Value then
-		updateHighlight(hlAI, nil, false)
 	end
 end)
 
@@ -5606,7 +5584,6 @@ local function aiAuraLoop()
 		end
 	end
 
-	updateHighlight(hlAI, closest, Toggles.HighlightAI.Value)
 	if not closest then
 		return
 	end
@@ -5619,7 +5596,6 @@ end
 
 Toggles.AiAura:OnChanged(function()
 	disconnect("AiAura")
-	updateHighlight(hlAI, nil, false)
 	if Toggles.AiAura.Value then
 		if not TSG.MeleeAI and not TSG.MeleeAnimalRemote then
 			Library:Notify({ Title = "AI Aura", Description = "AI remote not found.", Time = 4 })
@@ -5634,7 +5610,6 @@ Toggles.AiAura:OnChanged(function()
 		Library:Notify({ Title = "AI Aura", Description = "Enabled", Time = 2 })
 	else
 		isAiAuraRunning = false
-		updateHighlight(hlAI, nil, false)
 	end
 end)
 
