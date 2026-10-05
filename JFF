@@ -1763,6 +1763,18 @@ CombatAutoSwingGroup:AddCheckbox("SmartSwing", {
 	Default = false,
 })
 
+CombatAutoSwingGroup:AddCheckbox("SmartSwingSlotSystem", {
+	Text = "Slot System",
+	Default = false,
+})
+
+CombatAutoSwingGroup:AddDropdown("SmartSwingSlot", {
+	Text = "Tool Slot",
+	Values = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" },
+	Default = { "1" },
+	Multi = true,
+})
+
 CombatAutoSwingGroup:AddDropdown("AutoSwingSlot", {
 	Text = "Tool Slot",
 	Values = { "Normal", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" },
@@ -1797,12 +1809,27 @@ updateAutoSwingSliderVisibility = function()
 	local isAutoSwingToggled = (Toggles.AutoSwing and Toggles.AutoSwing.Value) or false
 	local isSmartSwingToggled = (Toggles.SmartSwing and Toggles.SmartSwing.Value) or false
 	local isDTSlot = (Toggles.DoubleTapSlotSystem and Toggles.DoubleTapSlotSystem.Value) or false
+	local isSSSlot = (Toggles.SmartSwingSlotSystem and Toggles.SmartSwingSlotSystem.Value) or false
 	local isAnyToggled = isAutoSwingToggled or isSmartSwingToggled
 
 	if Options.DoubleTapSlot then
 		Options.DoubleTapSlot.Visible = isDTSlot
 		if Options.DoubleTapSlot.Holder then
 			Options.DoubleTapSlot.Holder.Visible = isDTSlot
+		end
+	end
+	if Toggles.SmartSwingSlotSystem then
+		if Toggles.SmartSwingSlotSystem.Visible ~= nil then
+			Toggles.SmartSwingSlotSystem.Visible = isSmartSwingToggled
+		end
+		if Toggles.SmartSwingSlotSystem.Holder then
+			Toggles.SmartSwingSlotSystem.Holder.Visible = isSmartSwingToggled
+		end
+	end
+	if Options.SmartSwingSlot then
+		Options.SmartSwingSlot.Visible = isSmartSwingToggled and isSSSlot
+		if Options.SmartSwingSlot.Holder then
+			Options.SmartSwingSlot.Holder.Visible = isSmartSwingToggled and isSSSlot
 		end
 	end
 	if Options.AutoSwingSlot then
@@ -2732,6 +2759,12 @@ Toggles.SmartSwing:OnChanged(function()
 			local root = getRootPart()
 			if not root then return end
 
+			if Toggles.SmartSwingSlotSystem and Toggles.SmartSwingSlotSystem.Value then
+				if not isAdvanceSlotAllowed(Options.SmartSwingSlot) then
+					return
+				end
+			end
+
 			local speedVal = Options.AutoSwingSpeed and Options.AutoSwingSpeed.Value or 10
 			local delay = 1 / math.max(0.1, speedVal)
 			if tick() - lastSmartSwing < delay then return end
@@ -2771,6 +2804,24 @@ Toggles.SmartSwing:OnChanged(function()
 		Library:Notify({ Title = "Smart Swing", Description = "Disabled", Time = 2 })
 	end
 end)
+
+if Toggles.SmartSwingSlotSystem then
+	Toggles.SmartSwingSlotSystem:OnChanged(function()
+		if updateAutoSwingSliderVisibility then
+			updateAutoSwingSliderVisibility()
+		end
+		if Toggles.SmartSwingSlotSystem.Value then
+			Library:Notify({ Title = "Smart Swing Slot System", Description = "Enabled", Time = 2 })
+		else
+			Library:Notify({ Title = "Smart Swing Slot System", Description = "Disabled", Time = 2 })
+		end
+	end)
+end
+
+if Options.SmartSwingSlot then
+	Options.SmartSwingSlot:OnChanged(function()
+	end)
+end
 
 
 
@@ -3327,7 +3378,7 @@ local function applySpearSwordSlot(slot)
 			Options.CamlockStuds:SetValue(17)
 		end
 		if Options.OutlineStuds then
-			Options.OutlineStuds:SetValue(1)
+			Options.OutlineStuds:SetValue(2)
 		end
 	end
 end
@@ -8124,6 +8175,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.DoubleTapSlotSystem and Toggles.DoubleTapSlotSystem.Value then
 		Toggles.DoubleTapSlotSystem:SetValue(false)
+	end
+	if Toggles.SmartSwingSlotSystem and Toggles.SmartSwingSlotSystem.Value then
+		Toggles.SmartSwingSlotSystem:SetValue(false)
 	end
 	if Toggles.SpearSword and Toggles.SpearSword.Value then
 		Toggles.SpearSword:SetValue(false)
