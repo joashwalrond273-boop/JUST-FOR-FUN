@@ -3071,7 +3071,7 @@ Toggles.Camlock:OnChanged(function()
 					local pullTriggerDist = (Options.CamlockPullDist and Options.CamlockPullDist.Value) or 8
 					local stopBoundary = outlineActive and minOutlineStuds or 7
 
-					local pullDir = flatOffset.Unit
+					local pullDir = flatOffset.Magnitude > 0.0001 and flatOffset.Unit or Vector3.zero
 
 					-- Check if the player is actively trying to move / pull away from the target
 					local isMovingAway = false
@@ -3097,11 +3097,30 @@ Toggles.Camlock:OnChanged(function()
 						)
 
 						pcall(function()
-							local pullVel = pullDir * velMag
+							local maxVelAllowed = math.max(0, (currentDist - stopBoundary)) / 0.016
+							local safeVelMag = math.min(velMag, maxVelAllowed)
+							local pullVel = pullDir * safeVelMag
 							local curVel = root.AssemblyLinearVelocity or root.Velocity or Vector3.zero
-							local newVel = Vector3.new(pullVel.X, curVel.Y, pullVel.Z)
+							local flatCur = Vector3.new(curVel.X, 0, curVel.Z)
+							local curTowards = flatCur:Dot(pullDir)
+							local desiredTowards = math.max(curTowards, safeVelMag)
+							local deltaTowards = desiredTowards - curTowards
+							local newFlat = flatCur + pullDir * deltaTowards
+							local newVel = Vector3.new(newFlat.X, curVel.Y, newFlat.Z)
 							root.AssemblyLinearVelocity = newVel
 							root.Velocity = newVel
+						end)
+					elseif currentDist <= stopBoundary and pullDir.Magnitude > 0 then
+						pcall(function()
+							local curVel = root.AssemblyLinearVelocity or root.Velocity or Vector3.zero
+							local flatCur = Vector3.new(curVel.X, 0, curVel.Z)
+							local curTowards = flatCur:Dot(pullDir)
+							if curTowards > 0 then
+								local newFlat = flatCur - pullDir * curTowards
+								local newVel = Vector3.new(newFlat.X, curVel.Y, newFlat.Z)
+								root.AssemblyLinearVelocity = newVel
+								root.Velocity = newVel
+							end
 						end)
 					end
 				end
@@ -3301,7 +3320,7 @@ local function applySpearSwordSlot(slot)
 			Options.CamlockStuds:SetValue(17)
 		end
 		if Options.OutlineStuds then
-			Options.OutlineStuds:SetValue(7)
+			Options.OutlineStuds:SetValue(8)
 		end
 	elseif slot == 5 or slot == "5" then
 		if Options.CamlockStuds then
