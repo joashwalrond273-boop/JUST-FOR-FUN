@@ -2050,35 +2050,54 @@ CombatReach:AddSlider("ReachMaxTargets", {
 	Compact = true,
 })
 
+local nonSwingNames = {
+	idle = true, walk = true, run = true, jump = true,
+	fall = true, swim = true, climb = true, strafe = true
+}
+
+local movementIds = {
+	["507766388"] = true, ["507777826"] = true, ["507767714"] = true,
+	["507765000"] = true, ["507767968"] = true, ["507765644"] = true,
+	["507784064"] = true, ["180426354"] = true, ["180415668"] = true,
+	["180419271"] = true, ["180435571"] = true
+}
+
+local animSwingCache = {}
+
 local function isSwingAnimation(trackObj)
 	local anim = trackObj.Animation
 	if not anim then return false end
 	local id = anim.AnimationId
-	local name = anim.Name:lower()
-
-	if name:find("idle") or name:find("walk") or name:find("run") or name:find("jump") or
-	   name:find("fall") or name:find("swim") or name:find("climb") or name:find("strafe") then
-		return false
+	if id and animSwingCache[id] ~= nil then
+		return animSwingCache[id]
 	end
 
-	local movementIds = {
-		["507766388"] = true, ["507777826"] = true, ["507767714"] = true,
-		["507765000"] = true, ["507767968"] = true, ["507765644"] = true,
-		["507784064"] = true, ["180426354"] = true, ["180415668"] = true,
-		["180419271"] = true, ["180435571"] = true
-	}
-	for mId in pairs(movementIds) do
-		if id:find(mId) then
+	local name = anim.Name:lower()
+	for nonSwing in pairs(nonSwingNames) do
+		if name:find(nonSwing) then
+			if id then animSwingCache[id] = false end
 			return false
 		end
 	end
 
+	for mId in pairs(movementIds) do
+		if id:find(mId) then
+			if id then animSwingCache[id] = false end
+			return false
+		end
+	end
+
+	if id then animSwingCache[id] = true end
 	return true
 end
 
 local isShielding = false
 local lastShieldFire = 0
 local multiSnapIndex = 1
+local lastImmortalScan = 0
+local cachedShouldShield = false
+local cachedTargetToFace = nil
+
 local function updateImmortalMode()
 	if not isAlive() or not Toggles.ImmortalMode.Value then
 		if isShielding then
@@ -2087,39 +2106,53 @@ local function updateImmortalMode()
 				game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(false)
 			end)
 		end
+		cachedShouldShield = false
+		cachedTargetToFace = nil
 		return
 	end
 
 	local root = getRootPart()
 	if not root then return end
 
-	local shouldShield = false
+	local now = tick()
 	local checkDistance = (Options.ImmortalModeStuds and Options.ImmortalModeStuds.Value) or 18
-	local nearestEnemy = nil
-	local nearestDist = math.huge
-	local activeAttackers = {}
+	local checkDistanceSq = checkDistance * checkDistance
 	local ignoreTeam = Toggles.ImmortalIgnoreTeam and Toggles.ImmortalIgnoreTeam.Value
+	local rootPos = root.Position
 
-	for _, player in ipairs(Players:GetPlayers()) do
-		if player ~= LocalPlayer and player.Character then
-			if not ignoreTeam or not isTeammate(player) then
-				local targetRoot = player.Character:FindFirstChild("HumanoidRootPart")
-				local hum = player.Character:FindFirstChildOfClass("Humanoid")
-				if targetRoot and hum and hum.Health > 0 then
-					local dist = (targetRoot.Position - root.Position).Magnitude
-					if dist <= checkDistance then
-						shouldShield = true
-						if dist < nearestDist then
-							nearestDist = dist
-							nearestEnemy = targetRoot
-						end
+	-- Throttled animation & enemy scan (20Hz) to prevent GC/CPU stuttering
+	if now - lastImmortalScan >= 0.05 then
+		lastImmortalScan = now
 
-						local animator = hum:FindFirstChild("Animator")
-						if animator then
-							for _, trackObj in ipairs(animator:GetPlayingAnimationTracks()) do
-								if trackObj.Speed > 0 and isSwingAnimation(trackObj) then
-									table.insert(activeAttackers, { root = targetRoot, dist = dist })
-									break
+		local nearestEnemy = nil
+		local nearestDistSq = math.huge
+		local activeAttackers = {}
+		local anyInRange = false
+
+		for _, player in ipairs(Players:GetPlayers()) do
+			if player ~= LocalPlayer and player.Character then
+				if not ignoreTeam or not isTeammate(player) then
+					local targetRoot = player.Character:FindFirstChild("HumanoidRootPart")
+					if targetRoot then
+						local offset = targetRoot.Position - rootPos
+						local distSq = offset.X * offset.X + offset.Y * offset.Y + offset.Z * offset.Z
+						if distSq <= checkDistanceSq then
+							local hum = player.Character:FindFirstChildOfClass("Humanoid")
+							if hum and hum.Health > 0 then
+								anyInRange = true
+								if distSq < nearestDistSq then
+									nearestDistSq = distSq
+									nearestEnemy = targetRoot
+								end
+
+								local animator = hum:FindFirstChild("Animator")
+								if animator then
+									for _, trackObj in ipairs(animator:GetPlayingAnimationTracks()) do
+										if trackObj.Speed > 0 and isSwingAnimation(trackObj) then
+											table.insert(activeAttackers, { root = targetRoot, distSq = distSq })
+											break
+										end
+									end
 								end
 							end
 						end
@@ -2127,30 +2160,35 @@ local function updateImmortalMode()
 				end
 			end
 		end
-	end
 
-	if shouldShield then
-		local targetToFace = nil
-		if #activeAttackers > 0 then
-			table.sort(activeAttackers, function(a, b) return a.dist < b.dist end)
-			if #activeAttackers == 1 then
-				targetToFace = activeAttackers[1].root
+		if anyInRange then
+			cachedShouldShield = true
+			if #activeAttackers > 0 then
+				if #activeAttackers > 1 then
+					table.sort(activeAttackers, function(a, b) return a.distSq < b.distSq end)
+					multiSnapIndex = (multiSnapIndex % #activeAttackers) + 1
+					cachedTargetToFace = activeAttackers[multiSnapIndex].root
+				else
+					cachedTargetToFace = activeAttackers[1].root
+				end
 			else
-				multiSnapIndex = (multiSnapIndex % #activeAttackers) + 1
-				targetToFace = activeAttackers[multiSnapIndex].root
+				cachedTargetToFace = nearestEnemy
 			end
 		else
-			targetToFace = nearestEnemy
+			cachedShouldShield = false
+			cachedTargetToFace = nil
 		end
+	end
 
-		if targetToFace then
-			local targetPos = targetToFace.Position
+	if cachedShouldShield then
+		if cachedTargetToFace and cachedTargetToFace.Parent then
+			local targetPos = cachedTargetToFace.Position
 			root.CFrame = CFrame.lookAt(root.Position, Vector3.new(targetPos.X, root.Position.Y, targetPos.Z))
 		end
 
 		local shieldSpeed = (Options.ImmortalShieldSpeed and Options.ImmortalShieldSpeed.Value) or 0.1
-		if tick() - lastShieldFire >= shieldSpeed then
-			lastShieldFire = tick()
+		if now - lastShieldFire >= shieldSpeed then
+			lastShieldFire = now
 			pcall(function()
 				game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(true)
 			end)
@@ -2869,95 +2907,102 @@ Toggles.Camlock:OnChanged(function()
 			if not root or not hum then return end
 
 			local maxDist = Options.CamlockStuds and Options.CamlockStuds.Value or 20
+			local maxDistSq = maxDist * maxDist
 			local myPos = root.Position
 			local closestPlayer = nil
-			local closestDist = math.huge
+			local closestDistSq = math.huge
 			local targetSetting = Options.CamlockTarget and Options.CamlockTarget.Value or "All"
 			local ignoreTeam = true
 
-			local function isSameTeamOnly(p)
-				if LocalPlayer.Team and p.Team and LocalPlayer.Team == p.Team then
-					return true
-				end
-				if LocalPlayer.TeamColor and p.TeamColor and LocalPlayer.TeamColor == p.TeamColor and LocalPlayer.TeamColor ~= BrickColor.new("White") then
-					return true
-				end
-				return false
-			end
+			local myTeam = LocalPlayer.Team
+			local myTeamColor = LocalPlayer.TeamColor
+			local hasWhiteTeam = (myTeamColor == BrickColor.new("White"))
 
-			for _, otherPlayer in ipairs(Players:GetPlayers()) do
-				if otherPlayer ~= LocalPlayer and otherPlayer.Character then
-					if not ignoreTeam or not isSameTeamOnly(otherPlayer) then
-						local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
-						local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
-						if otherRoot and otherHum and otherHum.Health > 0 then
-							if targetSetting == "All" or otherPlayer.Name == targetSetting then
-								local dist = (otherRoot.Position - myPos).Magnitude
-								if dist <= maxDist and dist < closestDist then
-									closestDist = dist
-									closestPlayer = otherPlayer
-								end
-							end
-						end
-					end
-				end
-			end
-
-			-- Outline: Stop player from getting closer than studs to players while using Camlock
 			local outlineActive = (Toggles.Outline and Toggles.Outline.Value) or (Toggles.Cutline and Toggles.Cutline.Value)
 			local minOutlineStuds = (Options.OutlineStuds and Options.OutlineStuds.Value) or (Options.CutlineStuds and Options.CutlineStuds.Value) or 7
+			local minOutlineStudsSq = minOutlineStuds * minOutlineStuds
+			local outlineTargetSetting = (Options.OutlineTarget and Options.OutlineTarget.Value) or "All"
 
-			if outlineActive then
-				local outlineTargetSetting = (Options.OutlineTarget and Options.OutlineTarget.Value) or "All"
-				for _, otherPlayer in ipairs(Players:GetPlayers()) do
-					if otherPlayer ~= LocalPlayer and otherPlayer.Character then
-						if not ignoreTeam or not isSameTeamOnly(otherPlayer) then
-							local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
+			local pushedByOutline = false
+			local pushDirX, pushDirZ = 0, 0
+
+			-- Single-pass player scanning for both Camlock target and Outline pushback
+			for _, otherPlayer in ipairs(Players:GetPlayers()) do
+				if otherPlayer ~= LocalPlayer and otherPlayer.Character then
+					local isTeammate = false
+					if myTeam and otherPlayer.Team and myTeam == otherPlayer.Team then
+						isTeammate = true
+					elseif myTeamColor and otherPlayer.TeamColor and myTeamColor == otherPlayer.TeamColor and not hasWhiteTeam then
+						isTeammate = true
+					end
+
+					if not ignoreTeam or not isTeammate then
+						local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
+						if otherRoot then
 							local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
-							if otherRoot and otherHum and otherHum.Health > 0 then
-								if outlineTargetSetting == "All" or otherPlayer.Name == outlineTargetSetting then
-									local otherPos = otherRoot.Position
-									local offset = myPos - otherPos
-									local flatOffset = Vector3.new(offset.X, 0, offset.Z)
-									local flatDist = flatOffset.Magnitude
+							if otherHum and otherHum.Health > 0 then
+								local otherPos = otherRoot.Position
+								local dx = otherPos.X - myPos.X
+								local dy = otherPos.Y - myPos.Y
+								local dz = otherPos.Z - myPos.Z
+								local distSq = dx * dx + dy * dy + dz * dz
 
-									if flatDist < minOutlineStuds then
-										local pushDir
+								-- Camlock Target Selection
+								if (targetSetting == "All" or otherPlayer.Name == targetSetting) and distSq <= maxDistSq and distSq < closestDistSq then
+									closestDistSq = distSq
+									closestPlayer = otherPlayer
+								end
+
+								-- Outline Pushback Calculation
+								if outlineActive and (outlineTargetSetting == "All" or otherPlayer.Name == outlineTargetSetting) then
+									local flatDistSq = dx * dx + dz * dz
+									if flatDistSq < minOutlineStudsSq then
+										local flatDist = math.sqrt(flatDistSq)
+										local px, pz
 										if flatDist > 0.001 then
-											pushDir = flatOffset.Unit
+											px, pz = (myPos.X - otherPos.X) / flatDist, (myPos.Z - otherPos.Z) / flatDist
 										else
 											local backDir = -root.CFrame.LookVector
-											local flatBack = Vector3.new(backDir.X, 0, backDir.Z)
-											pushDir = flatBack.Magnitude > 0.001 and flatBack.Unit or Vector3.new(0, 0, 1)
+											local backMag = math.sqrt(backDir.X * backDir.X + backDir.Z * backDir.Z)
+											if backMag > 0.001 then
+												px, pz = backDir.X / backMag, backDir.Z / backMag
+											else
+												px, pz = 0, 1
+											end
 										end
 
 										myPos = Vector3.new(
-											otherPos.X + pushDir.X * minOutlineStuds,
+											otherPos.X + px * minOutlineStuds,
 											myPos.Y,
-											otherPos.Z + pushDir.Z * minOutlineStuds
+											otherPos.Z + pz * minOutlineStuds
 										)
-
-										pcall(function()
-											local vel = root.AssemblyLinearVelocity or root.Velocity
-											if vel then
-												local moveTowards = vel.X * (-pushDir.X) + vel.Z * (-pushDir.Z)
-												if moveTowards > 0 then
-													local correctedVel = Vector3.new(
-														vel.X - (-pushDir.X * moveTowards),
-														vel.Y,
-														vel.Z - (-pushDir.Z * moveTowards)
-													)
-													root.AssemblyLinearVelocity = correctedVel
-													root.Velocity = correctedVel
-												end
-											end
-										end)
+										pushedByOutline = true
+										pushDirX, pushDirZ = px, pz
 									end
 								end
 							end
 						end
 					end
 				end
+			end
+
+			-- Velocity correction if pushed by Outline
+			if pushedByOutline then
+				pcall(function()
+					local vel = root.AssemblyLinearVelocity or root.Velocity
+					if vel then
+						local moveTowards = vel.X * (-pushDirX) + vel.Z * (-pushDirZ)
+						if moveTowards > 0 then
+							local correctedVel = Vector3.new(
+								vel.X - (-pushDirX * moveTowards),
+								vel.Y,
+								vel.Z - (-pushDirZ * moveTowards)
+							)
+							root.AssemblyLinearVelocity = correctedVel
+							root.Velocity = correctedVel
+						end
+					end
+				end)
 			end
 
 			-- Slight Pull In at 8 studs: Gently pulls forward into outline distance (never closer than outline)
