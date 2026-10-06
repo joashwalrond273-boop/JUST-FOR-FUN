@@ -2050,7 +2050,7 @@ updatePVPModulesVisibility = function()
 	local isCam = (Toggles.Camlock and Toggles.Camlock.Value) or false
 	local isCamLerp = isCam and ((Toggles.CamlockCameraLerp and Toggles.CamlockCameraLerp.Value) or false)
 	local isSwingSpeed = (Toggles.SwingSpeedToggle and Toggles.SwingSpeedToggle.Value) or false
-	local isCLSlot = isCam and ((Toggles.CamlockSlotSystem and Toggles.CamlockSlotSystem.Value) or false)
+	local isCLSlot = (Toggles.CamlockSlotSystem and Toggles.CamlockSlotSystem.Value) or false
 
 	local isOutline = isCam and ((Toggles.Outline and Toggles.Outline.Value) or (Toggles.Cutline and Toggles.Cutline.Value) or false)
 
@@ -2094,10 +2094,10 @@ updatePVPModulesVisibility = function()
 	end
 	if Toggles.CamlockSlotSystem then
 		if Toggles.CamlockSlotSystem.Visible ~= nil then
-			Toggles.CamlockSlotSystem.Visible = isCam
+			Toggles.CamlockSlotSystem.Visible = true
 		end
 		if Toggles.CamlockSlotSystem.Holder then
-			Toggles.CamlockSlotSystem.Holder.Visible = isCam
+			Toggles.CamlockSlotSystem.Holder.Visible = true
 		end
 	end
 	if Options.CamlockSlotSystemSlot then
