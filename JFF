@@ -1383,6 +1383,44 @@ CombatCamlock:AddToggle("Camlock", {
 	Default = false,
 })
 
+CombatCamlock:AddCheckbox("CamlockCameraLerp", {
+	Text = "Camera Interpolation",
+	Default = true,
+})
+
+CombatCamlock:AddSlider("CamlockSmoothness", {
+	Text = "Camera Smoothness",
+	Default = 0.2,
+	Min = 0.01,
+	Max = 1,
+	Rounding = 2,
+	Compact = true,
+})
+
+CombatCamlock:AddDropdown("CamlockAimPart", {
+	Text = "Aim Part",
+	Values = {"Head", "HumanoidRootPart", "UpperTorso"},
+	Default = "Head",
+})
+
+CombatCamlock:AddSlider("CamlockYOffset", {
+	Text = "Vertical Offset",
+	Default = 0,
+	Min = -5,
+	Max = 5,
+	Rounding = 1,
+	Compact = true,
+})
+
+CombatCamlock:AddSlider("CamlockPrediction", {
+	Text = "Aim Prediction",
+	Default = 0,
+	Min = 0,
+	Max = 2,
+	Rounding = 2,
+	Compact = true,
+})
+
 CombatCamlock:AddCheckbox("CamlockSlotSystem", {
 	Text = "Slot System",
 	Default = false,
@@ -2010,8 +2048,9 @@ CombatAutoPVP:AddSlider("AutoJumpDelay", {
 
 updatePVPModulesVisibility = function()
 	local isCam = (Toggles.Camlock and Toggles.Camlock.Value) or false
+	local isCamLerp = isCam and ((Toggles.CamlockCameraLerp and Toggles.CamlockCameraLerp.Value) or false)
 	local isSwingSpeed = (Toggles.SwingSpeedToggle and Toggles.SwingSpeedToggle.Value) or false
-	local isCLSlot = (Toggles.CamlockSlotSystem and Toggles.CamlockSlotSystem.Value) or false
+	local isCLSlot = isCam and ((Toggles.CamlockSlotSystem and Toggles.CamlockSlotSystem.Value) or false)
 
 	local isOutline = isCam and ((Toggles.Outline and Toggles.Outline.Value) or (Toggles.Cutline and Toggles.Cutline.Value) or false)
 
@@ -2019,6 +2058,46 @@ updatePVPModulesVisibility = function()
 		Options.SwingSpeedVal.Visible = isSwingSpeed
 		if Options.SwingSpeedVal.Holder then
 			Options.SwingSpeedVal.Holder.Visible = isSwingSpeed
+		end
+	end
+	if Toggles.CamlockCameraLerp then
+		if Toggles.CamlockCameraLerp.Visible ~= nil then
+			Toggles.CamlockCameraLerp.Visible = isCam
+		end
+		if Toggles.CamlockCameraLerp.Holder then
+			Toggles.CamlockCameraLerp.Holder.Visible = isCam
+		end
+	end
+	if Options.CamlockSmoothness then
+		Options.CamlockSmoothness.Visible = isCamLerp
+		if Options.CamlockSmoothness.Holder then
+			Options.CamlockSmoothness.Holder.Visible = isCamLerp
+		end
+	end
+	if Options.CamlockAimPart then
+		Options.CamlockAimPart.Visible = isCamLerp
+		if Options.CamlockAimPart.Holder then
+			Options.CamlockAimPart.Holder.Visible = isCamLerp
+		end
+	end
+	if Options.CamlockYOffset then
+		Options.CamlockYOffset.Visible = isCamLerp
+		if Options.CamlockYOffset.Holder then
+			Options.CamlockYOffset.Holder.Visible = isCamLerp
+		end
+	end
+	if Options.CamlockPrediction then
+		Options.CamlockPrediction.Visible = isCamLerp
+		if Options.CamlockPrediction.Holder then
+			Options.CamlockPrediction.Holder.Visible = isCamLerp
+		end
+	end
+	if Toggles.CamlockSlotSystem then
+		if Toggles.CamlockSlotSystem.Visible ~= nil then
+			Toggles.CamlockSlotSystem.Visible = isCam
+		end
+		if Toggles.CamlockSlotSystem.Holder then
+			Toggles.CamlockSlotSystem.Holder.Visible = isCam
 		end
 	end
 	if Options.CamlockSlotSystemSlot then
@@ -3096,7 +3175,7 @@ Toggles.Camlock:OnChanged(function()
 		updatePVPModulesVisibility()
 	end
 	if Toggles.Camlock.Value then
-		track("Camlock", RunService.Heartbeat:Connect(function()
+		track("Camlock", RunService.RenderStepped:Connect(function(dt)
 			if not isAlive() then return end
 			local root = getRootPart()
 			local hum = getHumanoid()
@@ -3283,6 +3362,31 @@ Toggles.Camlock:OnChanged(function()
 					else
 						root.CFrame = CFrame.new(myPos, myPos + root.CFrame.LookVector)
 					end
+
+					-- True Camera Interpolation (Smooth Lerp)
+					if Toggles.CamlockCameraLerp and Toggles.CamlockCameraLerp.Value then
+						local camera = workspace.CurrentCamera
+						if camera then
+							local aimPartName = (Options.CamlockAimPart and Options.CamlockAimPart.Value) or "Head"
+							local aimPart = closestPlayer.Character:FindFirstChild(aimPartName) or closestPlayer.Character:FindFirstChild("HumanoidRootPart") or targetRoot
+							if aimPart then
+								local aimPos = aimPart.Position
+								local yOff = (Options.CamlockYOffset and Options.CamlockYOffset.Value) or 0
+								if yOff ~= 0 then
+									aimPos = aimPos + Vector3.new(0, yOff, 0)
+								end
+								local pred = (Options.CamlockPrediction and Options.CamlockPrediction.Value) or 0
+								if pred > 0 then
+									local targetVel = targetRoot.AssemblyLinearVelocity or targetRoot.Velocity or Vector3.zero
+									aimPos = aimPos + (targetVel * (pred * 0.1))
+								end
+								local targetCamCFrame = CFrame.new(camera.CFrame.Position, aimPos)
+								local smoothness = (Options.CamlockSmoothness and Options.CamlockSmoothness.Value) or 0.2
+								local lerpFactor = math.clamp(smoothness, 0.01, 1)
+								camera.CFrame = camera.CFrame:Lerp(targetCamCFrame, lerpFactor)
+							end
+						end
+					end
 				end
 			else
 				UserInputService.MouseBehavior = Enum.MouseBehavior.Default
@@ -3302,6 +3406,22 @@ Toggles.Camlock:OnChanged(function()
 		end
 	end
 end)
+
+if Toggles.CamlockCameraLerp then
+	Toggles.CamlockCameraLerp:OnChanged(function()
+		if updatePVPModulesVisibility then
+			updatePVPModulesVisibility()
+		end
+	end)
+end
+
+if Toggles.CamlockSlotSystem then
+	Toggles.CamlockSlotSystem:OnChanged(function()
+		if updatePVPModulesVisibility then
+			updatePVPModulesVisibility()
+		end
+	end)
+end
 
 if Toggles.CamlockPull then
 	Toggles.CamlockPull:OnChanged(function()
