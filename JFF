@@ -2277,7 +2277,7 @@ CombatReach:AddSlider("ReachAngle", {
 })
 
 CombatReach:AddSlider("ReachMaxTargets", {
-	Text = "Max Targets (Cleave)",
+	Text = "Target More Enemies",
 	Default = 1,
 	Min = 1,
 	Max = 10,
@@ -6886,6 +6886,11 @@ end)
 
 local VisualEnv = Tabs.Visuals:AddLeftGroupbox("ENVIRONMENT", "sun")
 
+VisualEnv:AddToggle("ClearWeather", {
+	Text = "Clear Weather",
+	Default = false,
+})
+
 VisualEnv:AddToggle("AlwaysDay", {
 	Text = "Always Day",
 	Default = false,
@@ -7545,6 +7550,88 @@ Options.ControlTheHours:OnChanged(function()
 	end
 	applyClockTime(Options.ControlTheHours.Value)
 end)
+
+local function applyClearWeather(state)
+	local lighting = game:GetService("Lighting")
+
+	if state then
+		local atmo = lighting:FindFirstChildOfClass("Atmosphere")
+		if atmo then
+			pcall(function()
+				atmo.Density = 0
+				atmo.Haze = 0
+				atmo.Glare = 0
+			end)
+		end
+
+		local terrain = workspace:FindFirstChildOfClass("Terrain")
+		if terrain then
+			local clouds = terrain:FindFirstChildOfClass("Clouds")
+			if clouds then
+				pcall(function() clouds.Enabled = false end)
+			end
+		end
+
+		pcall(function()
+			lighting.FogEnd = 100000
+			lighting.FogStart = 0
+		end)
+
+		local function disableWeatherParticles(parent)
+			if not parent then return end
+			for _, obj in ipairs(parent:GetDescendants()) do
+				if obj:IsA("ParticleEmitter") then
+					local name = obj.Name:lower()
+					if name:find("rain") or name:find("snow") or name:find("storm") or name:find("fog") or name:find("cloud") or name:find("weather") or name:find("drop") then
+						pcall(function() obj.Enabled = false end)
+					end
+				end
+			end
+		end
+
+		disableWeatherParticles(workspace)
+		if workspace.CurrentCamera then
+			disableWeatherParticles(workspace.CurrentCamera)
+		end
+
+		disconnect("ClearWeather_DescendantAdded")
+		track("ClearWeather_DescendantAdded", workspace.DescendantAdded:Connect(function(desc)
+			if Toggles.ClearWeather and Toggles.ClearWeather.Value and desc:IsA("ParticleEmitter") then
+				local name = desc.Name:lower()
+				if name:find("rain") or name:find("snow") or name:find("storm") or name:find("fog") or name:find("cloud") or name:find("weather") or name:find("drop") then
+					pcall(function() desc.Enabled = false end)
+				end
+			end
+		end))
+	else
+		disconnect("ClearWeather_DescendantAdded")
+		local atmo = lighting:FindFirstChildOfClass("Atmosphere")
+		if atmo then
+			pcall(function()
+				atmo.Density = 0.3
+				atmo.Haze = 0
+			end)
+		end
+		local terrain = workspace:FindFirstChildOfClass("Terrain")
+		if terrain then
+			local clouds = terrain:FindFirstChildOfClass("Clouds")
+			if clouds then
+				pcall(function() clouds.Enabled = true end)
+			end
+		end
+	end
+end
+
+if Toggles.ClearWeather then
+	Toggles.ClearWeather:OnChanged(function()
+		applyClearWeather(Toggles.ClearWeather.Value)
+		if Toggles.ClearWeather.Value then
+			Library:Notify({ Title = "Clear Weather", Description = "Enabled", Time = 2 })
+		else
+			Library:Notify({ Title = "Clear Weather", Description = "Disabled", Time = 2 })
+		end
+	end)
+end
 local touchFlingActive = false
 local function touchFlingLoop()
 	local movel = 0.1
