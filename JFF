@@ -1367,6 +1367,20 @@ CombatCamlock:AddToggle("Camlock", {
 	Default = false,
 })
 
+CombatCamlock:AddCheckbox("SpearSword", {
+	Text = "Spear/Sword(Slot 3/5)",
+	Default = false,
+})
+
+CombatCamlock:AddSlider("Slot3AngleOffset", {
+	Text = "Spear Tip Angle",
+	Default = 8,
+	Min = 0,
+	Max = 30,
+	Rounding = 1,
+	Compact = true,
+})
+
 CombatCamlock:AddCheckbox("CamlockSlotSystem", {
 	Text = "Slot System",
 	Default = false,
@@ -1377,6 +1391,21 @@ CombatCamlock:AddDropdown("CamlockSlotSystemSlot", {
 	Values = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"},
 	Default = {"1"},
 	Multi = true,
+})
+
+CombatCamlock:AddDropdown("CamlockTarget", {
+	Text = "Target Player",
+	Values = {"All"},
+	Default = "All",
+})
+
+CombatCamlock:AddSlider("CamlockStuds", {
+	Text = "Camlock Studs",
+	Default = 20,
+	Min = 1,
+	Max = 100,
+	Rounding = 0,
+	Compact = true,
 })
 
 CombatCamlock:AddCheckbox("Outline", {
@@ -1399,32 +1428,12 @@ CombatCamlock:AddSlider("OutlineStuds", {
 	Compact = true,
 })
 
-CombatCamlock:AddCheckbox("CamlockIgnoreTeam", {
+-- CONFIG TAB (RIGHT)
+CombatCamlockConfig:AddCheckbox("CamlockIgnoreTeam", {
 	Text = "Ignore Team",
 	Default = true,
 })
 
-CombatCamlock:AddCheckbox("SpearSword", {
-	Text = "Spear/Sword(Slot 3/5)",
-	Default = false,
-})
-
-CombatCamlock:AddDropdown("CamlockTarget", {
-	Text = "Target Player",
-	Values = {"All"},
-	Default = "All",
-})
-
-CombatCamlock:AddSlider("CamlockStuds", {
-	Text = "Camlock Studs",
-	Default = 20,
-	Min = 1,
-	Max = 100,
-	Rounding = 0,
-	Compact = true,
-})
-
--- CONFIG TAB (RIGHT)
 CombatCamlockConfig:AddCheckbox("CamlockCameraLerp", {
 	Text = "Camera Interpolation",
 	Default = true,
@@ -1460,15 +1469,6 @@ CombatCamlockConfig:AddSlider("CamlockPrediction", {
 	Min = 0,
 	Max = 2,
 	Rounding = 2,
-	Compact = true,
-})
-
-CombatCamlockConfig:AddSlider("Slot3AngleOffset", {
-	Text = "Spear Tip Angle",
-	Default = 8,
-	Min = 0,
-	Max = 30,
-	Rounding = 1,
 	Compact = true,
 })
 
@@ -2111,14 +2111,6 @@ updatePVPModulesVisibility = function()
 			Toggles.Outline.Holder.Visible = isCam
 		end
 	end
-	if Toggles.CamlockIgnoreTeam then
-		if Toggles.CamlockIgnoreTeam.Visible ~= nil then
-			Toggles.CamlockIgnoreTeam.Visible = isCam
-		end
-		if Toggles.CamlockIgnoreTeam.Holder then
-			Toggles.CamlockIgnoreTeam.Holder.Visible = isCam
-		end
-	end
 	if Toggles.SpearSword then
 		if Toggles.SpearSword.Visible ~= nil then
 			Toggles.SpearSword.Visible = isCam
@@ -2127,10 +2119,19 @@ updatePVPModulesVisibility = function()
 			Toggles.SpearSword.Holder.Visible = isCam
 		end
 	end
+	local isSpear = isCam and ((Toggles.SpearSword and Toggles.SpearSword.Value) or false)
 	if Options.Slot3AngleOffset then
-		Options.Slot3AngleOffset.Visible = true
+		Options.Slot3AngleOffset.Visible = isSpear
 		if Options.Slot3AngleOffset.Holder then
-			Options.Slot3AngleOffset.Holder.Visible = true
+			Options.Slot3AngleOffset.Holder.Visible = isSpear
+		end
+	end
+	if Toggles.CamlockIgnoreTeam then
+		if Toggles.CamlockIgnoreTeam.Visible ~= nil then
+			Toggles.CamlockIgnoreTeam.Visible = true
+		end
+		if Toggles.CamlockIgnoreTeam.Holder then
+			Toggles.CamlockIgnoreTeam.Holder.Visible = true
 		end
 	end
 	local isPull = (Toggles.CamlockPull and Toggles.CamlockPull.Value) or false
@@ -3354,6 +3355,14 @@ end
 
 if Toggles.Outline then
 	Toggles.Outline:OnChanged(function()
+		if updatePVPModulesVisibility then
+			updatePVPModulesVisibility()
+		end
+	end)
+end
+
+if Toggles.SpearSword then
+	Toggles.SpearSword:OnChanged(function()
 		if updatePVPModulesVisibility then
 			updatePVPModulesVisibility()
 		end
