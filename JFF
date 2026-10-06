@@ -1358,67 +1358,13 @@ end)
 local CombatLeft = Tabs.Combat:AddLeftGroupbox("Kill Aura", "swords")
 
 local AimbotTabBox = Tabs.Combat:AddRightTabbox()
-local CombatAimbot = AimbotTabBox:AddTab("AIMBOT", "crosshair")
 local CombatCamlock = AimbotTabBox:AddTab("Camlock", "video")
+local CombatCamlockConfig = AimbotTabBox:AddTab("Config", "settings")
 
-CombatAimbot:AddToggle("AimbotLockOn", {
-	Text = "Lock On",
-	Default = false,
-}):AddColorPicker("AimbotFOVCircleColor", {
-	Default = Color3.fromRGB(255, 0, 0),
-	Title = "FOV Circle Color",
-})
-
-CombatAimbot:AddSlider("AimbotFOV", {
-	Text = "FOV Slider",
-	Default = 100,
-	Min = 10,
-	Max = 600,
-	Rounding = 0,
-	Compact = true,
-})
-
+-- CAMLOCK TAB (LEFT)
 CombatCamlock:AddToggle("Camlock", {
 	Text = "Camlock",
 	Default = false,
-})
-
-CombatCamlock:AddCheckbox("CamlockCameraLerp", {
-	Text = "Camera Interpolation",
-	Default = true,
-})
-
-CombatCamlock:AddSlider("CamlockSmoothness", {
-	Text = "Camera Smoothness",
-	Default = 0.2,
-	Min = 0.01,
-	Max = 1,
-	Rounding = 2,
-	Compact = true,
-})
-
-CombatCamlock:AddDropdown("CamlockAimPart", {
-	Text = "Aim Part",
-	Values = {"Head", "HumanoidRootPart", "UpperTorso"},
-	Default = "Head",
-})
-
-CombatCamlock:AddSlider("CamlockYOffset", {
-	Text = "Vertical Offset",
-	Default = 0,
-	Min = -5,
-	Max = 5,
-	Rounding = 1,
-	Compact = true,
-})
-
-CombatCamlock:AddSlider("CamlockPrediction", {
-	Text = "Aim Prediction",
-	Default = 0,
-	Min = 0,
-	Max = 2,
-	Rounding = 2,
-	Compact = true,
 })
 
 CombatCamlock:AddCheckbox("CamlockSlotSystem", {
@@ -1438,6 +1384,21 @@ CombatCamlock:AddCheckbox("Outline", {
 	Default = false,
 })
 
+CombatCamlock:AddDropdown("OutlineTarget", {
+	Text = "Outline Target",
+	Values = {"All"},
+	Default = "All",
+})
+
+CombatCamlock:AddSlider("OutlineStuds", {
+	Text = "Outline Studs",
+	Default = 7,
+	Min = 1,
+	Max = 50,
+	Rounding = 0,
+	Compact = true,
+})
+
 CombatCamlock:AddCheckbox("CamlockIgnoreTeam", {
 	Text = "Ignore Team",
 	Default = true,
@@ -1446,15 +1407,6 @@ CombatCamlock:AddCheckbox("CamlockIgnoreTeam", {
 CombatCamlock:AddCheckbox("SpearSword", {
 	Text = "Spear/Sword(Slot 3/5)",
 	Default = false,
-})
-
-CombatCamlock:AddSlider("Slot3AngleOffset", {
-	Text = "Spear Tip Angle",
-	Default = 8,
-	Min = 0,
-	Max = 30,
-	Rounding = 1,
-	Compact = true,
 })
 
 CombatCamlock:AddDropdown("CamlockTarget", {
@@ -1472,27 +1424,60 @@ CombatCamlock:AddSlider("CamlockStuds", {
 	Compact = true,
 })
 
-CombatCamlock:AddDropdown("OutlineTarget", {
-	Text = "Outline Target",
-	Values = {"All"},
-	Default = "All",
+-- CONFIG TAB (RIGHT)
+CombatCamlockConfig:AddCheckbox("CamlockCameraLerp", {
+	Text = "Camera Interpolation",
+	Default = true,
 })
 
-CombatCamlock:AddSlider("OutlineStuds", {
-	Text = "Outline Studs",
-	Default = 7,
-	Min = 1,
-	Max = 50,
-	Rounding = 0,
+CombatCamlockConfig:AddSlider("CamlockSmoothness", {
+	Text = "Camera Smoothness",
+	Default = 0.2,
+	Min = 0.01,
+	Max = 1,
+	Rounding = 2,
 	Compact = true,
 })
 
-CombatCamlock:AddCheckbox("CamlockPull", {
+CombatCamlockConfig:AddDropdown("CamlockAimPart", {
+	Text = "Aim Part",
+	Values = {"Head", "HumanoidRootPart", "UpperTorso"},
+	Default = "Head",
+})
+
+CombatCamlockConfig:AddSlider("CamlockYOffset", {
+	Text = "Vertical Offset",
+	Default = 0,
+	Min = -5,
+	Max = 5,
+	Rounding = 1,
+	Compact = true,
+})
+
+CombatCamlockConfig:AddSlider("CamlockPrediction", {
+	Text = "Aim Prediction",
+	Default = 0,
+	Min = 0,
+	Max = 2,
+	Rounding = 2,
+	Compact = true,
+})
+
+CombatCamlockConfig:AddSlider("Slot3AngleOffset", {
+	Text = "Spear Tip Angle",
+	Default = 8,
+	Min = 0,
+	Max = 30,
+	Rounding = 1,
+	Compact = true,
+})
+
+CombatCamlockConfig:AddCheckbox("CamlockPull", {
 	Text = "Slight Pull In",
 	Default = true,
 })
 
-CombatCamlock:AddSlider("CamlockPullDist", {
+CombatCamlockConfig:AddSlider("CamlockPullDist", {
 	Text = "Pull Trigger Distance",
 	Default = 8,
 	Min = 1,
@@ -1501,7 +1486,7 @@ CombatCamlock:AddSlider("CamlockPullDist", {
 	Compact = true,
 })
 
-CombatCamlock:AddSlider("CamlockPullStrength", {
+CombatCamlockConfig:AddSlider("CamlockPullStrength", {
 	Text = "Tug / Pull Strength",
 	Default = 5,
 	Min = 1,
@@ -2048,7 +2033,7 @@ CombatAutoPVP:AddSlider("AutoJumpDelay", {
 
 updatePVPModulesVisibility = function()
 	local isCam = (Toggles.Camlock and Toggles.Camlock.Value) or false
-	local isCamLerp = isCam and ((Toggles.CamlockCameraLerp and Toggles.CamlockCameraLerp.Value) or false)
+	local isCamLerp = (Toggles.CamlockCameraLerp and Toggles.CamlockCameraLerp.Value) or false
 	local isSwingSpeed = (Toggles.SwingSpeedToggle and Toggles.SwingSpeedToggle.Value) or false
 	local isCLSlot = (Toggles.CamlockSlotSystem and Toggles.CamlockSlotSystem.Value) or false
 
@@ -2062,10 +2047,10 @@ updatePVPModulesVisibility = function()
 	end
 	if Toggles.CamlockCameraLerp then
 		if Toggles.CamlockCameraLerp.Visible ~= nil then
-			Toggles.CamlockCameraLerp.Visible = isCam
+			Toggles.CamlockCameraLerp.Visible = true
 		end
 		if Toggles.CamlockCameraLerp.Holder then
-			Toggles.CamlockCameraLerp.Holder.Visible = isCam
+			Toggles.CamlockCameraLerp.Holder.Visible = true
 		end
 	end
 	if Options.CamlockSmoothness then
@@ -2143,18 +2128,18 @@ updatePVPModulesVisibility = function()
 		end
 	end
 	if Options.Slot3AngleOffset then
-		Options.Slot3AngleOffset.Visible = isCam
+		Options.Slot3AngleOffset.Visible = true
 		if Options.Slot3AngleOffset.Holder then
-			Options.Slot3AngleOffset.Holder.Visible = isCam
+			Options.Slot3AngleOffset.Holder.Visible = true
 		end
 	end
-	local isPull = isCam and ((Toggles.CamlockPull and Toggles.CamlockPull.Value) or false)
+	local isPull = (Toggles.CamlockPull and Toggles.CamlockPull.Value) or false
 	if Toggles.CamlockPull then
 		if Toggles.CamlockPull.Visible ~= nil then
-			Toggles.CamlockPull.Visible = isCam
+			Toggles.CamlockPull.Visible = true
 		end
 		if Toggles.CamlockPull.Holder then
-			Toggles.CamlockPull.Holder.Visible = isCam
+			Toggles.CamlockPull.Holder.Visible = true
 		end
 	end
 	if Options.CamlockPullDist then
@@ -2657,80 +2642,7 @@ local function killAuraLoop()
 	end
 end
 
--- Aimbot Script
-local fovCircle = nil
-pcall(function()
-   if typeof(Drawing) ~= "nil" then
-		fovCircle = Drawing.new("Circle")
-		fovCircle.Thickness = 1.5
-		fovCircle.Color = (Options and Options.AimbotFOVCircleColor and Options.AimbotFOVCircleColor.Value) or Color3.fromRGB(255, 0, 0)
-		fovCircle.Filled = false
-		fovCircle.Transparency = 1
-		fovCircle.Visible = false
-	end
-end)
 
-local function getClosestPlayerToCenter()
-	local closestPlayer = nil
-	local shortestDistance = math.huge
-	local camera = workspace.CurrentCamera
-	local viewportSize = camera.ViewportSize
-	local center = Vector2.new(viewportSize.X / 2, viewportSize.Y / 2)
-
-	for _, player in ipairs(Players:GetPlayers()) do
-		if player ~= LocalPlayer and player.Character then
-			local torso = player.Character:FindFirstChild("LowerTorso") or player.Character:FindFirstChild("UpperTorso") or player.Character:FindFirstChild("Torso") or player.Character:FindFirstChild("HumanoidRootPart")
-			local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
-			if torso and humanoid and humanoid.Health > 0 then
-				local screenPos, onScreen = camera:WorldToViewportPoint(torso.Position)
-				if onScreen then
-					local distance = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
-					local fovRadius = (Options.AimbotFOV and Options.AimbotFOV.Value) or 100
-					if distance < shortestDistance and distance <= fovRadius then
-						shortestDistance = distance
-						closestPlayer = torso
-					end
-				end
-			end
-		end
-	end
-	return closestPlayer
-end
-
-Toggles.AimbotLockOn:OnChanged(function()
-	disconnect("AimbotLoop")
-	disconnect("AimbotFOVCircleUpdate")
-	if fovCircle then fovCircle.Visible = false end
-
-	if Toggles.AimbotLockOn.Value then
-		track("AimbotFOVCircleUpdate", RunService.RenderStepped:Connect(function()
-			if fovCircle then
-				local viewportSize = workspace.CurrentCamera.ViewportSize
-				fovCircle.Position = Vector2.new(viewportSize.X / 2, viewportSize.Y / 2)
-				fovCircle.Radius = (Options.AimbotFOV and Options.AimbotFOV.Value) or 100
-				fovCircle.Color = (Options.AimbotFOVCircleColor and Options.AimbotFOVCircleColor.Value) or Color3.fromRGB(255, 0, 0)
-				fovCircle.Visible = true
-			end
-		end))
-
-		track("AimbotLoop", RunService.RenderStepped:Connect(function()
-			if Toggles.AimbotLockOn.Value then
-				local target = getClosestPlayerToCenter()
-				if target then
-					local camera = workspace.CurrentCamera
-					camera.CFrame = CFrame.new(camera.CFrame.Position, target.Position)
-				end
-			end
-		end))
-		Library:Notify({ Title = "AIMBOT", Description = "Aimbot Enabled (Locking to Torso)", Time = 2 })
-	end
-end)
-
-Options.AimbotFOVCircleColor:OnChanged(function(newColor)
-	if fovCircle then
-		fovCircle.Color = newColor
-	end
-end)
 
 Toggles.KillAura:OnChanged(function()
 	disconnect("KillAura")
@@ -8272,9 +8184,6 @@ Library:OnUnload(function()
 	end
 	if Toggles.AntiAFK and Toggles.AntiAFK.Value then
 		Toggles.AntiAFK:SetValue(false)
-	end
-	if Toggles.AimbotLockOn and Toggles.AimbotLockOn.Value then
-		Toggles.AimbotLockOn:SetValue(false)
 	end
 
 	if Toggles.AttachToggle and Toggles.AttachToggle.Value then
