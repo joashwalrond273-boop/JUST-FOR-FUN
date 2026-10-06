@@ -4986,14 +4986,18 @@ end
 -- ==========================================
 local BossFarm = Tabs.Farming:AddLeftGroupbox("Boss Farm", "swords")
 
-BossFarm:AddDropdown("BossAuraSelect", {
-	Text = "Select Boss",
-	Values = { "Titan Aura", "Samurai Aura", "Juggernaut Aura" },
-	Default = "Titan Aura",
+BossFarm:AddCheckbox("TitanAura", {
+	Text = "Titan Aura",
+	Default = false,
 })
 
-BossFarm:AddToggle("BossFarm", {
-	Text = "Boss Farm",
+BossFarm:AddCheckbox("SamuraiAura", {
+	Text = "Samurai Aura",
+	Default = false,
+})
+
+BossFarm:AddCheckbox("JuggernautAura", {
+	Text = "Juggernaut Aura",
 	Default = false,
 })
 
@@ -5746,68 +5750,87 @@ Toggles.OreESPToggle:OnChanged(function()
 	Library:Notify({ Title = "Ore ESP", Description = "Enabled", Time = 2 })
 end)
 
-local bossFarmConfigs = {
-	["Titan Aura"] = {
-		pos = Vector3.new(1654.57, 35, 2312.14),
-		height = 35,
-		name = "Titan Aura",
-	},
-	["Samurai Aura"] = {
-		pos = Vector3.new(-1727.48, 528, 7305.50),
-		height = 528,
-		name = "Samurai Aura",
-	},
-	["Juggernaut Aura"] = {
-		pos = Vector3.new(-1601.49, 118, -2890.59),
-		height = 118,
-		name = "Juggernaut Aura",
-	},
-}
-
-local function startBossFarm()
-	disconnect("BossFarmFloat")
-	local selected = (Options and Options.BossAuraSelect and Options.BossAuraSelect.Value) or "Titan Aura"
-	local config = bossFarmConfigs[selected] or bossFarmConfigs["Titan Aura"]
-
-	local root = getRootPart()
-	if root then
-		root.Velocity = Vector3.zero
-		root.CFrame = CFrame.new(config.pos)
-	end
-
-	track("BossFarmFloat", RunService.Heartbeat:Connect(function()
-		if not isAlive() then return end
-		local r = getRootPart()
-		if not r then return end
-		r.Velocity = Vector3.new(r.Velocity.X, 0, r.Velocity.Z)
-		r.CFrame = CFrame.new(r.Position.X, config.height, r.Position.Z) * r.CFrame.Rotation
-	end))
-
-	if Toggles.AiAura and not Toggles.AiAura.Value then
-		Toggles.AiAura:SetValue(true)
-	end
-	Library:Notify({ Title = "Boss Farm", Description = config.name .. " Enabled", Time = 2 })
-end
-
-local function stopBossFarm()
-	disconnect("BossFarmFloat")
-	if Toggles.AiAura and Toggles.AiAura.Value then
-		Toggles.AiAura:SetValue(false)
-	end
-	Library:Notify({ Title = "Boss Farm", Description = "Disabled", Time = 2 })
-end
-
-Toggles.BossFarm:OnChanged(function()
-	if Toggles.BossFarm.Value then
-		startBossFarm()
+Toggles.TitanAura:OnChanged(function()
+	disconnect("TitanAuraFloat")
+	if Toggles.TitanAura.Value then
+		local root = getRootPart()
+		if root then
+			root.Velocity = Vector3.zero
+			root.CFrame = CFrame.new(1654.57, 35, 2312.14)
+		end
+		track("TitanAuraFloat", RunService.Heartbeat:Connect(function()
+			if not isAlive() then return end
+			local r = getRootPart()
+			if not r then return end
+			r.Velocity = Vector3.new(r.Velocity.X, 0, r.Velocity.Z)
+			r.CFrame = CFrame.new(r.Position.X, 35, r.Position.Z) * r.CFrame.Rotation
+		end))
+		if Toggles.AiAura and not Toggles.AiAura.Value then
+			Toggles.AiAura:SetValue(true)
+		end
+		Library:Notify({ Title = "Titan Aura", Description = "Enabled", Time = 2 })
 	else
-		stopBossFarm()
+		disconnect("TitanAuraFloat")
+		if Toggles.AiAura and Toggles.AiAura.Value then
+			Toggles.AiAura:SetValue(false)
+		end
+		Library:Notify({ Title = "Titan Aura", Description = "Disabled", Time = 2 })
 	end
 end)
 
-Options.BossAuraSelect:OnChanged(function()
-	if Toggles.BossFarm and Toggles.BossFarm.Value then
-		startBossFarm()
+Toggles.SamuraiAura:OnChanged(function()
+	disconnect("SamuraiAuraFloat")
+	if Toggles.SamuraiAura.Value then
+		local root = getRootPart()
+		if root then
+			root.Velocity = Vector3.zero
+			root.CFrame = CFrame.new(-1727.48, 528, 7305.50)
+		end
+		track("SamuraiAuraFloat", RunService.Heartbeat:Connect(function()
+			if not isAlive() then return end
+			local r = getRootPart()
+			if not r then return end
+			r.Velocity = Vector3.new(r.Velocity.X, 0, r.Velocity.Z)
+			r.CFrame = CFrame.new(r.Position.X, 528, r.Position.Z) * r.CFrame.Rotation
+		end))
+		if Toggles.AiAura and not Toggles.AiAura.Value then
+			Toggles.AiAura:SetValue(true)
+		end
+		Library:Notify({ Title = "Samurai Aura", Description = "Enabled", Time = 2 })
+	else
+		disconnect("SamuraiAuraFloat")
+		if Toggles.AiAura and Toggles.AiAura.Value then
+			Toggles.AiAura:SetValue(false)
+		end
+		Library:Notify({ Title = "Samurai Aura", Description = "Disabled", Time = 2 })
+	end
+end)
+
+Toggles.JuggernautAura:OnChanged(function()
+	disconnect("JuggernautAuraFloat")
+	if Toggles.JuggernautAura.Value then
+		local root = getRootPart()
+		if root then
+			root.Velocity = Vector3.zero
+			root.CFrame = CFrame.new(-1601.49, 118, -2890.59)
+		end
+		track("JuggernautAuraFloat", RunService.Heartbeat:Connect(function()
+			if not isAlive() then return end
+			local r = getRootPart()
+			if not r then return end
+			r.Velocity = Vector3.new(r.Velocity.X, 0, r.Velocity.Z)
+			r.CFrame = CFrame.new(r.Position.X, 118, r.Position.Z) * r.CFrame.Rotation
+		end))
+		if Toggles.AiAura and not Toggles.AiAura.Value then
+			Toggles.AiAura:SetValue(true)
+		end
+		Library:Notify({ Title = "Juggernaut Aura", Description = "Enabled", Time = 2 })
+	else
+		disconnect("JuggernautAuraFloat")
+		if Toggles.AiAura and Toggles.AiAura.Value then
+			Toggles.AiAura:SetValue(false)
+		end
+		Library:Notify({ Title = "Juggernaut Aura", Description = "Disabled", Time = 2 })
 	end
 end)
 
@@ -6392,21 +6415,6 @@ VisualLeft:AddCheckbox("OutlineESP", {
 	Title = "Outline ESP Color",
 })
 
-VisualLeft:AddCheckbox("ChamsESP", {
-	Text = "Chams ESP",
-	Default = false,
-}):AddColorPicker("ChamsColor", {
-	Default = Color3.fromRGB(255, 0, 128),
-	Title = "Chams Color",
-})
-
-VisualLeft:AddCheckbox("HeadDotESP", {
-	Text = "Head Dot ESP",
-	Default = false,
-}):AddColorPicker("HeadDotColor", {
-	Default = Color3.fromRGB(255, 0, 0),
-	Title = "Head Dot Color",
-})
 
 VisualLeft:AddCheckbox("PlayerHealthBar", {
 	Text = "Health Bar",
@@ -6504,7 +6512,6 @@ local function removePlayerESP(player)
 	local entry = espObjects[player]
 	if entry then
 		if entry.billboard then pcall(function() entry.billboard:Destroy() end) end
-		if entry.headDot then pcall(function() entry.headDot:Destroy() end) end
 		if entry.highlight then pcall(function() entry.highlight:Destroy() end) end
 		if entry.charCon then pcall(function() entry.charCon:Disconnect() end) end
 		espObjects[player] = nil
@@ -6528,7 +6535,6 @@ local function getOrCreateESP(player)
 	if not character then
 		if entry then
 			if entry.billboard then entry.billboard.Enabled = false end
-			if entry.headDot then entry.headDot.Enabled = false end
 			if entry.highlight then entry.highlight.Enabled = false end
 		end
 		return nil
@@ -6539,18 +6545,14 @@ local function getOrCreateESP(player)
 	if not root or not hum or hum.Health <= 0 then
 		if entry then
 			if entry.billboard then entry.billboard.Enabled = false end
-			if entry.headDot then entry.headDot.Enabled = false end
 			if entry.highlight then entry.highlight.Enabled = false end
 		end
 		return nil
 	end
 
-	local head = character:FindFirstChild("Head") or root
-
 	if not entry or entry.character ~= character then
 		if entry then
 			if entry.billboard then pcall(function() entry.billboard:Destroy() end) end
-			if entry.headDot then pcall(function() entry.headDot:Destroy() end) end
 			if entry.highlight then pcall(function() entry.highlight:Destroy() end) end
 		end
 
@@ -6558,14 +6560,10 @@ local function getOrCreateESP(player)
 		local pColor = (Options and Options.PlayerESPColor and Options.PlayerESPColor.Value) or Color3.fromRGB(255, 255, 255)
 		local dColor = (Options and Options.ShowDistanceColor and Options.ShowDistanceColor.Value) or Color3.fromRGB(255, 255, 255)
 		local oColor = (Options and Options.OutlineESPColor and Options.OutlineESPColor.Value) or Color3.fromRGB(255, 255, 255)
-		local chamsColor = (Options and Options.ChamsColor and Options.ChamsColor.Value) or Color3.fromRGB(255, 0, 128)
-		local hdColor = (Options and Options.HeadDotColor and Options.HeadDotColor.Value) or Color3.fromRGB(255, 0, 0)
 		local showDist = (Toggles and Toggles.ShowDistance and Toggles.ShowDistance.Value) or false
 		local showHealth = (Toggles and Toggles.PlayerHealthBar and Toggles.PlayerHealthBar.Value) or false
 		local showHpText = (Toggles and Toggles.ShowHealthText and Toggles.ShowHealthText.Value) or false
 		local outlineOn = (Toggles and Toggles.OutlineESP and Toggles.OutlineESP.Value) or false
-		local chamsOn = (Toggles and Toggles.ChamsESP and Toggles.ChamsESP.Value) or false
-		local headDotOn = (Toggles and Toggles.HeadDotESP and Toggles.HeadDotESP.Value) or false
 		local espMasterOn = (Toggles and Toggles.PlayerESP and Toggles.PlayerESP.Value) or false
 
 		-- Ultra-lightweight native BillboardGui (0% Lua overhead, Engine C++ rendered)
@@ -6643,35 +6641,13 @@ local function getOrCreateESP(player)
 		hpText.Visible = showHpText
 		hpText.Parent = container
 
-		-- Native Head Dot Billboard
-		local headDot = Instance.new("BillboardGui")
-		headDot.Name = "TSG_HeadDot"
-		headDot.Size = UDim2.fromOffset(8, 8)
-		headDot.AlwaysOnTop = true
-		headDot.Adornee = head
-		headDot.MaxDistance = maxDist
-		headDot.Enabled = headDotOn and espMasterOn
-		headDot.Parent = getESPFolder()
-
-		local headDotDot = Instance.new("Frame")
-		headDotDot.Name = "Dot"
-		headDotDot.Size = UDim2.fromScale(1, 1)
-		headDotDot.BackgroundColor3 = hdColor
-		headDotDot.BorderSizePixel = 0
-		headDotDot.Parent = headDot
-
-		local headDotCorner = Instance.new("UICorner")
-		headDotCorner.CornerRadius = UDim.new(1, 0)
-		headDotCorner.Parent = headDotDot
-
 		local highlight = Instance.new("Highlight")
-		highlight.FillColor = chamsColor
-		highlight.FillTransparency = chamsOn and 0.5 or 1
+		highlight.FillTransparency = 1
 		highlight.OutlineColor = oColor
 		highlight.OutlineTransparency = outlineOn and 0 or 1
 		highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
 		highlight.Adornee = character
-		highlight.Enabled = (outlineOn or chamsOn) and espMasterOn
+		highlight.Enabled = outlineOn and espMasterOn
 		highlight.Parent = getESPFolder()
 
 		entry = {
@@ -6679,15 +6655,12 @@ local function getOrCreateESP(player)
 			character = character,
 			root = root,
 			hum = hum,
-			head = head,
 			billboard = billboard,
 			nameLabel = nameLabel,
 			distLabel = distLabel,
 			healthBg = healthBg,
 			healthFill = healthFill,
 			hpText = hpText,
-			headDot = headDot,
-			headDotDot = headDotDot,
 			highlight = highlight,
 			lastDist = -1,
 			lastHealth = -1,
@@ -6696,12 +6669,8 @@ local function getOrCreateESP(player)
 	else
 		entry.root = root
 		entry.hum = hum
-		entry.head = head
 		if entry.billboard and entry.billboard.Adornee ~= root then
 			entry.billboard.Adornee = root
-		end
-		if entry.headDot and entry.headDot.Adornee ~= head then
-			entry.headDot.Adornee = head
 		end
 		if entry.highlight and entry.highlight.Adornee ~= character then
 			entry.highlight.Adornee = character
@@ -6730,8 +6699,6 @@ local function updateAllESP()
 	local showHealth = (Toggles and Toggles.PlayerHealthBar and Toggles.PlayerHealthBar.Value) or false
 	local showHpText = (Toggles and Toggles.ShowHealthText and Toggles.ShowHealthText.Value) or false
 	local outlineEnabled = (Toggles.OutlineESP and Toggles.OutlineESP.Value) or false
-	local chamsEnabled = (Toggles.ChamsESP and Toggles.ChamsESP.Value) or false
-	local headDotEnabled = (Toggles.HeadDotESP and Toggles.HeadDotESP.Value) or false
 
 	for _, player in ipairs(Players:GetPlayers()) do
 		if player ~= LocalPlayer then
@@ -6745,15 +6712,8 @@ local function updateAllESP()
 					entry.billboard.Enabled = inRange
 				end
 
-				if entry.headDot then
-					local shouldDot = headDotEnabled and inRange
-					if entry.headDot.Enabled ~= shouldDot then
-						entry.headDot.Enabled = shouldDot
-					end
-				end
-
 				if entry.highlight then
-					local shouldHl = (outlineEnabled or chamsEnabled) and inRange and (dist <= 250)
+					local shouldHl = outlineEnabled and inRange and (dist <= 250)
 					if entry.highlight.Enabled ~= shouldHl then
 						entry.highlight.Enabled = shouldHl
 					end
@@ -6811,7 +6771,6 @@ local function updateAllESP()
 				end
 			else
 				if entry and entry.billboard and entry.billboard.Enabled then entry.billboard.Enabled = false end
-				if entry and entry.headDot and entry.headDot.Enabled then entry.headDot.Enabled = false end
 				if entry and entry.highlight and entry.highlight.Enabled then entry.highlight.Enabled = false end
 			end
 		end
@@ -6863,31 +6822,10 @@ end)
 
 Toggles.OutlineESP:OnChanged(function()
 	local enabled = Toggles.OutlineESP.Value
-	local chams = Toggles.ChamsESP and Toggles.ChamsESP.Value or false
 	for _, entry in pairs(espObjects) do
 		if entry.highlight then
 			entry.highlight.OutlineTransparency = enabled and 0 or 1
-			entry.highlight.Enabled = enabled or chams
-		end
-	end
-end)
-
-Toggles.ChamsESP:OnChanged(function()
-	local enabled = Toggles.ChamsESP.Value
-	local outline = Toggles.OutlineESP and Toggles.OutlineESP.Value or false
-	for _, entry in pairs(espObjects) do
-		if entry.highlight then
-			entry.highlight.FillTransparency = enabled and 0.5 or 1
-			entry.highlight.Enabled = enabled or outline
-		end
-	end
-end)
-
-Toggles.HeadDotESP:OnChanged(function()
-	local enabled = Toggles.HeadDotESP.Value
-	for _, entry in pairs(espObjects) do
-		if entry.headDot then
-			entry.headDot.Enabled = enabled
+			entry.highlight.Enabled = enabled
 		end
 	end
 end)
@@ -6928,24 +6866,6 @@ Options.OutlineESPColor:OnChanged(function()
 	end
 end)
 
-Options.ChamsColor:OnChanged(function()
-	local color = Options.ChamsColor.Value
-	for _, entry in pairs(espObjects) do
-		if entry.highlight then
-			entry.highlight.FillColor = color
-		end
-	end
-end)
-
-Options.HeadDotColor:OnChanged(function()
-	local color = Options.HeadDotColor.Value
-	for _, entry in pairs(espObjects) do
-		if entry.headDotDot then
-			entry.headDotDot.BackgroundColor3 = color
-		end
-	end
-end)
-
 Options.PlayerESPColor:OnChanged(function()
 	local color = Options.PlayerESPColor.Value
 	for _, entry in pairs(espObjects) do
@@ -6969,9 +6889,6 @@ Options.ESPDistance:OnChanged(function()
 	for _, entry in pairs(espObjects) do
 		if entry.billboard then
 			entry.billboard.MaxDistance = dist
-		end
-		if entry.headDot then
-			entry.headDot.MaxDistance = dist
 		end
 	end
 end)
@@ -7852,9 +7769,6 @@ Library:OnUnload(function()
 	end
 	if Toggles.OreESPToggle and Toggles.OreESPToggle.Value then
 		Toggles.OreESPToggle:SetValue(false)
-	end
-	if Toggles.BossFarm and Toggles.BossFarm.Value then
-		Toggles.BossFarm:SetValue(false)
 	end
 
 	if Toggles.FastPickup and Toggles.FastPickup.Value then
