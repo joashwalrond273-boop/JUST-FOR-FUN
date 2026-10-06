@@ -2290,6 +2290,15 @@ CombatReach:AddSlider("ReachAngle", {
 	Compact = true,
 })
 
+CombatReach:AddSlider("ReachMaxTargets", {
+	Text = "Max Targets (Cleave)",
+	Default = 1,
+	Min = 1,
+	Max = 10,
+	Rounding = 0,
+	Compact = true,
+})
+
 local function isSwingAnimation(trackObj)
 	local anim = trackObj.Animation
 	if not anim then return false end
@@ -4215,6 +4224,8 @@ local function connectReachTool(tool)
 					return forward:Dot(dir.Unit) >= coneThreshold
 				end
 
+				local targetsToHit = {}
+
 				-- Scan Players
 				for _, otherPlayer in ipairs(Players:GetPlayers()) do
 					if otherPlayer ~= LocalPlayer and otherPlayer.Character then
@@ -4223,9 +4234,8 @@ local function connectReachTool(tool)
 							local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
 							if otherHum and otherHum.Health > 0 and otherRoot then
 								local d = (otherRoot.Position - pos).Magnitude
-								if d < nearestDist and passesAngleCheck(otherRoot.Position) then
-									nearestDist = d
-									nearestTarget = otherPlayer.Character
+								if d <= range and passesAngleCheck(otherRoot.Position) then
+									table.insert(targetsToHit, { model = otherPlayer.Character, dist = d, isPlayer = true, player = otherPlayer })
 								end
 							end
 						end
@@ -4241,9 +4251,8 @@ local function connectReachTool(tool)
 							local npcRoot = npc:FindFirstChild("HumanoidRootPart") or npc.PrimaryPart
 							if npcHum and npcHum.Health > 0 and npcRoot then
 								local d = (npcRoot.Position - pos).Magnitude
-								if d < nearestDist and passesAngleCheck(npcRoot.Position) then
-									nearestDist = d
-									nearestTarget = npc
+								if d <= range and passesAngleCheck(npcRoot.Position) then
+									table.insert(targetsToHit, { model = npc, dist = d, isPlayer = false })
 								end
 							end
 						end
@@ -4256,19 +4265,29 @@ local function connectReachTool(tool)
 							local npcRoot = npc:FindFirstChild("HumanoidRootPart") or npc.PrimaryPart
 							if (not npcHum or npcHum.Health > 0) and npcRoot then
 								local d = (npcRoot.Position - pos).Magnitude
-								if d < nearestDist and passesAngleCheck(npcRoot.Position) then
-									nearestDist = d
-									nearestTarget = npc
+								if d <= range and passesAngleCheck(npcRoot.Position) then
+									table.insert(targetsToHit, { model = npc, dist = d, isPlayer = false })
 								end
 							end
 						end
 					end
 				end
 
-				if nearestTarget then
+				-- Sort targets by distance
+				table.sort(targetsToHit, function(a, b)
+					return a.dist < b.dist
+				end)
+
+				local maxTargets = (Options.ReachMaxTargets and Options.ReachMaxTargets.Value) or 1
+				local hitCount = 0
+
+				for _, targetInfo in ipairs(targetsToHit) do
+					if hitCount >= maxTargets then break end
+					hitCount = hitCount + 1
+
 					local slot = tonumber(tool.Name) or 1
-					local targetPlayer = Players:GetPlayerFromCharacter(nearestTarget)
-					if targetPlayer then
+					if targetInfo.isPlayer and targetInfo.player then
+						local targetPlayer = targetInfo.player
 						if Crypt then
 							pcall(function()
 								local k1, k2, k3 = Crypt.checkpublickeys()
@@ -4278,10 +4297,10 @@ local function connectReachTool(tool)
 								end
 							end)
 						else
-                                                        pcall(TSG.MeleePlayerRemote.FireServer, TSG.MeleePlayerRemote, slot, targetPlayer)
+							pcall(TSG.MeleePlayerRemote.FireServer, TSG.MeleePlayerRemote, slot, targetPlayer)
 						end
 					else
-						attackNPC(slot, nearestTarget)
+						attackNPC(slot, targetInfo.model)
 					end
 				end
 			end
