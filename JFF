@@ -1594,6 +1594,11 @@ CombatAutoSwingGroup:AddToggle("AutoSwing", {
 	Default = false,
 })
 
+CombatAutoSwingGroup:AddCheckbox("HoldToSwing", {
+	Text = "Hold To Swing",
+	Default = false,
+})
+
 CombatAutoSwingGroup:AddDropdown("AutoSwingSlot", {
 	Text = "Tool Slot",
 	Values = { "Normal", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" },
@@ -1645,9 +1650,10 @@ CombatAutoSwingGroup:AddToggle("SmartSwingIgnoreTeam", {
 
 updateAutoSwingSliderVisibility = function()
 	local isAutoSwingToggled = (Toggles.AutoSwing and Toggles.AutoSwing.Value) or false
+	local isHoldToSwingToggled = (Toggles.HoldToSwing and Toggles.HoldToSwing.Value) or false
 	local isSmartSwingToggled = (Toggles.SmartSwing and Toggles.SmartSwing.Value) or false
 	local isSSSlot = (Toggles.SmartSwingSlotSystem and Toggles.SmartSwingSlotSystem.Value) or false
-	local isAnyToggled = isAutoSwingToggled or isSmartSwingToggled
+	local isAnyToggled = isAutoSwingToggled or isHoldToSwingToggled or isSmartSwingToggled
 
 	if Options.AutoSwingSlot then
 		Options.AutoSwingSlot.Visible = true
@@ -2479,6 +2485,62 @@ Toggles.AutoSwing:OnChanged(function()
 		end))
 	else
 		_G.T = false
+	end
+end)
+
+local activeHoldTouches = {}
+local lastHoldSwing = 0
+
+local function isHoldingScreen()
+	if UserInputService:GetFocusedTextBox() then
+		return false
+	end
+	if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
+		return true
+	end
+	for _ in pairs(activeHoldTouches) do
+		return true
+	end
+	return false
+end
+
+Toggles.HoldToSwing:OnChanged(function()
+	disconnect("HoldToSwing_Loop")
+	disconnect("HoldToSwing_InputBegan")
+	disconnect("HoldToSwing_InputEnded")
+	table.clear(activeHoldTouches)
+
+	if updateAutoSwingSliderVisibility then
+		updateAutoSwingSliderVisibility()
+	end
+
+	if Toggles.HoldToSwing.Value then
+		track("HoldToSwing_InputBegan", UserInputService.InputBegan:Connect(function(input, gameProcessed)
+			if input.UserInputType == Enum.UserInputType.Touch and not gameProcessed then
+				activeHoldTouches[input] = true
+			end
+		end))
+
+		track("HoldToSwing_InputEnded", UserInputService.InputEnded:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.Touch then
+				activeHoldTouches[input] = nil
+			end
+		end))
+
+		track("HoldToSwing_Loop", RunService.Heartbeat:Connect(function()
+			if not isAlive() then return end
+			if not isHoldingScreen() then return end
+
+			local speedVal = Options.AutoSwingSpeed and Options.AutoSwingSpeed.Value or 10
+			local delay = 1 / math.max(0.1, speedVal)
+			if tick() - lastHoldSwing >= delay then
+				local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
+				if tool and isAutoSwingSlotAllowed(Options.AutoSwingSlot) then
+					tool:Activate()
+					lastHoldSwing = tick()
+				end
+			end
+		end))
 	end
 end)
 
@@ -7739,6 +7801,12 @@ Library:OnUnload(function()
 	end
 	if Toggles.Outline and Toggles.Outline.Value then
 		Toggles.Outline:SetValue(false)
+	end
+	if Toggles.AutoSwing and Toggles.AutoSwing.Value then
+		Toggles.AutoSwing:SetValue(false)
+	end
+	if Toggles.HoldToSwing and Toggles.HoldToSwing.Value then
+		Toggles.HoldToSwing:SetValue(false)
 	end
 	if Toggles.SmartSwing and Toggles.SmartSwing.Value then
 		Toggles.SmartSwing:SetValue(false)
