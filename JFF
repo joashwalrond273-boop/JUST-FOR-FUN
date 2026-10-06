@@ -366,6 +366,12 @@ AdvanceHealGroup:AddToggle("AutoEatCustom", {
 	Default = false,
 })
 
+AdvanceHealGroup:AddDropdown("AutoEatTriggerMode", {
+	Text = "Trigger Mode",
+	Values = {"Health Only", "Hunger Only", "Both (Health or Hunger)"},
+	Default = "Health Only",
+})
+
 AdvanceHealGroup:AddDropdown("AutoEatFood", {
 	Text = "Food Type",
 	Values = {"Cabbage", "Banana", "Spicy Meal", "Hearty Stew", "Cabbage Meal"},
@@ -377,6 +383,15 @@ AdvanceHealGroup:AddSlider("AutoEatThreshold", {
 	Default = 100,
 	Min = 10,
 	Max = 130,
+	Rounding = 0,
+	Compact = true,
+})
+
+AdvanceHealGroup:AddSlider("AutoEatHungerThreshold", {
+	Text = "Eat Hunger Threshold",
+	Default = 80,
+	Min = 10,
+	Max = 100,
 	Rounding = 0,
 	Compact = true,
 })
@@ -1323,15 +1338,67 @@ local FoodIdMap = {
 	["Cabbage Meal"] = 213,
 }
 
+local currentHunger = 100
+if TSG.SetHungerEvent and TSG.SetHungerEvent:IsA("RemoteEvent") then
+	pcall(function()
+		TSG.SetHungerEvent.OnClientEvent:Connect(function(val)
+			if typeof(val) == "number" then
+				currentHunger = val
+			elseif typeof(val) == "table" and val.hunger then
+				currentHunger = tonumber(val.hunger) or currentHunger
+			end
+		end)
+	end)
+end
+
+local function getPlayerHunger()
+	if TSG.ClientData then
+		if typeof(TSG.ClientData.getHunger) == "function" then
+			local ok, h = pcall(TSG.ClientData.getHunger)
+			if ok and typeof(h) == "number" then return h end
+		end
+		if typeof(TSG.ClientData.getPlayerData) == "function" then
+			local ok, pd = pcall(TSG.ClientData.getPlayerData)
+			if ok and pd and typeof(pd.hunger) == "number" then return pd.hunger end
+		end
+		if typeof(TSG.ClientData.hunger) == "number" then
+			return TSG.ClientData.hunger
+		end
+	end
+	local attr = LocalPlayer:GetAttribute("Hunger") or (LocalPlayer.Character and LocalPlayer.Character:GetAttribute("Hunger"))
+	if typeof(attr) == "number" then
+		return attr
+	end
+	return currentHunger
+end
+
 local lastEatCustom = 0
 local function tryEatCustom()
 	local cooldown = Options and Options.AutoEatCooldown and Options.AutoEatCooldown.Value or 0.3
 	if tick() - lastEatCustom < cooldown then
 		return
 	end
+
+	local mode = Options and Options.AutoEatTriggerMode and Options.AutoEatTriggerMode.Value or "Health Only"
+	local shouldEat = false
+
 	local humanoid = getHumanoid()
-	local threshold = Options and Options.AutoEatThreshold and Options.AutoEatThreshold.Value or 100
-	if humanoid and humanoid.Health < threshold then
+	local hpThreshold = Options and Options.AutoEatThreshold and Options.AutoEatThreshold.Value or 100
+	local isHealthLow = humanoid and (humanoid.Health < hpThreshold)
+
+	local hungerThreshold = Options and Options.AutoEatHungerThreshold and Options.AutoEatHungerThreshold.Value or 80
+	local curHunger = getPlayerHunger()
+	local isHungerLow = curHunger and (curHunger < hungerThreshold)
+
+	if mode == "Health Only" then
+		shouldEat = isHealthLow
+	elseif mode == "Hunger Only" then
+		shouldEat = isHungerLow
+	elseif mode == "Both (Health or Hunger)" then
+		shouldEat = isHealthLow or isHungerLow
+	end
+
+	if shouldEat then
 		local selectedFood = Options and Options.AutoEatFood and Options.AutoEatFood.Value
 		local foodId = FoodIdMap[selectedFood] or 210
 		lastEatCustom = tick()
@@ -1339,7 +1406,10 @@ local function tryEatCustom()
 			local args = {
 				foodId
 			}
-			game:GetService("ReplicatedStorage"):WaitForChild("remoteInterface"):WaitForChild("interactions"):WaitForChild("eat"):FireServer(unpack(args))
+			local eatRemote = TSG.EatRemote or (game:GetService("ReplicatedStorage"):FindFirstChild("remoteInterface") and game:GetService("ReplicatedStorage").remoteInterface:FindFirstChild("interactions") and game:GetService("ReplicatedStorage").remoteInterface.interactions:FindFirstChild("eat"))
+			if eatRemote then
+				eatRemote:FireServer(unpack(args))
+			end
 		end)
 	end
 end
