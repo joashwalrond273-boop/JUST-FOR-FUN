@@ -5307,7 +5307,32 @@ FarmChop:AddCheckbox("HighlightChop", {
 })
 
 -- ==========================================
-local OreESPGroup = Tabs.Farming:AddLeftGroupbox("Ore ESP", "gem")
+local FarmAI = Tabs.Farming:AddRightGroupbox("AI Aura", "zap")
+
+FarmAI:AddToggle("AiAura", {
+	Text = "AI Aura",
+	Default = false,
+})
+
+FarmAI:AddDropdown("AiAuraSlot", {
+	Text = "Tool Slot",
+	Values = {"1","2","3","4","5","6","7","8","9","10"},
+	Default = "1",
+})
+
+FarmAI:AddSlider("AiAuraRange", {
+	Text = "Range",
+	Default = 30,
+	Min = 5,
+	Max = 60,
+	Rounding = 1,
+	Compact = true,
+})
+
+-- ==========================================
+local OreTabBox = Tabs.Farming:AddRightTabbox()
+local OreESPGroup = OreTabBox:AddTab("Ore ESP", "scan-eye")
+local OreFarm = OreTabBox:AddTab("Ore Farm", "gem")
 
 OreESPGroup:AddToggle("OreESPToggle", {
 	Text = "Ore ESP",
@@ -5332,32 +5357,6 @@ OreESPGroup:AddSlider("OreESPDistance", {
 	Rounding = 10,
 	Compact = true,
 })
-
--- ==========================================
-local FarmAI = Tabs.Farming:AddRightGroupbox("AI Aura", "zap")
-
-FarmAI:AddToggle("AiAura", {
-	Text = "AI Aura",
-	Default = false,
-})
-
-FarmAI:AddDropdown("AiAuraSlot", {
-	Text = "Tool Slot",
-	Values = {"1","2","3","4","5","6","7","8","9","10"},
-	Default = "1",
-})
-
-FarmAI:AddSlider("AiAuraRange", {
-	Text = "Range",
-	Default = 30,
-	Min = 5,
-	Max = 60,
-	Rounding = 1,
-	Compact = true,
-})
-
--- ==========================================
-local OreFarm = Tabs.Farming:AddRightGroupbox("Ore Farm", "gem")
 
 OreFarm:AddButton({
 	Text = "Reset Character",
