@@ -6415,24 +6415,29 @@ VisualLeft:AddCheckbox("OutlineESP", {
 	Title = "Outline ESP Color",
 })
 
-VisualLeft:AddCheckbox("PlayerTracers", {
-	Text = "Tracers",
+VisualLeft:AddCheckbox("ShowHeldWeapon", {
+	Text = "Held Weapon",
 	Default = false,
-}):AddColorPicker("PlayerTracersColor", {
-	Default = Color3.fromRGB(255, 255, 255),
-	Title = "Tracers Color",
+}):AddColorPicker("HeldWeaponColor", {
+	Default = Color3.fromRGB(255, 215, 0),
+	Title = "Held Weapon Color",
 })
 
-VisualLeft:AddCheckbox("PlayerBoxes", {
-	Text = "2D Boxes",
+VisualLeft:AddCheckbox("Box3DESP", {
+	Text = "3D Box ESP",
 	Default = false,
-}):AddColorPicker("PlayerBoxesColor", {
+}):AddColorPicker("Box3DColor", {
 	Default = Color3.fromRGB(255, 255, 255),
-	Title = "2D Boxes Color",
+	Title = "3D Box Color",
 })
 
 VisualLeft:AddCheckbox("PlayerHealthBar", {
 	Text = "Health Bar",
+	Default = false,
+})
+
+VisualLeft:AddCheckbox("ShowHealthText", {
+	Text = "Health Numbers",
 	Default = false,
 })
 
@@ -6523,8 +6528,7 @@ local function removePlayerESP(player)
 	if entry then
 		if entry.billboard then pcall(function() entry.billboard:Destroy() end) end
 		if entry.highlight then pcall(function() entry.highlight:Destroy() end) end
-		if entry.tracer then pcall(function() entry.tracer:Remove() end) end
-		if entry.box then pcall(function() entry.box:Remove() end) end
+		if entry.box3d then pcall(function() entry.box3d:Destroy() end) end
 		if entry.charCon then pcall(function() entry.charCon:Disconnect() end) end
 		espObjects[player] = nil
 	end
@@ -6548,8 +6552,7 @@ local function getOrCreateESP(player)
 		if entry then
 			if entry.billboard then entry.billboard.Enabled = false end
 			if entry.highlight then entry.highlight.Enabled = false end
-			if entry.tracer then entry.tracer.Visible = false end
-			if entry.box then entry.box.Visible = false end
+			if entry.box3d then entry.box3d.Visible = false end
 		end
 		return nil
 	end
@@ -6560,8 +6563,7 @@ local function getOrCreateESP(player)
 		if entry then
 			if entry.billboard then entry.billboard.Enabled = false end
 			if entry.highlight then entry.highlight.Enabled = false end
-			if entry.tracer then entry.tracer.Visible = false end
-			if entry.box then entry.box.Visible = false end
+			if entry.box3d then entry.box3d.Visible = false end
 		end
 		return nil
 	end
@@ -6570,23 +6572,27 @@ local function getOrCreateESP(player)
 		if entry then
 			if entry.billboard then pcall(function() entry.billboard:Destroy() end) end
 			if entry.highlight then pcall(function() entry.highlight:Destroy() end) end
-			if entry.tracer then pcall(function() entry.tracer:Remove() end) end
-			if entry.box then pcall(function() entry.box:Remove() end) end
+			if entry.box3d then pcall(function() entry.box3d:Destroy() end) end
 		end
 
 		local maxDist = (Options and Options.ESPDistance and Options.ESPDistance.Value) or 500
 		local pColor = (Options and Options.PlayerESPColor and Options.PlayerESPColor.Value) or Color3.fromRGB(255, 255, 255)
 		local dColor = (Options and Options.ShowDistanceColor and Options.ShowDistanceColor.Value) or Color3.fromRGB(255, 255, 255)
+		local wColor = (Options and Options.HeldWeaponColor and Options.HeldWeaponColor.Value) or Color3.fromRGB(255, 215, 0)
 		local oColor = (Options and Options.OutlineESPColor and Options.OutlineESPColor.Value) or Color3.fromRGB(255, 255, 255)
+		local bColor = (Options and Options.Box3DColor and Options.Box3DColor.Value) or Color3.fromRGB(255, 255, 255)
 		local showDist = (Toggles and Toggles.ShowDistance and Toggles.ShowDistance.Value) or false
+		local showWeapon = (Toggles and Toggles.ShowHeldWeapon and Toggles.ShowHeldWeapon.Value) or false
 		local showHealth = (Toggles and Toggles.PlayerHealthBar and Toggles.PlayerHealthBar.Value) or false
+		local showHpText = (Toggles and Toggles.ShowHealthText and Toggles.ShowHealthText.Value) or false
 		local outlineOn = (Toggles and Toggles.OutlineESP and Toggles.OutlineESP.Value) or false
+		local box3dOn = (Toggles and Toggles.Box3DESP and Toggles.Box3DESP.Value) or false
 
-		-- Ultra-lightweight native BillboardGui
+		-- Ultra-lightweight native BillboardGui (0% Lua overhead, Engine C++ rendered)
 		local billboard = Instance.new("BillboardGui")
 		billboard.Name = "TSG_Billboard"
-		billboard.Size = UDim2.fromOffset(150, 42)
-		billboard.StudsOffset = Vector3.new(0, 3.2, 0)
+		billboard.Size = UDim2.fromOffset(150, 56)
+		billboard.StudsOffset = Vector3.new(0, 3.5, 0)
 		billboard.AlwaysOnTop = true
 		billboard.Adornee = root
 		billboard.MaxDistance = maxDist
@@ -6601,7 +6607,7 @@ local function getOrCreateESP(player)
 
 		local nameLabel = Instance.new("TextLabel")
 		nameLabel.Name = "NameLabel"
-		nameLabel.Size = UDim2.new(1, 0, 0, 16)
+		nameLabel.Size = UDim2.new(1, 0, 0, 15)
 		nameLabel.Position = UDim2.new(0, 0, 0, 0)
 		nameLabel.BackgroundTransparency = 1
 		nameLabel.TextColor3 = pColor
@@ -6614,8 +6620,8 @@ local function getOrCreateESP(player)
 
 		local distLabel = Instance.new("TextLabel")
 		distLabel.Name = "DistLabel"
-		distLabel.Size = UDim2.new(1, 0, 0, 14)
-		distLabel.Position = UDim2.new(0, 0, 0, 16)
+		distLabel.Size = UDim2.new(1, 0, 0, 13)
+		distLabel.Position = UDim2.new(0, 0, 0, 15)
 		distLabel.BackgroundTransparency = 1
 		distLabel.TextColor3 = dColor
 		distLabel.TextStrokeTransparency = 0.3
@@ -6626,10 +6632,24 @@ local function getOrCreateESP(player)
 		distLabel.Visible = showDist
 		distLabel.Parent = container
 
+		local weaponLabel = Instance.new("TextLabel")
+		weaponLabel.Name = "WeaponLabel"
+		weaponLabel.Size = UDim2.new(1, 0, 0, 13)
+		weaponLabel.Position = UDim2.new(0, 0, 0, 28)
+		weaponLabel.BackgroundTransparency = 1
+		weaponLabel.TextColor3 = wColor
+		weaponLabel.TextStrokeTransparency = 0.3
+		weaponLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+		weaponLabel.Font = Enum.Font.Gotham
+		weaponLabel.TextSize = 11
+		weaponLabel.Text = "[ Bare Hands ]"
+		weaponLabel.Visible = showWeapon
+		weaponLabel.Parent = container
+
 		local healthBg = Instance.new("Frame")
 		healthBg.Name = "HealthBg"
 		healthBg.Size = UDim2.new(0, 60, 0, 3)
-		healthBg.Position = UDim2.new(0.5, -30, 0, 31)
+		healthBg.Position = UDim2.new(0.5, -30, 0, 42)
 		healthBg.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 		healthBg.BorderColor3 = Color3.fromRGB(0, 0, 0)
 		healthBg.BorderSizePixel = 1
@@ -6643,6 +6663,33 @@ local function getOrCreateESP(player)
 		healthFill.BorderSizePixel = 0
 		healthFill.Parent = healthBg
 
+		local hpText = Instance.new("TextLabel")
+		hpText.Name = "HPText"
+		hpText.Size = UDim2.new(1, 0, 0, 10)
+		hpText.Position = UDim2.new(0, 0, 0, 46)
+		hpText.BackgroundTransparency = 1
+		hpText.TextColor3 = Color3.fromRGB(0, 255, 120)
+		hpText.TextStrokeTransparency = 0.3
+		hpText.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+		hpText.Font = Enum.Font.GothamBold
+		hpText.TextSize = 10
+		hpText.Text = "100 HP"
+		hpText.Visible = showHpText
+		hpText.Parent = container
+
+		-- Native 3D Box Handle Adornment (Engine-rendered, 0 Lua lag)
+		local box3d = Instance.new("BoxHandleAdornment")
+		box3d.Name = "TSG_3DBox"
+		box3d.Adornee = root
+		box3d.Size = Vector3.new(4, 5.2, 2)
+		box3d.CFrame = CFrame.new(0, 0, 0)
+		box3d.Color3 = bColor
+		box3d.Transparency = 0.65
+		box3d.AlwaysOnTop = true
+		box3d.ZIndex = 5
+		box3d.Visible = box3dOn
+		box3d.Parent = getESPFolder()
+
 		local highlight = Instance.new("Highlight")
 		highlight.FillTransparency = 1
 		highlight.OutlineColor = oColor
@@ -6652,26 +6699,6 @@ local function getOrCreateESP(player)
 		highlight.Enabled = outlineOn
 		highlight.Parent = getESPFolder()
 
-		local tracer = nil
-		local box = nil
-		if typeof(Drawing) ~= "nil" then
-			pcall(function()
-				tracer = Drawing.new("Line")
-				tracer.Thickness = 1.5
-				tracer.Color = (Options and Options.PlayerTracersColor and Options.PlayerTracersColor.Value) or Color3.fromRGB(255, 255, 255)
-				tracer.Transparency = 1
-				tracer.Visible = false
-			end)
-			pcall(function()
-				box = Drawing.new("Square")
-				box.Thickness = 1.5
-				box.Color = (Options and Options.PlayerBoxesColor and Options.PlayerBoxesColor.Value) or Color3.fromRGB(255, 255, 255)
-				box.Filled = false
-				box.Transparency = 1
-				box.Visible = false
-			end)
-		end
-
 		entry = {
 			player = player,
 			character = character,
@@ -6680,13 +6707,15 @@ local function getOrCreateESP(player)
 			billboard = billboard,
 			nameLabel = nameLabel,
 			distLabel = distLabel,
+			weaponLabel = weaponLabel,
 			healthBg = healthBg,
 			healthFill = healthFill,
+			hpText = hpText,
 			highlight = highlight,
-			tracer = tracer,
-			box = box,
+			box3d = box3d,
 			lastDist = -1,
 			lastHealth = -1,
+			lastTool = "",
 		}
 		espObjects[player] = entry
 	else
@@ -6694,6 +6723,9 @@ local function getOrCreateESP(player)
 		entry.hum = hum
 		if entry.billboard and entry.billboard.Adornee ~= root then
 			entry.billboard.Adornee = root
+		end
+		if entry.box3d and entry.box3d.Adornee ~= root then
+			entry.box3d.Adornee = root
 		end
 		if entry.highlight and entry.highlight.Adornee ~= character then
 			entry.highlight.Adornee = character
@@ -6718,18 +6750,12 @@ local function updateAllESP()
 	end
 
 	local maxDist = (Options and Options.ESPDistance and Options.ESPDistance.Value) or 500
-	local showDist = (Toggles.ShowDistance and Toggles.ShowDistance.Value) or false
-	local showHealth = (Toggles.PlayerHealthBar and Toggles.PlayerHealthBar.Value) or false
+	local showDist = (Toggles and Toggles.ShowDistance and Toggles.ShowDistance.Value) or false
+	local showWeapon = (Toggles and Toggles.ShowHeldWeapon and Toggles.ShowHeldWeapon.Value) or false
+	local showHealth = (Toggles and Toggles.PlayerHealthBar and Toggles.PlayerHealthBar.Value) or false
+	local showHpText = (Toggles and Toggles.ShowHealthText and Toggles.ShowHealthText.Value) or false
 	local outlineEnabled = (Toggles.OutlineESP and Toggles.OutlineESP.Value) or false
-	local tracersEnabled = (Toggles.PlayerTracers and Toggles.PlayerTracers.Value) or false
-	local boxesEnabled = (Toggles.PlayerBoxes and Toggles.PlayerBoxes.Value) or false
-
-	local camera = workspace.CurrentCamera
-	local tracerOrigin = nil
-	if camera and tracersEnabled then
-		local viewportSize = camera.ViewportSize
-		tracerOrigin = Vector2.new(viewportSize.X / 2, viewportSize.Y)
-	end
+	local box3dEnabled = (Toggles.Box3DESP and Toggles.Box3DESP.Value) or false
 
 	for _, player in ipairs(Players:GetPlayers()) do
 		if player ~= LocalPlayer then
@@ -6743,7 +6769,14 @@ local function updateAllESP()
 					entry.billboard.Enabled = inRange
 				end
 
-				-- Throttled text and health updates (0 FPS drop)
+				if entry.box3d then
+					local shouldBox = box3dEnabled and inRange
+					if entry.box3d.Visible ~= shouldBox then
+						entry.box3d.Visible = shouldBox
+					end
+				end
+
+				-- Throttled text, tool, and health updates (0 FPS drop)
 				if inRange and shouldThrottle then
 					if showDist then
 						local roundedDist = math.floor(dist)
@@ -6757,6 +6790,22 @@ local function updateAllESP()
 					else
 						if entry.distLabel.Visible then
 							entry.distLabel.Visible = false
+						end
+					end
+
+					if showWeapon then
+						local tool = entry.character:FindFirstChildOfClass("Tool")
+						local toolName = tool and tool.Name or "Bare Hands"
+						if entry.lastTool ~= toolName then
+							entry.lastTool = toolName
+							entry.weaponLabel.Text = "[ " .. toolName .. " ]"
+						end
+						if not entry.weaponLabel.Visible then
+							entry.weaponLabel.Visible = true
+						end
+					else
+						if entry.weaponLabel.Visible then
+							entry.weaponLabel.Visible = false
 						end
 					end
 
@@ -6778,6 +6827,21 @@ local function updateAllESP()
 						end
 					end
 
+					if showHpText then
+						local curHealth = math.floor(entry.hum.Health)
+						local hpStr = tostring(curHealth) .. " HP"
+						if entry.hpText.Text ~= hpStr then
+							entry.hpText.Text = hpStr
+						end
+						if not entry.hpText.Visible then
+							entry.hpText.Visible = true
+						end
+					else
+						if entry.hpText.Visible then
+							entry.hpText.Visible = false
+						end
+					end
+
 					if entry.highlight then
 						local shouldHl = outlineEnabled and inRange and (dist <= 150)
 						if entry.highlight.Enabled ~= shouldHl then
@@ -6785,55 +6849,10 @@ local function updateAllESP()
 						end
 					end
 				end
-
-				-- Optional 2D Drawing Tracers & Boxes (only evaluated if user explicitly toggles them ON)
-				if tracersEnabled or boxesEnabled then
-					local onScreen2D = false
-					local rootPos = entry.root.Position
-					local head = entry.character:FindFirstChild("Head")
-					local topPos = (head and (head.Position + Vector3.new(0, 0.6, 0))) or (rootPos + Vector3.new(0, 2.8, 0))
-					local botPos = rootPos - Vector3.new(0, 3.2, 0)
-
-					local topScreen, topVis = camera and camera:WorldToViewportPoint(topPos)
-					local botScreen, botVis = camera and camera:WorldToViewportPoint(botPos)
-
-					if (topVis or botVis) and topScreen and topScreen.Z > 0 and botScreen and botScreen.Z > 0 then
-						onScreen2D = true
-					end
-
-					if entry.tracer then
-						if tracersEnabled and onScreen2D and tracerOrigin then
-							local screenPos = camera:WorldToViewportPoint(rootPos)
-							entry.tracer.From = tracerOrigin
-							entry.tracer.To = Vector2.new(screenPos.X, screenPos.Y)
-							if not entry.tracer.Visible then entry.tracer.Visible = true end
-						else
-							if entry.tracer.Visible then entry.tracer.Visible = false end
-						end
-					end
-
-					if entry.box then
-						if boxesEnabled and onScreen2D then
-							local h = math.abs(botScreen.Y - topScreen.Y)
-							local w = math.max(h * 0.65, 4)
-							local topY = math.min(topScreen.Y, botScreen.Y)
-							local leftX = math.floor(topScreen.X - w * 0.5)
-							entry.box.Position = Vector2.new(leftX, math.floor(topY))
-							entry.box.Size = Vector2.new(math.floor(w), math.floor(h))
-							if not entry.box.Visible then entry.box.Visible = true end
-						else
-							if entry.box.Visible then entry.box.Visible = false end
-						end
-					end
-				else
-					if entry.tracer and entry.tracer.Visible then entry.tracer.Visible = false end
-					if entry.box and entry.box.Visible then entry.box.Visible = false end
-				end
 			else
 				if entry and entry.billboard and entry.billboard.Enabled then entry.billboard.Enabled = false end
 				if entry and entry.highlight and entry.highlight.Enabled then entry.highlight.Enabled = false end
-				if entry and entry.tracer and entry.tracer.Visible then entry.tracer.Visible = false end
-				if entry and entry.box and entry.box.Visible then entry.box.Visible = false end
+				if entry and entry.box3d and entry.box3d.Visible then entry.box3d.Visible = false end
 			end
 		end
 	end
@@ -6891,22 +6910,29 @@ Toggles.OutlineESP:OnChanged(function()
 	end
 end)
 
-Toggles.PlayerTracers:OnChanged(function()
-	if not Toggles.PlayerTracers.Value then
-		for _, entry in pairs(espObjects) do
-			if entry.tracer and entry.tracer.Visible then
-				entry.tracer.Visible = false
-			end
+Toggles.Box3DESP:OnChanged(function()
+	local enabled = Toggles.Box3DESP.Value
+	for _, entry in pairs(espObjects) do
+		if entry.box3d then
+			entry.box3d.Visible = enabled
 		end
 	end
 end)
 
-Toggles.PlayerBoxes:OnChanged(function()
-	if not Toggles.PlayerBoxes.Value then
-		for _, entry in pairs(espObjects) do
-			if entry.box and entry.box.Visible then
-				entry.box.Visible = false
-			end
+Toggles.ShowHeldWeapon:OnChanged(function()
+	local enabled = Toggles.ShowHeldWeapon.Value
+	for _, entry in pairs(espObjects) do
+		if entry.weaponLabel then
+			entry.weaponLabel.Visible = enabled
+		end
+	end
+end)
+
+Toggles.ShowHealthText:OnChanged(function()
+	local enabled = Toggles.ShowHealthText.Value
+	for _, entry in pairs(espObjects) do
+		if entry.hpText then
+			entry.hpText.Visible = enabled
 		end
 	end
 end)
@@ -6938,20 +6964,20 @@ Options.OutlineESPColor:OnChanged(function()
 	end
 end)
 
-Options.PlayerTracersColor:OnChanged(function()
-	local color = Options.PlayerTracersColor.Value
+Options.Box3DColor:OnChanged(function()
+	local color = Options.Box3DColor.Value
 	for _, entry in pairs(espObjects) do
-		if entry.tracer then
-			entry.tracer.Color = color
+		if entry.box3d then
+			entry.box3d.Color3 = color
 		end
 	end
 end)
 
-Options.PlayerBoxesColor:OnChanged(function()
-	local color = Options.PlayerBoxesColor.Value
+Options.HeldWeaponColor:OnChanged(function()
+	local color = Options.HeldWeaponColor.Value
 	for _, entry in pairs(espObjects) do
-		if entry.box then
-			entry.box.Color = color
+		if entry.weaponLabel then
+			entry.weaponLabel.TextColor3 = color
 		end
 	end
 end)
