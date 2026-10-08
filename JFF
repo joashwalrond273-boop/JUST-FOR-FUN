@@ -607,11 +607,6 @@ SpectateGroup:AddDropdown("SpectatePlayerList", {
 	Default = "",
 })
 
-SpectateGroup:AddCheckbox("SpectateNearestEnemy", {
-	Text = "Spectate Nearest Enemy",
-	Default = false,
-})
-
 local FunLeft = Tabs.Main:AddRightGroupbox("FLING A BULLY", "swords")
 
 FunLeft:AddCheckbox("TouchFling", {
@@ -7693,50 +7688,11 @@ track("SpectatePlayerAdded", Players.PlayerAdded:Connect(updateSpectatePlayerLis
 track("SpectatePlayerRemoving", Players.PlayerRemoving:Connect(updateSpectatePlayerList))
 task.spawn(updateSpectatePlayerList)
 
-local function findNearestEnemySpectateTarget()
-	local myRoot = getRootPart()
-	if not myRoot then return nil end
-	local myPos = myRoot.Position
-
-	local closestPlayer = nil
-	local closestDist = math.huge
-
-	for _, player in ipairs(Players:GetPlayers()) do
-		if player == LocalPlayer then continue end
-		if isTeammate and isTeammate(player) then continue end
-
-		local char = player.Character
-		local hum = char and char:FindFirstChildOfClass("Humanoid")
-		local hrp = char and (char:FindFirstChild("HumanoidRootPart") or char.PrimaryPart)
-		if not hum or hum.Health <= 0 or not hrp then continue end
-
-		local d = (hrp.Position - myPos).Magnitude
-		if d < closestDist then
-			closestDist = d
-			closestPlayer = player
-		end
-	end
-
-	return closestPlayer
-end
-
-local lastSpectateNearestSwitch = 0
 local function startSpectate()
 	disconnect("SpectateLoop")
 	if Toggles.SpectateToggle.Value then
 		track("SpectateLoop", RunService.Heartbeat:Connect(function()
 			if not Toggles.SpectateToggle.Value then return end
-
-			if Toggles.SpectateNearestEnemy and Toggles.SpectateNearestEnemy.Value then
-				local now = tick()
-				if now - lastSpectateNearestSwitch > 0.5 then
-					lastSpectateNearestSwitch = now
-					local nearest = findNearestEnemySpectateTarget()
-					if nearest and nearest.Name ~= Options.SpectatePlayerList.Value then
-						Options.SpectatePlayerList:SetValue(nearest.Name)
-					end
-				end
-			end
 
 			local targetName = Options.SpectatePlayerList.Value
 			local targetPlayer = targetName and Players:FindFirstChild(targetName)
@@ -7777,16 +7733,6 @@ Options.SpectatePlayerList:OnChanged(function()
 		startSpectate()
 	end
 end)
-
-if Toggles.SpectateNearestEnemy then
-	Toggles.SpectateNearestEnemy:OnChanged(function()
-		if Toggles.SpectateNearestEnemy.Value then
-			Library:Notify({ Title = "SPECTATE", Description = "Nearest Enemy Mode: Enabled", Time = 2 })
-		else
-			Library:Notify({ Title = "SPECTATE", Description = "Nearest Enemy Mode: Disabled", Time = 2 })
-		end
-	end)
-end
 
 -- Invisible Fly Script Logic
 local invisibleFlyVars = {
