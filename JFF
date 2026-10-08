@@ -381,6 +381,21 @@ AdvanceHealGroup:AddSlider("AutoEatThreshold", {
 	Compact = true,
 })
 
+AdvanceHealGroup:AddSlider("AutoEatHungerThreshold", {
+	Text = "Eat Hunger Threshold",
+	Default = 50,
+	Min = 10,
+	Max = 100,
+	Rounding = 0,
+	Compact = true,
+})
+
+AdvanceHealGroup:AddDropdown("AutoEatMode", {
+	Text = "Eat Trigger Mode",
+	Values = {"HP Only", "Hunger Only", "Both"},
+	Default = "HP Only",
+})
+
 AdvanceHealGroup:AddSlider("AutoEatCooldown", {
 	Text = "Eat Cooldown (s)",
 	Default = 0.3,
@@ -1329,9 +1344,50 @@ local function tryEatCustom()
 	if tick() - lastEatCustom < cooldown then
 		return
 	end
+
+	local mode = Options and Options.AutoEatMode and Options.AutoEatMode.Value or "HP Only"
+	local hpThreshold = Options and Options.AutoEatThreshold and Options.AutoEatThreshold.Value or 100
+	local hungerThreshold = Options and Options.AutoEatHungerThreshold and Options.AutoEatHungerThreshold.Value or 50
+
 	local humanoid = getHumanoid()
-	local threshold = Options and Options.AutoEatThreshold and Options.AutoEatThreshold.Value or 100
-	if humanoid and humanoid.Health < threshold then
+	local hpLow = humanoid and humanoid.Health < hpThreshold
+
+	local hungerLow = false
+	if mode ~= "HP Only" then
+		local currentHunger = nil
+		pcall(function()
+			if TSG.ClientData and TSG.ClientData.getHunger then
+				currentHunger = TSG.ClientData.getHunger()
+			end
+		end)
+		pcall(function()
+			if currentHunger == nil and TSG.ClientData and TSG.ClientData.getData then
+				local data = TSG.ClientData.getData()
+				if data then
+					currentHunger = data.Hunger or data.hunger
+				end
+			end
+		end)
+		pcall(function()
+			if currentHunger == nil and TSG.ClientData and type(TSG.ClientData) == "table" then
+				currentHunger = rawget(TSG.ClientData, "Hunger") or rawget(TSG.ClientData, "hunger")
+			end
+		end)
+		if currentHunger ~= nil and currentHunger < hungerThreshold then
+			hungerLow = true
+		end
+	end
+
+	local shouldEat = false
+	if mode == "HP Only" then
+		shouldEat = hpLow
+	elseif mode == "Hunger Only" then
+		shouldEat = hungerLow
+	elseif mode == "Both" then
+		shouldEat = hpLow or hungerLow
+	end
+
+	if shouldEat then
 		local selectedFood = Options and Options.AutoEatFood and Options.AutoEatFood.Value
 		local foodId = FoodIdMap[selectedFood] or 210
 		lastEatCustom = tick()
