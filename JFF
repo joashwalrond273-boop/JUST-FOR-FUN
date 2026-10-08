@@ -5116,6 +5116,11 @@ OreESPGroup:AddSlider("OreESPDistance", {
 	Compact = true,
 })
 
+OreFarm:AddCheckbox("OreAutoFarm", {
+	Text = "Ore Auto Farm",
+	Default = false,
+})
+
 OreFarm:AddButton({
 	Text = "Reset Character",
 	Func = function()
@@ -5749,6 +5754,86 @@ Toggles.OreESPToggle:OnChanged(function()
 	end))
 
 	Library:Notify({ Title = "Ore ESP", Description = "Enabled", Time = 2 })
+end)
+
+local isOreAutoFarming = false
+Toggles.OreAutoFarm:OnChanged(function()
+	if Toggles.OreAutoFarm.Value then
+		if isOreAutoFarming then return end
+		isOreAutoFarming = true
+
+		if Toggles.AutoMine and not Toggles.AutoMine.Value then
+			Toggles.AutoMine:SetValue(true)
+		end
+
+		Library:Notify({ Title = "Ore Auto Farm", Description = "Enabled", Time = 2 })
+
+		task.spawn(function()
+			while isOreAutoFarming and Toggles.OreAutoFarm and Toggles.OreAutoFarm.Value do
+				if not isAlive() then
+					task.wait(1)
+				else
+					local folder = workspace:FindFirstChild("worldResources") and workspace.worldResources:FindFirstChild("mineable")
+					if not folder then
+						task.wait(1)
+					else
+						local oreList = {}
+						for _, chunkFolder in ipairs(folder:GetChildren()) do
+							if chunkFolder:IsA("Folder") then
+								for _, obj in ipairs(chunkFolder:GetChildren()) do
+									if obj and obj.Parent then
+										local anchor = obj:IsA("Model") and (obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")) or (obj:IsA("BasePart") and obj)
+										if anchor then
+											table.insert(oreList, { obj = obj, anchor = anchor })
+										end
+									end
+								end
+							end
+						end
+
+						if #oreList == 0 then
+							task.wait(1)
+						else
+							for _, item in ipairs(oreList) do
+								if not (isOreAutoFarming and Toggles.OreAutoFarm and Toggles.OreAutoFarm.Value) then break end
+								if not isAlive() then break end
+
+								local obj = item.obj
+								local anchor = item.anchor
+
+								if obj and obj.Parent and anchor and anchor.Parent then
+									local startTime = tick()
+									while tick() - startTime < 2 and (isOreAutoFarming and Toggles.OreAutoFarm and Toggles.OreAutoFarm.Value) and isAlive() and obj.Parent do
+										local root = getRootPart()
+										if root and anchor and anchor.Parent then
+											root.CFrame = CFrame.new(anchor.Position + Vector3.new(0, 5, 0))
+											pcall(function()
+												root.AssemblyLinearVelocity = Vector3.zero
+												root.Velocity = Vector3.zero
+											end)
+										end
+
+										if TSG.MineRemote and Options.AutoMineSlot then
+											local slot = tonumber(Options.AutoMineSlot.Value) or 1
+											pcall(function()
+												TSG.MineRemote:FireServer(slot, obj, CFrame.new(anchor.Position))
+											end)
+										end
+										task.wait(0.2)
+									end
+								end
+							end
+						end
+					end
+				end
+				task.wait(0.2)
+			end
+			isOreAutoFarming = false
+		end)
+	else
+		isOreAutoFarming = false
+		Library:Notify({ Title = "Ore Auto Farm", Description = "Disabled", Time = 2 })
+	end
 end)
 
 Toggles.TitanAura:OnChanged(function()
