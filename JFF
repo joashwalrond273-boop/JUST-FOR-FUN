@@ -678,7 +678,6 @@ MainLeft:AddCheckbox("InfiniteJump", {
 	Default = false,
 })
 
-
 MainLeft:AddCheckbox("WalkOnWater", {
 	Text = "Walk On Water",
 	Default = false,
