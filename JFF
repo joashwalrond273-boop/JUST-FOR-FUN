@@ -385,7 +385,7 @@ AdvanceHealGroup:AddSlider("AutoEatHungerThreshold", {
 	Text = "Eat Hunger Threshold",
 	Default = 50,
 	Min = 10,
-	Max = 100,
+	Max = 1300,
 	Rounding = 0,
 	Compact = true,
 })
@@ -5128,8 +5128,20 @@ FarmAI:AddToggle("AiAura", {
 	Default = false,
 })
 
-FarmAI:AddDropdown("AiAuraSlot", {
+FarmAI:AddCheckbox("AiAuraSlotSystem", {
+	Text = "Slot System",
+	Default = false,
+})
+
+FarmAI:AddDropdown("AiAuraSlotSystemSlot", {
 	Text = "Tool Slot",
+	Values = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"},
+	Default = {"1"},
+	Multi = true,
+})
+
+FarmAI:AddDropdown("AiAuraSlot", {
+	Text = "Attack Slot",
 	Values = {"1","2","3","4","5","6","7","8","9","10"},
 	Default = "1",
 })
@@ -5520,6 +5532,101 @@ Toggles.AiAura:OnChanged(function()
 		isAiAuraRunning = false
 	end
 end)
+
+do
+	local aiSlotSaved = {
+		AiAura = nil,
+	}
+	local fromAiAuraSlotSystem = false
+
+	local function updateAiAuraSlotSystemState()
+		if not (Toggles.AiAuraSlotSystem and Toggles.AiAuraSlotSystem.Value) then return end
+		if not isAlive() then return end
+
+		local holding = isAdvanceSlotAllowed(Options.AiAuraSlotSystemSlot)
+
+		if holding then
+			if aiSlotSaved.AiAura == nil then
+				aiSlotSaved.AiAura = Toggles.AiAura and Toggles.AiAura.Value or false
+			end
+
+			if Toggles.AiAura and not Toggles.AiAura.Value then
+				fromAiAuraSlotSystem = true
+				Toggles.AiAura:SetValue(true)
+				fromAiAuraSlotSystem = false
+			end
+		else
+			if aiSlotSaved.AiAura ~= nil then
+				if Toggles.AiAura and Toggles.AiAura.Value ~= aiSlotSaved.AiAura then
+					fromAiAuraSlotSystem = true
+					Toggles.AiAura:SetValue(aiSlotSaved.AiAura)
+					fromAiAuraSlotSystem = false
+				end
+				aiSlotSaved.AiAura = nil
+			end
+		end
+	end
+
+	if Toggles.AiAuraSlotSystem then
+		Toggles.AiAuraSlotSystem:OnChanged(function()
+			disconnect("AiAuraSlotSystem_Poll")
+			disconnect("AiAuraSlotSystem_ChildAdded")
+			disconnect("AiAuraSlotSystem_ChildRemoved")
+			disconnect("AiAuraSlotSystem_CharAdded")
+
+			if Toggles.AiAuraSlotSystem.Value then
+				local function hookAiAuraSlotChar(char)
+					if not char then return end
+					disconnect("AiAuraSlotSystem_ChildAdded")
+					disconnect("AiAuraSlotSystem_ChildRemoved")
+					track("AiAuraSlotSystem_ChildAdded", char.ChildAdded:Connect(function(child)
+						if child:IsA("Tool") then
+							task.wait()
+							updateAiAuraSlotSystemState()
+						end
+					end))
+					track("AiAuraSlotSystem_ChildRemoved", char.ChildRemoved:Connect(function(child)
+						if child:IsA("Tool") then
+							task.wait()
+							updateAiAuraSlotSystemState()
+						end
+					end))
+				end
+
+				if LocalPlayer.Character then
+					hookAiAuraSlotChar(LocalPlayer.Character)
+				end
+				track("AiAuraSlotSystem_CharAdded", LocalPlayer.CharacterAdded:Connect(hookAiAuraSlotChar))
+
+				track("AiAuraSlotSystem_Poll", RunService.Heartbeat:Connect(function()
+					updateAiAuraSlotSystemState()
+				end))
+
+				updateAiAuraSlotSystemState()
+
+				Library:Notify({ Title = "AI Aura Slot System", Description = "Enabled", Time = 2 })
+			else
+				if aiSlotSaved.AiAura ~= nil then
+					if Toggles.AiAura and Toggles.AiAura.Value ~= aiSlotSaved.AiAura then
+						fromAiAuraSlotSystem = true
+						Toggles.AiAura:SetValue(aiSlotSaved.AiAura)
+						fromAiAuraSlotSystem = false
+					end
+					aiSlotSaved.AiAura = nil
+				end
+				table.clear(aiSlotSaved)
+
+				Library:Notify({ Title = "AI Aura Slot System", Description = "Disabled", Time = 2 })
+			end
+		end)
+	end
+
+	if Options.AiAuraSlotSystemSlot then
+		Options.AiAuraSlotSystemSlot:OnChanged(function()
+			updateAiAuraSlotSystemState()
+		end)
+	end
+end
 
 -- ==========================================
 -- Ore ESP (reads ore names from workspace.worldResources.mineable, per-ore filters)
