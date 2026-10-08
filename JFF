@@ -295,14 +295,15 @@ local Window = Library:CreateWindow({
 })
 
 local Tabs = {
-	Main = Window:AddTab("CENTRAL", "badge-info"),
+	Main = Window:AddTab("UTILITIES", "badge-info"),
 	Player = Window:AddTab("PLAYER", "user"),
 	Combat = Window:AddTab("COMBAT", "swords"),
 	Movement = Window:AddTab("MOVEMENT", "move"),
-	Farming = Window:AddTab("AURAS", "sparkles"),
+	Farming = Window:AddTab("FARMING", "gem"),
 	Teleport = Window:AddTab("TELEPORT", "map-pin"),
-	Visuals = Window:AddTab("ESP", "scan-eye"),
-	["UI Settings"] = Window:AddTab("UI MODULES", "settings"),
+	Visuals = Window:AddTab("VISUALS", "scan-eye"),
+	Fun = Window:AddTab("FUN", "smile"),
+	["UI Settings"] = Window:AddTab("UI SETTINGS", "settings"),
 }
 Tabs["UI MODULES"] = Tabs["UI Settings"]
 
@@ -314,18 +315,13 @@ local function track(name, connection)
 end
 
 local function disconnect(name)
-	local conn = Connections[name]
-	if conn then
+	if Connections[name] then
+		Connections[name]:Disconnect()
 		Connections[name] = nil
-		if typeof(conn) == "thread" then
-			pcall(task.cancel, conn)
-		elseif typeof(conn) == "RBXScriptConnection" or (typeof(conn) == "table" and conn.Disconnect) then
-			pcall(function() conn:Disconnect() end)
-		end
 	end
 end
 
-local ToiletBedGroup = Tabs.Player:AddLeftGroupbox("Toilet/Bed", "bed")
+local ToiletBedGroup = Tabs.Fun:AddLeftGroupbox("Toilet/Bed", "bed")
 
 ToiletBedGroup:AddButton({
 	Text = "Toilet Bed",
@@ -395,12 +391,12 @@ AdvanceHealGroup:AddSlider("AutoEatCooldown", {
 	Compact = true,
 })
 
-local MainRight = Tabs.Player:AddRightGroupbox("Settings", "settings")
+local MainRight = Tabs.Main:AddLeftGroupbox("Server Utilities", "server")
 
 -- ============================================================================
--- MAIN TAB (IMMORTAL AURA / SPECTATE)
+-- COMBAT TAB (IMMORTAL AURA)
 -- ============================================================================
-local CombatAutoBlock = Tabs.Main:AddLeftGroupbox("Immortal Aura", "shield")
+local CombatAutoBlock = Tabs.Combat:AddLeftGroupbox("Immortal Aura", "shield")
 
 CombatAutoBlock:AddToggle("ImmortalMode", {
 	Text = "Immortal Aura",
@@ -495,7 +491,7 @@ task.spawn(function()
 	end
 end)
 
-local FunAttach = Tabs.Main:AddLeftGroupbox("ATTACH", "link")
+local FunAttach = Tabs.Fun:AddLeftGroupbox("ATTACH", "link")
 
 FunAttach:AddToggle("AttachToggle", {
         Text = "Attach",
@@ -528,7 +524,7 @@ FunAttach:AddCheckbox("FloatOverToggle", {
         Default = false,
 })
 
-local TeleportGroup = Tabs.Main:AddRightGroupbox("TELEPORT", "map-pin")
+local TeleportGroup = Tabs.Teleport:AddRightGroupbox("PLAYER TELEPORT", "map-pin")
 
 TeleportGroup:AddDropdown("TeleportPlayerList", {
 	Text = "Select Player",
@@ -584,7 +580,7 @@ TeleportGroup:AddButton({
 	end,
 })
 
-local SpectateGroup = Tabs.Main:AddRightGroupbox("SPECTATE", "scan-eye")
+local SpectateGroup = Tabs.Visuals:AddRightGroupbox("SPECTATE", "scan-eye")
 
 SpectateGroup:AddToggle("SpectateToggle", {
 	Text = "Spectate",
@@ -597,7 +593,7 @@ SpectateGroup:AddDropdown("SpectatePlayerList", {
 	Default = "",
 })
 
-local FunLeft = Tabs.Main:AddRightGroupbox("FLING A BULLY", "swords")
+local FunLeft = Tabs.Fun:AddRightGroupbox("FLING A BULLY", "swords")
 
 FunLeft:AddCheckbox("TouchFling", {
 	Text = "Touch Fling",
@@ -696,6 +692,16 @@ MainLeft:AddSlider("AutoPickupRange", {
 MainLeft:AddCheckbox("Noclip", {
 	Text = "Noclip",
 	Default = false,
+})
+
+MainLeft:AddSlider("ScreenSens", {
+	Text = "Screen Sensitivity",
+	Default = 1,
+	Min = 0.05,
+	Max = 5,
+	Rounding = 2,
+	Compact = false,
+	Suffix = "x",
 })
 
 updateAutoPickupVisibility = function()
@@ -1541,7 +1547,8 @@ CombatLeft:AddSlider("KillAuraRange", {
 	Min = 5,
 	Max = 30,
 	Rounding = 1,
-	Compact = true,
+	Compact = false,
+	Suffix = " studs",
 })
 
 CombatLeft:AddSlider("KillAuraAngle", {
@@ -1606,6 +1613,18 @@ CombatAutoSwingGroup:AddDropdown("AutoSwingSlot", {
 	Multi = true,
 })
 
+CombatAutoSwingGroup:AddCheckbox("SlotSystem", {
+	Text = "Slot System",
+	Default = false,
+})
+
+CombatAutoSwingGroup:AddDropdown("SlotSystemSlot", {
+	Text = "Tool Slot",
+	Values = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"},
+	Default = {"1"},
+	Multi = true,
+})
+
 CombatAutoSwingGroup:AddDivider()
 
 CombatAutoSwingGroup:AddToggle("SmartSwing", {
@@ -1652,12 +1671,27 @@ updateAutoSwingSliderVisibility = function()
 	local isAutoSwingToggled = (Toggles.AutoSwing and Toggles.AutoSwing.Value) or false
 	local isSmartSwingToggled = (Toggles.SmartSwing and Toggles.SmartSwing.Value) or false
 	local isSSSlot = (Toggles.SmartSwingSlotSystem and Toggles.SmartSwingSlotSystem.Value) or false
+	local isAutoSlot = (Toggles.SlotSystem and Toggles.SlotSystem.Value) or false
 	local isAnyToggled = isAutoSwingToggled or isSmartSwingToggled
 
 	if Options.AutoSwingSlot then
 		Options.AutoSwingSlot.Visible = true
 		if Options.AutoSwingSlot.Holder then
 			Options.AutoSwingSlot.Holder.Visible = true
+		end
+	end
+	if Toggles.SlotSystem then
+		if Toggles.SlotSystem.Visible ~= nil then
+			Toggles.SlotSystem.Visible = isAutoSwingToggled
+		end
+		if Toggles.SlotSystem.Holder then
+			Toggles.SlotSystem.Holder.Visible = isAutoSwingToggled
+		end
+	end
+	if Options.SlotSystemSlot then
+		Options.SlotSystemSlot.Visible = isAutoSwingToggled and isAutoSlot
+		if Options.SlotSystemSlot.Holder then
+			Options.SlotSystemSlot.Holder.Visible = isAutoSwingToggled and isAutoSlot
 		end
 	end
 	if Toggles.SmartSwingSlotSystem then
@@ -1768,6 +1802,27 @@ CombatAutoPVP:AddSlider("LookDownSens", {
 	Rounding = 0,
 	Compact = true,
 })
+
+CombatAutoPVP:AddDivider()
+
+CombatAutoPVP:AddCheckbox("DoubleDamageBETA", {
+	Text = "Double Tap(BETA)",
+	Default = false,
+})
+
+CombatAutoPVP:AddCheckbox("DoubleTapSlotSystem", {
+	Text = "Slot System",
+	Default = false,
+})
+
+CombatAutoPVP:AddDropdown("DoubleTapSlotSystemSlot", {
+	Text = "Tool Slot",
+	Values = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"},
+	Default = {"1"},
+	Multi = true,
+})
+
+CombatAutoPVP:AddDivider()
 
 CombatAutoPVP:AddCheckbox("AutoJump", {
 	Text = "Auto Jump",
@@ -1944,6 +1999,22 @@ updatePVPModulesVisibility = function()
 			Options.LookDownSens.Holder.Visible = isLookDown
 		end
 	end
+	local isDoubleTap = (Toggles.DoubleDamageBETA and Toggles.DoubleDamageBETA.Value) or false
+	local isDTSlot = (Toggles.DoubleTapSlotSystem and Toggles.DoubleTapSlotSystem.Value) or false
+	if Toggles.DoubleTapSlotSystem then
+		if Toggles.DoubleTapSlotSystem.Visible ~= nil then
+			Toggles.DoubleTapSlotSystem.Visible = isDoubleTap
+		end
+		if Toggles.DoubleTapSlotSystem.Holder then
+			Toggles.DoubleTapSlotSystem.Holder.Visible = isDoubleTap
+		end
+	end
+	if Options.DoubleTapSlotSystemSlot then
+		Options.DoubleTapSlotSystemSlot.Visible = isDoubleTap and isDTSlot
+		if Options.DoubleTapSlotSystemSlot.Holder then
+			Options.DoubleTapSlotSystemSlot.Holder.Visible = isDoubleTap and isDTSlot
+		end
+	end
 	if Options.OutlineTarget then
 		Options.OutlineTarget.Visible = isOutline
 		if Options.OutlineTarget.Holder then
@@ -2007,6 +2078,37 @@ task.spawn(function()
 	if updatePVPModulesVisibility then
 		updatePVPModulesVisibility()
 	end
+end)
+
+local savedKARange = nil
+local savedKASpeed = nil
+Toggles.DoubleDamageBETA:OnChanged(function()
+	if Toggles.DoubleDamageBETA.Value then
+		if Options.KillAuraRange then
+			savedKARange = Options.KillAuraRange.Value
+		end
+		if Options.KillAuraSpeed then
+			savedKASpeed = Options.KillAuraSpeed.Value
+		end
+		if Options.KillAuraRange then
+			Options.KillAuraRange.Value = 5
+		end
+		if Options.KillAuraSpeed then
+			Options.KillAuraSpeed.Value = 1.0
+		end
+		Library:Notify({ Title = "Double Tap(BETA)", Description = "Preset Applied (Range: 5, Speed: 1.0)", Time = 2 })
+	else
+		if savedKARange ~= nil and Options.KillAuraRange then
+			Options.KillAuraRange.Value = savedKARange
+		end
+		if savedKASpeed ~= nil and Options.KillAuraSpeed then
+			Options.KillAuraSpeed.Value = savedKASpeed
+		end
+		savedKARange = nil
+		savedKASpeed = nil
+		Library:Notify({ Title = "Double Tap(BETA)", Description = "Preset Restored", Time = 2 })
+	end
+	updatePVPModulesVisibility()
 end)
 
 local CombatReach = Tabs.Combat:AddRightGroupbox("Advance Reach", "expand")
@@ -4045,7 +4147,8 @@ MoveLeft:AddSlider("SpeedValue", {
 	Min = 16,
 	Max = 50,
 	Rounding = 1,
-	Compact = true,
+	Compact = false,
+	Suffix = " sps",
 })
 
 updateSpeedBoostVisibility = function()
@@ -4356,7 +4459,8 @@ MoveRight:AddSlider("FlySpeed", {
 	Min = 10,
 	Max = 150,
 	Rounding = 0,
-	Compact = true,
+	Compact = false,
+	Suffix = " sps",
 })
 
 MoveRight:AddSlider("InvisibleFlySpeedSlider", {
@@ -4499,8 +4603,54 @@ if LocalPlayer.Character then
 	end
 end
 
+local function updateNoclipVisibility()
+	local isNoclip = (Toggles.Noclip and Toggles.Noclip.Value) or false
+	if Options.ScreenSens then
+		if Options.ScreenSens.Visible ~= nil then
+			Options.ScreenSens.Visible = isNoclip
+		end
+		if Options.ScreenSens.Holder then
+			Options.ScreenSens.Holder.Visible = isNoclip
+		end
+	end
+	if MainLeft and MainLeft.Resize then
+		pcall(function() MainLeft:Resize() end)
+	end
+	if PlayerTabBox and PlayerTabBox.Resize then
+		pcall(function() PlayerTabBox:Resize() end)
+	end
+end
+
+local UserInputService2 = game:GetService("UserInputService")
+local lastDeltaX, lastDeltaY = 0, 0
+
+track("ScreenSens", RunService.RenderStepped:Connect(function(dt)
+	if not Toggles.Noclip or not Toggles.Noclip.Value then return end
+	local mult = Options.ScreenSens and Options.ScreenSens.Value or 1
+	if mult == 1 then return end
+
+	local delta = UserInputService2:GetMouseDelta()
+	local dx = delta.X - lastDeltaX
+	local dy = delta.Y - lastDeltaY
+
+	if math.abs(dx) > 0.01 or math.abs(dy) > 0.01 then
+		local cam = workspace.CurrentCamera
+		if cam then
+			local adjX = dx * (mult - 1)
+			local adjY = dy * (mult - 1)
+			cam.CFrame = cam.CFrame * CFrame.Angles(0, -math.rad(adjX * 0.3), 0)
+			cam.CFrame = CFrame.new(cam.CFrame.Position) * CFrame.Angles(math.rad(adjY * 0.3), 0, 0) * (cam.CFrame - cam.CFrame.Position)
+		end
+	end
+	lastDeltaX = delta.X
+	lastDeltaY = delta.Y
+end))
+
+updateNoclipVisibility()
+
 Toggles.Noclip:OnChanged(function()
 	disconnect("Noclip")
+	updateNoclipVisibility()
 	if Toggles.Noclip.Value then
 		updateNoclipParts(getCharacter())
 		track("Noclip", RunService.Stepped:Connect(function()
@@ -5235,11 +5385,6 @@ OreFarm:AddButton({
    end,
 })
 
-OreFarm:AddCheckbox("OreAutoFarm", {
-	Text = "Ore Auto Farm",
-	Default = false,
-})
-
 -- ==========================================
 -- Aura highlights (one per aura type, created after makeAuraHighlight is defined)
 local hlMine = makeAuraHighlight(Options.HighlightMineColor and Options.HighlightMineColor.Value)
@@ -5472,86 +5617,6 @@ Toggles.AiAura:OnChanged(function()
 		Library:Notify({ Title = "AI Aura", Description = "Enabled", Time = 2 })
 	else
 		isAiAuraRunning = false
-	end
-end)
-
-local oreAutoFarmRunning = false
-
-Toggles.OreAutoFarm:OnChanged(function()
-	disconnect("OreAutoFarm")
-	if Toggles.OreAutoFarm.Value then
-		if not TSG.MineRemote then
-			Library:Notify({ Title = "Ore Auto Farm", Description = "Mine remote not found.", Time = 4 })
-			Toggles.OreAutoFarm:SetValue(false)
-			return
-		end
-		local folder = workspace:FindFirstChild("worldResources") and workspace.worldResources:FindFirstChild("mineable")
-		if not folder then
-			Library:Notify({ Title = "Ore Auto Farm", Description = "Mineable ore folder not found.", Time = 4 })
-			Toggles.OreAutoFarm:SetValue(false)
-			return
-		end
-		oreAutoFarmRunning = true
-		if Toggles.AutoMine and not Toggles.AutoMine.Value then
-			Toggles.AutoMine:SetValue(true)
-		end
-		track("OreAutoFarm", task.spawn(function()
-			while oreAutoFarmRunning do
-				if not isAlive() or not Toggles.OreAutoFarm.Value then
-					break
-				end
-				local root = getRootPart()
-				if not root then
-					task.wait(2)
-					continue
-				end
-				local curFolder = workspace:FindFirstChild("worldResources") and workspace.worldResources:FindFirstChild("mineable")
-				if not curFolder then
-					task.wait(2)
-					continue
-				end
-				local ores = {}
-				for _, subfolder in ipairs(curFolder:GetChildren()) do
-					if subfolder:IsA("Folder") then
-						for _, obj in ipairs(subfolder:GetChildren()) do
-							local part = obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
-							if part then
-								table.insert(ores, { obj = obj, part = part })
-							end
-						end
-					end
-				end
-				if #ores == 0 then
-					task.wait(2)
-					continue
-				end
-				for _, entry in ipairs(ores) do
-					if not oreAutoFarmRunning or not Toggles.OreAutoFarm.Value then
-						break
-					end
-					local r = getRootPart()
-					if r and entry.part and entry.obj and entry.obj.Parent then
-						pcall(function()
-							r.CFrame = CFrame.new(entry.part.Position + Vector3.new(0, 6, 0))
-						end)
-						mineObject(entry.obj)
-					end
-					local elapsed = 0
-					while elapsed < 2 and oreAutoFarmRunning and Toggles.OreAutoFarm.Value do
-						local step = task.wait(0.1)
-						elapsed += step
-					end
-				end
-			end
-			oreAutoFarmRunning = false
-		end))
-		Library:Notify({ Title = "Ore Auto Farm", Description = "Enabled", Time = 2 })
-	else
-		oreAutoFarmRunning = false
-		if Toggles.AutoMine and Toggles.AutoMine.Value then
-			Toggles.AutoMine:SetValue(false)
-		end
-		Library:Notify({ Title = "Ore Auto Farm", Description = "Disabled", Time = 2 })
 	end
 end)
 
