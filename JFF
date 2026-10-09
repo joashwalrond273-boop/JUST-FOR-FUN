@@ -5243,7 +5243,7 @@ local goldLocations = {
 	{ name = "Gold 10", pos = Vector3.new(-2015.67, 30.73, -39.95)  },
 	{ name = "Gold 11", pos = Vector3.new(-912.17, 125.72, -408.72) },
 	{ name = "Gold 12", pos = Vector3.new(-264.65, 47.32,  1427.81) },
-    { name = "Gold 13", pos = Vector3.new(245.51,  45.00,  460.77)  },
+	{ name = "Gold 13", pos = Vector3.new(245.51,  45.00,  460.77)  },
 	{ name = "Gold 14", pos = Vector3.new(-1261.77, 43.72, 6281.94) },
 	{ name = "Gold 15", pos = Vector3.new(-1765.08, 95.91, 7158.15) },
 	{ name = "Gold 16", pos = Vector3.new(1686.60, 41.64, -917.39)  },
@@ -5265,60 +5265,69 @@ local goldLocations = {
 	{ name = "Coal 12", pos = Vector3.new(11.22, 36.86, -1008.32)   },
 }
 
-local function filterLocations(prefix)
-	local names = {}
-	for _, loc in ipairs(goldLocations) do
-		if loc.name:sub(1, #prefix) == prefix then
-			table.insert(names, loc.name)
-		end
+local goldFarmCycleRunning = false
+local goldFarmCycleIndex = 1
+local goldFarmCycleThread = nil
+
+local function stopGoldFarmCycle()
+	goldFarmCycleRunning = false
+	if goldFarmCycleThread then
+		pcall(function() task.cancel(goldFarmCycleThread) end)
+		goldFarmCycleThread = nil
 	end
-	return names
+	Library:Notify({ Title = "Gold Farm", Description = "Cycle stopped.", Time = 1.5 })
 end
 
-OreFarm:AddDropdown("SelectOreDropdown", {
-	Text = "Select Ore",
-	Values = { "Gold", "Coal" },
-	Default = "Gold",
-})
-
-OreFarm:AddDropdown("GoldLocationsDropdown", {
-	Text = "Select Ore Location",
-	Values = filterLocations("Gold"),
-	Default = "Gold 1",
-})
-
-Options.SelectOreDropdown:OnChanged(function()
-	local value = Options.SelectOreDropdown.Value
-	local filtered = filterLocations(value)
-	Options.GoldLocationsDropdown:SetValues(filtered)
-	if value == "Gold" then
-		Options.GoldLocationsDropdown:SetValue("Gold 1")
-	elseif value == "Coal" then
-		Options.GoldLocationsDropdown:SetValue("Coal 1")
+local function startGoldFarmCycle()
+	if goldFarmCycleRunning then
+		stopGoldFarmCycle()
+		return
 	end
-end)
+	goldFarmCycleRunning = true
+	goldFarmCycleIndex = 1
+	Library:Notify({ Title = "Gold Farm", Description = "Cycle started. Visiting " .. tostring(#goldLocations) .. " locations.", Time = 2 })
+	goldFarmCycleThread = task.spawn(function()
+		while goldFarmCycleRunning do
+			local loc = goldLocations[goldFarmCycleIndex]
+			if loc then
+				local root = getRootPart()
+				if root then
+					root.CFrame = CFrame.new(loc.pos)
+				end
+			end
+			goldFarmCycleIndex = goldFarmCycleIndex + 1
+			if goldFarmCycleIndex > #goldLocations then
+				goldFarmCycleIndex = 1
+			end
+			for i = 1, 20 do
+				if not goldFarmCycleRunning then return end
+				task.wait(0.1)
+			end
+		end
+	end)
+end
+
+OreFarm:AddToggle("GoldFarmCycle", {
+	Text = "Gold Farm Cycle",
+	Default = false,
+	Callback = function(state)
+		if state then
+			startGoldFarmCycle()
+		else
+			stopGoldFarmCycle()
+		end
+	end,
+})
 
 OreFarm:AddButton({
-	Text = "Teleport to Selected",
+	Text = "Stop Cycle",
 	Func = function()
-           local selected = Options.GoldLocationsDropdown.Value
-           local targetPos = nil
-           for _, loc in ipairs(goldLocations) do
-                   if loc.name == selected then
-                           targetPos = loc.pos
-                           break
-                   end
-           end
-           if targetPos then
-                   local root = getRootPart()
-                   if root then
-                           root.CFrame = CFrame.new(targetPos)
-                           Library:Notify({ Title = "Teleport", Description = "Teleported to " .. selected, Time = 1.5 })
-                   else
-                           Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
-                   end
-           end
-   end,
+		if Toggles.GoldFarmCycle then
+			Toggles.GoldFarmCycle:SetValue(false)
+		else
+			stopGoldFarmCycle()
+		end
+	end,
 })
 
 -- ==========================================
