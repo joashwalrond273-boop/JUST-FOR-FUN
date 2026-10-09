@@ -4485,11 +4485,6 @@ MoveMountAura:AddCheckbox("MountFly", {
 	Default = false,
 })
 
-MoveMountAura:AddCheckbox("MountWaterWalk", {
-	Text = "Mount Water Walk",
-	Default = false,
-})
-
 MoveMountAura:AddSlider("MountSpeedValue", {
 	Text = "Mount Speed Value",
 	Default = 35,
@@ -4939,93 +4934,6 @@ Toggles.MountFly:OnChanged(function()
 		end
 		Library:Notify({ Title = "Mount Fly", Description = "Disabled", Time = 2 })
 	end
-end)
-
-local mountWaterPlatform = nil
-
-local function destroyMountWaterPlatform()
-	disconnect("MountWaterWalk")
-	if mountWaterPlatform then
-		pcall(function() mountWaterPlatform:Destroy() end)
-		mountWaterPlatform = nil
-	end
-end
-
-Toggles.MountWaterWalk:OnChanged(function()
-	destroyMountWaterPlatform()
-	if not Toggles.MountWaterWalk.Value then
-		Library:Notify({ Title = "Mount Water Walk", Description = "Disabled", Time = 2 })
-		return
-	end
-
-	local HeightLookup = nil
-	pcall(function()
-		HeightLookup = require(game:GetService("ReplicatedStorage")
-			:WaitForChild("Gerstner")
-			:WaitForChild("HeightLookup"))
-	end)
-
-	pcall(function()
-		mountWaterPlatform = Instance.new("Part")
-		mountWaterPlatform.Name = "MountWaterPlatform"
-		mountWaterPlatform.Anchored = true
-		mountWaterPlatform.Size = Vector3.new(12, 1, 12)
-		mountWaterPlatform.Transparency = 1
-		mountWaterPlatform.CanCollide = true
-		mountWaterPlatform.CanTouch = false
-		mountWaterPlatform.CanQuery = false
-		mountWaterPlatform.Parent = workspace
-	end)
-
-	if not mountWaterPlatform then
-		Toggles.MountWaterWalk:SetValue(false)
-		return
-	end
-
-	Library:Notify({ Title = "Mount Water Walk", Description = "Enabled", Time = 2 })
-
-	track("MountWaterWalk", RunService.Heartbeat:Connect(function()
-		if not isAlive() then return end
-		local mountModel, seat = getCurrentMount()
-		if not mountModel or not mountWaterPlatform then
-			if mountWaterPlatform then
-				mountWaterPlatform.Position = Vector3.new(0, -500, 0)
-			end
-			return
-		end
-
-		local mountRoot = mountModel.PrimaryPart or mountModel:FindFirstChild("HumanoidRootPart") or seat
-		if not mountRoot then return end
-
-		local pos = mountRoot.Position
-		local waterHeight = nil
-
-		if HeightLookup then
-			local ok, h = pcall(function()
-				return HeightLookup.Lookup(pos, "PRECISE", false)
-			end)
-			if ok and typeof(h) == "number" then
-				waterHeight = h
-			end
-		end
-
-		if not waterHeight then
-			waterHeight = 0
-		end
-
-		if pos.Y < waterHeight + 10 then
-			mountWaterPlatform.CFrame = CFrame.new(pos.X, waterHeight + 0.5, pos.Z)
-			if pos.Y < waterHeight - 0.5 then
-				mountRoot.AssemblyLinearVelocity = Vector3.new(
-					mountRoot.AssemblyLinearVelocity.X,
-					math.max(mountRoot.AssemblyLinearVelocity.Y, 15),
-					mountRoot.AssemblyLinearVelocity.Z
-				)
-			end
-		else
-			mountWaterPlatform.Position = Vector3.new(0, -500, 0)
-		end
-	end))
 end)
 
 local antiAfkConn = nil
