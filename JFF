@@ -5288,39 +5288,14 @@ OreFarm:AddDropdown("GoldLocationsDropdown", {
 })
 
 OreFarm:AddCheckbox("OreFarmAutoReset", {
-	Text = "Auto Reset",
+	Text = "Auto Reset (Cycle All)",
 	Default = false,
-})
-
-OreFarm:AddDivider()
-
-OreFarm:AddToggle("OreRouteCycle", {
-	Text = "Ore Route Cycle",
-	Default = false,
-})
-
-OreFarm:AddDropdown("OreRouteLocations", {
-	Text = "Cycle Locations",
-	Values = filterLocations("Gold"),
-	Default = filterLocations("Gold"),
-	Multi = true,
-})
-
-OreFarm:AddSlider("OreRouteInterval", {
-	Text = "Cycle Interval (s)",
-	Default = 2,
-	Min = 1,
-	Max = 15,
-	Rounding = 1,
-	Compact = true,
 })
 
 Options.SelectOreDropdown:OnChanged(function()
 	local value = Options.SelectOreDropdown.Value
 	local filtered = filterLocations(value)
 	Options.GoldLocationsDropdown:SetValues(filtered)
-	Options.OreRouteLocations:SetValues(filtered)
-	Options.OreRouteLocations:SetValue(filtered)
 	if value == "Gold" then
 		Options.GoldLocationsDropdown:SetValue("Gold 1")
 	elseif value == "Coal" then
@@ -5328,86 +5303,157 @@ Options.SelectOreDropdown:OnChanged(function()
 	end
 end)
 
-local function findLocationPos(name)
-	for _, loc in ipairs(goldLocations) do
-		if loc.name == name then
-			return loc.pos
-		end
+local oreResetCycle = {
+	running = false,
+	list = {},
+	index = 1,
+	nextStepAt = 0,
+	holdSeconds = 3,
+	pendingStep = nil,
+}
+
+local function resolveResetRemote()
+	local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
+	if not remoteInterface then
+		return nil
 	end
-	return nil
+	local characterFolder = remoteInterface:FindFirstChild("character")
+	if not characterFolder then
+		return nil
+	end
+	return characterFolder:FindFirstChild("reset")
 end
 
-local pendingAutoResetTarget = nil
-
-local function spawnPendingAutoReset()
-	if not pendingAutoResetTarget then
+local function applyPendingResetSpawn()
+	local step = oreResetCycle.pendingStep
+	if not step then
 		return
 	end
-	local targetPos = pendingAutoResetTarget.pos
-	local selected = pendingAutoResetTarget.name
+	oreResetCycle.pendingStep = nil
 
 	task.defer(function()
 		local root = nil
-		for _ = 1, 80 do
-			local r = getRootPart()
-			if r then
-				root = r
+		for i = 1, 100 do
+			root = getRootPart()
+			if root then
 				break
 			end
 			task.wait(0.05)
 		end
 		if root then
 			pcall(function()
-				root.CFrame = CFrame.new(targetPos)
+				root.CFrame = CFrame.new(step.pos)
 			end)
-			Library:Notify({ Title = "Teleport", Description = "Respawned at " .. selected, Time = 1.5 })
+			Library:Notify({
+				Title = "Auto Reset Cycle",
+				Description = string.format("[%d/%d] %s", step.index, step.total, step.name),
+				Time = 1.5,
+			})
+			oreResetCycle.nextStepAt = tick() + oreResetCycle.holdSeconds
 		else
-			Library:Notify({ Title = "Teleport", Description = "Respawn failed: no root part.", Time = 3 })
+			oreResetCycle.running = false
+			Library:Notify({ Title = "Auto Reset Cycle", Description = "Aborted: no root part.", Time = 3 })
 		end
-		pendingAutoResetTarget = nil
 	end)
 end
 
-track("OreFarm_CharAdded", LocalPlayer.CharacterAdded:Connect(function()
-	spawnPendingAutoReset()
+track("OreResetCycle_CharAdded", LocalPlayer.CharacterAdded:Connect(function()
+	applyPendingResetSpawn()
+end))
+
+track("OreResetCycle_Loop", RunService.Heartbeat:Connect(function()
+	if not oreResetCycle.running then
+		return
+	end
+	if oreResetCycle.pendingStep then
+		return
+	end
+	if tick() < oreResetCycle.nextStepAt then
+		return
+	end
+	if not isAlive() then
+		return
+	end
+
+	local list = oreResetCycle.list
+	local idx = oreResetCycle.index
+	if idx < 1 or idx > #list then
+		oreResetCycle.running = false
+		Library:Notify({ Title = "Auto Reset Cycle", Description = "Done — visited all locations.", Time = 3 })
+		return
+	end
+
+	local current = list[idx]
+	local resetRemote = resolveResetRemote()
+	if not resetRemote then
+		oreResetCycle.running = false
+		Library:Notify({ Title = "Auto Reset Cycle", Description = "Aborted: reset remote missing.", Time = 3 })
+		return
+	end
+
+	local prevRoot = getRootPart()
+	if prevRoot then
+		lastDeathPosition = prevRoot.Position
+	end
+
+	oreResetCycle.pendingStep = {
+		name = current.name,
+		pos = current.pos,
+		index = idx,
+		total = #list,
+	}
+	applyPendingResetSpawn()
+
+	pcall(function()
+		resetRemote:InvokeServer()
+	end)
+
+	oreResetCycle.index = idx + 1
 end))
 
 OreFarm:AddButton({
 	Text = "Teleport to Selected",
 	Func = function()
 		local selected = Options.GoldLocationsDropdown.Value
-		local targetPos = findLocationPos(selected)
+		local targetPos = nil
+		for _, loc in ipairs(goldLocations) do
+			if loc.name == selected then
+				targetPos = loc.pos
+				break
+			end
+		end
 		if not targetPos then
 			return
 		end
 
 		local useAutoReset = Toggles.OreFarmAutoReset and Toggles.OreFarmAutoReset.Value or false
 		if useAutoReset then
-			local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
-			local resetRemote = nil
-			if remoteInterface then
-				local characterFolder = remoteInterface:FindFirstChild("character")
-				if characterFolder then
-					resetRemote = characterFolder:FindFirstChild("reset")
+			local selectedType = Options.SelectOreDropdown and Options.SelectOreDropdown.Value or "Gold"
+			local filteredNames = filterLocations(selectedType)
+			local orderedList = {}
+			for _, name in ipairs(filteredNames) do
+				for _, loc in ipairs(goldLocations) do
+					if loc.name == name then
+						table.insert(orderedList, loc)
+						break
+					end
 				end
 			end
-			if not resetRemote then
-				Library:Notify({ Title = "Teleport", Description = "Reset remote not found.", Time = 3 })
+			if #orderedList == 0 then
+				Library:Notify({ Title = "Auto Reset Cycle", Description = "No locations found.", Time = 3 })
 				return
 			end
 
-			local prevRoot = getRootPart()
-			if prevRoot then
-				lastDeathPosition = prevRoot.Position
-			end
-
-			pendingAutoResetTarget = { name = selected, pos = targetPos }
-			spawnPendingAutoReset()
-
-			pcall(function()
-				resetRemote:InvokeServer()
-			end)
-			Library:Notify({ Title = "Teleport", Description = "Resetting to " .. selected .. "...", Time = 1.5 })
+			oreResetCycle.list = orderedList
+			oreResetCycle.index = 1
+			oreResetCycle.nextStepAt = 0
+			oreResetCycle.pendingStep = nil
+			oreResetCycle.running = true
+			Library:Notify({
+				Title = "Auto Reset Cycle",
+				Description = string.format("Started — %d locations, %ds hold each.", #orderedList, oreResetCycle.holdSeconds),
+				Time = 3,
+			})
 		else
 			local root = getRootPart()
 			if root then
@@ -5420,65 +5466,10 @@ OreFarm:AddButton({
 	end,
 })
 
-local oreRouteIndex = 1
-local lastOreRouteTeleport = 0
-
-Toggles.OreRouteCycle:OnChanged(function()
-	disconnect("OreRouteCycle")
-	if Toggles.OreRouteCycle.Value then
-		oreRouteIndex = 1
-		lastOreRouteTeleport = 0
-		track("OreRouteCycle", RunService.Heartbeat:Connect(function()
-			if not isAlive() then
-				return
-			end
-			local interval = Options.OreRouteInterval and Options.OreRouteInterval.Value or 2
-			if tick() - lastOreRouteTeleport < interval then
-				return
-			end
-
-			local selectedOreType = Options.SelectOreDropdown and Options.SelectOreDropdown.Value or "Gold"
-			local cycleLocs = Options.OreRouteLocations and Options.OreRouteLocations.Value or {}
-			local filtered = filterLocations(selectedOreType)
-
-			local orderList = {}
-			local chosenSet = {}
-			for _, name in ipairs(cycleLocs) do
-				if table.find(filtered, name) then
-					table.insert(orderList, name)
-					chosenSet[name] = true
-				end
-			end
-			if #orderList == 0 then
-				for _, name in ipairs(filtered) do
-					table.insert(orderList, name)
-				end
-			end
-			if #orderList == 0 then
-				return
-			end
-			if oreRouteIndex < 1 or oreRouteIndex > #orderList then
-				oreRouteIndex = 1
-			end
-
-			local currentName = orderList[oreRouteIndex]
-			local targetPos = findLocationPos(currentName)
-			if targetPos then
-				local root = getRootPart()
-				if root then
-					root.CFrame = CFrame.new(targetPos)
-				end
-			end
-
-			oreRouteIndex = oreRouteIndex + 1
-			if oreRouteIndex > #orderList then
-				oreRouteIndex = 1
-			end
-			lastOreRouteTeleport = tick()
-		end))
-		Library:Notify({ Title = "Ore Route Cycle", Description = "Enabled", Time = 2 })
-	else
-		Library:Notify({ Title = "Ore Route Cycle", Description = "Disabled", Time = 2 })
+Toggles.OreFarmAutoReset:OnChanged(function()
+	if not Toggles.OreFarmAutoReset.Value then
+		oreResetCycle.running = false
+		oreResetCycle.pendingStep = nil
 	end
 end)
 
