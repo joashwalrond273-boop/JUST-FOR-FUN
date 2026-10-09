@@ -5292,10 +5292,35 @@ OreFarm:AddCheckbox("OreFarmAutoReset", {
 	Default = false,
 })
 
+OreFarm:AddDivider()
+
+OreFarm:AddToggle("OreRouteCycle", {
+	Text = "Ore Route Cycle",
+	Default = false,
+})
+
+OreFarm:AddDropdown("OreRouteLocations", {
+	Text = "Cycle Locations",
+	Values = filterLocations("Gold"),
+	Default = filterLocations("Gold"),
+	Multi = true,
+})
+
+OreFarm:AddSlider("OreRouteInterval", {
+	Text = "Cycle Interval (s)",
+	Default = 2,
+	Min = 1,
+	Max = 15,
+	Rounding = 1,
+	Compact = true,
+})
+
 Options.SelectOreDropdown:OnChanged(function()
 	local value = Options.SelectOreDropdown.Value
 	local filtered = filterLocations(value)
 	Options.GoldLocationsDropdown:SetValues(filtered)
+	Options.OreRouteLocations:SetValues(filtered)
+	Options.OreRouteLocations:SetValue(filtered)
 	if value == "Gold" then
 		Options.GoldLocationsDropdown:SetValue("Gold 1")
 	elseif value == "Coal" then
@@ -5303,17 +5328,55 @@ Options.SelectOreDropdown:OnChanged(function()
 	end
 end)
 
+local function findLocationPos(name)
+	for _, loc in ipairs(goldLocations) do
+		if loc.name == name then
+			return loc.pos
+		end
+	end
+	return nil
+end
+
+local pendingAutoResetTarget = nil
+
+local function spawnPendingAutoReset()
+	if not pendingAutoResetTarget then
+		return
+	end
+	local targetPos = pendingAutoResetTarget.pos
+	local selected = pendingAutoResetTarget.name
+
+	task.defer(function()
+		local root = nil
+		for _ = 1, 80 do
+			local r = getRootPart()
+			if r then
+				root = r
+				break
+			end
+			task.wait(0.05)
+		end
+		if root then
+			pcall(function()
+				root.CFrame = CFrame.new(targetPos)
+			end)
+			Library:Notify({ Title = "Teleport", Description = "Respawned at " .. selected, Time = 1.5 })
+		else
+			Library:Notify({ Title = "Teleport", Description = "Respawn failed: no root part.", Time = 3 })
+		end
+		pendingAutoResetTarget = nil
+	end)
+end
+
+track("OreFarm_CharAdded", LocalPlayer.CharacterAdded:Connect(function()
+	spawnPendingAutoReset()
+end))
+
 OreFarm:AddButton({
 	Text = "Teleport to Selected",
 	Func = function()
 		local selected = Options.GoldLocationsDropdown.Value
-		local targetPos = nil
-		for _, loc in ipairs(goldLocations) do
-			if loc.name == selected then
-				targetPos = loc.pos
-				break
-			end
-		end
+		local targetPos = findLocationPos(selected)
 		if not targetPos then
 			return
 		end
@@ -5338,33 +5401,8 @@ OreFarm:AddButton({
 				lastDeathPosition = prevRoot.Position
 			end
 
-			local conn = nil
-			conn = LocalPlayer.CharacterAdded:Connect(function(newChar)
-				pcall(function()
-					if conn then
-						conn:Disconnect()
-						conn = nil
-					end
-				end)
-				task.defer(function()
-					local root = nil
-					local tries = 0
-					while tries < 40 do
-						root = newChar:FindFirstChild("HumanoidRootPart")
-						if root then
-							break
-						end
-						tries = tries + 1
-						task.wait(0.05)
-					end
-					if root then
-						root.CFrame = CFrame.new(targetPos)
-						Library:Notify({ Title = "Teleport", Description = "Respawned at " .. selected, Time = 1.5 })
-					else
-						Library:Notify({ Title = "Teleport", Description = "Respawn failed: no root part.", Time = 3 })
-					end
-				end)
-			end)
+			pendingAutoResetTarget = { name = selected, pos = targetPos }
+			spawnPendingAutoReset()
 
 			pcall(function()
 				resetRemote:InvokeServer()
@@ -5381,6 +5419,68 @@ OreFarm:AddButton({
 		end
 	end,
 })
+
+local oreRouteIndex = 1
+local lastOreRouteTeleport = 0
+
+Toggles.OreRouteCycle:OnChanged(function()
+	disconnect("OreRouteCycle")
+	if Toggles.OreRouteCycle.Value then
+		oreRouteIndex = 1
+		lastOreRouteTeleport = 0
+		track("OreRouteCycle", RunService.Heartbeat:Connect(function()
+			if not isAlive() then
+				return
+			end
+			local interval = Options.OreRouteInterval and Options.OreRouteInterval.Value or 2
+			if tick() - lastOreRouteTeleport < interval then
+				return
+			end
+
+			local selectedOreType = Options.SelectOreDropdown and Options.SelectOreDropdown.Value or "Gold"
+			local cycleLocs = Options.OreRouteLocations and Options.OreRouteLocations.Value or {}
+			local filtered = filterLocations(selectedOreType)
+
+			local orderList = {}
+			local chosenSet = {}
+			for _, name in ipairs(cycleLocs) do
+				if table.find(filtered, name) then
+					table.insert(orderList, name)
+					chosenSet[name] = true
+				end
+			end
+			if #orderList == 0 then
+				for _, name in ipairs(filtered) do
+					table.insert(orderList, name)
+				end
+			end
+			if #orderList == 0 then
+				return
+			end
+			if oreRouteIndex < 1 or oreRouteIndex > #orderList then
+				oreRouteIndex = 1
+			end
+
+			local currentName = orderList[oreRouteIndex]
+			local targetPos = findLocationPos(currentName)
+			if targetPos then
+				local root = getRootPart()
+				if root then
+					root.CFrame = CFrame.new(targetPos)
+				end
+			end
+
+			oreRouteIndex = oreRouteIndex + 1
+			if oreRouteIndex > #orderList then
+				oreRouteIndex = 1
+			end
+			lastOreRouteTeleport = tick()
+		end))
+		Library:Notify({ Title = "Ore Route Cycle", Description = "Enabled", Time = 2 })
+	else
+		Library:Notify({ Title = "Ore Route Cycle", Description = "Disabled", Time = 2 })
+	end
+end)
 
 -- ==========================================
 -- Aura highlights (one per aura type, created after makeAuraHighlight is defined)
