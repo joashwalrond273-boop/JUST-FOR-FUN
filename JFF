@@ -5364,9 +5364,37 @@ local function mineObject(obj)
 	local slot = tonumber(Options.AutoMineSlot.Value) or 1
 	if obj and obj.PrimaryPart then
 		updateHighlight(hlMine, obj, Toggles.HighlightMine.Value)
+		local root = getRootPart()
+		local origCFrame = root and root.CFrame or nil
+		local didTeleport = false
+		local part = obj.PrimaryPart
+		if root and part then
+			local d = (root.Position - part.Position).Magnitude
+			if d > 6 then
+				local flatDir = (root.Position - part.Position)
+				flatDir = Vector3.new(flatDir.X, 0, flatDir.Z)
+				local targetPos
+				if flatDir.Magnitude > 0.001 then
+					targetPos = part.Position + flatDir.Unit * 4
+				else
+					targetPos = part.Position + Vector3.new(4, 0, 0)
+				end
+				targetPos = Vector3.new(targetPos.X, part.Position.Y + 3, targetPos.Z)
+				root.CFrame = CFrame.new(targetPos)
+				didTeleport = true
+				task.wait()
+			end
+		end
 		pcall(function()
-			TSG.MineRemote:FireServer(slot, obj, CFrame.new(obj.PrimaryPart.Position))
+			TSG.MineRemote:FireServer(slot, obj, CFrame.new((part and part.Position) or obj.PrimaryPart.Position))
 		end)
+		if didTeleport and origCFrame then
+			task.wait(0.05)
+			pcall(function()
+				local r = getRootPart()
+				if r then r.CFrame = origCFrame end
+			end)
+		end
 	end
 end
 
@@ -5378,20 +5406,16 @@ local function autoMine()
 	if not root then return end
 	local folder = workspace:FindFirstChild("worldResources") and workspace.worldResources:FindFirstChild("mineable")
 	if not folder then return end
-	local rawRange = (Options.AutoMineRange and Options.AutoMineRange.Value) or 30
-	local effectiveRange = rawRange + 10
-	local maxVerticalDelta = math.max(rawRange * 1.5, 40)
+	local rawRange = (Options.AutoMineRange and Options.AutoMineRange.Value) or 40
+	local effectiveRange = rawRange * 1.5
 	local closest, dist = nil, effectiveRange
 	for _, subfolder in ipairs(folder:GetChildren()) do
 		if subfolder:IsA("Folder") then
 			for _, obj in ipairs(subfolder:GetChildren()) do
 				if obj.PrimaryPart then
-					local delta = root.Position - obj.PrimaryPart.Position
-					if math.abs(delta.Y) <= maxVerticalDelta then
-						local d = delta.Magnitude
-						if d < dist then
-							closest, dist = obj, d
-						end
+					local d = (root.Position - obj.PrimaryPart.Position).Magnitude
+					if d < dist then
+						closest, dist = obj, d
 					end
 				end
 			end
@@ -5527,9 +5551,36 @@ local function chopObject(obj)
 	local part = getChopTargetPart(obj)
 	if part then
 		updateHighlight(hlChop, obj, Toggles.HighlightChop.Value)
+		local root = getRootPart()
+		local origCFrame = root and root.CFrame or nil
+		local didTeleport = false
+		if root then
+			local d = (root.Position - part.Position).Magnitude
+			if d > 6 then
+				local flatDir = (root.Position - part.Position)
+				flatDir = Vector3.new(flatDir.X, 0, flatDir.Z)
+				local targetPos
+				if flatDir.Magnitude > 0.001 then
+					targetPos = part.Position + flatDir.Unit * 4
+				else
+					targetPos = part.Position + Vector3.new(4, 0, 0)
+				end
+				targetPos = Vector3.new(targetPos.X, part.Position.Y + 3, targetPos.Z)
+				root.CFrame = CFrame.new(targetPos)
+				didTeleport = true
+				task.wait()
+			end
+		end
 		pcall(function()
 			TSG.ChopRemote:FireServer(slot, obj, part.CFrame)
 		end)
+		if didTeleport and origCFrame then
+			task.wait(0.05)
+			pcall(function()
+				local r = getRootPart()
+				if r then r.CFrame = origCFrame end
+			end)
+		end
 	end
 end
 
@@ -5541,21 +5592,17 @@ local function autoChop()
 	if not root then return end
 	local folder = workspace:FindFirstChild("worldResources") and workspace.worldResources:FindFirstChild("choppable")
 	if not folder then return end
-	local rawRange = (Options.AutoChopRange and Options.AutoChopRange.Value) or 30
-	local effectiveRange = rawRange + 10
-	local maxVerticalDelta = math.max(rawRange * 1.5, 40)
+	local rawRange = (Options.AutoChopRange and Options.AutoChopRange.Value) or 40
+	local effectiveRange = rawRange * 1.5
 	local closest, dist = nil, effectiveRange
 	for _, subfolder in ipairs(folder:GetChildren()) do
 		if subfolder:IsA("Folder") then
 			for _, obj in ipairs(subfolder:GetChildren()) do
 				local part = getChopTargetPart(obj)
 				if part then
-					local delta = root.Position - part.Position
-					if math.abs(delta.Y) <= maxVerticalDelta then
-						local d = delta.Magnitude
-						if d < dist then
-							closest, dist = obj, d
-						end
+					local d = (root.Position - part.Position).Magnitude
+					if d < dist then
+						closest, dist = obj, d
 					end
 				end
 			end
