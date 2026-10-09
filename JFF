@@ -5079,9 +5079,9 @@ FarmMine:AddDropdown("AutoMineSlotSystemSlot", {
 
 FarmMine:AddSlider("AutoMineRange", {
 	Text = "Range",
-	Default = 30,
+	Default = 40,
 	Min = 5,
-	Max = 60,
+	Max = 200,
 	Rounding = 1,
 	Compact = true,
 })
@@ -5122,9 +5122,9 @@ FarmChop:AddDropdown("AutoChopSlotSystemSlot", {
 
 FarmChop:AddSlider("AutoChopRange", {
 	Text = "Range",
-	Default = 30,
+	Default = 40,
 	Min = 5,
-	Max = 60,
+	Max = 200,
 	Rounding = 1,
 	Compact = true,
 })
@@ -5378,15 +5378,20 @@ local function autoMine()
 	if not root then return end
 	local folder = workspace:FindFirstChild("worldResources") and workspace.worldResources:FindFirstChild("mineable")
 	if not folder then return end
-	local maxRange = (Options.AutoMineRange and Options.AutoMineRange.Value) or 30
-	local closest, dist = nil, maxRange
+	local rawRange = (Options.AutoMineRange and Options.AutoMineRange.Value) or 30
+	local effectiveRange = rawRange + 10
+	local maxVerticalDelta = math.max(rawRange * 1.5, 40)
+	local closest, dist = nil, effectiveRange
 	for _, subfolder in ipairs(folder:GetChildren()) do
 		if subfolder:IsA("Folder") then
 			for _, obj in ipairs(subfolder:GetChildren()) do
 				if obj.PrimaryPart then
-					local d = (root.Position - obj.PrimaryPart.Position).Magnitude
-					if d < dist then
-						closest, dist = obj, d
+					local delta = root.Position - obj.PrimaryPart.Position
+					if math.abs(delta.Y) <= maxVerticalDelta then
+						local d = delta.Magnitude
+						if d < dist then
+							closest, dist = obj, d
+						end
 					end
 				end
 			end
@@ -5536,16 +5541,21 @@ local function autoChop()
 	if not root then return end
 	local folder = workspace:FindFirstChild("worldResources") and workspace.worldResources:FindFirstChild("choppable")
 	if not folder then return end
-	local maxRange = (Options.AutoChopRange and Options.AutoChopRange.Value) or 30
-	local closest, dist = nil, maxRange
+	local rawRange = (Options.AutoChopRange and Options.AutoChopRange.Value) or 30
+	local effectiveRange = rawRange + 10
+	local maxVerticalDelta = math.max(rawRange * 1.5, 40)
+	local closest, dist = nil, effectiveRange
 	for _, subfolder in ipairs(folder:GetChildren()) do
 		if subfolder:IsA("Folder") then
 			for _, obj in ipairs(subfolder:GetChildren()) do
 				local part = getChopTargetPart(obj)
 				if part then
-					local d = getFlatDistance(root.Position, part.Position)
-					if d < dist then
-						closest, dist = obj, d
+					local delta = root.Position - part.Position
+					if math.abs(delta.Y) <= maxVerticalDelta then
+						local d = delta.Magnitude
+						if d < dist then
+							closest, dist = obj, d
+						end
 					end
 				end
 			end
