@@ -2630,6 +2630,8 @@ local function killAuraLoop()
 	end
 end
 
+
+
 Toggles.KillAura:OnChanged(function()
 	disconnect("KillAura")
 	if updateKillAuraVisibility then
