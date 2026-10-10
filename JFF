@@ -688,11 +688,6 @@ MainLeft:AddCheckbox("FastPickup", {
 	Default = false,
 })
 
-MainLeft:AddCheckbox("VacuumPickup", {
-	Text = "Vacuum (Far Reach)",
-	Default = false,
-})
-
 MainLeft:AddSlider("AutoPickupRange", {
 	Text = "Pickup Range",
 	Default = 20,
@@ -713,12 +708,6 @@ updateAutoPickupVisibility = function()
 		Options.AutoPickupRange.Visible = isPickup
 		if Options.AutoPickupRange.Holder then
 			Options.AutoPickupRange.Holder.Visible = isPickup
-		end
-	end
-	if Toggles.VacuumPickup then
-		Toggles.VacuumPickup.Visible = isPickup
-		if Toggles.VacuumPickup.Holder then
-			Toggles.VacuumPickup.Holder.Visible = isPickup
 		end
 	end
 	if MainLeft.Resize then
@@ -1193,15 +1182,9 @@ local lastAutoPickup = 0
 local AUTO_PICKUP_RANGE = 20
 local AUTO_PICKUP_COOLDOWN = 0
 
-local function canAutoPickup(item, isVacuum)
+local function canAutoPickup(item)
 	if not item:IsA("BasePart") or not item:GetAttribute("itemId") then
 		return false
-	end
-	if not isVacuum then
-		local owner = item:GetAttribute("owner")
-		if owner and owner ~= LocalPlayer.UserId then
-			return false
-		end
 	end
 	local from = item:GetAttribute("from")
 	local spawnTime = droppedItemSpawnTimes[item] or 0
@@ -1224,18 +1207,12 @@ local function trackDroppedItem(item)
 	if Toggles and Toggles.FastPickup and Toggles.FastPickup.Value and isAlive() and TSG.PickupRemote then
 		local root = getRootPart()
 		if root then
-			local isVacuum = (Toggles.VacuumPickup and Toggles.VacuumPickup.Value) or false
 			local maxRange = (Options and Options.AutoPickupRange and Options.AutoPickupRange.Value) or AUTO_PICKUP_RANGE
-			if isVacuum and maxRange < 100 then
-				maxRange = 100
-			end
 			task.defer(function()
-				if item and item.Parent and canAutoPickup(item, isVacuum) then
+				if item and item.Parent and canAutoPickup(item) then
 					local dist = (item.Position - root.Position).Magnitude
 					if dist <= maxRange then
-						if isVacuum then
-							pcall(function() item.CFrame = root.CFrame end)
-						end
+						pcall(function() item.CFrame = root.CFrame end)
 						pcall(TSG.PickupRemote.FireServer, TSG.PickupRemote, item)
 					end
 				end
@@ -1261,17 +1238,13 @@ local function tryAutoPickup()
 		return
 	end
 
-	local isVacuum = (Toggles.VacuumPickup and Toggles.VacuumPickup.Value) or false
 	local maxRange = (Options.AutoPickupRange and Options.AutoPickupRange.Value) or AUTO_PICKUP_RANGE
-	if isVacuum and maxRange < 100 then
-		maxRange = 100
-	end
 
 	local rootPos = root.Position
 	local candidateItems = {}
 
 	for _, item in ipairs(CollectionService:GetTagged("DROPPED_ITEM")) do
-		if item and item.Parent and canAutoPickup(item, isVacuum) then
+		if item and item.Parent and canAutoPickup(item) then
 			local dist = (item.Position - rootPos).Magnitude
 			if dist <= maxRange then
 				table.insert(candidateItems, { item = item, dist = dist })
@@ -1291,16 +1264,14 @@ local function tryAutoPickup()
 	end
 
 	local pickedCount = 0
-	local maxBatch = isVacuum and 25 or 8
+	local maxBatch = 25
 	for _, entry in ipairs(candidateItems) do
 		local item = entry.item
 		if item and item.Parent then
 			pickedCount += 1
-			if isVacuum then
-				pcall(function()
-					item.CFrame = root.CFrame
-				end)
-			end
+			pcall(function()
+				item.CFrame = root.CFrame
+			end)
 			pcall(TSG.PickupRemote.FireServer, TSG.PickupRemote, item)
 			if pickedCount >= maxBatch then
 				break
@@ -1612,6 +1583,39 @@ CombatLeft:AddSlider("KillAuraSpeed", {
 	Compact = true,
 })
 
+CombatLeft:AddCheckbox("KillAuraIgnoreTeam", {
+	Text = "Ignore Team",
+	Default = true,
+})
+
+CombatLeft:AddCheckbox("KillAuraSlotSystem", {
+	Text = "Slot System",
+	Default = false,
+})
+
+CombatLeft:AddDropdown("KillAuraSlotSystemSlot", {
+	Text = "Tool Slot",
+	Values = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"},
+	Default = {"1"},
+	Multi = true,
+})
+
+CombatLeft:AddCheckbox("KillAuraHitNPC", {
+	Text = "Hit NPC / Animals",
+	Default = true,
+})
+
+CombatLeft:AddSlider("KillAuraMaxTargets", {
+	Text = "Max Targets",
+	Default = 1,
+	Min = 1,
+	Max = 10,
+	Rounding = 0,
+	Compact = true,
+})
+
+local updateKillAuraVisibility
+
 updatePhantomModeVisibility = function()
 	local isPhantom = (Toggles.PhantomMode and Toggles.PhantomMode.Value) or false
 
@@ -1634,11 +1638,82 @@ updatePhantomModeVisibility = function()
 	CombatLeft:Resize()
 end
 
+updateKillAuraVisibility = function()
+	local isKA = (Toggles.KillAura and Toggles.KillAura.Value) or false
+	local isKASlot = (Toggles.KillAuraSlotSystem and Toggles.KillAuraSlotSystem.Value) or false
+
+	if Options.KillAuraTarget then
+		Options.KillAuraTarget.Visible = isKA
+		if Options.KillAuraTarget.Holder then
+			Options.KillAuraTarget.Holder.Visible = isKA
+		end
+	end
+	if Options.KillAuraSlot then
+		Options.KillAuraSlot.Visible = isKA and not isKASlot
+		if Options.KillAuraSlot.Holder then
+			Options.KillAuraSlot.Holder.Visible = isKA and not isKASlot
+		end
+	end
+	if Options.KillAuraRange then
+		Options.KillAuraRange.Visible = isKA
+		if Options.KillAuraRange.Holder then
+			Options.KillAuraRange.Holder.Visible = isKA
+		end
+	end
+	if Options.KillAuraAngle then
+		Options.KillAuraAngle.Visible = isKA
+		if Options.KillAuraAngle.Holder then
+			Options.KillAuraAngle.Holder.Visible = isKA
+		end
+	end
+	if Options.KillAuraSpeed then
+		Options.KillAuraSpeed.Visible = isKA
+		if Options.KillAuraSpeed.Holder then
+			Options.KillAuraSpeed.Holder.Visible = isKA
+		end
+	end
+	if Toggles.KillAuraIgnoreTeam then
+		Toggles.KillAuraIgnoreTeam.Visible = isKA
+		if Toggles.KillAuraIgnoreTeam.Holder then
+			Toggles.KillAuraIgnoreTeam.Holder.Visible = isKA
+		end
+	end
+	if Toggles.KillAuraSlotSystem then
+		Toggles.KillAuraSlotSystem.Visible = isKA
+		if Toggles.KillAuraSlotSystem.Holder then
+			Toggles.KillAuraSlotSystem.Holder.Visible = isKA
+		end
+	end
+	if Options.KillAuraSlotSystemSlot then
+		Options.KillAuraSlotSystemSlot.Visible = isKA and isKASlot
+		if Options.KillAuraSlotSystemSlot.Holder then
+			Options.KillAuraSlotSystemSlot.Holder.Visible = isKA and isKASlot
+		end
+	end
+	if Toggles.KillAuraHitNPC then
+		Toggles.KillAuraHitNPC.Visible = isKA
+		if Toggles.KillAuraHitNPC.Holder then
+			Toggles.KillAuraHitNPC.Holder.Visible = isKA
+		end
+	end
+	if Options.KillAuraMaxTargets then
+		Options.KillAuraMaxTargets.Visible = isKA
+		if Options.KillAuraMaxTargets.Holder then
+			Options.KillAuraMaxTargets.Holder.Visible = isKA
+		end
+	end
+	CombatLeft:Resize()
+end
+
 updatePhantomModeVisibility()
+updateKillAuraVisibility()
 task.spawn(function()
 	task.wait(0.05)
 	if updatePhantomModeVisibility then
 		updatePhantomModeVisibility()
+	end
+	if updateKillAuraVisibility then
+		updateKillAuraVisibility()
 	end
 end)
 
@@ -2404,11 +2479,24 @@ local function killAuraLoop()
 	local root = getRootPart()
 	if not root then return end
 
-	local slot = tonumber(Options.KillAuraSlot.Value) or 1
+	local isKASlot = (Toggles.KillAuraSlotSystem and Toggles.KillAuraSlotSystem.Value) or false
+	local heldSlot = nil
+	if isKASlot then
+		if not isAdvanceSlotAllowed(Options.KillAuraSlotSystemSlot) then
+			return
+		end
+		local char = getCharacter()
+		if char then
+			local tool = char:FindFirstChildOfClass("Tool")
+			if tool then
+				heldSlot = tonumber(tool.Name)
+			end
+		end
+	end
+	local slot = heldSlot or tonumber(Options.KillAuraSlot.Value) or 1
+
 	local range = Options.KillAuraRange.Value
 	local pos = root.Position
-	local nearestDist = range
-	local nearestTarget = nil
 
 	local maxAngle = (Options.KillAuraAngle and Options.KillAuraAngle.Value) or 90
 	local coneThreshold = math.cos(math.rad(maxAngle / 2))
@@ -2421,52 +2509,132 @@ local function killAuraLoop()
 	end
 
 	local targetSetting = Options.KillAuraTarget and Options.KillAuraTarget.Value or "All"
+	local ignoreTeam = (Toggles.KillAuraIgnoreTeam and Toggles.KillAuraIgnoreTeam.Value) or false
+	local hitNPC = (Toggles.KillAuraHitNPC and Toggles.KillAuraHitNPC.Value) or false
+	local maxTargets = (Options.KillAuraMaxTargets and Options.KillAuraMaxTargets.Value) or 1
+
+	local allTargets = {}
 
 	-- Scan Players
 	for _, otherPlayer in ipairs(Players:GetPlayers()) do
 		if otherPlayer ~= LocalPlayer and otherPlayer.Character then
-			local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
-			local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart") or otherPlayer.Character.PrimaryPart
-			if otherHum and otherHum.Health > 0 and otherRoot then
-				if targetSetting == "All" or otherPlayer.Name == targetSetting then
-					local d = (otherRoot.Position - pos).Magnitude
-					if d < nearestDist and passesAngleCheck(otherRoot.Position) then
-						nearestDist = d
-						nearestTarget = otherPlayer.Character
+			if not ignoreTeam or not isTeammate(otherPlayer) then
+				local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
+				local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart") or otherPlayer.Character.PrimaryPart
+				if otherHum and otherHum.Health > 0 and otherRoot then
+					if targetSetting == "All" or otherPlayer.Name == targetSetting then
+						local d = (otherRoot.Position - pos).Magnitude
+						if d <= range and passesAngleCheck(otherRoot.Position) then
+							table.insert(allTargets, {
+								model = otherPlayer.Character,
+								root = otherRoot,
+								dist = d,
+								isPlayer = true,
+								player = otherPlayer,
+							})
+						end
 					end
 				end
 			end
 		end
 	end
 
-	if not nearestTarget then
+	-- Scan NPC / Animals
+	if hitNPC then
+		local aiClient = workspace:FindFirstChild("AI_Client")
+		if aiClient then
+			for _, npc in ipairs(aiClient:GetChildren()) do
+				local npcHum = npc:FindFirstChildOfClass("Humanoid")
+				local npcRoot = npc:FindFirstChild("HumanoidRootPart") or npc.PrimaryPart
+				if npcHum and npcHum.Health > 0 and npcRoot then
+					local d = (npcRoot.Position - pos).Magnitude
+					if d <= range and passesAngleCheck(npcRoot.Position) then
+						table.insert(allTargets, {
+							model = npc,
+							root = npcRoot,
+							dist = d,
+							isPlayer = false,
+						})
+					end
+				end
+			end
+		end
+		local aiServer = workspace:FindFirstChild("AI_Server")
+		if aiServer then
+			for _, npc in ipairs(aiServer:GetChildren()) do
+				local npcHum = npc:FindFirstChildOfClass("Humanoid")
+				local npcRoot = npc:FindFirstChild("HumanoidRootPart") or npc.PrimaryPart
+				if (not npcHum or npcHum.Health > 0) and npcRoot then
+					local d = (npcRoot.Position - pos).Magnitude
+					if d <= range and passesAngleCheck(npcRoot.Position) then
+						table.insert(allTargets, {
+							model = npc,
+							root = npcRoot,
+							dist = d,
+							isPlayer = false,
+						})
+					end
+				end
+			end
+		end
+		local animalsFolder = workspace:FindFirstChild("animals")
+		if animalsFolder then
+			for _, animal in ipairs(animalsFolder:GetChildren()) do
+				local aHum = animal:FindFirstChildOfClass("Humanoid")
+				local aRoot = animal:FindFirstChild("HumanoidRootPart") or animal.PrimaryPart
+				if aHum and aHum.Health > 0 and aRoot then
+					local d = (aRoot.Position - pos).Magnitude
+					if d <= range and passesAngleCheck(aRoot.Position) then
+						table.insert(allTargets, {
+							model = animal,
+							root = aRoot,
+							dist = d,
+							isPlayer = false,
+						})
+					end
+				end
+			end
+		end
+	end
+
+	if #allTargets == 0 then
 		return
 	end
 
+	table.sort(allTargets, function(a, b)
+		return a.dist < b.dist
+	end)
+
 	lastKillAuraHit = tick()
-	local targetPlayer = Players:GetPlayerFromCharacter(nearestTarget)
-	if targetPlayer then
-		-- Player: use Crypt encryption, fire (slot, encryptedUserId)
-		if Crypt then
-			pcall(function()
-				local k1, k2, k3 = Crypt.checkpublickeys()
-				if k1 and k2 and k3 then
-					local encryptedUserId = Crypt.crypt(k1, math.abs(targetPlayer.UserId) + k3, k2)
-					TSG.MeleePlayerRemote:FireServer(slot, encryptedUserId)
-				end
-			end)
+	local hitCount = 0
+	for _, t in ipairs(allTargets) do
+		if hitCount >= maxTargets then break end
+		hitCount += 1
+
+		if t.isPlayer and t.player then
+			local targetPlayer = t.player
+			if Crypt then
+				pcall(function()
+					local k1, k2, k3 = Crypt.checkpublickeys()
+					if k1 and k2 and k3 then
+						local encryptedUserId = Crypt.crypt(k1, math.abs(targetPlayer.UserId) + k3, k2)
+						TSG.MeleePlayerRemote:FireServer(slot, encryptedUserId)
+					end
+				end)
+			else
+				pcall(TSG.MeleePlayerRemote.FireServer, TSG.MeleePlayerRemote, slot, targetPlayer)
+			end
 		else
-			pcall(TSG.MeleePlayerRemote.FireServer, TSG.MeleePlayerRemote, slot, targetPlayer)
+			attackNPC(slot, t.model)
 		end
-	else
-		attackNPC(slot, nearestTarget)
 	end
 end
 
-
-
 Toggles.KillAura:OnChanged(function()
 	disconnect("KillAura")
+	if updateKillAuraVisibility then
+		updateKillAuraVisibility()
+	end
 	if Toggles.KillAura.Value then
 		if not TSG.MeleePlayerRemote and not TSG.MeleeAnimalRemote then
 			Library:Notify({
@@ -2479,8 +2647,115 @@ Toggles.KillAura:OnChanged(function()
 		end
 		track("KillAura", RunService.Heartbeat:Connect(killAuraLoop))
 		Library:Notify({ Title = "Kill Aura", Description = "Enabled", Time = 2 })
+	else
+		Library:Notify({ Title = "Kill Aura", Description = "Disabled", Time = 2 })
 	end
 end)
+
+if Toggles.KillAuraSlotSystem then
+	Toggles.KillAuraSlotSystem:OnChanged(function()
+		if updateKillAuraVisibility then
+			updateKillAuraVisibility()
+		end
+	end)
+end
+
+do
+	local kaSlotSaved = {
+		KillAura = nil,
+	}
+	local fromKASlotSystem = false
+
+	local function updateKASlotSystemState()
+		if not (Toggles.KillAuraSlotSystem and Toggles.KillAuraSlotSystem.Value) then return end
+		if not isAlive() then return end
+
+		local holding = isAdvanceSlotAllowed(Options.KillAuraSlotSystemSlot)
+
+		if holding then
+			if kaSlotSaved.KillAura == nil then
+				kaSlotSaved.KillAura = Toggles.KillAura and Toggles.KillAura.Value or false
+			end
+
+			if Toggles.KillAura and not Toggles.KillAura.Value then
+				fromKASlotSystem = true
+				Toggles.KillAura:SetValue(true)
+				fromKASlotSystem = false
+			end
+		else
+			if kaSlotSaved.KillAura ~= nil then
+				if Toggles.KillAura and Toggles.KillAura.Value ~= kaSlotSaved.KillAura then
+					fromKASlotSystem = true
+					Toggles.KillAura:SetValue(kaSlotSaved.KillAura)
+					fromKASlotSystem = false
+				end
+				kaSlotSaved.KillAura = nil
+			end
+		end
+	end
+
+	Toggles.KillAuraSlotSystem:OnChanged(function()
+		disconnect("KillAuraSlotSystem_Poll")
+		disconnect("KillAuraSlotSystem_ChildAdded")
+		disconnect("KillAuraSlotSystem_ChildRemoved")
+		disconnect("KillAuraSlotSystem_CharAdded")
+
+		if updateKillAuraVisibility then
+			updateKillAuraVisibility()
+		end
+
+		if Toggles.KillAuraSlotSystem.Value then
+			local function hookKASlotChar(char)
+				if not char then return end
+				disconnect("KillAuraSlotSystem_ChildAdded")
+				disconnect("KillAuraSlotSystem_ChildRemoved")
+				track("KillAuraSlotSystem_ChildAdded", char.ChildAdded:Connect(function(child)
+					if child:IsA("Tool") then
+						task.wait()
+						updateKASlotSystemState()
+					end
+				end))
+				track("KillAuraSlotSystem_ChildRemoved", char.ChildRemoved:Connect(function(child)
+					if child:IsA("Tool") then
+						task.wait()
+						updateKASlotSystemState()
+					end
+				end))
+			end
+
+			if LocalPlayer.Character then
+				hookKASlotChar(LocalPlayer.Character)
+			end
+			track("KillAuraSlotSystem_CharAdded", LocalPlayer.CharacterAdded:Connect(hookKASlotChar))
+
+			track("KillAuraSlotSystem_Poll", RunService.Heartbeat:Connect(function()
+				updateKASlotSystemState()
+			end))
+
+			updateKASlotSystemState()
+
+			Library:Notify({ Title = "Kill Aura Slot System", Description = "Enabled", Time = 2 })
+		else
+			if kaSlotSaved.KillAura ~= nil then
+				if Toggles.KillAura and Toggles.KillAura.Value ~= kaSlotSaved.KillAura then
+					fromKASlotSystem = true
+					Toggles.KillAura:SetValue(kaSlotSaved.KillAura)
+					fromKASlotSystem = false
+				end
+				kaSlotSaved.KillAura = nil
+			end
+			table.clear(kaSlotSaved)
+
+			Library:Notify({ Title = "Kill Aura Slot System", Description = "Disabled", Time = 2 })
+		end
+	end)
+
+	if Options.KillAuraSlotSystemSlot then
+		Options.KillAuraSlotSystemSlot:OnChanged(function()
+			updateKASlotSystemState()
+		end)
+	end
+end
 
 local function isAutoSwingSlotAllowed(slotOption)
 	if not slotOption then return true end
