@@ -239,7 +239,6 @@ local interactionsFolder = ReplicatedStorage:FindFirstChild("remoteInterface") a
 TSG.EatRemote = resolvePath(ReplicatedStorage, "remoteInterface", "interactions", "eat")
 TSG.MeleeAnimalRemote = resolvePath(ReplicatedStorage, "remoteInterface", "interactions", "meleeAnimal")
 TSG.PickupRemote = resolvePath(ReplicatedStorage, "remoteInterface", "inventory", "pickupItem")
-TSG.DropRemote = resolvePath(ReplicatedStorage, "remoteInterface", "inventory", "drop")
 TSG.EquipHotbarRemote = resolvePath(ReplicatedStorage, "remoteInterface", "inventory", "equipHotbar")
 TSG.SetHungerEvent = resolvePath(ReplicatedStorage, "remoteInterface", "playerData", "setHunger")
 
@@ -703,72 +702,6 @@ MainLeft:AddSlider("AutoPickupRange", {
 	Compact = true,
 })
 
-MainLeft:AddCheckbox("DropTeleport", {
-	Text = "Drop Teleport (Item 214)",
-	Default = false,
-})
-
-Options["DropTeleportTarget"] = MainLeft:AddDropdown("DropTeleportTarget", {
-	Text = "Target Player",
-	Default = "",
-	Values = {},
-	Multi = false,
-	Compact = true,
-})
-
-MainLeft:AddSlider("DropTeleportAmount", {
-	Text = "Drop Amount",
-	Default = 1,
-	Min = 1,
-	Max = 50,
-	Rounding = 0,
-	Compact = true,
-})
-
-MainLeft:AddSlider("DropTeleportDuration", {
-	Text = "Magnet Duration (s)",
-	Default = 10,
-	Min = 2,
-	Max = 20,
-	Rounding = 0,
-	Compact = true,
-})
-
-MainLeft:AddButton({
-	Text = "Drop & Send Item 214 Now",
-	Func = function()
-		task.spawn(function()
-			if not Toggles.DropTeleport or not Toggles.DropTeleport.Value then
-				Library:Notify({ Title = "Drop Teleport", Description = "Turn on Drop Teleport first.", Time = 3 })
-				return
-			end
-			local targetName = Options.DropTeleportTarget and Options.DropTeleportTarget.Value or ""
-			if not targetName or targetName == "" then
-				Library:Notify({ Title = "Drop Teleport", Description = "Select a target player first.", Time = 3 })
-				return
-			end
-			local targetPlayer = Players:FindFirstChild(targetName)
-			if not targetPlayer then
-				Library:Notify({ Title = "Drop Teleport", Description = "Target player not found.", Time = 3 })
-				return
-			end
-			if not TSG.DropRemote then
-				Library:Notify({ Title = "Drop Teleport", Description = "Drop remote not found.", Time = 3 })
-				return
-			end
-			local amount = Options.DropTeleportAmount and Options.DropTeleportAmount.Value or 1
-			local success = pcall(function()
-				TSG.DropRemote:InvokeServer("inventory", 214, amount)
-			end)
-			if success then
-				Library:Notify({ Title = "Drop Teleport", Description = "Sent " .. tostring(amount) .. "x item 214 toward " .. targetName, Time = 3 })
-			else
-				Library:Notify({ Title = "Drop Teleport", Description = "Failed to drop item 214.", Time = 3 })
-			end
-		end)
-	end,
-})
-
 MainLeft:AddCheckbox("Noclip", {
 	Text = "Noclip",
 	Default = false,
@@ -801,57 +734,6 @@ task.spawn(function()
 	task.wait(0.05)
 	if updateAutoPickupVisibility then
 		updateAutoPickupVisibility()
-	end
-end)
-
-local updateDropTeleportVisibility
-updateDropTeleportVisibility = function()
-	local isDropTele = (Toggles.DropTeleport and Toggles.DropTeleport.Value) or false
-	if Options.DropTeleportTarget then
-		Options.DropTeleportTarget.Visible = isDropTele
-		if Options.DropTeleportTarget.Holder then
-			Options.DropTeleportTarget.Holder.Visible = isDropTele
-		end
-	end
-	if Options.DropTeleportAmount then
-		Options.DropTeleportAmount.Visible = isDropTele
-		if Options.DropTeleportAmount.Holder then
-			Options.DropTeleportAmount.Holder.Visible = isDropTele
-		end
-	end
-	if Options.DropTeleportDuration then
-		Options.DropTeleportDuration.Visible = isDropTele
-		if Options.DropTeleportDuration.Holder then
-			Options.DropTeleportDuration.Holder.Visible = isDropTele
-		end
-	end
-	if MainLeft.Resize then
-		pcall(function() MainLeft:Resize() end)
-	end
-	if PlayerTabBox and PlayerTabBox.Resize then
-		pcall(function() PlayerTabBox:Resize() end)
-	end
-end
-
-local function updateDropTeleportDropdown()
-	local names = {}
-	for _, player in ipairs(Players:GetPlayers()) do
-		if player ~= LocalPlayer then
-			table.insert(names, player.Name)
-		end
-	end
-	if Options.DropTeleportTarget and Options.DropTeleportTarget.SetValues then
-		Options.DropTeleportTarget:SetValues(names)
-	end
-end
-
-track("DropTeleportPlayerAdded", Players.PlayerAdded:Connect(updateDropTeleportDropdown))
-track("DropTeleportPlayerRemoving", Players.PlayerRemoving:Connect(updateDropTeleportDropdown))
-task.spawn(updateDropTeleportDropdown)
-task.spawn(function()
-	task.wait(0.1)
-	if updateDropTeleportVisibility then
-		updateDropTeleportVisibility()
 	end
 end)
 
@@ -1310,13 +1192,9 @@ local droppedItemSpawnTimes = {}
 local lastAutoPickup = 0
 local AUTO_PICKUP_RANGE = 20
 local AUTO_PICKUP_COOLDOWN = 0
-local dropTeleportActiveItems = {}
 
 local function canAutoPickup(item, isVacuum)
 	if not item:IsA("BasePart") or not item:GetAttribute("itemId") then
-		return false
-	end
-	if dropTeleportActiveItems[item] then
 		return false
 	end
 	if not isVacuum then
@@ -1333,68 +1211,6 @@ local function canAutoPickup(item, isVacuum)
 	return true
 end
 
-local function startDropMagnetForItem(item)
-	if not item or not item.Parent or not Toggles.DropTeleport or not Toggles.DropTeleport.Value then
-		return
-	end
-	local targetName = Options.DropTeleportTarget and Options.DropTeleportTarget.Value or ""
-	if not targetName or targetName == "" then
-		return
-	end
-	local targetPlayer = Players:FindFirstChild(targetName)
-	if not targetPlayer then
-		return
-	end
-	local durationSec = Options.DropTeleportDuration and Options.DropTeleportDuration.Value or 10
-	local totalSubSteps = durationSec * 20
-	dropTeleportActiveItems[item] = true
-	item.Destroying:Once(function()
-		dropTeleportActiveItems[item] = nil
-	end)
-	local thread = task.spawn(function()
-		local alive = true
-		for i = 1, totalSubSteps do
-			if not alive then
-				break
-			end
-			if not Toggles.DropTeleport or not Toggles.DropTeleport.Value then
-				break
-			end
-			if not item or not item.Parent then
-				break
-			end
-			if not dropTeleportActiveItems[item] then
-				break
-			end
-			local currentTarget = Players:FindFirstChild(targetName)
-			local currentTargetRoot = nil
-			if currentTarget and currentTarget.Character then
-				currentTargetRoot = currentTarget.Character:FindFirstChild("HumanoidRootPart")
-			end
-			if currentTargetRoot then
-				pcall(function()
-					item.CFrame = currentTargetRoot.CFrame:PointToWorldSpace(Vector3.new(0, 1.8, 0))
-				end)
-			end
-			for j = 1, 5 do
-				task.wait(0.01)
-				if not Toggles.DropTeleport or not Toggles.DropTeleport.Value then
-					alive = false
-					break
-				end
-			end
-		end
-		dropTeleportActiveItems[item] = nil
-	end)
-	local magnetKey = "DropMagnet_" .. tostring(item:GetAttribute("itemId") or "?") .. "_" .. tostring(droppedItemSpawnTimes[item] or time())
-	track(magnetKey, {
-		Disconnect = function()
-			dropTeleportActiveItems[item] = nil
-			pcall(task.cancel, thread)
-		end
-	})
-end
-
 local function trackDroppedItem(item)
 	if not item:IsA("BasePart") then
 		return
@@ -1403,19 +1219,6 @@ local function trackDroppedItem(item)
 	item.Destroying:Once(function()
 		droppedItemSpawnTimes[item] = nil
 	end)
-
-	if Toggles and Toggles.DropTeleport and Toggles.DropTeleport.Value then
-		local itemId = item:GetAttribute("itemId")
-		local from = item:GetAttribute("from")
-		if itemId == 214 and from == LocalPlayer.UserId then
-			task.defer(function()
-				task.wait(0.2)
-				if item and item.Parent then
-					startDropMagnetForItem(item)
-				end
-			end)
-		end
-	end
 
 	-- Instant vacuum pickup if in range
 	if Toggles and Toggles.FastPickup and Toggles.FastPickup.Value and isAlive() and TSG.PickupRemote then
@@ -1523,32 +1326,6 @@ Toggles.FastPickup:OnChanged(function()
 		Library:Notify({ Title = "Auto Pickup", Description = "Enabled", Time = 2 })
 	else
 		Library:Notify({ Title = "Auto Pickup", Description = "Disabled", Time = 2 })
-	end
-end)
-
-local function cancelAllDropMagnets()
-	for key, _ in pairs(Connections) do
-		if type(key) == "string" and string.sub(key, 1, 11) == "DropMagnet_" then
-			disconnect(key)
-		end
-	end
-	table.clear(dropTeleportActiveItems)
-end
-
-Toggles.DropTeleport:OnChanged(function()
-	if updateDropTeleportVisibility then
-		updateDropTeleportVisibility()
-	end
-	if not Toggles.DropTeleport.Value then
-		cancelAllDropMagnets()
-		Library:Notify({ Title = "Drop Teleport", Description = "Disabled", Time = 2 })
-		return
-	end
-	local targetName = Options.DropTeleportTarget and Options.DropTeleportTarget.Value or ""
-	if not targetName or targetName == "" then
-		Library:Notify({ Title = "Drop Teleport", Description = "Enabled - select a target player.", Time = 3 })
-	else
-		Library:Notify({ Title = "Drop Teleport", Description = "Enabled - sending Item 214 to " .. tostring(targetName), Time = 3 })
 	end
 end)
 
