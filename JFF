@@ -396,6 +396,76 @@ AutoArmorDeluxeGroup:AddButton({
 	end,
 })
 
+AutoArmorDeluxeGroup:AddButton({
+	Text = "Darksteel",
+	Func = function()
+		local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+		local root = character and character:FindFirstChild("HumanoidRootPart")
+		if not root then return end
+		local playerPosition = root.Position
+
+		local buildRemote = game:GetService("ReplicatedStorage").remoteInterface.interactions.build
+		local craftRemote = game:GetService("ReplicatedStorage").remoteInterface.interactions.craft
+		local equipHotbarRemote = game:GetService("ReplicatedStorage").remoteInterface.inventory.equipHotbar
+		local equipClothingRemote = game:GetService("ReplicatedStorage").remoteInterface.inventory.equipClothing
+		local deleteRemote = game:GetService("ReplicatedStorage").remoteInterface.interactions.deleteStructure
+
+		pcall(function()
+			buildRemote:InvokeServer(
+				269,
+				CFrame.new(playerPosition.X, playerPosition.Y - 3, playerPosition.Z) * CFrame.Angles(0, 0, 0),
+				-3.141592653589793
+			)
+		end)
+
+		local furnace = nil
+		pcall(function()
+			for _, structure in pairs(workspace.placedStructures:GetChildren()) do
+				if structure:FindFirstChild("Darksteel Forge") then
+					furnace = structure:FindFirstChild("Darksteel Forge")
+					break
+				end
+			end
+		end)
+
+		local itemsToCraft = {
+			{267, "Darksteel Sword"},
+			{261, "Darksteel Chestplate"},
+			{260, "Darksteel Pants"},
+			{262, "Darksteel Helmet"},
+		}
+
+		if furnace then
+			for _, item in ipairs(itemsToCraft) do
+				pcall(function()
+					craftRemote:InvokeServer(item[1], furnace, 1, 0)
+				end)
+			end
+
+			pcall(function()
+				equipHotbarRemote:InvokeServer("inventory", 1, 267)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 1, 262)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 2, 261)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 3, 260)
+			end)
+
+			pcall(function()
+				deleteRemote:FireServer(furnace)
+			end)
+
+			Library:Notify({ Title = "Darksteel", Description = "Darksteel armor equipped", Time = 2 })
+		else
+			Library:Notify({ Title = "Darksteel", Description = "Forge not found", Time = 3 })
+		end
+	end,
+})
+
 local PlayerTabBox = Tabs.Player:AddLeftTabbox()
 local MainLeft = PlayerTabBox:AddTab("Player", "user")
 local ImmuneTab = PlayerTabBox:AddTab("Immune", "shield")
