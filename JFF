@@ -324,35 +324,9 @@ end
 -- ==========================================
 -- MAIN
 -- ==========================================
-local AutoArmorDeluxeGroup = Tabs.Player:AddLeftGroupbox("Auto Armor Deluxe", "shield")
-
-AutoArmorDeluxeGroup:AddToggle("ArmorPieceSword", {
-	Text = "Sword",
-	Default = true,
-})
-
-AutoArmorDeluxeGroup:AddToggle("ArmorPieceHelmet", {
-	Text = "Helmet",
-	Default = true,
-})
-
-AutoArmorDeluxeGroup:AddToggle("ArmorPieceChest", {
-	Text = "Chest",
-	Default = true,
-})
-
-AutoArmorDeluxeGroup:AddToggle("ArmorPiecePants", {
-	Text = "Pants",
-	Default = true,
-})
-
-local function armorPieceEnabled(index)
-	if index == 1 then return Toggles.ArmorPieceSword and Toggles.ArmorPieceSword.Value end
-	if index == 2 then return Toggles.ArmorPieceChest and Toggles.ArmorPieceChest.Value end
-	if index == 3 then return Toggles.ArmorPiecePants and Toggles.ArmorPiecePants.Value end
-	if index == 4 then return Toggles.ArmorPieceHelmet and Toggles.ArmorPieceHelmet.Value end
-	return true
-end
+local ArmorTabBox = Tabs.Player:AddLeftTabbox()
+local AutoArmorDeluxeGroup = ArmorTabBox:AddTab("Auto Armor Deluxe", "shield")
+local ArmorConfigTab = ArmorTabBox:AddTab("Config", "settings")
 
 AutoArmorDeluxeGroup:AddButton({
 	Text = "Bluesteel",
@@ -394,36 +368,26 @@ AutoArmorDeluxeGroup:AddButton({
 		}
 
 		if furnace then
-			for i, item in ipairs(itemsToCraft) do
-				if armorPieceEnabled(i) then
-					pcall(function()
-						craftRemote:InvokeServer(item[1], furnace, 1, 0)
-					end)
-				end
+			for _, item in ipairs(itemsToCraft) do
+				pcall(function()
+					craftRemote:InvokeServer(item[1], furnace, 1, 0)
+				end)
 			end
 
 			task.wait(0.3)
 
-			if armorPieceEnabled(1) then
-				pcall(function()
-					equipHotbarRemote:InvokeServer("inventory", 1, 197)
-				end)
-			end
-			if armorPieceEnabled(4) then
-				pcall(function()
-					equipClothingRemote:InvokeServer("inventory", 2, 200)
-				end)
-			end
-			if armorPieceEnabled(2) then
-				pcall(function()
-					equipClothingRemote:InvokeServer("inventory", 3, 201)
-				end)
-			end
-			if armorPieceEnabled(3) then
-				pcall(function()
-					equipClothingRemote:InvokeServer("inventory", 4, 202)
-				end)
-			end
+			pcall(function()
+				equipHotbarRemote:InvokeServer("inventory", 1, 197)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 2, 200)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 3, 201)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 4, 202)
+			end)
 
 			pcall(function()
 				deleteRemote:FireServer(furnace)
@@ -476,36 +440,26 @@ AutoArmorDeluxeGroup:AddButton({
 		}
 
 		if furnace then
-			for i, item in ipairs(itemsToCraft) do
-				if armorPieceEnabled(i) then
-					pcall(function()
-						craftRemote:InvokeServer(item[1], furnace, 1, 0)
-					end)
-				end
+			for _, item in ipairs(itemsToCraft) do
+				pcall(function()
+					craftRemote:InvokeServer(item[1], furnace, 1, 0)
+				end)
 			end
 
 			task.wait(0.3)
 
-			if armorPieceEnabled(1) then
-				pcall(function()
-					equipHotbarRemote:InvokeServer("inventory", 1, 267)
-				end)
-			end
-			if armorPieceEnabled(4) then
-				pcall(function()
-					equipClothingRemote:InvokeServer("inventory", 1, 262)
-				end)
-			end
-			if armorPieceEnabled(2) then
-				pcall(function()
-					equipClothingRemote:InvokeServer("inventory", 2, 261)
-				end)
-			end
-			if armorPieceEnabled(3) then
-				pcall(function()
-					equipClothingRemote:InvokeServer("inventory", 3, 260)
-				end)
-			end
+			pcall(function()
+				equipHotbarRemote:InvokeServer("inventory", 1, 267)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 1, 262)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 2, 261)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 3, 260)
+			end)
 
 			pcall(function()
 				deleteRemote:FireServer(furnace)
@@ -560,36 +514,26 @@ AutoArmorDeluxeGroup:AddButton({
 		}
 
 		if furnace then
-			for i, item in ipairs(itemsToCraft) do
-				if armorPieceEnabled(i) then
-					pcall(function()
-						craftRemote:InvokeServer(item[1], furnace, 1, 0)
-					end)
-				end
+			for _, item in ipairs(itemsToCraft) do
+				pcall(function()
+					craftRemote:InvokeServer(item[1], furnace, 1, 0)
+				end)
 			end
 
 			task.wait(0.3)
 
-			if armorPieceEnabled(1) then
-				pcall(function()
-					equipHotbarRemote:InvokeServer("inventory", 1, 406)
-				end)
-			end
-			if armorPieceEnabled(4) then
-				pcall(function()
-					equipClothingRemote:InvokeServer("inventory", 1, 404)
-				end)
-			end
-			if armorPieceEnabled(2) then
-				pcall(function()
-					equipClothingRemote:InvokeServer("inventory", 2, 403)
-				end)
-			end
-			if armorPieceEnabled(3) then
-				pcall(function()
-					equipClothingRemote:InvokeServer("inventory", 3, 402)
-				end)
-			end
+			pcall(function()
+				equipHotbarRemote:InvokeServer("inventory", 1, 406)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 1, 404)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 2, 403)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 3, 402)
+			end)
 
 			pcall(function()
 				deleteRemote:FireServer(furnace)
@@ -645,36 +589,26 @@ AutoArmorDeluxeGroup:AddButton({
 		}
 
 		if furnace then
-			for i, item in ipairs(itemsToCraft) do
-				if armorPieceEnabled(i) then
-					pcall(function()
-						craftRemote:InvokeServer(item[1], furnace, 1, 0)
-					end)
-				end
+			for _, item in ipairs(itemsToCraft) do
+				pcall(function()
+					craftRemote:InvokeServer(item[1], furnace, 1, 0)
+				end)
 			end
 
 			task.wait(0.3)
 
-			if armorPieceEnabled(1) then
-				pcall(function()
-					equipHotbarRemote:InvokeServer("inventory", 1, 357)
-				end)
-			end
-			if armorPieceEnabled(4) then
-				pcall(function()
-					equipClothingRemote:InvokeServer("inventory", 2, 354)
-				end)
-			end
-			if armorPieceEnabled(2) then
-				pcall(function()
-					equipClothingRemote:InvokeServer("inventory", 3, 355)
-				end)
-			end
-			if armorPieceEnabled(3) then
-				pcall(function()
-					equipClothingRemote:InvokeServer("inventory", 4, 356)
-				end)
-			end
+			pcall(function()
+				equipHotbarRemote:InvokeServer("inventory", 1, 357)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 2, 354)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 3, 355)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 4, 356)
+			end)
 
 			pcall(function()
 				deleteRemote:FireServer(furnace)
@@ -733,36 +667,26 @@ AutoArmorDeluxeGroup:AddButton({
 		}
 
 		if furnace then
-			for i, item in ipairs(itemsToCraft) do
-				if armorPieceEnabled(i) then
-					pcall(function()
-						craftRemote:InvokeServer(item[1], furnace, 1, 0)
-					end)
-				end
+			for _, item in ipairs(itemsToCraft) do
+				pcall(function()
+					craftRemote:InvokeServer(item[1], furnace, 1, 0)
+				end)
 			end
 
 			task.wait(0.3)
 
-			if armorPieceEnabled(1) then
-				pcall(function()
-					equipHotbarRemote:InvokeServer("inventory", 1, 545)
-				end)
-			end
-			if armorPieceEnabled(4) then
-				pcall(function()
-					equipClothingRemote:InvokeServer("inventory", 1, 541)
-				end)
-			end
-			if armorPieceEnabled(2) then
-				pcall(function()
-					equipClothingRemote:InvokeServer("inventory", 2, 542)
-				end)
-			end
-			if armorPieceEnabled(3) then
-				pcall(function()
-					equipClothingRemote:InvokeServer("inventory", 3, 543)
-				end)
-			end
+			pcall(function()
+				equipHotbarRemote:InvokeServer("inventory", 1, 545)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 1, 541)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 2, 542)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 3, 543)
+			end)
 
 			pcall(function()
 				deleteRemote:FireServer(furnace)
