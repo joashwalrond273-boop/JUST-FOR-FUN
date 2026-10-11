@@ -240,6 +240,7 @@ TSG.EatRemote = resolvePath(ReplicatedStorage, "remoteInterface", "interactions"
 TSG.MeleeAnimalRemote = resolvePath(ReplicatedStorage, "remoteInterface", "interactions", "meleeAnimal")
 TSG.PickupRemote = resolvePath(ReplicatedStorage, "remoteInterface", "inventory", "pickupItem")
 TSG.EquipHotbarRemote = resolvePath(ReplicatedStorage, "remoteInterface", "inventory", "equipHotbar")
+TSG.EquipClothingRemote = resolvePath(ReplicatedStorage, "remoteInterface", "inventory", "equipClothing")
 TSG.SetHungerEvent = resolvePath(ReplicatedStorage, "remoteInterface", "playerData", "setHunger")
 
 TSG.MeleePlayerRemote = (keyedRemotes and rawget(keyedRemotes, "meleePlayer")) or (interactionsFolder and interactionsFolder:FindFirstChild("meleePlayer"))
@@ -683,6 +684,11 @@ MainLeft:AddCheckbox("WalkOnWater", {
 	Default = false,
 })
 
+MainLeft:AddCheckbox("AtlanteanSwitch", {
+	Text = "Atlantean Switch",
+	Default = false,
+})
+
 MainLeft:AddCheckbox("FastPickup", {
 	Text = "Auto Pickup",
 	Default = false,
@@ -1013,6 +1019,29 @@ Toggles.InfiniteJump:OnChanged(function()
 			end)
 		end))
 		Library:Notify({ Title = "Infinite Jump", Description = "Enabled", Time = 2 })
+	end
+end)
+
+Toggles.AtlanteanSwitch:OnChanged(function()
+	local remote = TSG.EquipClothingRemote
+	if not remote then
+		Library:Notify({ Title = "Atlantean Switch", Description = "equipClothing remote not found", Time = 3 })
+		return
+	end
+	if Toggles.AtlanteanSwitch.Value then
+		pcall(function()
+			remote:InvokeServer("inventory", 1, 354)
+			remote:InvokeServer("inventory", 2, 355)
+			remote:InvokeServer("inventory", 3, 356)
+		end)
+		Library:Notify({ Title = "Atlantean Switch", Description = "Atlantean armor equipped", Time = 2 })
+	else
+		pcall(function()
+			remote:InvokeServer("inventory", 1, 0)
+			remote:InvokeServer("inventory", 2, 0)
+			remote:InvokeServer("inventory", 3, 0)
+		end)
+		Library:Notify({ Title = "Atlantean Switch", Description = "Atlantean armor unequipped", Time = 2 })
 	end
 end)
 
