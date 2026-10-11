@@ -378,13 +378,13 @@ AutoArmorDeluxeGroup:AddButton({
 				equipHotbarRemote:InvokeServer("inventory", 1, 197)
 			end)
 			pcall(function()
-				equipClothingRemote:InvokeServer("inventory", 1, 200)
+				equipClothingRemote:InvokeServer("inventory", 2, 200)
 			end)
 			pcall(function()
-				equipClothingRemote:InvokeServer("inventory", 2, 201)
+				equipClothingRemote:InvokeServer("inventory", 3, 201)
 			end)
 			pcall(function()
-				equipClothingRemote:InvokeServer("inventory", 3, 202)
+				equipClothingRemote:InvokeServer("inventory", 4, 202)
 			end)
 
 			pcall(function()
@@ -599,13 +599,13 @@ AutoArmorDeluxeGroup:AddButton({
 				equipHotbarRemote:InvokeServer("inventory", 1, 357)
 			end)
 			pcall(function()
-				equipClothingRemote:InvokeServer("inventory", 1, 354)
+				equipClothingRemote:InvokeServer("inventory", 2, 354)
 			end)
 			pcall(function()
-				equipClothingRemote:InvokeServer("inventory", 2, 355)
+				equipClothingRemote:InvokeServer("inventory", 3, 355)
 			end)
 			pcall(function()
-				equipClothingRemote:InvokeServer("inventory", 3, 356)
+				equipClothingRemote:InvokeServer("inventory", 4, 356)
 			end)
 
 			pcall(function()
@@ -4465,34 +4465,6 @@ MoveSwimBoost:AddDropdown("SwimSlotBoostSlot", {
 	Default = {"1"},
 	Multi = true,
 })
-
-MoveSwimBoost:AddCheckbox("AtlanteanSwitch", {
-	Text = "Atlantean Switch",
-	Default = false,
-})
-
-Toggles.AtlanteanSwitch:OnChanged(function()
-	local remote = TSG.EquipClothingRemote
-	if not remote then
-		Library:Notify({ Title = "Atlantean Switch", Description = "equipClothing remote not found", Time = 3 })
-		return
-	end
-	if Toggles.AtlanteanSwitch.Value then
-		pcall(function()
-			remote:InvokeServer("inventory", 1, 354)
-			remote:InvokeServer("inventory", 2, 355)
-			remote:InvokeServer("inventory", 3, 356)
-		end)
-		Library:Notify({ Title = "Atlantean Switch", Description = "Atlantean armor equipped", Time = 2 })
-	else
-		pcall(function()
-			remote:InvokeServer("inventory", 1, 0)
-			remote:InvokeServer("inventory", 2, 0)
-			remote:InvokeServer("inventory", 3, 0)
-		end)
-		Library:Notify({ Title = "Atlantean Switch", Description = "Atlantean armor unequipped", Time = 2 })
-	end
-end)
 
 MoveSwimBoost:AddSlider("SwimBoostValue", {
 	Text = "Swim Speed Value",
