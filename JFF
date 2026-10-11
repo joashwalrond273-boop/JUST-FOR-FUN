@@ -321,38 +321,6 @@ local function disconnect(name)
 	end
 end
 
-local ToiletBedGroup = Tabs.Player:AddLeftGroupbox("Toilet/Bed", "bed")
-
-ToiletBedGroup:AddButton({
-	Text = "Toilet Bed",
-	Func = function()
-		local character = LocalPlayer.Character
-		local root = character and character:FindFirstChild("HumanoidRootPart")
-		if not root then return end
-		local playerPosition = root.Position
-
-		local buildRemote = game:GetService("ReplicatedStorage").remoteInterface.interactions.build
-
-		pcall(function()
-			buildRemote:InvokeServer(
-				90,
-				CFrame.new(playerPosition.X, playerPosition.Y - 3, playerPosition.Z),
-				0,
-				nil
-			)
-		end)
-
-		pcall(function()
-			buildRemote:InvokeServer(
-				85,
-				CFrame.new(playerPosition.X, playerPosition.Y - 3, playerPosition.Z),
-				0,
-				nil
-			)
-		end)
-	end,
-})
-
 -- ==========================================
 -- MAIN
 -- ==========================================
@@ -1808,6 +1776,106 @@ CombatAutoPVP:AddSlider("AutoJumpDelay", {
 	Max = 2,
 	Rounding = 2,
 	Compact = true,
+})
+
+CombatAutoPVP:AddButton({
+	Text = "Auto Armor Deluxe",
+	Func = function()
+		local character = LocalPlayer.Character
+		local root = character and character:FindFirstChild("HumanoidRootPart")
+		if not root then return end
+		local playerPosition = root.Position
+
+		local buildRemote = game:GetService("ReplicatedStorage").remoteInterface.interactions.build
+
+		pcall(function()
+			buildRemote:InvokeServer(
+				90,
+				CFrame.new(playerPosition.X, playerPosition.Y - 3, playerPosition.Z),
+				0,
+				nil
+			)
+		end)
+
+		pcall(function()
+			buildRemote:InvokeServer(
+				85,
+				CFrame.new(playerPosition.X, playerPosition.Y - 3, playerPosition.Z),
+				0,
+				nil
+			)
+		end)
+	end,
+})
+
+CombatAutoPVP:AddButton({
+	Text = "Bluesteel",
+	Func = function()
+		local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+		local root = character and character:FindFirstChild("HumanoidRootPart")
+		if not root then return end
+		local playerPosition = root.Position
+
+		local buildRemote = game:GetService("ReplicatedStorage").remoteInterface.interactions.build
+		local craftRemote = game:GetService("ReplicatedStorage").remoteInterface.interactions.craft
+		local equipHotbarRemote = game:GetService("ReplicatedStorage").remoteInterface.inventory.equipHotbar
+		local equipClothingRemote = game:GetService("ReplicatedStorage").remoteInterface.inventory.equipClothing
+		local deleteRemote = game:GetService("ReplicatedStorage").remoteInterface.interactions.deleteStructure
+
+		pcall(function()
+			buildRemote:InvokeServer(
+				199,
+				CFrame.new(playerPosition.X, playerPosition.Y - 3, playerPosition.Z) * CFrame.Angles(0, 0, 0),
+				-3.141592653589793
+			)
+		end)
+
+		local furnace = nil
+		pcall(function()
+			for _, structure in pairs(workspace.placedStructures:GetChildren()) do
+				if structure:FindFirstChild("Bluesteel Furnace") then
+					furnace = structure:FindFirstChild("Bluesteel Furnace")
+					break
+				end
+			end
+		end)
+
+		local itemsToCraft = {
+			{197, "Bluesteel Sword"},
+			{201, "Bluesteel Chestplate"},
+			{202, "Bluesteel Pants"},
+			{200, "Bluesteel Helmet"},
+		}
+
+		if furnace then
+			for _, item in ipairs(itemsToCraft) do
+				pcall(function()
+					craftRemote:InvokeServer(item[1], furnace, 1, 0)
+				end)
+			end
+
+			pcall(function()
+				equipHotbarRemote:InvokeServer("inventory", 1, 197)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 1, 200)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 2, 201)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 3, 202)
+			end)
+
+			pcall(function()
+				deleteRemote:FireServer(furnace)
+			end)
+
+			Library:Notify({ Title = "Bluesteel", Description = "Bluesteel armor equipped", Time = 2 })
+		else
+			Library:Notify({ Title = "Bluesteel", Description = "Furnace not found", Time = 3 })
+		end
+	end,
 })
 
 updatePVPModulesVisibility = function()
