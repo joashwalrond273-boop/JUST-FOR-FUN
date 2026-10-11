@@ -345,13 +345,13 @@ AutoArmorDeluxeGroup:AddButton({
 				equipHotbarRemote:InvokeServer("inventory", 1, 197)
 			end)
 			pcall(function()
-				equipClothingRemote:InvokeServer("inventory", 1, 202)
-			end)
-			pcall(function()
-				equipClothingRemote:InvokeServer("inventory", 2, 201)
+				equipClothingRemote:InvokeServer("inventory", 2, 202)
 			end)
 			pcall(function()
 				equipClothingRemote:InvokeServer("inventory", 3, 200)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 4, 201)
 			end)
 			Library:Notify({ Title = "Bluesteel", Description = "Bluesteel armor equipped", Time = 2 })
 			return
@@ -377,9 +377,9 @@ AutoArmorDeluxeGroup:AddButton({
 
 		local itemsToCraft = {
 			{197, "Bluesteel Sword"},
-			{201, "Bluesteel Chestplate"},
+			{200, "Bluesteel Chestplate"},
+			{201, "Bluesteel Pants"},
 			{202, "Bluesteel Helmet"},
-			{200, "Bluesteel Pants"},
 		}
 
 		if furnace then
@@ -395,13 +395,13 @@ AutoArmorDeluxeGroup:AddButton({
 				equipHotbarRemote:InvokeServer("inventory", 1, 197)
 			end)
 			pcall(function()
-				equipClothingRemote:InvokeServer("inventory", 1, 202)
-			end)
-			pcall(function()
-				equipClothingRemote:InvokeServer("inventory", 2, 201)
+				equipClothingRemote:InvokeServer("inventory", 2, 202)
 			end)
 			pcall(function()
 				equipClothingRemote:InvokeServer("inventory", 3, 200)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 4, 201)
 			end)
 
 			pcall(function()
