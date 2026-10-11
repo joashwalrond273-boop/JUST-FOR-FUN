@@ -372,6 +372,8 @@ AutoArmorDeluxeGroup:AddButton({
 				end)
 			end
 
+			task.wait(0.3)
+
 			pcall(function()
 				equipHotbarRemote:InvokeServer("inventory", 1, 197)
 			end)
@@ -441,6 +443,8 @@ AutoArmorDeluxeGroup:AddButton({
 					craftRemote:InvokeServer(item[1], furnace, 1, 0)
 				end)
 			end
+
+			task.wait(0.3)
 
 			pcall(function()
 				equipHotbarRemote:InvokeServer("inventory", 1, 267)
@@ -514,6 +518,8 @@ AutoArmorDeluxeGroup:AddButton({
 				end)
 			end
 
+			task.wait(0.3)
+
 			pcall(function()
 				equipHotbarRemote:InvokeServer("inventory", 1, 406)
 			end)
@@ -586,6 +592,8 @@ AutoArmorDeluxeGroup:AddButton({
 					craftRemote:InvokeServer(item[1], furnace, 1, 0)
 				end)
 			end
+
+			task.wait(0.3)
 
 			pcall(function()
 				equipHotbarRemote:InvokeServer("inventory", 1, 357)
@@ -662,6 +670,8 @@ AutoArmorDeluxeGroup:AddButton({
 					craftRemote:InvokeServer(item[1], furnace, 1, 0)
 				end)
 			end
+
+			task.wait(0.3)
 
 			pcall(function()
 				equipHotbarRemote:InvokeServer("inventory", 1, 545)
