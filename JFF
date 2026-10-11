@@ -488,16 +488,15 @@ AutoArmorDeluxeGroup:AddButton({
 			)
 		end)
 
+		task.wait(0.5)
+
 		local furnace = nil
 		pcall(function()
 			for _, structure in pairs(workspace.placedStructures:GetChildren()) do
-				for _, child in ipairs(structure:GetChildren()) do
-					if child.Name:lower():find("samurai") then
-						furnace = child
-						break
-					end
+				if structure:FindFirstChild("Asian Forge") then
+					furnace = structure:FindFirstChild("Asian Forge")
+					break
 				end
-				if furnace then break end
 			end
 		end)
 
