@@ -1017,29 +1017,6 @@ Toggles.InfiniteJump:OnChanged(function()
 	end
 end)
 
-Toggles.AtlanteanSwitch:OnChanged(function()
-	local remote = TSG.EquipClothingRemote
-	if not remote then
-		Library:Notify({ Title = "Atlantean Switch", Description = "equipClothing remote not found", Time = 3 })
-		return
-	end
-	if Toggles.AtlanteanSwitch.Value then
-		pcall(function()
-			remote:InvokeServer("inventory", 1, 354)
-			remote:InvokeServer("inventory", 2, 355)
-			remote:InvokeServer("inventory", 3, 356)
-		end)
-		Library:Notify({ Title = "Atlantean Switch", Description = "Atlantean armor equipped", Time = 2 })
-	else
-		pcall(function()
-			remote:InvokeServer("inventory", 1, 0)
-			remote:InvokeServer("inventory", 2, 0)
-			remote:InvokeServer("inventory", 3, 0)
-		end)
-		Library:Notify({ Title = "Atlantean Switch", Description = "Atlantean armor unequipped", Time = 2 })
-	end
-end)
-
 Toggles.NoFallDamage:OnChanged(function()
 	disconnect("NoFallDamage")
 	if Toggles.NoFallDamage.Value then
@@ -4164,6 +4141,29 @@ MoveSwimBoost:AddCheckbox("AtlanteanSwitch", {
 	Text = "Atlantean Switch",
 	Default = false,
 })
+
+Toggles.AtlanteanSwitch:OnChanged(function()
+	local remote = TSG.EquipClothingRemote
+	if not remote then
+		Library:Notify({ Title = "Atlantean Switch", Description = "equipClothing remote not found", Time = 3 })
+		return
+	end
+	if Toggles.AtlanteanSwitch.Value then
+		pcall(function()
+			remote:InvokeServer("inventory", 1, 354)
+			remote:InvokeServer("inventory", 2, 355)
+			remote:InvokeServer("inventory", 3, 356)
+		end)
+		Library:Notify({ Title = "Atlantean Switch", Description = "Atlantean armor equipped", Time = 2 })
+	else
+		pcall(function()
+			remote:InvokeServer("inventory", 1, 0)
+			remote:InvokeServer("inventory", 2, 0)
+			remote:InvokeServer("inventory", 3, 0)
+		end)
+		Library:Notify({ Title = "Atlantean Switch", Description = "Atlantean armor unequipped", Time = 2 })
+	end
+end)
 
 MoveSwimBoost:AddSlider("SwimBoostValue", {
 	Text = "Swim Speed Value",
