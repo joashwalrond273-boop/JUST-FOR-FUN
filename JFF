@@ -324,9 +324,7 @@ end
 -- ==========================================
 -- MAIN
 -- ==========================================
-local ArmorTabBox = Tabs.Player:AddLeftTabbox()
-local AutoArmorDeluxeGroup = ArmorTabBox:AddTab("Auto Armor Deluxe", "shield")
-local ArmorConfigTab = ArmorTabBox:AddTab("Config", "settings")
+local AutoArmorDeluxeGroup = Tabs.Player:AddLeftGroupbox("Auto Armor Deluxe", "shield")
 
 AutoArmorDeluxeGroup:AddButton({
 	Text = "Bluesteel",
