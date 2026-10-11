@@ -242,39 +242,102 @@ TSG.PickupRemote = resolvePath(ReplicatedStorage, "remoteInterface", "inventory"
 TSG.EquipHotbarRemote = resolvePath(ReplicatedStorage, "remoteInterface", "inventory", "equipHotbar")
 TSG.EquipClothingRemote = resolvePath(ReplicatedStorage, "remoteInterface", "inventory", "equipClothing")
 TSG.SetHungerEvent = resolvePath(ReplicatedStorage, "remoteInterface", "playerData", "setHunger")
+TSG.SetSwimmingEvent = resolvePath(ReplicatedStorage, "remoteInterface", "character", "setSwimming")
+
+local lastAtlanteanEquip = 0
+local function equipAtlanteanArmor()
+	if tick() - lastAtlanteanEquip < 1 then return end
+	lastAtlanteanEquip = tick()
+
+	local equipRemote = TSG.EquipClothingRemote
+		or (ReplicatedStorage:FindFirstChild("remoteInterface")
+			and ReplicatedStorage.remoteInterface:FindFirstChild("inventory")
+			and ReplicatedStorage.remoteInterface.inventory:FindFirstChild("equipClothing"))
+	if not equipRemote then return end
+
+	pcall(function()
+		equipRemote:InvokeServer("inventory", 2, 354)
+	end)
+	pcall(function()
+		equipRemote:InvokeServer("inventory", 3, 355)
+	end)
+	pcall(function()
+		equipRemote:InvokeServer("inventory", 4, 356)
+	end)
+end
+
+-- Swimming state monitor
+local function monitorSwimmingState(character)
+	if not character then return end
+	local humanoid = character:WaitForChild("Humanoid", 5) or character:FindFirstChildOfClass("Humanoid")
+	if not humanoid then return end
+
+	humanoid.StateChanged:Connect(function(_, newState)
+		if newState == Enum.HumanoidStateType.Swimming then
+			if Toggles.AtlanteanAutoSwap and Toggles.AtlanteanAutoSwap.Value then
+				equipAtlanteanArmor()
+			end
+		end
+	end)
+end
+
+if LocalPlayer.Character then
+	task.spawn(monitorSwimmingState, LocalPlayer.Character)
+end
+LocalPlayer.CharacterAdded:Connect(function(character)
+	task.spawn(monitorSwimmingState, character)
+end)
 
 TSG.MeleePlayerRemote = (keyedRemotes and rawget(keyedRemotes, "meleePlayer")) or (interactionsFolder and interactionsFolder:FindFirstChild("meleePlayer"))
 TSG.MineRemote = (keyedRemotes and rawget(keyedRemotes, "mine")) or (interactionsFolder and interactionsFolder:FindFirstChild("mine"))
 TSG.ChopRemote = (keyedRemotes and rawget(keyedRemotes, "chop")) or (interactionsFolder and interactionsFolder:FindFirstChild("chop"))
 TSG.MeleeAI = interactionsFolder and interactionsFolder:FindFirstChild("meleeAI")
 
--- No Bear Trap DMG Remote Interception
+-- Remote Interceptions & Hooks
 pcall(function()
-	local Event = resolvePath(ReplicatedStorage, "remoteInterface", "traps", "Run") or (ReplicatedStorage:FindFirstChild("remoteInterface") and ReplicatedStorage.remoteInterface:FindFirstChild("traps") and ReplicatedStorage.remoteInterface.traps:FindFirstChild("Run"))
-	if not Event then return end
+	local BearTrapEvent = resolvePath(ReplicatedStorage, "remoteInterface", "traps", "Run") or (ReplicatedStorage:FindFirstChild("remoteInterface") and ReplicatedStorage.remoteInterface:FindFirstChild("traps") and ReplicatedStorage.remoteInterface.traps:FindFirstChild("Run"))
+	local SwimmingEvent = TSG.SetSwimmingEvent or resolvePath(ReplicatedStorage, "remoteInterface", "character", "setSwimming") or (ReplicatedStorage:FindFirstChild("remoteInterface") and ReplicatedStorage.remoteInterface:FindFirstChild("character") and ReplicatedStorage.remoteInterface.character:FindFirstChild("setSwimming"))
 
 	local mtHook; mtHook = hookmetamethod(game, "__namecall", function(...)
-		local self = ...
+		local self, arg1 = ...
+		local method = getnamecallmethod()
 
-		if Toggles.NoBearTrapDMG and Toggles.NoBearTrapDMG.Value and rawequal(self, Event) and getnamecallmethod() == "InvokeServer" then
-			print(`Intercepted (__namecall) {Event.Name}:InvokeServer() - BLOCKED`, ...)
+		if BearTrapEvent and Toggles.NoBearTrapDMG and Toggles.NoBearTrapDMG.Value and rawequal(self, BearTrapEvent) and method == "InvokeServer" then
+			print(`Intercepted (__namecall) {BearTrapEvent.Name}:InvokeServer() - BLOCKED`, ...)
 			return nil
+		end
+
+		if SwimmingEvent and rawequal(self, SwimmingEvent) and (method == "FireServer" or method == "fireServer") then
+			if arg1 == true and Toggles.AtlanteanAutoSwap and Toggles.AtlanteanAutoSwap.Value then
+				task.spawn(equipAtlanteanArmor)
+			end
 		end
 
 		return mtHook(...)
 	end)
 
-	if typeof(hookfunction) == "function" and Event.InvokeServer then
-		local OldInvokeServer; OldInvokeServer = hookfunction(Event.InvokeServer, function(...)
-			local self = ...
+	if typeof(hookfunction) == "function" then
+		if BearTrapEvent and BearTrapEvent.InvokeServer then
+			local OldInvokeServer; OldInvokeServer = hookfunction(BearTrapEvent.InvokeServer, function(...)
+				local self = ...
 
-			if Toggles.NoBearTrapDMG and Toggles.NoBearTrapDMG.Value and rawequal(self, Event) then
-				print(`Intercepted (__index) {Event.Name}:InvokeServer() - BLOCKED`, ...)
-				return nil
-			end
+				if Toggles.NoBearTrapDMG and Toggles.NoBearTrapDMG.Value and rawequal(self, BearTrapEvent) then
+					print(`Intercepted (__index) {BearTrapEvent.Name}:InvokeServer() - BLOCKED`, ...)
+					return nil
+				end
 
-			return OldInvokeServer(self, ...)
-		end)
+				return OldInvokeServer(self, ...)
+			end)
+		end
+
+		if SwimmingEvent and SwimmingEvent.FireServer then
+			local OldFireServer; OldFireServer = hookfunction(SwimmingEvent.FireServer, function(self, isSwimming, ...)
+				if isSwimming == true and Toggles.AtlanteanAutoSwap and Toggles.AtlanteanAutoSwap.Value then
+					task.spawn(equipAtlanteanArmor)
+				end
+				return OldFireServer(self, isSwimming, ...)
+			end)
+		end
 	end
 end)
 
@@ -324,7 +387,15 @@ end
 -- ==========================================
 -- MAIN
 -- ==========================================
-local AutoArmorDeluxeGroup = Tabs.Player:AddLeftGroupbox("Auto Armor Deluxe", "shield")
+local ArmorTabBox = Tabs.Player:AddLeftTabbox()
+local AutoArmorDeluxeGroup = ArmorTabBox:AddTab("Armor Deluxe", "shield")
+local ArmorConfigGroup = ArmorTabBox:AddTab("Config", "settings")
+
+AutoArmorDeluxeGroup:AddCheckbox("AtlanteanAutoSwap", {
+	Text = "Atlantean Auto Swap",
+	Default = false,
+	Tooltip = "Automatically equips all Atlantean armor pieces upon entering water",
+})
 
 AutoArmorDeluxeGroup:AddButton({
 	Text = "Bluesteel",
@@ -696,6 +767,11 @@ AutoArmorDeluxeGroup:AddButton({
 		end
 	end,
 })
+
+-- ==========================================
+-- ARMOR DELUXE CONFIG
+-- ==========================================
+-- (Controls for ArmorConfigGroup can be added here)
 
 local PlayerTabBox = Tabs.Player:AddLeftTabbox()
 local MainLeft = PlayerTabBox:AddTab("Player", "user")
