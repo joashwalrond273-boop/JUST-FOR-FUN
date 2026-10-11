@@ -247,6 +247,9 @@ TSG.MeleePlayerRemote = (keyedRemotes and rawget(keyedRemotes, "meleePlayer")) o
 TSG.MineRemote = (keyedRemotes and rawget(keyedRemotes, "mine")) or (interactionsFolder and interactionsFolder:FindFirstChild("mine"))
 TSG.ChopRemote = (keyedRemotes and rawget(keyedRemotes, "chop")) or (interactionsFolder and interactionsFolder:FindFirstChild("chop"))
 TSG.MeleeAI = interactionsFolder and interactionsFolder:FindFirstChild("meleeAI")
+TSG.BuildRemote = (keyedRemotes and rawget(keyedRemotes, "build")) or (interactionsFolder and interactionsFolder:FindFirstChild("build"))
+TSG.CraftRemote = (keyedRemotes and rawget(keyedRemotes, "craft")) or (interactionsFolder and interactionsFolder:FindFirstChild("craft"))
+TSG.DeleteStructureRemote = (keyedRemotes and rawget(keyedRemotes, "deleteStructure")) or (interactionsFolder and interactionsFolder:FindFirstChild("deleteStructure"))
 
 -- No Bear Trap DMG Remote Interception
 pcall(function()
@@ -326,31 +329,6 @@ end
 -- ==========================================
 local AutoArmorDeluxeGroup = Tabs.Player:AddLeftGroupbox("Auto Armor Deluxe", "shield")
 
-local function equipSelectedArmorParts(sword, helmet, chest, pants)
-	local equipHotbarRemote = game:GetService("ReplicatedStorage").remoteInterface.inventory.equipHotbar
-	local equipClothingRemote = game:GetService("ReplicatedStorage").remoteInterface.inventory.equipClothing
-	if Toggles.ArmorPartSword and Toggles.ArmorPartSword.Value then
-		pcall(function()
-			equipHotbarRemote:InvokeServer("inventory", 1, sword)
-		end)
-	end
-	if Toggles.ArmorPartHelmet and Toggles.ArmorPartHelmet.Value then
-		pcall(function()
-			equipClothingRemote:InvokeServer("inventory", 1, helmet)
-		end)
-	end
-	if Toggles.ArmorPartChest and Toggles.ArmorPartChest.Value then
-		pcall(function()
-			equipClothingRemote:InvokeServer("inventory", 2, chest)
-		end)
-	end
-	if Toggles.ArmorPartPants and Toggles.ArmorPartPants.Value then
-		pcall(function()
-			equipClothingRemote:InvokeServer("inventory", 3, pants)
-		end)
-	end
-end
-
 AutoArmorDeluxeGroup:AddButton({
 	Text = "Bluesteel",
 	Func = function()
@@ -359,15 +337,36 @@ AutoArmorDeluxeGroup:AddButton({
 		if not root then return end
 		local playerPosition = root.Position
 
-		local buildRemote = game:GetService("ReplicatedStorage").remoteInterface.interactions.build
-		local craftRemote = game:GetService("ReplicatedStorage").remoteInterface.interactions.craft
-		local equipHotbarRemote = game:GetService("ReplicatedStorage").remoteInterface.inventory.equipHotbar
-		local equipClothingRemote = game:GetService("ReplicatedStorage").remoteInterface.inventory.equipClothing
-		local deleteRemote = game:GetService("ReplicatedStorage").remoteInterface.interactions.deleteStructure
+		local buildRemote = TSG.BuildRemote
+		local craftRemote = TSG.CraftRemote
+		local equipHotbarRemote = TSG.EquipHotbarRemote
+		local equipClothingRemote = TSG.EquipClothingRemote
+		local deleteRemote = TSG.DeleteStructureRemote
+
+		if not equipHotbarRemote or not equipClothingRemote then
+			Library:Notify({ Title = "Error", Description = "Equip remotes not found", Time = 3 })
+			return
+		end
 
 		if Toggles.ArmorEquipOnly and Toggles.ArmorEquipOnly.Value then
-			equipSelectedArmorParts(197, 202, 200, 201)
+			pcall(function()
+				equipHotbarRemote:InvokeServer("inventory", 1, 197)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 1, 202)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 2, 200)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 3, 201)
+			end)
 			Library:Notify({ Title = "Bluesteel", Description = "Bluesteel armor equipped", Time = 2 })
+			return
+		end
+
+		if not buildRemote or not craftRemote then
+			Library:Notify({ Title = "Error", Description = "Build/Craft remote not found", Time = 3 })
 			return
 		end
 
@@ -389,19 +388,12 @@ AutoArmorDeluxeGroup:AddButton({
 			end
 		end)
 
-		local itemsToCraft = {}
-		if Toggles.ArmorPartSword and Toggles.ArmorPartSword.Value then
-			table.insert(itemsToCraft, {197, "Bluesteel Sword"})
-		end
-		if Toggles.ArmorPartHelmet and Toggles.ArmorPartHelmet.Value then
-			table.insert(itemsToCraft, {202, "Bluesteel Helmet"})
-		end
-		if Toggles.ArmorPartChest and Toggles.ArmorPartChest.Value then
-			table.insert(itemsToCraft, {200, "Bluesteel Chestplate"})
-		end
-		if Toggles.ArmorPartPants and Toggles.ArmorPartPants.Value then
-			table.insert(itemsToCraft, {201, "Bluesteel Pants"})
-		end
+		local itemsToCraft = {
+			{197, "Bluesteel Sword"},
+			{202, "Bluesteel Helmet"},
+			{200, "Bluesteel Chestplate"},
+			{201, "Bluesteel Pants"},
+		}
 
 		if furnace then
 			for _, item in ipairs(itemsToCraft) do
@@ -412,7 +404,18 @@ AutoArmorDeluxeGroup:AddButton({
 
 			task.wait(0.3)
 
-			equipSelectedArmorParts(197, 202, 200, 201)
+			pcall(function()
+				equipHotbarRemote:InvokeServer("inventory", 1, 197)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 1, 202)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 2, 200)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 3, 201)
+			end)
 
 			pcall(function()
 				deleteRemote:FireServer(furnace)
@@ -433,15 +436,36 @@ AutoArmorDeluxeGroup:AddButton({
 		if not root then return end
 		local playerPosition = root.Position
 
-		local buildRemote = game:GetService("ReplicatedStorage").remoteInterface.interactions.build
-		local craftRemote = game:GetService("ReplicatedStorage").remoteInterface.interactions.craft
-		local equipHotbarRemote = game:GetService("ReplicatedStorage").remoteInterface.inventory.equipHotbar
-		local equipClothingRemote = game:GetService("ReplicatedStorage").remoteInterface.inventory.equipClothing
-		local deleteRemote = game:GetService("ReplicatedStorage").remoteInterface.interactions.deleteStructure
+		local buildRemote = TSG.BuildRemote
+		local craftRemote = TSG.CraftRemote
+		local equipHotbarRemote = TSG.EquipHotbarRemote
+		local equipClothingRemote = TSG.EquipClothingRemote
+		local deleteRemote = TSG.DeleteStructureRemote
+
+		if not equipHotbarRemote or not equipClothingRemote then
+			Library:Notify({ Title = "Error", Description = "Equip remotes not found", Time = 3 })
+			return
+		end
 
 		if Toggles.ArmorEquipOnly and Toggles.ArmorEquipOnly.Value then
-			equipSelectedArmorParts(267, 262, 261, 260)
+			pcall(function()
+				equipHotbarRemote:InvokeServer("inventory", 1, 267)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 1, 262)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 2, 261)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 3, 260)
+			end)
 			Library:Notify({ Title = "Darksteel", Description = "Darksteel armor equipped", Time = 2 })
+			return
+		end
+
+		if not buildRemote or not craftRemote then
+			Library:Notify({ Title = "Error", Description = "Build/Craft remote not found", Time = 3 })
 			return
 		end
 
@@ -463,19 +487,12 @@ AutoArmorDeluxeGroup:AddButton({
 			end
 		end)
 
-		local itemsToCraft = {}
-		if Toggles.ArmorPartSword and Toggles.ArmorPartSword.Value then
-			table.insert(itemsToCraft, {267, "Darksteel Sword"})
-		end
-		if Toggles.ArmorPartHelmet and Toggles.ArmorPartHelmet.Value then
-			table.insert(itemsToCraft, {262, "Darksteel Helmet"})
-		end
-		if Toggles.ArmorPartChest and Toggles.ArmorPartChest.Value then
-			table.insert(itemsToCraft, {261, "Darksteel Chestplate"})
-		end
-		if Toggles.ArmorPartPants and Toggles.ArmorPartPants.Value then
-			table.insert(itemsToCraft, {260, "Darksteel Pants"})
-		end
+		local itemsToCraft = {
+			{267, "Darksteel Sword"},
+			{261, "Darksteel Chestplate"},
+			{260, "Darksteel Pants"},
+			{262, "Darksteel Helmet"},
+		}
 
 		if furnace then
 			for _, item in ipairs(itemsToCraft) do
@@ -486,7 +503,18 @@ AutoArmorDeluxeGroup:AddButton({
 
 			task.wait(0.3)
 
-			equipSelectedArmorParts(267, 262, 261, 260)
+			pcall(function()
+				equipHotbarRemote:InvokeServer("inventory", 1, 267)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 1, 262)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 2, 261)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 3, 260)
+			end)
 
 			pcall(function()
 				deleteRemote:FireServer(furnace)
@@ -507,15 +535,36 @@ AutoArmorDeluxeGroup:AddButton({
 		if not root then return end
 		local playerPosition = root.Position
 
-		local buildRemote = game:GetService("ReplicatedStorage").remoteInterface.interactions.build
-		local craftRemote = game:GetService("ReplicatedStorage").remoteInterface.interactions.craft
-		local equipHotbarRemote = game:GetService("ReplicatedStorage").remoteInterface.inventory.equipHotbar
-		local equipClothingRemote = game:GetService("ReplicatedStorage").remoteInterface.inventory.equipClothing
-		local deleteRemote = game:GetService("ReplicatedStorage").remoteInterface.interactions.deleteStructure
+		local buildRemote = TSG.BuildRemote
+		local craftRemote = TSG.CraftRemote
+		local equipHotbarRemote = TSG.EquipHotbarRemote
+		local equipClothingRemote = TSG.EquipClothingRemote
+		local deleteRemote = TSG.DeleteStructureRemote
+
+		if not equipHotbarRemote or not equipClothingRemote then
+			Library:Notify({ Title = "Error", Description = "Equip remotes not found", Time = 3 })
+			return
+		end
 
 		if Toggles.ArmorEquipOnly and Toggles.ArmorEquipOnly.Value then
-			equipSelectedArmorParts(406, 404, 403, 402)
+			pcall(function()
+				equipHotbarRemote:InvokeServer("inventory", 1, 406)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 1, 404)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 2, 403)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 3, 402)
+			end)
 			Library:Notify({ Title = "Samurai", Description = "Samurai armor equipped", Time = 2 })
+			return
+		end
+
+		if not buildRemote or not craftRemote then
+			Library:Notify({ Title = "Error", Description = "Build/Craft remote not found", Time = 3 })
 			return
 		end
 
@@ -539,19 +588,12 @@ AutoArmorDeluxeGroup:AddButton({
 			end
 		end)
 
-		local itemsToCraft = {}
-		if Toggles.ArmorPartSword and Toggles.ArmorPartSword.Value then
-			table.insert(itemsToCraft, {406, "Samurai Sword"})
-		end
-		if Toggles.ArmorPartHelmet and Toggles.ArmorPartHelmet.Value then
-			table.insert(itemsToCraft, {404, "Samurai Helmet"})
-		end
-		if Toggles.ArmorPartChest and Toggles.ArmorPartChest.Value then
-			table.insert(itemsToCraft, {403, "Samurai Armor"})
-		end
-		if Toggles.ArmorPartPants and Toggles.ArmorPartPants.Value then
-			table.insert(itemsToCraft, {402, "Samurai Pants"})
-		end
+		local itemsToCraft = {
+			{406, "Samurai Sword"},
+			{403, "Samurai Armor"},
+			{402, "Samurai Pants"},
+			{404, "Samurai Helmet"},
+		}
 
 		if furnace then
 			for _, item in ipairs(itemsToCraft) do
@@ -562,7 +604,18 @@ AutoArmorDeluxeGroup:AddButton({
 
 			task.wait(0.3)
 
-			equipSelectedArmorParts(406, 404, 403, 402)
+			pcall(function()
+				equipHotbarRemote:InvokeServer("inventory", 1, 406)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 1, 404)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 2, 403)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 3, 402)
+			end)
 
 			pcall(function()
 				deleteRemote:FireServer(furnace)
@@ -583,15 +636,36 @@ AutoArmorDeluxeGroup:AddButton({
 		if not root then return end
 		local playerPosition = root.Position
 
-		local buildRemote = game:GetService("ReplicatedStorage").remoteInterface.interactions.build
-		local craftRemote = game:GetService("ReplicatedStorage").remoteInterface.interactions.craft
-		local equipHotbarRemote = game:GetService("ReplicatedStorage").remoteInterface.inventory.equipHotbar
-		local equipClothingRemote = game:GetService("ReplicatedStorage").remoteInterface.inventory.equipClothing
-		local deleteRemote = game:GetService("ReplicatedStorage").remoteInterface.interactions.deleteStructure
+		local buildRemote = TSG.BuildRemote
+		local craftRemote = TSG.CraftRemote
+		local equipHotbarRemote = TSG.EquipHotbarRemote
+		local equipClothingRemote = TSG.EquipClothingRemote
+		local deleteRemote = TSG.DeleteStructureRemote
+
+		if not equipHotbarRemote or not equipClothingRemote then
+			Library:Notify({ Title = "Error", Description = "Equip remotes not found", Time = 3 })
+			return
+		end
 
 		if Toggles.ArmorEquipOnly and Toggles.ArmorEquipOnly.Value then
-			equipSelectedArmorParts(357, 354, 355, 356)
+			pcall(function()
+				equipHotbarRemote:InvokeServer("inventory", 1, 357)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 1, 354)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 2, 355)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 3, 356)
+			end)
 			Library:Notify({ Title = "Atlantean", Description = "Atlantean armor equipped", Time = 2 })
+			return
+		end
+
+		if not buildRemote or not craftRemote then
+			Library:Notify({ Title = "Error", Description = "Build/Craft remote not found", Time = 3 })
 			return
 		end
 
@@ -616,19 +690,12 @@ AutoArmorDeluxeGroup:AddButton({
 			end
 		end)
 
-		local itemsToCraft = {}
-		if Toggles.ArmorPartSword and Toggles.ArmorPartSword.Value then
-			table.insert(itemsToCraft, {357, "Atlantean Sword"})
-		end
-		if Toggles.ArmorPartHelmet and Toggles.ArmorPartHelmet.Value then
-			table.insert(itemsToCraft, {354, "Atlantean Helmet"})
-		end
-		if Toggles.ArmorPartChest and Toggles.ArmorPartChest.Value then
-			table.insert(itemsToCraft, {355, "Atlantean Armor"})
-		end
-		if Toggles.ArmorPartPants and Toggles.ArmorPartPants.Value then
-			table.insert(itemsToCraft, {356, "Atlantean Pants"})
-		end
+		local itemsToCraft = {
+			{357, "Atlantean Sword"},
+			{355, "Atlantean Armor"},
+			{356, "Atlantean Pants"},
+			{354, "Atlantean Helmet"},
+		}
 
 		if furnace then
 			for _, item in ipairs(itemsToCraft) do
@@ -639,7 +706,18 @@ AutoArmorDeluxeGroup:AddButton({
 
 			task.wait(0.3)
 
-			equipSelectedArmorParts(357, 354, 355, 356)
+			pcall(function()
+				equipHotbarRemote:InvokeServer("inventory", 1, 357)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 1, 354)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 2, 355)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 3, 356)
+			end)
 
 			pcall(function()
 				deleteRemote:FireServer(furnace)
@@ -660,15 +738,36 @@ AutoArmorDeluxeGroup:AddButton({
 		if not root then return end
 		local playerPosition = root.Position
 
-		local buildRemote = game:GetService("ReplicatedStorage").remoteInterface.interactions.build
-		local craftRemote = game:GetService("ReplicatedStorage").remoteInterface.interactions.craft
-		local equipHotbarRemote = game:GetService("ReplicatedStorage").remoteInterface.inventory.equipHotbar
-		local equipClothingRemote = game:GetService("ReplicatedStorage").remoteInterface.inventory.equipClothing
-		local deleteRemote = game:GetService("ReplicatedStorage").remoteInterface.interactions.deleteStructure
+		local buildRemote = TSG.BuildRemote
+		local craftRemote = TSG.CraftRemote
+		local equipHotbarRemote = TSG.EquipHotbarRemote
+		local equipClothingRemote = TSG.EquipClothingRemote
+		local deleteRemote = TSG.DeleteStructureRemote
+
+		if not equipHotbarRemote or not equipClothingRemote then
+			Library:Notify({ Title = "Error", Description = "Equip remotes not found", Time = 3 })
+			return
+		end
 
 		if Toggles.ArmorEquipOnly and Toggles.ArmorEquipOnly.Value then
-			equipSelectedArmorParts(545, 541, 542, 543)
+			pcall(function()
+				equipHotbarRemote:InvokeServer("inventory", 1, 545)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 1, 541)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 2, 542)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 3, 543)
+			end)
 			Library:Notify({ Title = "Juggernaut", Description = "Juggernaut armor equipped", Time = 2 })
+			return
+		end
+
+		if not buildRemote or not craftRemote then
+			Library:Notify({ Title = "Error", Description = "Build/Craft remote not found", Time = 3 })
 			return
 		end
 
@@ -696,19 +795,12 @@ AutoArmorDeluxeGroup:AddButton({
 			end
 		end)
 
-		local itemsToCraft = {}
-		if Toggles.ArmorPartSword and Toggles.ArmorPartSword.Value then
-			table.insert(itemsToCraft, {545, "Juggernaut Sword"})
-		end
-		if Toggles.ArmorPartHelmet and Toggles.ArmorPartHelmet.Value then
-			table.insert(itemsToCraft, {541, "Juggernaut Helmet"})
-		end
-		if Toggles.ArmorPartChest and Toggles.ArmorPartChest.Value then
-			table.insert(itemsToCraft, {542, "Juggernaut Armor"})
-		end
-		if Toggles.ArmorPartPants and Toggles.ArmorPartPants.Value then
-			table.insert(itemsToCraft, {543, "Juggernaut Pants"})
-		end
+		local itemsToCraft = {
+			{545, "Juggernaut Sword"},
+			{542, "Juggernaut Armor"},
+			{543, "Juggernaut Pants"},
+			{541, "Juggernaut Helmet"},
+		}
 
 		if furnace then
 			for _, item in ipairs(itemsToCraft) do
@@ -719,7 +811,18 @@ AutoArmorDeluxeGroup:AddButton({
 
 			task.wait(0.3)
 
-			equipSelectedArmorParts(545, 541, 542, 543)
+			pcall(function()
+				equipHotbarRemote:InvokeServer("inventory", 1, 545)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 1, 541)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 2, 542)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 3, 543)
+			end)
 
 			pcall(function()
 				deleteRemote:FireServer(furnace)
@@ -735,26 +838,6 @@ AutoArmorDeluxeGroup:AddButton({
 AutoArmorDeluxeGroup:AddToggle("ArmorEquipOnly", {
 	Text = "Equip Only Mode",
 	Default = false,
-})
-
-AutoArmorDeluxeGroup:AddCheckbox("ArmorPartSword", {
-	Text = "Sword",
-	Default = true,
-})
-
-AutoArmorDeluxeGroup:AddCheckbox("ArmorPartHelmet", {
-	Text = "Helmet",
-	Default = true,
-})
-
-AutoArmorDeluxeGroup:AddCheckbox("ArmorPartChest", {
-	Text = "Chest",
-	Default = true,
-})
-
-AutoArmorDeluxeGroup:AddCheckbox("ArmorPartPants", {
-	Text = "Pants",
-	Default = true,
 })
 
 local PlayerTabBox = Tabs.Player:AddLeftTabbox()
@@ -3275,7 +3358,11 @@ Toggles.ToiletBed:OnChanged(function()
 		local root = character and character:FindFirstChild("HumanoidRootPart")
 		if root then
 			local playerPosition = root.Position
-			local buildRemote = game:GetService("ReplicatedStorage").remoteInterface.interactions.build
+			local buildRemote = TSG.BuildRemote
+			if not buildRemote then
+				Library:Notify({ Title = "Error", Description = "Build remote not found", Time = 3 })
+				return
+			end
 			pcall(function()
 				buildRemote:InvokeServer(
 					90,
