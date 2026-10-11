@@ -326,63 +326,6 @@ end
 -- ==========================================
 local AutoArmorDeluxeGroup = Tabs.Player:AddLeftGroupbox("Auto Armor Deluxe", "shield")
 
-AutoArmorDeluxeGroup:AddToggle("AtlanteanAutoSwap", {
-	Text = "Atlantean Auto Swap",
-	Default = false,
-})
-
-local function equipAtlanteanArmor()
-	local equipHotbarRemote = game:GetService("ReplicatedStorage").remoteInterface.inventory.equipHotbar
-	local equipClothingRemote = game:GetService("ReplicatedStorage").remoteInterface.inventory.equipClothing
-	pcall(function()
-		equipHotbarRemote:InvokeServer("inventory", 1, 357)
-	end)
-	pcall(function()
-		equipClothingRemote:InvokeServer("inventory", 2, 354)
-	end)
-	pcall(function()
-		equipClothingRemote:InvokeServer("inventory", 3, 355)
-	end)
-	pcall(function()
-		equipClothingRemote:InvokeServer("inventory", 4, 356)
-	end)
-end
-
-local atlanteanSwapDebounce = false
-local function tryAtlanteanSwap()
-	if Toggles.AtlanteanAutoSwap and Toggles.AtlanteanAutoSwap.Value and not atlanteanSwapDebounce then
-		atlanteanSwapDebounce = true
-		task.spawn(equipAtlanteanArmor)
-		task.delay(1, function() atlanteanSwapDebounce = false end)
-	end
-end
-
-local setSwimmingRemote = game:GetService("ReplicatedStorage").remoteInterface.character.setSwimming
-if typeof(hookfunction) == "function" and setSwimmingRemote and setSwimmingRemote.FireServer then
-	local oldFireServer; oldFireServer = hookfunction(setSwimmingRemote.FireServer, function(self, isSwimming, ...)
-		if isSwimming == true then
-			tryAtlanteanSwap()
-		end
-		return oldFireServer(self, isSwimming, ...)
-	end)
-end
-
-task.spawn(function()
-	local function hookCharacter(char)
-		local hum = char:WaitForChild("Humanoid", 10)
-		if not hum then return end
-		hum.StateChanged:Connect(function(_, newState)
-			if newState == Enum.HumanoidStateType.Swimming then
-				tryAtlanteanSwap()
-			end
-		end)
-	end
-	if LocalPlayer.Character then
-		hookCharacter(LocalPlayer.Character)
-	end
-	LocalPlayer.CharacterAdded:Connect(hookCharacter)
-end)
-
 AutoArmorDeluxeGroup:AddButton({
 	Text = "Bluesteel",
 	Func = function()
@@ -4562,6 +4505,13 @@ MoveSwimBoost:AddSlider("RiseFastPVPSpeed", {
 	Compact = true,
 })
 
+MoveSwimBoost:AddDivider()
+
+MoveSwimBoost:AddToggle("AtlanteanAutoSwap", {
+	Text = "Atlantean Auto Swap",
+	Default = false,
+})
+
 updateSwimBoostVisibility = function()
 	local isSink = (Toggles.SinkFastPVP and Toggles.SinkFastPVP.Value) or false
 	local isRise = (Toggles.RiseFastPVP and Toggles.RiseFastPVP.Value) or false
@@ -4597,6 +4547,48 @@ task.spawn(function()
 	if updateSwimBoostVisibility then
 		updateSwimBoostVisibility()
 	end
+end)
+
+local function equipAtlanteanArmor()
+	local equipHotbarRemote = game:GetService("ReplicatedStorage").remoteInterface.inventory.equipHotbar
+	local equipClothingRemote = game:GetService("ReplicatedStorage").remoteInterface.inventory.equipClothing
+	pcall(function()
+		equipHotbarRemote:InvokeServer("inventory", 1, 357)
+	end)
+	pcall(function()
+		equipClothingRemote:InvokeServer("inventory", 2, 354)
+	end)
+	pcall(function()
+		equipClothingRemote:InvokeServer("inventory", 3, 355)
+	end)
+	pcall(function()
+		equipClothingRemote:InvokeServer("inventory", 4, 356)
+	end)
+end
+
+local atlanteanSwapDebounce = false
+local function tryAtlanteanSwap()
+	if Toggles.AtlanteanAutoSwap and Toggles.AtlanteanAutoSwap.Value and not atlanteanSwapDebounce then
+		atlanteanSwapDebounce = true
+		task.spawn(equipAtlanteanArmor)
+		task.delay(1, function() atlanteanSwapDebounce = false end)
+	end
+end
+
+task.spawn(function()
+	local function hookCharacter(char)
+		local hum = char:WaitForChild("Humanoid", 10)
+		if not hum then return end
+		hum.StateChanged:Connect(function(_, newState)
+			if newState == Enum.HumanoidStateType.Swimming then
+				tryAtlanteanSwap()
+			end
+		end)
+	end
+	if LocalPlayer.Character then
+		hookCharacter(LocalPlayer.Character)
+	end
+	LocalPlayer.CharacterAdded:Connect(hookCharacter)
 end)
 
 local MoveBoatSpeed = Tabs.Movement:AddLeftGroupbox("Boat Speed", "anchor")
