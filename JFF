@@ -327,36 +327,6 @@ end
 local AutoArmorDeluxeGroup = Tabs.Player:AddLeftGroupbox("Auto Armor Deluxe", "shield")
 
 AutoArmorDeluxeGroup:AddButton({
-	Text = "Auto Armor Deluxe",
-	Func = function()
-		local character = LocalPlayer.Character
-		local root = character and character:FindFirstChild("HumanoidRootPart")
-		if not root then return end
-		local playerPosition = root.Position
-
-		local buildRemote = game:GetService("ReplicatedStorage").remoteInterface.interactions.build
-
-		pcall(function()
-			buildRemote:InvokeServer(
-				90,
-				CFrame.new(playerPosition.X, playerPosition.Y - 3, playerPosition.Z),
-				0,
-				nil
-			)
-		end)
-
-		pcall(function()
-			buildRemote:InvokeServer(
-				85,
-				CFrame.new(playerPosition.X, playerPosition.Y - 3, playerPosition.Z),
-				0,
-				nil
-			)
-		end)
-	end,
-})
-
-AutoArmorDeluxeGroup:AddButton({
 	Text = "Bluesteel",
 	Func = function()
 		local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
@@ -1880,6 +1850,11 @@ CombatAutoPVP:AddSlider("AutoJumpDelay", {
 	Compact = true,
 })
 
+CombatAutoPVP:AddCheckbox("ToiletBed", {
+	Text = "Toilet/Bed",
+	Default = false,
+})
+
 updatePVPModulesVisibility = function()
 	local isCam = (Toggles.Camlock and Toggles.Camlock.Value) or false
 	local isCamLerp = (Toggles.CamlockCameraLerp and Toggles.CamlockCameraLerp.Value) or false
@@ -2929,6 +2904,34 @@ Toggles.AutoShiftlock:OnChanged(function()
 		if hum then
 			hum.AutoRotate = true
 			hum.CameraOffset = autoShiftlockVars.origCameraOffset or Vector3.zero
+		end
+	end
+end)
+
+Toggles.ToiletBed:OnChanged(function()
+	if Toggles.ToiletBed.Value then
+		local character = LocalPlayer.Character
+		local root = character and character:FindFirstChild("HumanoidRootPart")
+		if root then
+			local playerPosition = root.Position
+			local buildRemote = game:GetService("ReplicatedStorage").remoteInterface.interactions.build
+			pcall(function()
+				buildRemote:InvokeServer(
+					90,
+					CFrame.new(playerPosition.X, playerPosition.Y - 3, playerPosition.Z),
+					0,
+					nil
+				)
+			end)
+			pcall(function()
+				buildRemote:InvokeServer(
+					85,
+					CFrame.new(playerPosition.X, playerPosition.Y - 3, playerPosition.Z),
+					0,
+					nil
+				)
+			end)
+			Library:Notify({ Title = "Toilet/Bed", Description = "Structures placed", Time = 2 })
 		end
 	end
 end)
