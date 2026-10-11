@@ -684,11 +684,6 @@ MainLeft:AddCheckbox("WalkOnWater", {
 	Default = false,
 })
 
-MainLeft:AddCheckbox("AtlanteanSwitch", {
-	Text = "Atlantean Switch",
-	Default = false,
-})
-
 MainLeft:AddCheckbox("FastPickup", {
 	Text = "Auto Pickup",
 	Default = false,
@@ -1022,26 +1017,106 @@ Toggles.InfiniteJump:OnChanged(function()
 	end
 end)
 
-Toggles.AtlanteanSwitch:OnChanged(function()
+local atlanteanButton = nil
+
+local function equipAtlanteanArmor()
 	local remote = TSG.EquipClothingRemote
 	if not remote then
 		Library:Notify({ Title = "Atlantean Switch", Description = "equipClothing remote not found", Time = 3 })
 		return
 	end
+	pcall(function()
+		remote:InvokeServer("inventory", 1, 354)
+		remote:InvokeServer("inventory", 2, 355)
+		remote:InvokeServer("inventory", 3, 356)
+	end)
+	Library:Notify({ Title = "Atlantean Switch", Description = "Atlantean armor equipped", Time = 2 })
+end
+
+Toggles.AtlanteanSwitch:OnChanged(function()
 	if Toggles.AtlanteanSwitch.Value then
-		pcall(function()
-			remote:InvokeServer("inventory", 1, 354)
-			remote:InvokeServer("inventory", 2, 355)
-			remote:InvokeServer("inventory", 3, 356)
+		if atlanteanButton and atlanteanButton.Parent then
+			atlanteanButton.Visible = true
+			return
+		end
+
+		local playerGui = LocalPlayer:WaitForChild("PlayerGui")
+		local screenGui = Instance.new("ScreenGui")
+		screenGui.Name = "AtlanteanSwitchGUI"
+		screenGui.ResetOnSpawn = false
+		screenGui.Parent = playerGui
+
+		local btn = Instance.new("TextButton")
+		btn.Name = "AtlanteanButton"
+		btn.Parent = screenGui
+		btn.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+		btn.BackgroundTransparency = 0.1
+		btn.BorderSizePixel = 0
+		btn.Size = UDim2.new(0, 56, 0, 56)
+		btn.Position = UDim2.new(0.86, -28, 0.86, -28)
+		btn.Text = "🔱"
+		btn.Font = Enum.Font.GothamBold
+		btn.TextScaled = true
+		btn.TextColor3 = Color3.fromRGB(220, 40, 40)
+		btn.AutoButtonColor = false
+
+		local corner = Instance.new("UICorner")
+		corner.CornerRadius = UDim.new(0, 12)
+		corner.Parent = btn
+
+		local stroke = Instance.new("UIStroke")
+		stroke.Color = Color3.fromRGB(220, 40, 40)
+		stroke.Thickness = 2
+		stroke.Parent = btn
+
+		atlanteanButton = btn
+
+		local dragging = false
+		local dragStart = nil
+		local startPos = nil
+
+		btn.InputBegan:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+				dragging = true
+				dragStart = input.Position
+				startPos = btn.Position
+				input.Changed:Connect(function()
+					if input.UserInputState == Enum.UserInputState.End then
+						dragging = false
+					end
+				end)
+			end
 		end)
-		Library:Notify({ Title = "Atlantean Switch", Description = "Atlantean armor equipped", Time = 2 })
+
+		btn.InputChanged:Connect(function(input)
+			if (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) and dragging then
+				local delta = input.Position - dragStart
+				btn.Position = UDim2.new(
+					startPos.X.Scale,
+					startPos.X.Offset + delta.X,
+					startPos.Y.Scale,
+					startPos.Y.Offset + delta.Y
+				)
+			end
+		end)
+
+		btn.Activated:Connect(function()
+			equipAtlanteanArmor()
+		end)
+
+		btn.MouseEnter:Connect(function()
+			btn.BackgroundColor3 = Color3.fromRGB(50, 10, 10)
+		end)
+		btn.MouseLeave:Connect(function()
+			btn.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+		end)
+
+		Library:Notify({ Title = "Atlantean Switch", Description = "Trident button enabled", Time = 2 })
 	else
-		pcall(function()
-			remote:InvokeServer("inventory", 1, 0)
-			remote:InvokeServer("inventory", 2, 0)
-			remote:InvokeServer("inventory", 3, 0)
-		end)
-		Library:Notify({ Title = "Atlantean Switch", Description = "Atlantean armor unequipped", Time = 2 })
+		if atlanteanButton and atlanteanButton.Parent then
+			atlanteanButton.Visible = false
+		end
+		Library:Notify({ Title = "Atlantean Switch", Description = "Trident button disabled", Time = 2 })
 	end
 end)
 
@@ -4163,6 +4238,11 @@ MoveSwimBoost:AddDropdown("SwimSlotBoostSlot", {
 	Values = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"},
 	Default = {"1"},
 	Multi = true,
+})
+
+MoveSwimBoost:AddCheckbox("AtlanteanSwitch", {
+	Text = "Atlantean Switch",
+	Default = false,
 })
 
 MoveSwimBoost:AddSlider("SwimBoostValue", {
