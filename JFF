@@ -326,9 +326,8 @@ end
 -- ==========================================
 local AutoArmorDeluxeGroup = Tabs.Player:AddLeftGroupbox("Auto Armor Deluxe", "shield")
 
-AutoArmorDeluxeGroup:AddButton({
-	Text = "Bluesteel",
-	Func = function()
+local armorSets = {
+	Bluesteel = function()
 		local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 		local root = character and character:FindFirstChild("HumanoidRootPart")
 		if not root then return end
@@ -396,11 +395,8 @@ AutoArmorDeluxeGroup:AddButton({
 			Library:Notify({ Title = "Bluesteel", Description = "Furnace not found", Time = 3 })
 		end
 	end,
-})
 
-AutoArmorDeluxeGroup:AddButton({
-	Text = "Darksteel",
-	Func = function()
+	Darksteel = function()
 		local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 		local root = character and character:FindFirstChild("HumanoidRootPart")
 		if not root then return end
@@ -468,11 +464,8 @@ AutoArmorDeluxeGroup:AddButton({
 			Library:Notify({ Title = "Darksteel", Description = "Forge not found", Time = 3 })
 		end
 	end,
-})
 
-AutoArmorDeluxeGroup:AddButton({
-	Text = "Samurai",
-	Func = function()
+	Samurai = function()
 		local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 		local root = character and character:FindFirstChild("HumanoidRootPart")
 		if not root then return end
@@ -542,11 +535,8 @@ AutoArmorDeluxeGroup:AddButton({
 			Library:Notify({ Title = "Samurai", Description = "Forge not found", Time = 3 })
 		end
 	end,
-})
 
-AutoArmorDeluxeGroup:AddButton({
-	Text = "Atlantean",
-	Func = function()
+	Atlantean = function()
 		local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 		local root = character and character:FindFirstChild("HumanoidRootPart")
 		if not root then return end
@@ -617,11 +607,8 @@ AutoArmorDeluxeGroup:AddButton({
 			Library:Notify({ Title = "Atlantean", Description = "Forge not found", Time = 3 })
 		end
 	end,
-})
 
-AutoArmorDeluxeGroup:AddButton({
-	Text = "Juggernaut",
-	Func = function()
+	Juggernaut = function()
 		local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 		local root = character and character:FindFirstChild("HumanoidRootPart")
 		if not root then return end
@@ -693,6 +680,23 @@ AutoArmorDeluxeGroup:AddButton({
 			Library:Notify({ Title = "Juggernaut", Description = "Juggernaut armor equipped", Time = 2 })
 		else
 			Library:Notify({ Title = "Juggernaut", Description = "Forge not found", Time = 3 })
+		end
+	end,
+}
+
+AutoArmorDeluxeGroup:AddDropdown("QuickArmorSelect", {
+	Text = "Armor Set",
+	Values = {"Bluesteel", "Darksteel", "Samurai", "Atlantean", "Juggernaut"},
+	Default = "Bluesteel",
+})
+
+AutoArmorDeluxeGroup:AddButton({
+	Text = "Quick Craft",
+	Func = function()
+		local selected = Options.QuickArmorSelect and Options.QuickArmorSelect.Value
+		local fn = selected and armorSets[selected]
+		if fn then
+			fn()
 		end
 	end,
 })
