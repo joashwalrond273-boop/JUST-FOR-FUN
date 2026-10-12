@@ -187,28 +187,6 @@ local function getKeyedRemotes()
 			end
 		end
 	end)
-	if keyed then
-		return keyed
-	end
-	pcall(function()
-		for _, module in ipairs(ReplicatedStorage:GetDescendants()) do
-			if module:IsA("ModuleScript") then
-				local ok, result = pcall(require, module)
-				if ok and typeof(result) == "table" then
-					if rawget(result, "meleePlayer") or rawget(result, "build") then
-						keyed = result
-						return
-					end
-					for _, v in pairs(result) do
-						if typeof(v) == "table" and (rawget(v, "meleePlayer") or rawget(v, "build")) then
-							keyed = v
-							return
-						end
-					end
-				end
-			end
-		end
-	end)
 	return keyed
 end
 
@@ -272,20 +250,6 @@ TSG.MeleeAI = interactionsFolder and interactionsFolder:FindFirstChild("meleeAI"
 TSG.BuildRemote = (keyedRemotes and rawget(keyedRemotes, "build")) or (interactionsFolder and interactionsFolder:FindFirstChild("build"))
 TSG.CraftRemote = (keyedRemotes and rawget(keyedRemotes, "craft")) or (interactionsFolder and interactionsFolder:FindFirstChild("craft"))
 TSG.DeleteStructureRemote = (keyedRemotes and rawget(keyedRemotes, "deleteStructure")) or (interactionsFolder and interactionsFolder:FindFirstChild("deleteStructure"))
-
-local function safeInvoke(remote, ...)
-	if not remote then return end
-	local method = remote.InvokeServer
-	if not method then return end
-	return pcall(method, remote, ...)
-end
-
-local function safeFire(remote, ...)
-	if not remote then return end
-	local method = remote.FireServer
-	if not method then return end
-	return pcall(method, remote, ...)
-end
 
 -- No Bear Trap DMG Remote Interception
 pcall(function()
@@ -365,8 +329,6 @@ end
 -- ==========================================
 local AutoArmorDeluxeGroup = Tabs.Player:AddLeftGroupbox("Auto Armor Deluxe", "shield")
 
-AutoArmorDeluxeGroup:AddDivider()
-
 AutoArmorDeluxeGroup:AddCheckbox("ArmorEquipOnly", {
 	Text = "Equip Only Mode",
 	Default = false,
@@ -392,10 +354,18 @@ AutoArmorDeluxeGroup:AddButton({
 		end
 
 		if Toggles.ArmorEquipOnly and Toggles.ArmorEquipOnly.Value then
-			safeInvoke(equipHotbarRemote, "inventory", 1, 197)
-			safeInvoke(equipClothingRemote, "inventory", 1, 202)
-			safeInvoke(equipClothingRemote, "inventory", 2, 200)
-			safeInvoke(equipClothingRemote, "inventory", 3, 201)
+			pcall(function()
+				equipHotbarRemote:InvokeServer("inventory", 1, 197)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 1, 202)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 2, 200)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 3, 201)
+			end)
 			Library:Notify({ Title = "Bluesteel", Description = "Bluesteel armor equipped", Time = 2 })
 			return
 		end
@@ -405,11 +375,13 @@ AutoArmorDeluxeGroup:AddButton({
 			return
 		end
 
-		safeInvoke(buildRemote,
-			199,
-			CFrame.new(playerPosition.X, playerPosition.Y - 3, playerPosition.Z) * CFrame.Angles(0, 0, 0),
-			-3.141592653589793
-		)
+		pcall(function()
+			buildRemote:InvokeServer(
+				199,
+				CFrame.new(playerPosition.X, playerPosition.Y - 3, playerPosition.Z) * CFrame.Angles(0, 0, 0),
+				-3.141592653589793
+			)
+		end)
 
 		local furnace = nil
 		pcall(function()
@@ -430,17 +402,29 @@ AutoArmorDeluxeGroup:AddButton({
 
 		if furnace then
 			for _, item in ipairs(itemsToCraft) do
-				safeInvoke(craftRemote, item[1], furnace, 1, 0)
+				pcall(function()
+					craftRemote:InvokeServer(item[1], furnace, 1, 0)
+				end)
 			end
 
 			task.wait(0.3)
 
-			safeInvoke(equipHotbarRemote, "inventory", 1, 197)
-			safeInvoke(equipClothingRemote, "inventory", 1, 202)
-			safeInvoke(equipClothingRemote, "inventory", 2, 200)
-			safeInvoke(equipClothingRemote, "inventory", 3, 201)
+			pcall(function()
+				equipHotbarRemote:InvokeServer("inventory", 1, 197)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 1, 202)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 2, 200)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 3, 201)
+			end)
 
-			safeFire(deleteRemote, furnace)
+			pcall(function()
+				deleteRemote:FireServer(furnace)
+			end)
 
 			Library:Notify({ Title = "Bluesteel", Description = "Bluesteel armor equipped", Time = 2 })
 		else
@@ -469,10 +453,18 @@ AutoArmorDeluxeGroup:AddButton({
 		end
 
 		if Toggles.ArmorEquipOnly and Toggles.ArmorEquipOnly.Value then
-			safeInvoke(equipHotbarRemote, "inventory", 1, 267)
-			safeInvoke(equipClothingRemote, "inventory", 1, 262)
-			safeInvoke(equipClothingRemote, "inventory", 2, 261)
-			safeInvoke(equipClothingRemote, "inventory", 3, 260)
+			pcall(function()
+				equipHotbarRemote:InvokeServer("inventory", 1, 267)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 1, 262)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 2, 261)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 3, 260)
+			end)
 			Library:Notify({ Title = "Darksteel", Description = "Darksteel armor equipped", Time = 2 })
 			return
 		end
@@ -482,11 +474,13 @@ AutoArmorDeluxeGroup:AddButton({
 			return
 		end
 
-		safeInvoke(buildRemote,
-			269,
-			CFrame.new(playerPosition.X, playerPosition.Y - 3, playerPosition.Z) * CFrame.Angles(0, 0, 0),
-			-3.141592653589793
-		)
+		pcall(function()
+			buildRemote:InvokeServer(
+				269,
+				CFrame.new(playerPosition.X, playerPosition.Y - 3, playerPosition.Z) * CFrame.Angles(0, 0, 0),
+				-3.141592653589793
+			)
+		end)
 
 		local furnace = nil
 		pcall(function()
@@ -507,17 +501,29 @@ AutoArmorDeluxeGroup:AddButton({
 
 		if furnace then
 			for _, item in ipairs(itemsToCraft) do
-				safeInvoke(craftRemote, item[1], furnace, 1, 0)
+				pcall(function()
+					craftRemote:InvokeServer(item[1], furnace, 1, 0)
+				end)
 			end
 
 			task.wait(0.3)
 
-			safeInvoke(equipHotbarRemote, "inventory", 1, 267)
-			safeInvoke(equipClothingRemote, "inventory", 1, 262)
-			safeInvoke(equipClothingRemote, "inventory", 2, 261)
-			safeInvoke(equipClothingRemote, "inventory", 3, 260)
+			pcall(function()
+				equipHotbarRemote:InvokeServer("inventory", 1, 267)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 1, 262)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 2, 261)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 3, 260)
+			end)
 
-			safeFire(deleteRemote, furnace)
+			pcall(function()
+				deleteRemote:FireServer(furnace)
+			end)
 
 			Library:Notify({ Title = "Darksteel", Description = "Darksteel armor equipped", Time = 2 })
 		else
@@ -546,10 +552,18 @@ AutoArmorDeluxeGroup:AddButton({
 		end
 
 		if Toggles.ArmorEquipOnly and Toggles.ArmorEquipOnly.Value then
-			safeInvoke(equipHotbarRemote, "inventory", 1, 406)
-			safeInvoke(equipClothingRemote, "inventory", 1, 404)
-			safeInvoke(equipClothingRemote, "inventory", 2, 403)
-			safeInvoke(equipClothingRemote, "inventory", 3, 402)
+			pcall(function()
+				equipHotbarRemote:InvokeServer("inventory", 1, 406)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 1, 404)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 2, 403)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 3, 402)
+			end)
 			Library:Notify({ Title = "Samurai", Description = "Samurai armor equipped", Time = 2 })
 			return
 		end
@@ -559,11 +573,13 @@ AutoArmorDeluxeGroup:AddButton({
 			return
 		end
 
-		safeInvoke(buildRemote,
-			423,
-			CFrame.new(playerPosition.X, playerPosition.Y - 3, playerPosition.Z) * CFrame.Angles(0, 0, 0),
-			-3.141592653589793
-		)
+		pcall(function()
+			buildRemote:InvokeServer(
+				423,
+				CFrame.new(playerPosition.X, playerPosition.Y - 3, playerPosition.Z) * CFrame.Angles(0, 0, 0),
+				-3.141592653589793
+			)
+		end)
 
 		task.wait(0.5)
 
@@ -586,17 +602,29 @@ AutoArmorDeluxeGroup:AddButton({
 
 		if furnace then
 			for _, item in ipairs(itemsToCraft) do
-				safeInvoke(craftRemote, item[1], furnace, 1, 0)
+				pcall(function()
+					craftRemote:InvokeServer(item[1], furnace, 1, 0)
+				end)
 			end
 
 			task.wait(0.3)
 
-			safeInvoke(equipHotbarRemote, "inventory", 1, 406)
-			safeInvoke(equipClothingRemote, "inventory", 1, 404)
-			safeInvoke(equipClothingRemote, "inventory", 2, 403)
-			safeInvoke(equipClothingRemote, "inventory", 3, 402)
+			pcall(function()
+				equipHotbarRemote:InvokeServer("inventory", 1, 406)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 1, 404)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 2, 403)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 3, 402)
+			end)
 
-			safeFire(deleteRemote, furnace)
+			pcall(function()
+				deleteRemote:FireServer(furnace)
+			end)
 
 			Library:Notify({ Title = "Samurai", Description = "Samurai armor equipped", Time = 2 })
 		else
@@ -625,10 +653,18 @@ AutoArmorDeluxeGroup:AddButton({
 		end
 
 		if Toggles.ArmorEquipOnly and Toggles.ArmorEquipOnly.Value then
-			safeInvoke(equipHotbarRemote, "inventory", 1, 357)
-			safeInvoke(equipClothingRemote, "inventory", 1, 354)
-			safeInvoke(equipClothingRemote, "inventory", 2, 355)
-			safeInvoke(equipClothingRemote, "inventory", 3, 356)
+			pcall(function()
+				equipHotbarRemote:InvokeServer("inventory", 1, 357)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 1, 354)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 2, 355)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 3, 356)
+			end)
 			Library:Notify({ Title = "Atlantean", Description = "Atlantean armor equipped", Time = 2 })
 			return
 		end
@@ -638,11 +674,13 @@ AutoArmorDeluxeGroup:AddButton({
 			return
 		end
 
-		safeInvoke(buildRemote,
-			362,
-			CFrame.new(playerPosition.X, playerPosition.Y - 3, playerPosition.Z) * CFrame.Angles(0, 0, 0),
-			-3.141592653589793
-		)
+		pcall(function()
+			buildRemote:InvokeServer(
+				362,
+				CFrame.new(playerPosition.X, playerPosition.Y - 3, playerPosition.Z) * CFrame.Angles(0, 0, 0),
+				-3.141592653589793
+			)
+		end)
 
 		local furnace = nil
 		pcall(function()
@@ -666,17 +704,29 @@ AutoArmorDeluxeGroup:AddButton({
 
 		if furnace then
 			for _, item in ipairs(itemsToCraft) do
-				safeInvoke(craftRemote, item[1], furnace, 1, 0)
+				pcall(function()
+					craftRemote:InvokeServer(item[1], furnace, 1, 0)
+				end)
 			end
 
 			task.wait(0.3)
 
-			safeInvoke(equipHotbarRemote, "inventory", 1, 357)
-			safeInvoke(equipClothingRemote, "inventory", 1, 354)
-			safeInvoke(equipClothingRemote, "inventory", 2, 355)
-			safeInvoke(equipClothingRemote, "inventory", 3, 356)
+			pcall(function()
+				equipHotbarRemote:InvokeServer("inventory", 1, 357)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 1, 354)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 2, 355)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 3, 356)
+			end)
 
-			safeFire(deleteRemote, furnace)
+			pcall(function()
+				deleteRemote:FireServer(furnace)
+			end)
 
 			Library:Notify({ Title = "Atlantean", Description = "Atlantean armor equipped", Time = 2 })
 		else
@@ -705,10 +755,18 @@ AutoArmorDeluxeGroup:AddButton({
 		end
 
 		if Toggles.ArmorEquipOnly and Toggles.ArmorEquipOnly.Value then
-			safeInvoke(equipHotbarRemote, "inventory", 1, 545)
-			safeInvoke(equipClothingRemote, "inventory", 1, 541)
-			safeInvoke(equipClothingRemote, "inventory", 2, 542)
-			safeInvoke(equipClothingRemote, "inventory", 3, 543)
+			pcall(function()
+				equipHotbarRemote:InvokeServer("inventory", 1, 545)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 1, 541)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 2, 542)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 3, 543)
+			end)
 			Library:Notify({ Title = "Juggernaut", Description = "Juggernaut armor equipped", Time = 2 })
 			return
 		end
@@ -718,11 +776,13 @@ AutoArmorDeluxeGroup:AddButton({
 			return
 		end
 
-		safeInvoke(buildRemote,
-			540,
-			CFrame.new(playerPosition.X, playerPosition.Y - 3, playerPosition.Z) * CFrame.Angles(0, 0, 0),
-			0
-		)
+		pcall(function()
+			buildRemote:InvokeServer(
+				540,
+				CFrame.new(playerPosition.X, playerPosition.Y - 3, playerPosition.Z) * CFrame.Angles(0, 0, 0),
+				0
+			)
+		end)
 
 		task.wait(0.5)
 
@@ -749,17 +809,29 @@ AutoArmorDeluxeGroup:AddButton({
 
 		if furnace then
 			for _, item in ipairs(itemsToCraft) do
-				safeInvoke(craftRemote, item[1], furnace, 1, 0)
+				pcall(function()
+					craftRemote:InvokeServer(item[1], furnace, 1, 0)
+				end)
 			end
 
 			task.wait(0.3)
 
-			safeInvoke(equipHotbarRemote, "inventory", 1, 545)
-			safeInvoke(equipClothingRemote, "inventory", 1, 541)
-			safeInvoke(equipClothingRemote, "inventory", 2, 542)
-			safeInvoke(equipClothingRemote, "inventory", 3, 543)
+			pcall(function()
+				equipHotbarRemote:InvokeServer("inventory", 1, 545)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 1, 541)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 2, 542)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 3, 543)
+			end)
 
-			safeFire(deleteRemote, furnace)
+			pcall(function()
+				deleteRemote:FireServer(furnace)
+			end)
 
 			Library:Notify({ Title = "Juggernaut", Description = "Juggernaut armor equipped", Time = 2 })
 		else
@@ -767,6 +839,8 @@ AutoArmorDeluxeGroup:AddButton({
 		end
 	end,
 })
+
+AutoArmorDeluxeGroup:AddDivider()
 
 AutoArmorDeluxeGroup:AddToggle("AtlanteanAutoSwap", {
 	Text = "Atlantean Auto Swap",
@@ -781,10 +855,18 @@ Toggles.AtlanteanAutoSwap:OnChanged(function()
 			local equipHotbarRemote = TSG.EquipHotbarRemote
 			local equipClothingRemote = TSG.EquipClothingRemote
 			if not equipHotbarRemote or not equipClothingRemote then return end
-			safeInvoke(equipHotbarRemote, "inventory", 1, 357)
-			safeInvoke(equipClothingRemote, "inventory", 1, 354)
-			safeInvoke(equipClothingRemote, "inventory", 2, 355)
-			safeInvoke(equipClothingRemote, "inventory", 3, 356)
+			pcall(function()
+				equipHotbarRemote:InvokeServer("inventory", 1, 357)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 1, 354)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 2, 355)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 3, 356)
+			end)
 		end
 		track("AtlanteanAutoSwap", RunService.Heartbeat:Connect(function()
 			if not isAlive() then return end
@@ -2852,7 +2934,7 @@ local function killAuraLoop()
 				local k1, k2, k3 = Crypt.checkpublickeys()
 				if k1 and k2 and k3 then
 					local encryptedUserId = Crypt.crypt(k1, math.abs(targetPlayer.UserId) + k3, k2)
-					safeFire(TSG.MeleePlayerRemote, slot, encryptedUserId)
+					TSG.MeleePlayerRemote:FireServer(slot, encryptedUserId)
 				end
 			end)
 		else
@@ -3323,18 +3405,22 @@ Toggles.ToiletBed:OnChanged(function()
 				Library:Notify({ Title = "Error", Description = "Build remote not found", Time = 3 })
 				return
 			end
-			safeInvoke(buildRemote,
-				90,
-				CFrame.new(playerPosition.X, playerPosition.Y - 3, playerPosition.Z),
-				0,
-				nil
-			)
-			safeInvoke(buildRemote,
-				85,
-				CFrame.new(playerPosition.X, playerPosition.Y - 3, playerPosition.Z),
-				0,
-				nil
-			)
+			pcall(function()
+				buildRemote:InvokeServer(
+					90,
+					CFrame.new(playerPosition.X, playerPosition.Y - 3, playerPosition.Z),
+					0,
+					nil
+				)
+			end)
+			pcall(function()
+				buildRemote:InvokeServer(
+					85,
+					CFrame.new(playerPosition.X, playerPosition.Y - 3, playerPosition.Z),
+					0,
+					nil
+				)
+			end)
 			Library:Notify({ Title = "Toilet/Bed", Description = "Structures placed", Time = 2 })
 		end
 	end
@@ -4455,7 +4541,7 @@ local function connectReachTool(tool)
 								local k1, k2, k3 = Crypt.checkpublickeys()
 								if k1 and k2 and k3 then
 									local encryptedUserId = Crypt.crypt(k1, math.abs(targetPlayer.UserId) + k3, k2)
-									safeFire(TSG.MeleePlayerRemote, slot, encryptedUserId)
+									TSG.MeleePlayerRemote:FireServer(slot, encryptedUserId)
 								end
 							end)
 						else
@@ -5697,7 +5783,9 @@ OreFarm:AddButton({
 			if characterFolder then
 				local resetRemote = characterFolder:FindFirstChild("reset")
 				if resetRemote then
-					safeInvoke(resetRemote)
+					pcall(function()
+						resetRemote:InvokeServer()
+					end)
 				end
 			end
 		end
@@ -5838,7 +5926,9 @@ local function mineObject(obj)
 	local slot = tonumber(Options.AutoMineSlot.Value) or 1
 	if obj and obj.PrimaryPart then
 		updateHighlight(hlMine, obj, Toggles.HighlightMine.Value)
-		safeFire(TSG.MineRemote, slot, obj, CFrame.new(obj.PrimaryPart.Position))
+		pcall(function()
+			TSG.MineRemote:FireServer(slot, obj, CFrame.new(obj.PrimaryPart.Position))
+		end)
 	end
 end
 
@@ -5994,7 +6084,9 @@ local function chopObject(obj)
 	local part = getChopTargetPart(obj)
 	if part then
 		updateHighlight(hlChop, obj, Toggles.HighlightChop.Value)
-		safeFire(TSG.ChopRemote, slot, obj, part.CFrame)
+		pcall(function()
+			TSG.ChopRemote:FireServer(slot, obj, part.CFrame)
+		end)
 	end
 end
 
