@@ -329,6 +329,11 @@ end
 -- ==========================================
 local AutoArmorDeluxeGroup = Tabs.Player:AddLeftGroupbox("Auto Armor Deluxe", "shield")
 
+AutoArmorDeluxeGroup:AddCheckbox("ArmorEquipOnly", {
+	Text = "Equip Only Mode",
+	Default = false,
+})
+
 AutoArmorDeluxeGroup:AddButton({
 	Text = "Bluesteel",
 	Func = function()
@@ -835,10 +840,7 @@ AutoArmorDeluxeGroup:AddButton({
 	end,
 })
 
-AutoArmorDeluxeGroup:AddToggle("ArmorEquipOnly", {
-	Text = "Equip Only Mode",
-	Default = false,
-})
+AutoArmorDeluxeGroup:AddDivider()
 
 AutoArmorDeluxeGroup:AddToggle("AtlanteanAutoSwap", {
 	Text = "Atlantean Auto Swap",
