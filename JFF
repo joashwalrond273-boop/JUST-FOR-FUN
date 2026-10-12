@@ -978,7 +978,7 @@ CombatAutoBlock:AddSlider("ImmortalModeStuds", {
 CombatAutoBlock:AddSlider("ImmortalShieldSpeed", {
 	Text = "SetShield Speed",
 	Default = 0.1,
-	Min = 0.01,
+	Min = 0.10,
 	Max = 1,
 	Rounding = 2,
 	Compact = true,
