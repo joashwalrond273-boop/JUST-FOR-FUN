@@ -840,6 +840,46 @@ AutoArmorDeluxeGroup:AddToggle("ArmorEquipOnly", {
 	Default = false,
 })
 
+AutoArmorDeluxeGroup:AddToggle("AtlanteanAutoSwap", {
+	Text = "Atlantean Auto Swap",
+	Default = false,
+})
+
+Toggles.AtlanteanAutoSwap:OnChanged(function()
+	disconnect("AtlanteanAutoSwap")
+	if Toggles.AtlanteanAutoSwap.Value then
+		local wasInWater = false
+		local function equipAtlantean()
+			local equipHotbarRemote = TSG.EquipHotbarRemote
+			local equipClothingRemote = TSG.EquipClothingRemote
+			if not equipHotbarRemote or not equipClothingRemote then return end
+			pcall(function()
+				equipHotbarRemote:InvokeServer("inventory", 1, 357)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 1, 354)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 2, 355)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 3, 356)
+			end)
+		end
+		track("AtlanteanAutoSwap", RunService.Heartbeat:Connect(function()
+			if not isAlive() then return end
+			local hum = getHumanoid()
+			local char = getCharacter()
+			if not hum or not char then return end
+			local inWater = hum:GetState() == Enum.HumanoidStateType.Swimming or char:GetAttribute("inWater")
+			if inWater and not wasInWater then
+				equipAtlantean()
+			end
+			wasInWater = inWater
+		end))
+	end
+end)
+
 local PlayerTabBox = Tabs.Player:AddLeftTabbox()
 local MainLeft = PlayerTabBox:AddTab("Player", "user")
 local ImmuneTab = PlayerTabBox:AddTab("Immune", "shield")
