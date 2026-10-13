@@ -3217,20 +3217,10 @@ end
 local autoShiftlockVars = {
 	origCameraOffset = nil,
 	screenGui = nil,
-	toggleButton = nil,
 	crosshair = nil,
 	shiftLockEnabled = false,
-	cameraOffset = Vector3.new(1.7, 0.5, 0),
-	dragging = false,
-	dragInput = nil,
-	dragStart = nil,
-	startPos = nil,
-	dragCon1 = nil,
-	dragCon2 = nil,
-	dragCon3 = nil,
-	activatedCon = nil,
 	renderCon = nil,
-	charAddedCon = nil
+	charAddedCon = nil,
 }
 
 local function destroyMobileShiftlockGui()
@@ -3238,21 +3228,14 @@ local function destroyMobileShiftlockGui()
 		autoShiftlockVars.charAddedCon:Disconnect()
 		autoShiftlockVars.charAddedCon = nil
 	end
-	if autoShiftlockVars.dragCon1 then autoShiftlockVars.dragCon1:Disconnect() end
-	if autoShiftlockVars.dragCon2 then autoShiftlockVars.dragCon2:Disconnect() end
-	if autoShiftlockVars.dragCon3 then autoShiftlockVars.dragCon3:Disconnect() end
-	if autoShiftlockVars.activatedCon then autoShiftlockVars.activatedCon:Disconnect() end
-	if autoShiftlockVars.renderCon then autoShiftlockVars.renderCon:Disconnect() end
-	autoShiftlockVars.dragCon1 = nil
-	autoShiftlockVars.dragCon2 = nil
-	autoShiftlockVars.dragCon3 = nil
-	autoShiftlockVars.activatedCon = nil
-	autoShiftlockVars.renderCon = nil
+	if autoShiftlockVars.renderCon then
+		autoShiftlockVars.renderCon:Disconnect()
+		autoShiftlockVars.renderCon = nil
+	end
 	if autoShiftlockVars.screenGui then
 		pcall(function() autoShiftlockVars.screenGui:Destroy() end)
 	end
 	autoShiftlockVars.screenGui = nil
-	autoShiftlockVars.toggleButton = nil
 	autoShiftlockVars.crosshair = nil
 end
 
@@ -3276,21 +3259,13 @@ Toggles.AutoShiftlock:OnChanged(function()
 			autoShiftlockVars.origCameraOffset = hum.CameraOffset
 		end
 
+		-- Center crosshair to indicate shift lock is active (no on-screen button)
 		local playerGui = LocalPlayer:WaitForChild("PlayerGui")
 		local screenGui = Instance.new("ScreenGui")
 		screenGui.Name = "MobileShiftlockGUI"
 		screenGui.ResetOnSpawn = false
 		screenGui.Parent = playerGui
 		autoShiftlockVars.screenGui = screenGui
-
-		local toggleButton = Instance.new("ImageButton")
-		toggleButton.Name = "ShiftlockButton"
-		toggleButton.Parent = screenGui
-		toggleButton.BackgroundTransparency = 1
-		toggleButton.Size = UDim2.new(0, 60, 0, 60)
-		toggleButton.Position = UDim2.new(0.85, -30, 0.5, -30)
-		toggleButton.Image = "rbxasset://textures/ui/mouseLock_off@2x.png"
-		autoShiftlockVars.toggleButton = toggleButton
 
 		local crosshair = Instance.new("ImageLabel")
 		crosshair.Name = "ShiftlockCursor"
@@ -3300,90 +3275,52 @@ Toggles.AutoShiftlock:OnChanged(function()
 		crosshair.AnchorPoint = Vector2.new(0.5, 0.5)
 		crosshair.Size = UDim2.new(0, 22, 0, 22)
 		crosshair.Image = "rbxasset://textures/MouseLockedCursor.png"
-		crosshair.Visible = false
+		crosshair.Visible = true
 		autoShiftlockVars.crosshair = crosshair
 
-		local function update(input)
-			local delta = input.Position - autoShiftlockVars.dragStart
-			toggleButton.Position = UDim2.new(
-				autoShiftlockVars.startPos.X.Scale,
-				autoShiftlockVars.startPos.X.Offset + delta.X,
-				autoShiftlockVars.startPos.Y.Scale,
-				autoShiftlockVars.startPos.Y.Offset + delta.Y
-			)
+		-- Enable shift lock immediately when the checkbox is turned on
+		autoShiftlockVars.shiftLockEnabled = true
+		if hum then
+			hum.AutoRotate = false
+			hum.CameraOffset = Vector3.zero
 		end
 
-		autoShiftlockVars.dragCon1 = toggleButton.InputBegan:Connect(function(input)
-			if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-				autoShiftlockVars.dragging = true
-				autoShiftlockVars.dragStart = input.Position
-				autoShiftlockVars.startPos = toggleButton.Position
-
-				input.Changed:Connect(function()
-					if input.UserInputState == Enum.UserInputState.End then
-						autoShiftlockVars.dragging = false
-					end
-				end)
-			end
-		end)
-
-		autoShiftlockVars.dragCon2 = toggleButton.InputChanged:Connect(function(input)
-			if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-				autoShiftlockVars.dragInput = input
-			end
-		end)
-
-		autoShiftlockVars.dragCon3 = UserInputService.InputChanged:Connect(function(input)
-			if input == autoShiftlockVars.dragInput and autoShiftlockVars.dragging then
-				update(input)
-			end
-		end)
-
-		autoShiftlockVars.activatedCon = toggleButton.Activated:Connect(function()
-			autoShiftlockVars.shiftLockEnabled = not autoShiftlockVars.shiftLockEnabled
-
-			if autoShiftlockVars.shiftLockEnabled then
-				toggleButton.Image = "rbxasset://textures/ui/mouseLock_on@2x.png"
-				crosshair.Visible = true
-				if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-					LocalPlayer.Character.Humanoid.AutoRotate = false
-				end
-			else
-				toggleButton.Image = "rbxasset://textures/ui/mouseLock_off@2x.png"
-				crosshair.Visible = false
-				if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-					LocalPlayer.Character.Humanoid.AutoRotate = true
-					LocalPlayer.Character.Humanoid.CameraOffset = Vector3.new(0, 0, 0)
-				end
-			end
-		end)
-
 		autoShiftlockVars.renderCon = RunService.RenderStepped:Connect(function()
-			if autoShiftlockVars.shiftLockEnabled then
-				if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character:FindFirstChild("Humanoid") then
-					LocalPlayer.Character.Humanoid.CameraOffset = autoShiftlockVars.cameraOffset
+			if not autoShiftlockVars.shiftLockEnabled then return end
+			local char = LocalPlayer.Character
+			if not char then return end
+			local humanoid = char:FindFirstChildOfClass("Humanoid")
+			local rootPart = char:FindFirstChild("HumanoidRootPart")
+			if not humanoid or not rootPart then return end
 
-					local rootPart = LocalPlayer.Character.HumanoidRootPart
-					local camera = workspace.CurrentCamera
-					if not camera then return end
-					local lookVector = camera.CFrame.LookVector
+			-- Keep the character perfectly centered: zero camera offset
+			humanoid.CameraOffset = Vector3.zero
+			humanoid.AutoRotate = false
 
-					rootPart.CFrame = CFrame.new(
-						rootPart.Position,
-						rootPart.Position + Vector3.new(lookVector.X, 0, lookVector.Z)
-					)
-				end
-			end
+			local camera = workspace.CurrentCamera
+			if not camera then return end
+			local lookVector = camera.CFrame.LookVector
+
+			-- Rotate the character to face where the camera is looking (horizontally)
+			rootPart.CFrame = CFrame.new(
+				rootPart.Position,
+				rootPart.Position + Vector3.new(lookVector.X, 0, lookVector.Z)
+			)
+
+			-- Force the camera to look directly at the character for perfect centering
+			local camDist = (camera.CFrame.Position - rootPart.Position).Magnitude
+			camera.CFrame = CFrame.new(rootPart.Position - lookVector * camDist, rootPart.Position)
 		end)
 
 		autoShiftlockVars.charAddedCon = LocalPlayer.CharacterAdded:Connect(function()
-			if autoShiftlockVars.shiftLockEnabled and autoShiftlockVars.toggleButton then
-				autoShiftlockVars.toggleButton.Image = "rbxasset://textures/ui/mouseLock_off@2x.png"
-			end
-			if autoShiftlockVars.crosshair then
-				autoShiftlockVars.crosshair.Visible = false
-			end
-			autoShiftlockVars.shiftLockEnabled = false
+			-- Re-apply shift lock state on respawn
+			task.defer(function()
+				local h = getHumanoid()
+				if h and autoShiftlockVars.shiftLockEnabled then
+					h.AutoRotate = false
+					h.CameraOffset = Vector3.zero
+				end
+			end)
 		end)
 	else
 		local hum = getHumanoid()
@@ -5648,6 +5585,15 @@ FarmMine:AddSlider("AutoMineRange", {
 	Compact = true,
 })
 
+FarmMine:AddSlider("AutoMineSpeed", {
+	Text = "Speed",
+	Default = 5,
+	Min = 1,
+	Max = 20,
+	Rounding = 0,
+	Compact = true,
+})
+
 FarmMine:AddDropdown("AutoMineSlot", {
 	Text = "Attack Slot",
 	Values = {"1","2","3","4","5","6","7","8","9","10"},
@@ -5688,6 +5634,15 @@ FarmChop:AddSlider("AutoChopRange", {
 	Min = 5,
 	Max = 60,
 	Rounding = 1,
+	Compact = true,
+})
+
+FarmChop:AddSlider("AutoChopSpeed", {
+	Text = "Speed",
+	Default = 5,
+	Min = 1,
+	Max = 20,
+	Rounding = 0,
 	Compact = true,
 })
 
@@ -5934,7 +5889,9 @@ end
 
 local function autoMine()
 	if not isAlive() or not isAutoMineRunning then return end
-	if tick() - lastAutoMineHit < 0.2 then return end
+	local mineSpeed = (Options.AutoMineSpeed and Options.AutoMineSpeed.Value) or 5
+	local mineCooldown = 1 / math.max(0.1, mineSpeed)
+	if tick() - lastAutoMineHit < mineCooldown then return end
 
 	local root = getRootPart()
 	if not root then return end
@@ -6092,7 +6049,9 @@ end
 
 local function autoChop()
 	if not isAlive() or not isAutoChopRunning then return end
-	if tick() - lastAutoChopHit < 0.2 then return end
+	local chopSpeed = (Options.AutoChopSpeed and Options.AutoChopSpeed.Value) or 5
+	local chopCooldown = 1 / math.max(0.1, chopSpeed)
+	if tick() - lastAutoChopHit < chopCooldown then return end
 
 	local root = getRootPart()
 	if not root then return end
@@ -8723,10 +8682,6 @@ Library:OnUnload(function()
 
 		if autoShiftlockVars then
 			if autoShiftlockVars.charAddedCon then autoShiftlockVars.charAddedCon:Disconnect() end
-			if autoShiftlockVars.dragCon1 then autoShiftlockVars.dragCon1:Disconnect() end
-			if autoShiftlockVars.dragCon2 then autoShiftlockVars.dragCon2:Disconnect() end
-			if autoShiftlockVars.dragCon3 then autoShiftlockVars.dragCon3:Disconnect() end
-			if autoShiftlockVars.activatedCon then autoShiftlockVars.activatedCon:Disconnect() end
 			if autoShiftlockVars.renderCon then autoShiftlockVars.renderCon:Disconnect() end
 			if autoShiftlockVars.screenGui then autoShiftlockVars.screenGui:Destroy() end
 		end
