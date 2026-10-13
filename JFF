@@ -938,18 +938,6 @@ AdvanceHealGroup:AddToggle("AutoEatCustom", {
 	Default = false,
 })
 
-AdvanceHealGroup:AddCheckbox("AutoEatSlotSystem", {
-	Text = "Slot System",
-	Default = false,
-})
-
-AdvanceHealGroup:AddDropdown("AutoEatSlotSystemSlot", {
-	Text = "Tool Slot",
-	Values = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"},
-	Default = {"1"},
-	Multi = true,
-})
-
 AdvanceHealGroup:AddDropdown("AutoEatFood", {
 	Text = "Food Type",
 	Values = {"Cabbage", "Banana", "Spicy Meal", "Hearty Stew", "Cabbage Meal"},
@@ -1940,95 +1928,6 @@ Toggles.AutoEatCustom:OnChanged(function()
 		Library:Notify({ Title = "Auto Eat", Description = "Enabled", Time = 2 })
 	end
 end)
-
-local autoEatSlotSaved = {}
-local fromAutoEatSlotSystem = false
-
-local function updateAutoEatSlotSystemState()
-	if not (Toggles.AutoEatSlotSystem and Toggles.AutoEatSlotSystem.Value) then return end
-	if not isAlive() then return end
-
-	local holding = isAdvanceSlotAllowed(Options.AutoEatSlotSystemSlot)
-
-	if holding then
-		if autoEatSlotSaved.AutoEatCustom == nil then
-			autoEatSlotSaved.AutoEatCustom = Toggles.AutoEatCustom and Toggles.AutoEatCustom.Value or false
-		end
-
-		if Toggles.AutoEatCustom and not Toggles.AutoEatCustom.Value then
-			fromAutoEatSlotSystem = true
-			Toggles.AutoEatCustom:SetValue(true)
-			fromAutoEatSlotSystem = false
-		end
-	else
-		if autoEatSlotSaved.AutoEatCustom ~= nil then
-			if Toggles.AutoEatCustom and Toggles.AutoEatCustom.Value ~= autoEatSlotSaved.AutoEatCustom then
-				fromAutoEatSlotSystem = true
-				Toggles.AutoEatCustom:SetValue(autoEatSlotSaved.AutoEatCustom)
-				fromAutoEatSlotSystem = false
-			end
-			autoEatSlotSaved.AutoEatCustom = nil
-		end
-	end
-end
-
-Toggles.AutoEatSlotSystem:OnChanged(function()
-	disconnect("AutoEatSlotSystem_Poll")
-	disconnect("AutoEatSlotSystem_ChildAdded")
-	disconnect("AutoEatSlotSystem_ChildRemoved")
-	disconnect("AutoEatSlotSystem_CharAdded")
-
-	if Toggles.AutoEatSlotSystem.Value then
-		local function hookAutoEatSlotChar(char)
-			if not char then return end
-			disconnect("AutoEatSlotSystem_ChildAdded")
-			disconnect("AutoEatSlotSystem_ChildRemoved")
-			track("AutoEatSlotSystem_ChildAdded", char.ChildAdded:Connect(function(child)
-				if child:IsA("Tool") then
-					task.wait()
-					updateAutoEatSlotSystemState()
-				end
-			end))
-			track("AutoEatSlotSystem_ChildRemoved", char.ChildRemoved:Connect(function(child)
-				if child:IsA("Tool") then
-					task.wait()
-					updateAutoEatSlotSystemState()
-				end
-			end))
-		end
-
-		if LocalPlayer.Character then
-			hookAutoEatSlotChar(LocalPlayer.Character)
-		end
-		track("AutoEatSlotSystem_CharAdded", LocalPlayer.CharacterAdded:Connect(hookAutoEatSlotChar))
-
-		track("AutoEatSlotSystem_Poll", RunService.Heartbeat:Connect(function()
-			updateAutoEatSlotSystemState()
-		end))
-
-		updateAutoEatSlotSystemState()
-
-		Library:Notify({ Title = "Auto Eat Slot System", Description = "Enabled", Time = 2 })
-	else
-		if autoEatSlotSaved.AutoEatCustom ~= nil then
-			if Toggles.AutoEatCustom and Toggles.AutoEatCustom.Value ~= autoEatSlotSaved.AutoEatCustom then
-				fromAutoEatSlotSystem = true
-				Toggles.AutoEatCustom:SetValue(autoEatSlotSaved.AutoEatCustom)
-				fromAutoEatSlotSystem = false
-			end
-			autoEatSlotSaved.AutoEatCustom = nil
-		end
-		table.clear(autoEatSlotSaved)
-
-		Library:Notify({ Title = "Auto Eat Slot System", Description = "Disabled", Time = 2 })
-	end
-end)
-
-if Options.AutoEatSlotSystemSlot then
-	Options.AutoEatSlotSystemSlot:OnChanged(function()
-		updateAutoEatSlotSystemState()
-	end)
-end
 
 -- ==========================================
 -- COMBAT
