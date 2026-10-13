@@ -135,6 +135,35 @@ local function isHoldingSelectedSlot(selectedSlot)
 	return false
 end
 
+local function isAdvanceSlotAllowed(slotOption)
+	if not slotOption then return false end
+	local val = slotOption.Value
+	if val == nil then return false end
+
+	if typeof(val) == "table" then
+		for slotKey, isSelected in pairs(val) do
+			local targetSlot = nil
+			if isSelected == true then
+				targetSlot = slotKey
+			elseif typeof(isSelected) == "string" then
+				targetSlot = isSelected
+			elseif typeof(isSelected) == "number" then
+				targetSlot = isSelected
+			end
+			if targetSlot ~= nil then
+				if isHoldingSelectedSlot(targetSlot) then
+					return true
+				end
+			end
+		end
+		return false
+	elseif typeof(val) == "string" or typeof(val) == "number" then
+		return isHoldingSelectedSlot(val)
+	end
+
+	return false
+end
+
 local function getCharacterFolder()
 	local characters = workspace:FindFirstChild("Characters")
 	return characters and characters:FindFirstChild(LocalPlayer.Name)
@@ -434,6 +463,108 @@ AutoArmorDeluxeGroup:AddButton({
 })
 
 AutoArmorDeluxeGroup:AddButton({
+	Text = "Atlantean",
+	Func = function()
+		local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+		local root = character and character:FindFirstChild("HumanoidRootPart")
+		if not root then return end
+		local playerPosition = root.Position
+
+		local buildRemote = TSG.BuildRemote
+		local craftRemote = TSG.CraftRemote
+		local equipHotbarRemote = TSG.EquipHotbarRemote
+		local equipClothingRemote = TSG.EquipClothingRemote
+		local deleteRemote = TSG.DeleteStructureRemote
+
+		if not equipHotbarRemote or not equipClothingRemote then
+			Library:Notify({ Title = "Error", Description = "Equip remotes not found", Time = 3 })
+			return
+		end
+
+		if Toggles.ArmorEquipOnly and Toggles.ArmorEquipOnly.Value then
+			pcall(function()
+				equipHotbarRemote:InvokeServer("inventory", 1, 357)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 1, 354)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 2, 355)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 3, 356)
+			end)
+			Library:Notify({ Title = "Atlantean", Description = "Atlantean armor equipped", Time = 2 })
+			return
+		end
+
+		if not buildRemote or not craftRemote then
+			Library:Notify({ Title = "Error", Description = "Build/Craft remote not found", Time = 3 })
+			return
+		end
+
+		pcall(function()
+			buildRemote:InvokeServer(
+				362,
+				CFrame.new(playerPosition.X, playerPosition.Y - 3, playerPosition.Z) * CFrame.Angles(0, 0, 0),
+				-3.141592653589793
+			)
+		end)
+
+		local furnace = nil
+		pcall(function()
+			for _, structure in pairs(workspace.placedStructures:GetChildren()) do
+				for _, child in ipairs(structure:GetChildren()) do
+					if child.Name:lower():find("atlantean") then
+						furnace = child
+						break
+					end
+				end
+				if furnace then break end
+			end
+		end)
+
+		local itemsToCraft = {
+			{357, "Atlantean Sword"},
+			{355, "Atlantean Armor"},
+			{356, "Atlantean Pants"},
+			{354, "Atlantean Helmet"},
+		}
+
+		if furnace then
+			for _, item in ipairs(itemsToCraft) do
+				pcall(function()
+					craftRemote:InvokeServer(item[1], furnace, 1, 0)
+				end)
+			end
+
+			task.wait(0.3)
+
+			pcall(function()
+				equipHotbarRemote:InvokeServer("inventory", 1, 357)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 1, 354)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 2, 355)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 3, 356)
+			end)
+
+			pcall(function()
+				deleteRemote:FireServer(furnace)
+			end)
+
+			Library:Notify({ Title = "Atlantean", Description = "Atlantean armor equipped", Time = 2 })
+		else
+			Library:Notify({ Title = "Atlantean", Description = "Forge not found", Time = 3 })
+		end
+	end,
+})
+
+AutoArmorDeluxeGroup:AddButton({
 	Text = "Darksteel",
 	Func = function()
 		local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
@@ -634,108 +765,6 @@ AutoArmorDeluxeGroup:AddButton({
 })
 
 AutoArmorDeluxeGroup:AddButton({
-	Text = "Atlantean",
-	Func = function()
-		local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-		local root = character and character:FindFirstChild("HumanoidRootPart")
-		if not root then return end
-		local playerPosition = root.Position
-
-		local buildRemote = TSG.BuildRemote
-		local craftRemote = TSG.CraftRemote
-		local equipHotbarRemote = TSG.EquipHotbarRemote
-		local equipClothingRemote = TSG.EquipClothingRemote
-		local deleteRemote = TSG.DeleteStructureRemote
-
-		if not equipHotbarRemote or not equipClothingRemote then
-			Library:Notify({ Title = "Error", Description = "Equip remotes not found", Time = 3 })
-			return
-		end
-
-		if Toggles.ArmorEquipOnly and Toggles.ArmorEquipOnly.Value then
-			pcall(function()
-				equipHotbarRemote:InvokeServer("inventory", 1, 357)
-			end)
-			pcall(function()
-				equipClothingRemote:InvokeServer("inventory", 1, 354)
-			end)
-			pcall(function()
-				equipClothingRemote:InvokeServer("inventory", 2, 355)
-			end)
-			pcall(function()
-				equipClothingRemote:InvokeServer("inventory", 3, 356)
-			end)
-			Library:Notify({ Title = "Atlantean", Description = "Atlantean armor equipped", Time = 2 })
-			return
-		end
-
-		if not buildRemote or not craftRemote then
-			Library:Notify({ Title = "Error", Description = "Build/Craft remote not found", Time = 3 })
-			return
-		end
-
-		pcall(function()
-			buildRemote:InvokeServer(
-				362,
-				CFrame.new(playerPosition.X, playerPosition.Y - 3, playerPosition.Z) * CFrame.Angles(0, 0, 0),
-				-3.141592653589793
-			)
-		end)
-
-		local furnace = nil
-		pcall(function()
-			for _, structure in pairs(workspace.placedStructures:GetChildren()) do
-				for _, child in ipairs(structure:GetChildren()) do
-					if child.Name:lower():find("atlantean") then
-						furnace = child
-						break
-					end
-				end
-				if furnace then break end
-			end
-		end)
-
-		local itemsToCraft = {
-			{357, "Atlantean Sword"},
-			{355, "Atlantean Armor"},
-			{356, "Atlantean Pants"},
-			{354, "Atlantean Helmet"},
-		}
-
-		if furnace then
-			for _, item in ipairs(itemsToCraft) do
-				pcall(function()
-					craftRemote:InvokeServer(item[1], furnace, 1, 0)
-				end)
-			end
-
-			task.wait(0.3)
-
-			pcall(function()
-				equipHotbarRemote:InvokeServer("inventory", 1, 357)
-			end)
-			pcall(function()
-				equipClothingRemote:InvokeServer("inventory", 1, 354)
-			end)
-			pcall(function()
-				equipClothingRemote:InvokeServer("inventory", 2, 355)
-			end)
-			pcall(function()
-				equipClothingRemote:InvokeServer("inventory", 3, 356)
-			end)
-
-			pcall(function()
-				deleteRemote:FireServer(furnace)
-			end)
-
-			Library:Notify({ Title = "Atlantean", Description = "Atlantean armor equipped", Time = 2 })
-		else
-			Library:Notify({ Title = "Atlantean", Description = "Forge not found", Time = 3 })
-		end
-	end,
-})
-
-AutoArmorDeluxeGroup:AddButton({
 	Text = "Juggernaut",
 	Func = function()
 		local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
@@ -842,7 +871,7 @@ AutoArmorDeluxeGroup:AddButton({
 
 AutoArmorDeluxeGroup:AddDivider()
 
-AutoArmorDeluxeGroup:AddToggle("AtlanteanAutoSwap", {
+AutoArmorDeluxeGroup:AddCheckbox("AtlanteanAutoSwap", {
 	Text = "Atlantean Auto Swap",
 	Default = false,
 })
@@ -907,6 +936,18 @@ local AdvanceHealGroup = Tabs.Player:AddRightGroupbox("Advance Heal", "heart")
 AdvanceHealGroup:AddToggle("AutoEatCustom", {
 	Text = "Auto Eat",
 	Default = false,
+})
+
+AdvanceHealGroup:AddCheckbox("AutoEatSlotSystem", {
+	Text = "Slot System",
+	Default = false,
+})
+
+AdvanceHealGroup:AddDropdown("AutoEatSlotSystemSlot", {
+	Text = "Tool Slot",
+	Values = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"},
+	Default = {"1"},
+	Multi = true,
 })
 
 AdvanceHealGroup:AddDropdown("AutoEatFood", {
@@ -1160,7 +1201,7 @@ FunLeft:AddCheckbox("TouchFling", {
 FunLeft:AddSlider("TouchFlingPower", {
 	Text = "Fling Power",
 	Default = 5000,
-	Min = 500,
+	Min = 50,
 	Max = 5000,
 	Rounding = 0,
 	Compact = true,
@@ -1900,6 +1941,95 @@ Toggles.AutoEatCustom:OnChanged(function()
 	end
 end)
 
+local autoEatSlotSaved = {}
+local fromAutoEatSlotSystem = false
+
+local function updateAutoEatSlotSystemState()
+	if not (Toggles.AutoEatSlotSystem and Toggles.AutoEatSlotSystem.Value) then return end
+	if not isAlive() then return end
+
+	local holding = isAdvanceSlotAllowed(Options.AutoEatSlotSystemSlot)
+
+	if holding then
+		if autoEatSlotSaved.AutoEatCustom == nil then
+			autoEatSlotSaved.AutoEatCustom = Toggles.AutoEatCustom and Toggles.AutoEatCustom.Value or false
+		end
+
+		if Toggles.AutoEatCustom and not Toggles.AutoEatCustom.Value then
+			fromAutoEatSlotSystem = true
+			Toggles.AutoEatCustom:SetValue(true)
+			fromAutoEatSlotSystem = false
+		end
+	else
+		if autoEatSlotSaved.AutoEatCustom ~= nil then
+			if Toggles.AutoEatCustom and Toggles.AutoEatCustom.Value ~= autoEatSlotSaved.AutoEatCustom then
+				fromAutoEatSlotSystem = true
+				Toggles.AutoEatCustom:SetValue(autoEatSlotSaved.AutoEatCustom)
+				fromAutoEatSlotSystem = false
+			end
+			autoEatSlotSaved.AutoEatCustom = nil
+		end
+	end
+end
+
+Toggles.AutoEatSlotSystem:OnChanged(function()
+	disconnect("AutoEatSlotSystem_Poll")
+	disconnect("AutoEatSlotSystem_ChildAdded")
+	disconnect("AutoEatSlotSystem_ChildRemoved")
+	disconnect("AutoEatSlotSystem_CharAdded")
+
+	if Toggles.AutoEatSlotSystem.Value then
+		local function hookAutoEatSlotChar(char)
+			if not char then return end
+			disconnect("AutoEatSlotSystem_ChildAdded")
+			disconnect("AutoEatSlotSystem_ChildRemoved")
+			track("AutoEatSlotSystem_ChildAdded", char.ChildAdded:Connect(function(child)
+				if child:IsA("Tool") then
+					task.wait()
+					updateAutoEatSlotSystemState()
+				end
+			end))
+			track("AutoEatSlotSystem_ChildRemoved", char.ChildRemoved:Connect(function(child)
+				if child:IsA("Tool") then
+					task.wait()
+					updateAutoEatSlotSystemState()
+				end
+			end))
+		end
+
+		if LocalPlayer.Character then
+			hookAutoEatSlotChar(LocalPlayer.Character)
+		end
+		track("AutoEatSlotSystem_CharAdded", LocalPlayer.CharacterAdded:Connect(hookAutoEatSlotChar))
+
+		track("AutoEatSlotSystem_Poll", RunService.Heartbeat:Connect(function()
+			updateAutoEatSlotSystemState()
+		end))
+
+		updateAutoEatSlotSystemState()
+
+		Library:Notify({ Title = "Auto Eat Slot System", Description = "Enabled", Time = 2 })
+	else
+		if autoEatSlotSaved.AutoEatCustom ~= nil then
+			if Toggles.AutoEatCustom and Toggles.AutoEatCustom.Value ~= autoEatSlotSaved.AutoEatCustom then
+				fromAutoEatSlotSystem = true
+				Toggles.AutoEatCustom:SetValue(autoEatSlotSaved.AutoEatCustom)
+				fromAutoEatSlotSystem = false
+			end
+			autoEatSlotSaved.AutoEatCustom = nil
+		end
+		table.clear(autoEatSlotSaved)
+
+		Library:Notify({ Title = "Auto Eat Slot System", Description = "Disabled", Time = 2 })
+	end
+end)
+
+if Options.AutoEatSlotSystemSlot then
+	Options.AutoEatSlotSystemSlot:OnChanged(function()
+		updateAutoEatSlotSystemState()
+	end)
+end
+
 -- ==========================================
 -- COMBAT
 -- ==========================================
@@ -2044,7 +2174,7 @@ CombatLeft:AddToggle("KillAura", {
 })
 
 CombatLeft:AddCheckbox("PhantomMode", {
-	Text = "Rage Mode",
+	Text = "Orbital Rage",
 	Default = false,
 })
 
@@ -2730,35 +2860,6 @@ Toggles.ImmortalMode:OnChanged(function()
 		end
 	end
 end)
-
-local function isAdvanceSlotAllowed(slotOption)
-	if not slotOption then return false end
-	local val = slotOption.Value
-	if val == nil then return false end
-
-	if typeof(val) == "table" then
-		for slotKey, isSelected in pairs(val) do
-			local targetSlot = nil
-			if isSelected == true then
-				targetSlot = slotKey
-			elseif typeof(isSelected) == "string" then
-				targetSlot = isSelected
-			elseif typeof(isSelected) == "number" then
-				targetSlot = isSelected
-			end
-			if targetSlot ~= nil then
-				if isHoldingSelectedSlot(targetSlot) then
-					return true
-				end
-			end
-		end
-		return false
-	elseif typeof(val) == "string" or typeof(val) == "number" then
-		return isHoldingSelectedSlot(val)
-	end
-
-	return false
-end
 
 local function updateAdvanceState()
 	if not (Toggles.Advance and Toggles.Advance.Value) then return end
@@ -4236,7 +4337,7 @@ Toggles.PhantomMode:OnChanged(function()
 			Toggles.KillAura:SetValue(true)
 		end
 		track("PhantomMode", RunService.Heartbeat:Connect(phantomModeLoop))
-		Library:Notify({ Title = "Rage Mode", Description = "Enabled", Time = 2 })
+		Library:Notify({ Title = "Orbital Rage", Description = "Enabled", Time = 2 })
 	else
 		-- Reset
 		phantomModeVars.targetPlayer = nil
@@ -4247,7 +4348,7 @@ Toggles.PhantomMode:OnChanged(function()
 		if Toggles.KillAura and Toggles.KillAura.Value then
 			Toggles.KillAura:SetValue(false)
 		end
-		Library:Notify({ Title = "Rage Mode", Description = "Disabled", Time = 2 })
+		Library:Notify({ Title = "Orbital Rage", Description = "Disabled", Time = 2 })
 	end
 end)
 
