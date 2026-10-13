@@ -847,6 +847,63 @@ AutoArmorDeluxeGroup:AddToggle("AtlanteanAutoSwap", {
 	Default = false,
 })
 
+local atlanteanSavedLoadout = nil
+
+local function getAtlanteanEquippedLoadout()
+	local loadout = {sword = nil, helmet = nil, chestplate = nil, pants = nil}
+	local char = getCharacter()
+	if not char then return loadout end
+
+	-- Sword (hotbar slot 1)
+	local slot1 = char:FindFirstChild("1")
+	if slot1 and slot1:FindFirstChild("toolModel") then
+		loadout.sword = slot1.toolModel:GetAttribute("itemId")
+	end
+
+	-- Classify an item id into helmet / chestplate / pants using item data
+	local function classifyArmor(itemId)
+		if not itemId or not TSG.Items then return nil end
+		local data = TSG.Items.getItemData(itemId)
+		if not data or not data.itemType then return nil end
+		if table.find(data.itemType, "Helmet") then return "helmet" end
+		if table.find(data.itemType, "Chestplate") or table.find(data.itemType, "Chest Armor") or table.find(data.itemType, "Chest") then return "chestplate" end
+		if table.find(data.itemType, "Pants") or table.find(data.itemType, "Leg Armor") then return "pants" end
+		return nil
+	end
+
+	-- Scan the character for equipped clothing models (carry an itemId attribute)
+	for _, descendant in ipairs(char:GetDescendants()) do
+		local ok, itemId = pcall(function() return descendant:GetAttribute("itemId") end)
+		if ok and itemId then
+			local slot = classifyArmor(itemId)
+			if slot and not loadout[slot] then
+				loadout[slot] = itemId
+			end
+		end
+	end
+
+	return loadout
+end
+
+local function restoreAtlanteanLoadout(loadout)
+	if not loadout then return end
+	local equipHotbarRemote = TSG.EquipHotbarRemote
+	local equipClothingRemote = TSG.EquipClothingRemote
+	if not equipHotbarRemote or not equipClothingRemote then return end
+	if loadout.sword then
+		pcall(function() equipHotbarRemote:InvokeServer("inventory", 1, loadout.sword) end)
+	end
+	if loadout.helmet then
+		pcall(function() equipClothingRemote:InvokeServer("inventory", 1, loadout.helmet) end)
+	end
+	if loadout.chestplate then
+		pcall(function() equipClothingRemote:InvokeServer("inventory", 2, loadout.chestplate) end)
+	end
+	if loadout.pants then
+		pcall(function() equipClothingRemote:InvokeServer("inventory", 3, loadout.pants) end)
+	end
+end
+
 Toggles.AtlanteanAutoSwap:OnChanged(function()
 	disconnect("AtlanteanAutoSwap")
 	if Toggles.AtlanteanAutoSwap.Value then
@@ -875,10 +932,22 @@ Toggles.AtlanteanAutoSwap:OnChanged(function()
 			if not hum or not char then return end
 			local inWater = hum:GetState() == Enum.HumanoidStateType.Swimming or char:GetAttribute("inWater")
 			if inWater and not wasInWater then
+				-- Save whatever armor was on before swapping to Atlantean
+				atlanteanSavedLoadout = getAtlanteanEquippedLoadout()
 				equipAtlantean()
+			elseif not inWater and wasInWater then
+				-- Coming out of the water: restore the previous armor
+				restoreAtlanteanLoadout(atlanteanSavedLoadout)
+				atlanteanSavedLoadout = nil
 			end
 			wasInWater = inWater
 		end))
+	else
+		-- Toggle turned off: restore the saved armor if we were swapped
+		if atlanteanSavedLoadout then
+			restoreAtlanteanLoadout(atlanteanSavedLoadout)
+			atlanteanSavedLoadout = nil
+		end
 	end
 end)
 
