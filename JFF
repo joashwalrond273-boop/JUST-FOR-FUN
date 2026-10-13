@@ -2263,11 +2263,6 @@ CombatSwordBot:AddDropdown("ChooseVictim", {
 
 local CombatAutoPVP = Tabs.Combat:AddRightGroupbox("PVP Modules", "swords")
 
-CombatAutoPVP:AddCheckbox("AutoShiftlock", {
-	Text = "+ Shiftlock",
-	Default = false,
-})
-
 CombatAutoPVP:AddCheckbox("SwingSpeedToggle", {
 	Text = "+ Swing Speed",
 	Default = false,
@@ -2572,7 +2567,7 @@ CombatReach:AddDropdown("ReachTarget", {
 
 CombatReach:AddDropdown("AdvancePreset", {
 	Text = "Advance PRESET",
-	Values = { "Sword", "Spear" },
+	Values = { "Sword", "Spear", "Spear/Sword(Slot 3/5)" },
 	Default = "",
 })
 
@@ -3227,101 +3222,6 @@ do
 		end)
 	end
 end
-
-
-
-local autoShiftlockVars = {
-	origCameraOffset = nil,
-	shiftLockEnabled = false,
-	renderCon = nil,
-	charAddedCon = nil,
-}
-
-local function destroyMobileShiftlockGui()
-	if autoShiftlockVars.charAddedCon then
-		autoShiftlockVars.charAddedCon:Disconnect()
-		autoShiftlockVars.charAddedCon = nil
-	end
-	if autoShiftlockVars.renderCon then
-		autoShiftlockVars.renderCon:Disconnect()
-		autoShiftlockVars.renderCon = nil
-	end
-end
-
-local function resetMobileShiftlockState()
-	autoShiftlockVars.shiftLockEnabled = false
-	local hum = getHumanoid()
-	if hum then
-		hum.AutoRotate = true
-		hum.CameraOffset = autoShiftlockVars.origCameraOffset or Vector3.zero
-	end
-end
-
-Toggles.AutoShiftlock:OnChanged(function()
-	disconnect("AutoShiftlock")
-	destroyMobileShiftlockGui()
-	resetMobileShiftlockState()
-
-	if Toggles.AutoShiftlock.Value then
-		local hum = getHumanoid()
-		if hum then
-			autoShiftlockVars.origCameraOffset = hum.CameraOffset
-		end
-
-		-- Enable shift lock immediately when the checkbox is turned on
-		autoShiftlockVars.shiftLockEnabled = true
-		local camOffsetY = 2.0
-		if hum then
-			hum.AutoRotate = false
-			hum.CameraOffset = Vector3.new(0, camOffsetY, 0)
-		end
-
-		autoShiftlockVars.renderCon = RunService.RenderStepped:Connect(function()
-			if not autoShiftlockVars.shiftLockEnabled then return end
-			local char = LocalPlayer.Character
-			if not char then return end
-			local humanoid = char:FindFirstChildOfClass("Humanoid")
-			local rootPart = char:FindFirstChild("HumanoidRootPart")
-			if not humanoid or not rootPart then return end
-
-			-- Keep the character centered, slightly lowered so it isn't too high
-			humanoid.CameraOffset = Vector3.new(0, camOffsetY, 0)
-			humanoid.AutoRotate = false
-
-			local camera = workspace.CurrentCamera
-			if not camera then return end
-			local lookVector = camera.CFrame.LookVector
-
-			-- Rotate the character to face where the camera is looking (horizontally)
-			rootPart.CFrame = CFrame.new(
-				rootPart.Position,
-				rootPart.Position + Vector3.new(lookVector.X, 0, lookVector.Z)
-			)
-
-			-- Force the camera to look directly at the (offset) character for perfect centering
-			local lookTarget = rootPart.Position + Vector3.new(0, camOffsetY, 0)
-			local camDist = (camera.CFrame.Position - lookTarget).Magnitude
-			camera.CFrame = CFrame.new(lookTarget - lookVector * camDist, lookTarget)
-		end)
-
-		autoShiftlockVars.charAddedCon = LocalPlayer.CharacterAdded:Connect(function()
-			-- Re-apply shift lock state on respawn
-			task.defer(function()
-				local h = getHumanoid()
-				if h and autoShiftlockVars.shiftLockEnabled then
-					h.AutoRotate = false
-					h.CameraOffset = Vector3.new(0, camOffsetY, 0)
-				end
-			end)
-		end)
-	else
-		local hum = getHumanoid()
-		if hum then
-			hum.AutoRotate = true
-			hum.CameraOffset = autoShiftlockVars.origCameraOffset or Vector3.zero
-		end
-	end
-end)
 
 Toggles.ToiletBed:OnChanged(function()
 	if Toggles.ToiletBed.Value then
@@ -4365,17 +4265,59 @@ Toggles.Reach:OnChanged(function()
 	end
 end)
 
+local function getHeldSlot()
+	local character = getCharacter()
+	if not character then return nil end
+	local tool = character:FindFirstChildOfClass("Tool")
+	if not tool then return nil end
+
+	local slotNum = tonumber(tool.Name)
+	if slotNum then return slotNum end
+
+	local attrSlot = tool:GetAttribute("slot") or tool:GetAttribute("Slot") or tool:GetAttribute("HotbarSlot")
+	if attrSlot then return tonumber(attrSlot) end
+
+	if tool:FindFirstChild("toolModel") then
+		local tmSlot = tool.toolModel:GetAttribute("slot") or tool.toolModel:GetAttribute("Slot") or tool.toolModel:GetAttribute("HotbarSlot")
+		if tmSlot then return tonumber(tmSlot) end
+	end
+
+	local m = tool.Name:match("^[Ss]lot%s*(%d+)$")
+	if m then return tonumber(m) end
+
+	return nil
+end
+
 Options.AdvancePreset:OnChanged(function()
+	disconnect("AdvancePresetDynamic")
 	local val = Options.AdvancePreset.Value
-	local slider = Options.ReachRange
-	if slider then
-		if val == "Sword" then
-			slider:SetValue(11)
-			Library:Notify({ Title = "Advance Preset", Description = "Preset: Sword (11) applied!", Time = 2 })
-		elseif val == "Spear" then
-			slider:SetValue(13)
-			Library:Notify({ Title = "Advance Preset", Description = "Preset: Spear (13) applied!", Time = 2 })
-		end
+	local rangeSlider = Options.ReachRange
+	local angleSlider = Options.ReachAngle
+	if not rangeSlider then return end
+
+	if val == "Sword" then
+		rangeSlider:SetValue(11)
+		if angleSlider then angleSlider:SetValue(35) end
+		Library:Notify({ Title = "Advance Preset", Description = "Preset: Sword (11) applied!", Time = 2 })
+	elseif val == "Spear" then
+		rangeSlider:SetValue(13)
+		if angleSlider then angleSlider:SetValue(35) end
+		Library:Notify({ Title = "Advance Preset", Description = "Preset: Spear (13) applied!", Time = 2 })
+	elseif val == "Spear/Sword(Slot 3/5)" then
+		Library:Notify({ Title = "Advance Preset", Description = "Preset: Spear/Sword (Slot 3/5) active!", Time = 2 })
+		local lastSlot = nil
+		track("AdvancePresetDynamic", RunService.Heartbeat:Connect(function()
+			local slot = getHeldSlot()
+			if slot == lastSlot then return end
+			lastSlot = slot
+			if slot == 3 then
+				rangeSlider:SetValue(7.0)
+				if angleSlider then angleSlider:SetValue(15) end
+			elseif slot == 5 then
+				rangeSlider:SetValue(5)
+				if angleSlider then angleSlider:SetValue(15) end
+			end
+		end))
 	end
 end)
 
@@ -8619,9 +8561,6 @@ Library:OnUnload(function()
 	if Toggles.SwimSlotBoost and Toggles.SwimSlotBoost.Value then
 		Toggles.SwimSlotBoost:SetValue(false)
 	end
-	if Toggles.AutoShiftlock and Toggles.AutoShiftlock.Value then
-		Toggles.AutoShiftlock:SetValue(false)
-	end
 	if Toggles.Camlock and Toggles.Camlock.Value then
 		Toggles.Camlock:SetValue(false)
 	end
@@ -8671,11 +8610,6 @@ Library:OnUnload(function()
 
 	pcall(function()
 		if fovCircle then fovCircle:Remove() end
-
-		if autoShiftlockVars then
-			if autoShiftlockVars.charAddedCon then autoShiftlockVars.charAddedCon:Disconnect() end
-			if autoShiftlockVars.renderCon then autoShiftlockVars.renderCon:Disconnect() end
-		end
 	end)
 	for name in pairs(Connections) do
 		disconnect(name)
