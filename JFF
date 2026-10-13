@@ -2572,7 +2572,7 @@ CombatReach:AddDropdown("ReachTarget", {
 
 CombatReach:AddDropdown("AdvancePreset", {
 	Text = "Advance PRESET",
-	Values = { "Sword", "Spear", "Spear/Sword(Slot 3/5)" },
+	Values = { "Sword", "Spear" },
 	Default = "",
 })
 
@@ -4365,59 +4365,17 @@ Toggles.Reach:OnChanged(function()
 	end
 end)
 
-local function getHeldSlot()
-	local character = getCharacter()
-	if not character then return nil end
-	local tool = character:FindFirstChildOfClass("Tool")
-	if not tool then return nil end
-
-	local slotNum = tonumber(tool.Name)
-	if slotNum then return slotNum end
-
-	local attrSlot = tool:GetAttribute("slot") or tool:GetAttribute("Slot") or tool:GetAttribute("HotbarSlot")
-	if attrSlot then return tonumber(attrSlot) end
-
-	if tool:FindFirstChild("toolModel") then
-		local tmSlot = tool.toolModel:GetAttribute("slot") or tool.toolModel:GetAttribute("Slot") or tool.toolModel:GetAttribute("HotbarSlot")
-		if tmSlot then return tonumber(tmSlot) end
-	end
-
-	local m = tool.Name:match("^[Ss]lot%s*(%d+)$")
-	if m then return tonumber(m) end
-
-	return nil
-end
-
 Options.AdvancePreset:OnChanged(function()
-	disconnect("AdvancePresetDynamic")
 	local val = Options.AdvancePreset.Value
-	local rangeSlider = Options.ReachRange
-	local angleSlider = Options.ReachAngle
-	if not rangeSlider then return end
-
-	if val == "Sword" then
-		rangeSlider:SetValue(11)
-		if angleSlider then angleSlider:SetValue(35) end
-		Library:Notify({ Title = "Advance Preset", Description = "Preset: Sword (11) applied!", Time = 2 })
-	elseif val == "Spear" then
-		rangeSlider:SetValue(13)
-		if angleSlider then angleSlider:SetValue(35) end
-		Library:Notify({ Title = "Advance Preset", Description = "Preset: Spear (13) applied!", Time = 2 })
-	elseif val == "Spear/Sword(Slot 3/5)" then
-		Library:Notify({ Title = "Advance Preset", Description = "Preset: Spear/Sword (Slot 3/5) active!", Time = 2 })
-		local lastSlot = nil
-		track("AdvancePresetDynamic", RunService.Heartbeat:Connect(function()
-			local slot = getHeldSlot()
-			if slot == lastSlot then return end
-			lastSlot = slot
-			if slot == 3 then
-				rangeSlider:SetValue(7.0)
-				if angleSlider then angleSlider:SetValue(15) end
-			elseif slot == 5 then
-				rangeSlider:SetValue(5)
-				if angleSlider then angleSlider:SetValue(15) end
-			end
-		end))
+	local slider = Options.ReachRange
+	if slider then
+		if val == "Sword" then
+			slider:SetValue(11)
+			Library:Notify({ Title = "Advance Preset", Description = "Preset: Sword (11) applied!", Time = 2 })
+		elseif val == "Spear" then
+			slider:SetValue(13)
+			Library:Notify({ Title = "Advance Preset", Description = "Preset: Spear (13) applied!", Time = 2 })
+		end
 	end
 end)
 
