@@ -8,11 +8,11 @@ getgenv().TSG_OBSIDIAN_LOADED = true
 
 -- Services
 local Players = game:GetService("Players")
+local Teams = game:GetService("Teams")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 local CollectionService = game:GetService("CollectionService")
-local Teams = game:GetService("Teams")
 
 local LocalPlayer = Players.LocalPlayer
 
@@ -1986,6 +1986,18 @@ CombatCamlock:AddSlider("CamlockStuds", {
 	Compact = true,
 })
 
+CombatCamlock:AddCheckbox("CamlockIgnoreTeam", {
+	Text = "Ignore Team",
+	Default = true,
+})
+
+CombatCamlock:AddDropdown("CamlockIgnoreTeams", {
+	Text = "Ignore Teams",
+	Values = {},
+	Default = {},
+	Multi = true,
+})
+
 CombatCamlock:AddCheckbox("Outline", {
 	Text = "Outline",
 	Default = false,
@@ -2291,123 +2303,6 @@ CombatSwordBot:AddDropdown("ChooseVictim", {
 	Default = "",
 })
 
-local function getAllTeamNames()
-	local names = {}
-	local seen = {}
-	local function addName(n)
-		if n and n ~= "" and not seen[n] then
-			seen[n] = true
-			table.insert(names, n)
-		end
-	end
-
-	pcall(function()
-		for _, team in ipairs(Teams:GetTeams()) do
-			if team and team.Name then
-				addName(team.Name)
-			end
-		end
-	end)
-
-	pcall(function()
-		for _, child in ipairs(Teams:GetChildren()) do
-			if child and child.Name then
-				addName(child.Name)
-			end
-		end
-	end)
-
-	pcall(function()
-		for _, p in ipairs(Players:GetPlayers()) do
-			if p.Team and p.Team.Name then
-				addName(p.Team.Name)
-			end
-		end
-	end)
-
-	table.sort(names)
-	if #names == 0 then
-		table.insert(names, "None")
-	end
-	return names
-end
-
-local function isTeamSelected(teamName)
-	if not teamName or not Options or not Options.TeamWhitelist then return false end
-	local val = Options.TeamWhitelist.Value
-	if not val then return false end
-
-	if typeof(val) == "table" then
-		if val[teamName] == true then
-			return true
-		end
-		for k, v in pairs(val) do
-			if v == teamName or (k == teamName and v == true) then
-				return true
-			end
-		end
-	elseif typeof(val) == "string" then
-		return val == teamName
-	end
-	return false
-end
-
-local function updateTeamsDropdown()
-	if not Options or not Options.TeamWhitelist then return end
-	local names = getAllTeamNames()
-	pcall(function()
-		Options.TeamWhitelist:SetValues(names)
-	end)
-end
-
-local TeamConfigGroup = Tabs.Combat:AddLeftGroupbox("Team Config", "users")
-
-TeamConfigGroup:AddDropdown("TeamWhitelist", {
-	Text = "Teams List",
-	Values = getAllTeamNames(),
-	Default = {},
-	Multi = true,
-})
-
-TeamConfigGroup:AddToggle("IgnoreSelectedTeams", {
-	Text = "Ignore Selected Teams",
-	Default = true,
-})
-
-TeamConfigGroup:AddButton({
-	Text = "Refresh Teams",
-	Func = function()
-		updateTeamsDropdown()
-		Library:Notify({ Title = "Team Config", Description = "Team list refreshed!", Time = 2 })
-	end,
-})
-
-track("Teams_ChildAdded", Teams.ChildAdded:Connect(function()
-	task.wait(0.2)
-	updateTeamsDropdown()
-end))
-track("Teams_ChildRemoved", Teams.ChildRemoved:Connect(function()
-	task.wait(0.2)
-	updateTeamsDropdown()
-end))
-track("Teams_PlayerAdded", Players.PlayerAdded:Connect(function(player)
-	task.wait(0.5)
-	updateTeamsDropdown()
-	pcall(function()
-		player:GetPropertyChangedSignal("Team"):Connect(function()
-			updateTeamsDropdown()
-		end)
-	end)
-end))
-for _, p in ipairs(Players:GetPlayers()) do
-	pcall(function()
-		p:GetPropertyChangedSignal("Team"):Connect(function()
-			updateTeamsDropdown()
-		end)
-	end)
-end
-task.spawn(updateTeamsDropdown)
-
 local CombatAutoPVP = Tabs.Combat:AddRightGroupbox("PVP Modules", "swords")
 
 CombatAutoPVP:AddCheckbox("SwingSpeedToggle", {
@@ -2569,6 +2464,20 @@ updatePVPModulesVisibility = function()
 		Options.CamlockStuds.Visible = isCam
 		if Options.CamlockStuds.Holder then
 			Options.CamlockStuds.Holder.Visible = isCam
+		end
+	end
+	if Toggles.CamlockIgnoreTeam then
+		if Toggles.CamlockIgnoreTeam.Visible ~= nil then
+			Toggles.CamlockIgnoreTeam.Visible = isCam
+		end
+		if Toggles.CamlockIgnoreTeam.Holder then
+			Toggles.CamlockIgnoreTeam.Holder.Visible = isCam
+		end
+	end
+	if Options.CamlockIgnoreTeams then
+		Options.CamlockIgnoreTeams.Visible = isCam
+		if Options.CamlockIgnoreTeams.Holder then
+			Options.CamlockIgnoreTeams.Holder.Visible = isCam
 		end
 	end
 	if Toggles.Outline then
@@ -3154,23 +3063,6 @@ function isTeammate(otherPlayer)
 		return true
 	end
 
-	if Toggles and Toggles.IgnoreSelectedTeams and Toggles.IgnoreSelectedTeams.Value then
-		local otherTeam = otherPlayer.Team
-		if otherTeam and isTeamSelected(otherTeam.Name) then
-			return true
-		end
-		local otherTeamAttr = otherPlayer:GetAttribute("Team") or otherPlayer:GetAttribute("Kingdom") or otherPlayer:GetAttribute("Clan")
-		if otherTeamAttr and isTeamSelected(tostring(otherTeamAttr)) then
-			return true
-		end
-		if otherPlayer.Character then
-			local charTeamAttr = otherPlayer.Character:GetAttribute("Team") or otherPlayer.Character:GetAttribute("Kingdom") or otherPlayer.Character:GetAttribute("Clan")
-			if charTeamAttr and isTeamSelected(tostring(charTeamAttr)) then
-				return true
-			end
-		end
-	end
-
 	if LocalPlayer.Team and otherPlayer.Team and LocalPlayer.Team == otherPlayer.Team then
 		return true
 	end
@@ -3407,7 +3299,22 @@ Toggles.Camlock:OnChanged(function()
 			local closestPlayer = nil
 			local closestDist = math.huge
 			local targetSetting = Options.CamlockTarget and Options.CamlockTarget.Value or "All"
-			local ignoreTeam = true
+			local ignoreTeam = Toggles.CamlockIgnoreTeam and Toggles.CamlockIgnoreTeam.Value
+			local excludedTeams = Options.CamlockIgnoreTeams and Options.CamlockIgnoreTeams.Value or {}
+
+			local function isExcludedTeam(p)
+				if not p or not p.Team then return false end
+				local teamName = p.Team.Name
+				if not teamName then return false end
+				if typeof(excludedTeams) == "table" then
+					for name, selected in pairs(excludedTeams) do
+						if selected == true and name == teamName then
+							return true
+						end
+					end
+				end
+				return false
+			end
 
 			local function isSameTeamOnly(p)
 				if LocalPlayer.Team and p.Team and LocalPlayer.Team == p.Team then
@@ -3421,7 +3328,7 @@ Toggles.Camlock:OnChanged(function()
 
 			for _, otherPlayer in ipairs(Players:GetPlayers()) do
 				if otherPlayer ~= LocalPlayer and otherPlayer.Character then
-					if not ignoreTeam or not isSameTeamOnly(otherPlayer) then
+					if (not ignoreTeam or not isSameTeamOnly(otherPlayer)) and not isExcludedTeam(otherPlayer) then
 						local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
 						local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
 						if otherRoot and otherHum and otherHum.Health > 0 then
@@ -3445,7 +3352,7 @@ Toggles.Camlock:OnChanged(function()
 				local outlineTargetSetting = (Options.OutlineTarget and Options.OutlineTarget.Value) or "All"
 				for _, otherPlayer in ipairs(Players:GetPlayers()) do
 					if otherPlayer ~= LocalPlayer and otherPlayer.Character then
-						if not ignoreTeam or not isSameTeamOnly(otherPlayer) then
+						if (not ignoreTeam or not isSameTeamOnly(otherPlayer)) and not isExcludedTeam(otherPlayer) then
 							local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
 							local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
 							if otherRoot and otherHum and otherHum.Health > 0 then
@@ -8193,6 +8100,33 @@ track("AttachPlayerAdded", Players.PlayerAdded:Connect(updateAttachPlayerList))
 track("AttachPlayerRemoving", Players.PlayerRemoving:Connect(updateAttachPlayerList))
 task.spawn(updateAttachPlayerList)
 
+local function updateCamlockTeamList()
+	pcall(function()
+		if not Options.CamlockIgnoreTeams then return end
+		local teamNames = {}
+		for _, team in ipairs(Teams:GetTeams()) do
+			if team and team.Name then
+				table.insert(teamNames, team.Name)
+			end
+		end
+		local previous = Options.CamlockIgnoreTeams.Value
+		Options.CamlockIgnoreTeams:SetValues(teamNames)
+		if typeof(previous) == "table" then
+			local preserved = {}
+			for name, selected in pairs(previous) do
+				if selected == true and table.find(teamNames, name) then
+					preserved[name] = true
+				end
+			end
+			Options.CamlockIgnoreTeams:SetValue(preserved)
+		end
+	end)
+end
+
+track("CamlockTeamAdded", Teams.ChildAdded:Connect(updateCamlockTeamList))
+track("CamlockTeamRemoved", Teams.ChildRemoved:Connect(updateCamlockTeamList))
+task.spawn(updateCamlockTeamList)
+
 local function startAttach()
 	disconnect("AttachLoop")
 	if Toggles.AttachToggle.Value then
@@ -8594,9 +8528,6 @@ if not (Toggles.Noclip and Toggles.Noclip.Value) then
 end
 
 Library:OnUnload(function()
-	if Toggles.IgnoreSelectedTeams and Toggles.IgnoreSelectedTeams.Value then
-		Toggles.IgnoreSelectedTeams:SetValue(false)
-	end
 	if Toggles.Reach and Toggles.Reach.Value then
 		Toggles.Reach:SetValue(false)
 	end
