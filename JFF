@@ -847,6 +847,15 @@ AutoArmorDeluxeGroup:AddToggle("AtlanteanAutoSwap", {
 	Default = false,
 })
 
+AutoArmorDeluxeGroup:AddSlider("AtlanteanEquipSpeed", {
+	Text = "Equip Speed",
+	Default = 20,
+	Min = 1,
+	Max = 100,
+	Rounding = 0,
+	Compact = true,
+})
+
 Toggles.AtlanteanAutoSwap:OnChanged(function()
 	disconnect("AtlanteanAutoSwap")
 	if Toggles.AtlanteanAutoSwap.Value then
@@ -855,17 +864,24 @@ Toggles.AtlanteanAutoSwap:OnChanged(function()
 			local equipHotbarRemote = TSG.EquipHotbarRemote
 			local equipClothingRemote = TSG.EquipClothingRemote
 			if not equipHotbarRemote or not equipClothingRemote then return end
-			pcall(function()
-				equipHotbarRemote:InvokeServer("inventory", 1, 357)
-			end)
-			pcall(function()
-				equipClothingRemote:InvokeServer("inventory", 1, 354)
-			end)
-			pcall(function()
-				equipClothingRemote:InvokeServer("inventory", 2, 355)
-			end)
-			pcall(function()
-				equipClothingRemote:InvokeServer("inventory", 3, 356)
+			local speed = (Options.AtlanteanEquipSpeed and Options.AtlanteanEquipSpeed.Value) or 20
+			local delay = 1 / math.max(0.1, speed)
+			task.spawn(function()
+				pcall(function()
+					equipHotbarRemote:InvokeServer("inventory", 1, 357)
+				end)
+				task.wait(delay)
+				pcall(function()
+					equipClothingRemote:InvokeServer("inventory", 1, 354)
+				end)
+				task.wait(delay)
+				pcall(function()
+					equipClothingRemote:InvokeServer("inventory", 2, 355)
+				end)
+				task.wait(delay)
+				pcall(function()
+					equipClothingRemote:InvokeServer("inventory", 3, 356)
+				end)
 			end)
 		end
 		track("AtlanteanAutoSwap", RunService.Heartbeat:Connect(function()
@@ -2556,7 +2572,7 @@ CombatReach:AddDropdown("ReachTarget", {
 
 CombatReach:AddDropdown("AdvancePreset", {
 	Text = "Advance PRESET",
-	Values = { "Sword", "Spear" },
+	Values = { "Sword", "Spear", "Spear/Sword(Slot 3/5)" },
 	Default = "",
 })
 
@@ -3216,8 +3232,6 @@ end
 
 local autoShiftlockVars = {
 	origCameraOffset = nil,
-	screenGui = nil,
-	crosshair = nil,
 	shiftLockEnabled = false,
 	renderCon = nil,
 	charAddedCon = nil,
@@ -3232,11 +3246,6 @@ local function destroyMobileShiftlockGui()
 		autoShiftlockVars.renderCon:Disconnect()
 		autoShiftlockVars.renderCon = nil
 	end
-	if autoShiftlockVars.screenGui then
-		pcall(function() autoShiftlockVars.screenGui:Destroy() end)
-	end
-	autoShiftlockVars.screenGui = nil
-	autoShiftlockVars.crosshair = nil
 end
 
 local function resetMobileShiftlockState()
@@ -3259,30 +3268,12 @@ Toggles.AutoShiftlock:OnChanged(function()
 			autoShiftlockVars.origCameraOffset = hum.CameraOffset
 		end
 
-		-- Center crosshair to indicate shift lock is active (no on-screen button)
-		local playerGui = LocalPlayer:WaitForChild("PlayerGui")
-		local screenGui = Instance.new("ScreenGui")
-		screenGui.Name = "MobileShiftlockGUI"
-		screenGui.ResetOnSpawn = false
-		screenGui.Parent = playerGui
-		autoShiftlockVars.screenGui = screenGui
-
-		local crosshair = Instance.new("ImageLabel")
-		crosshair.Name = "ShiftlockCursor"
-		crosshair.Parent = screenGui
-		crosshair.BackgroundTransparency = 1
-		crosshair.Position = UDim2.new(0.5, 0, 0.5, 0)
-		crosshair.AnchorPoint = Vector2.new(0.5, 0.5)
-		crosshair.Size = UDim2.new(0, 22, 0, 22)
-		crosshair.Image = "rbxasset://textures/MouseLockedCursor.png"
-		crosshair.Visible = true
-		autoShiftlockVars.crosshair = crosshair
-
 		-- Enable shift lock immediately when the checkbox is turned on
 		autoShiftlockVars.shiftLockEnabled = true
+		local camOffsetY = 2.0
 		if hum then
 			hum.AutoRotate = false
-			hum.CameraOffset = Vector3.zero
+			hum.CameraOffset = Vector3.new(0, camOffsetY, 0)
 		end
 
 		autoShiftlockVars.renderCon = RunService.RenderStepped:Connect(function()
@@ -3293,8 +3284,8 @@ Toggles.AutoShiftlock:OnChanged(function()
 			local rootPart = char:FindFirstChild("HumanoidRootPart")
 			if not humanoid or not rootPart then return end
 
-			-- Keep the character perfectly centered: zero camera offset
-			humanoid.CameraOffset = Vector3.zero
+			-- Keep the character centered, slightly lowered so it isn't too high
+			humanoid.CameraOffset = Vector3.new(0, camOffsetY, 0)
 			humanoid.AutoRotate = false
 
 			local camera = workspace.CurrentCamera
@@ -3307,9 +3298,10 @@ Toggles.AutoShiftlock:OnChanged(function()
 				rootPart.Position + Vector3.new(lookVector.X, 0, lookVector.Z)
 			)
 
-			-- Force the camera to look directly at the character for perfect centering
-			local camDist = (camera.CFrame.Position - rootPart.Position).Magnitude
-			camera.CFrame = CFrame.new(rootPart.Position - lookVector * camDist, rootPart.Position)
+			-- Force the camera to look directly at the (offset) character for perfect centering
+			local lookTarget = rootPart.Position + Vector3.new(0, camOffsetY, 0)
+			local camDist = (camera.CFrame.Position - lookTarget).Magnitude
+			camera.CFrame = CFrame.new(lookTarget - lookVector * camDist, lookTarget)
 		end)
 
 		autoShiftlockVars.charAddedCon = LocalPlayer.CharacterAdded:Connect(function()
@@ -3318,7 +3310,7 @@ Toggles.AutoShiftlock:OnChanged(function()
 				local h = getHumanoid()
 				if h and autoShiftlockVars.shiftLockEnabled then
 					h.AutoRotate = false
-					h.CameraOffset = Vector3.zero
+					h.CameraOffset = Vector3.new(0, camOffsetY, 0)
 				end
 			end)
 		end)
@@ -4373,17 +4365,59 @@ Toggles.Reach:OnChanged(function()
 	end
 end)
 
+local function getHeldSlot()
+	local character = getCharacter()
+	if not character then return nil end
+	local tool = character:FindFirstChildOfClass("Tool")
+	if not tool then return nil end
+
+	local slotNum = tonumber(tool.Name)
+	if slotNum then return slotNum end
+
+	local attrSlot = tool:GetAttribute("slot") or tool:GetAttribute("Slot") or tool:GetAttribute("HotbarSlot")
+	if attrSlot then return tonumber(attrSlot) end
+
+	if tool:FindFirstChild("toolModel") then
+		local tmSlot = tool.toolModel:GetAttribute("slot") or tool.toolModel:GetAttribute("Slot") or tool.toolModel:GetAttribute("HotbarSlot")
+		if tmSlot then return tonumber(tmSlot) end
+	end
+
+	local m = tool.Name:match("^[Ss]lot%s*(%d+)$")
+	if m then return tonumber(m) end
+
+	return nil
+end
+
 Options.AdvancePreset:OnChanged(function()
+	disconnect("AdvancePresetDynamic")
 	local val = Options.AdvancePreset.Value
-	local slider = Options.ReachRange
-	if slider then
-		if val == "Sword" then
-			slider:SetValue(11)
-			Library:Notify({ Title = "Advance Preset", Description = "Preset: Sword (11) applied!", Time = 2 })
-		elseif val == "Spear" then
-			slider:SetValue(13)
-			Library:Notify({ Title = "Advance Preset", Description = "Preset: Spear (13) applied!", Time = 2 })
-		end
+	local rangeSlider = Options.ReachRange
+	local angleSlider = Options.ReachAngle
+	if not rangeSlider then return end
+
+	if val == "Sword" then
+		rangeSlider:SetValue(11)
+		if angleSlider then angleSlider:SetValue(35) end
+		Library:Notify({ Title = "Advance Preset", Description = "Preset: Sword (11) applied!", Time = 2 })
+	elseif val == "Spear" then
+		rangeSlider:SetValue(13)
+		if angleSlider then angleSlider:SetValue(35) end
+		Library:Notify({ Title = "Advance Preset", Description = "Preset: Spear (13) applied!", Time = 2 })
+	elseif val == "Spear/Sword(Slot 3/5)" then
+		Library:Notify({ Title = "Advance Preset", Description = "Preset: Spear/Sword (Slot 3/5) active!", Time = 2 })
+		local lastSlot = nil
+		track("AdvancePresetDynamic", RunService.Heartbeat:Connect(function()
+			local slot = getHeldSlot()
+			if slot == lastSlot then return end
+			lastSlot = slot
+			if slot == 3 then
+				rangeSlider:SetValue(7.0)
+				if angleSlider then angleSlider:SetValue(15) end
+			elseif slot == 5 then
+				rangeSlider:SetValue(5)
+				if angleSlider then angleSlider:SetValue(15) end
+			end
+		end))
 	end
 end)
 
@@ -8683,7 +8717,6 @@ Library:OnUnload(function()
 		if autoShiftlockVars then
 			if autoShiftlockVars.charAddedCon then autoShiftlockVars.charAddedCon:Disconnect() end
 			if autoShiftlockVars.renderCon then autoShiftlockVars.renderCon:Disconnect() end
-			if autoShiftlockVars.screenGui then autoShiftlockVars.screenGui:Destroy() end
 		end
 	end)
 	for name in pairs(Connections) do
