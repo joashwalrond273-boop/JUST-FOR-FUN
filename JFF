@@ -12,6 +12,7 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 local CollectionService = game:GetService("CollectionService")
+local Teams = game:GetService("Teams")
 
 local LocalPlayer = Players.LocalPlayer
 
@@ -938,18 +939,6 @@ AdvanceHealGroup:AddToggle("AutoEatCustom", {
 	Default = false,
 })
 
-AdvanceHealGroup:AddCheckbox("AutoEatSlotSystem", {
-	Text = "Slot System",
-	Default = false,
-})
-
-AdvanceHealGroup:AddDropdown("AutoEatSlotSystemSlot", {
-	Text = "Tool Slot",
-	Values = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"},
-	Default = {"1"},
-	Multi = true,
-})
-
 AdvanceHealGroup:AddDropdown("AutoEatFood", {
 	Text = "Food Type",
 	Values = {"Cabbage", "Banana", "Spicy Meal", "Hearty Stew", "Cabbage Meal"},
@@ -1873,12 +1862,6 @@ local FoodIdMap = {
 
 local lastEatCustom = 0
 local function tryEatCustom()
-	if Toggles.AutoEatSlotSystem and Toggles.AutoEatSlotSystem.Value then
-		if not isAdvanceSlotAllowed(Options.AutoEatSlotSystemSlot) then
-			return
-		end
-	end
-
 	local cooldown = Options and Options.AutoEatCooldown and Options.AutoEatCooldown.Value or 0.3
 	if tick() - lastEatCustom < cooldown then
 		return
@@ -1939,112 +1922,13 @@ local function tryEatCustom()
 	end
 end
 
-local eatSlotSaved = {
-	AutoEatCustom = nil,
-}
-local fromEatSlotSystem = false
-
-local function updateEatSlotSystemState()
-	if not (Toggles.AutoEatSlotSystem and Toggles.AutoEatSlotSystem.Value) then return end
-	if not isAlive() then return end
-
-	local holding = isAdvanceSlotAllowed(Options.AutoEatSlotSystemSlot)
-
-	if holding then
-		if eatSlotSaved.AutoEatCustom == nil then
-			eatSlotSaved.AutoEatCustom = Toggles.AutoEatCustom and Toggles.AutoEatCustom.Value or false
-		end
-
-		if Toggles.AutoEatCustom and not Toggles.AutoEatCustom.Value then
-			fromEatSlotSystem = true
-			Toggles.AutoEatCustom:SetValue(true)
-			fromEatSlotSystem = false
-		end
-	else
-		if eatSlotSaved.AutoEatCustom ~= nil then
-			if Toggles.AutoEatCustom and Toggles.AutoEatCustom.Value ~= eatSlotSaved.AutoEatCustom then
-				fromEatSlotSystem = true
-				Toggles.AutoEatCustom:SetValue(eatSlotSaved.AutoEatCustom)
-				fromEatSlotSystem = false
-			end
-			eatSlotSaved.AutoEatCustom = nil
-		end
-	end
-end
-
 Toggles.AutoEatCustom:OnChanged(function()
 	disconnect("AutoEatCustom")
 	if Toggles.AutoEatCustom.Value then
 		track("AutoEatCustom", RunService.Heartbeat:Connect(tryEatCustom))
-		if not fromEatSlotSystem then
-			Library:Notify({ Title = "Auto Eat", Description = "Enabled", Time = 2 })
-		end
-	else
-		if not fromEatSlotSystem then
-			Library:Notify({ Title = "Auto Eat", Description = "Disabled", Time = 2 })
-		end
+		Library:Notify({ Title = "Auto Eat", Description = "Enabled", Time = 2 })
 	end
 end)
-
-if Toggles.AutoEatSlotSystem then
-	Toggles.AutoEatSlotSystem:OnChanged(function()
-		disconnect("AutoEatSlotSystem_Poll")
-		disconnect("AutoEatSlotSystem_ChildAdded")
-		disconnect("AutoEatSlotSystem_ChildRemoved")
-		disconnect("AutoEatSlotSystem_CharAdded")
-
-		if Toggles.AutoEatSlotSystem.Value then
-			local function hookEatSlotChar(char)
-				if not char then return end
-				disconnect("AutoEatSlotSystem_ChildAdded")
-				disconnect("AutoEatSlotSystem_ChildRemoved")
-				track("AutoEatSlotSystem_ChildAdded", char.ChildAdded:Connect(function(child)
-					if child:IsA("Tool") then
-						task.wait()
-						updateEatSlotSystemState()
-					end
-				end))
-				track("AutoEatSlotSystem_ChildRemoved", char.ChildRemoved:Connect(function(child)
-					if child:IsA("Tool") then
-						task.wait()
-						updateEatSlotSystemState()
-					end
-				end))
-			end
-
-			if LocalPlayer.Character then
-				hookEatSlotChar(LocalPlayer.Character)
-			end
-			track("AutoEatSlotSystem_CharAdded", LocalPlayer.CharacterAdded:Connect(hookEatSlotChar))
-
-			track("AutoEatSlotSystem_Poll", RunService.Heartbeat:Connect(function()
-				updateEatSlotSystemState()
-			end))
-
-			updateEatSlotSystemState()
-
-			Library:Notify({ Title = "Auto Eat Slot System", Description = "Enabled", Time = 2 })
-		else
-			if eatSlotSaved.AutoEatCustom ~= nil then
-				if Toggles.AutoEatCustom and Toggles.AutoEatCustom.Value ~= eatSlotSaved.AutoEatCustom then
-					fromEatSlotSystem = true
-					Toggles.AutoEatCustom:SetValue(eatSlotSaved.AutoEatCustom)
-					fromEatSlotSystem = false
-				end
-				eatSlotSaved.AutoEatCustom = nil
-			end
-			table.clear(eatSlotSaved)
-
-			Library:Notify({ Title = "Auto Eat Slot System", Description = "Disabled", Time = 2 })
-		end
-	end)
-end
-
-if Options.AutoEatSlotSystemSlot then
-	Options.AutoEatSlotSystemSlot:OnChanged(function()
-		updateEatSlotSystemState()
-	end)
-end
 
 -- ==========================================
 -- COMBAT
@@ -2406,6 +2290,123 @@ CombatSwordBot:AddDropdown("ChooseVictim", {
 	Values = {},
 	Default = "",
 })
+
+local function getAllTeamNames()
+	local names = {}
+	local seen = {}
+	local function addName(n)
+		if n and n ~= "" and not seen[n] then
+			seen[n] = true
+			table.insert(names, n)
+		end
+	end
+
+	pcall(function()
+		for _, team in ipairs(Teams:GetTeams()) do
+			if team and team.Name then
+				addName(team.Name)
+			end
+		end
+	end)
+
+	pcall(function()
+		for _, child in ipairs(Teams:GetChildren()) do
+			if child and child.Name then
+				addName(child.Name)
+			end
+		end
+	end)
+
+	pcall(function()
+		for _, p in ipairs(Players:GetPlayers()) do
+			if p.Team and p.Team.Name then
+				addName(p.Team.Name)
+			end
+		end
+	end)
+
+	table.sort(names)
+	if #names == 0 then
+		table.insert(names, "None")
+	end
+	return names
+end
+
+local function isTeamSelected(teamName)
+	if not teamName or not Options or not Options.TeamWhitelist then return false end
+	local val = Options.TeamWhitelist.Value
+	if not val then return false end
+
+	if typeof(val) == "table" then
+		if val[teamName] == true then
+			return true
+		end
+		for k, v in pairs(val) do
+			if v == teamName or (k == teamName and v == true) then
+				return true
+			end
+		end
+	elseif typeof(val) == "string" then
+		return val == teamName
+	end
+	return false
+end
+
+local function updateTeamsDropdown()
+	if not Options or not Options.TeamWhitelist then return end
+	local names = getAllTeamNames()
+	pcall(function()
+		Options.TeamWhitelist:SetValues(names)
+	end)
+end
+
+local TeamConfigGroup = Tabs.Combat:AddLeftGroupbox("Team Config", "users")
+
+TeamConfigGroup:AddDropdown("TeamWhitelist", {
+	Text = "Teams List",
+	Values = getAllTeamNames(),
+	Default = {},
+	Multi = true,
+})
+
+TeamConfigGroup:AddToggle("IgnoreSelectedTeams", {
+	Text = "Ignore Selected Teams",
+	Default = true,
+})
+
+TeamConfigGroup:AddButton({
+	Text = "Refresh Teams",
+	Func = function()
+		updateTeamsDropdown()
+		Library:Notify({ Title = "Team Config", Description = "Team list refreshed!", Time = 2 })
+	end,
+})
+
+track("Teams_ChildAdded", Teams.ChildAdded:Connect(function()
+	task.wait(0.2)
+	updateTeamsDropdown()
+end))
+track("Teams_ChildRemoved", Teams.ChildRemoved:Connect(function()
+	task.wait(0.2)
+	updateTeamsDropdown()
+end))
+track("Teams_PlayerAdded", Players.PlayerAdded:Connect(function(player)
+	task.wait(0.5)
+	updateTeamsDropdown()
+	pcall(function()
+		player:GetPropertyChangedSignal("Team"):Connect(function()
+			updateTeamsDropdown()
+		end)
+	end)
+end))
+for _, p in ipairs(Players:GetPlayers()) do
+	pcall(function()
+		p:GetPropertyChangedSignal("Team"):Connect(function()
+			updateTeamsDropdown()
+		end)
+	end)
+end
+task.spawn(updateTeamsDropdown)
 
 local CombatAutoPVP = Tabs.Combat:AddRightGroupbox("PVP Modules", "swords")
 
@@ -3151,6 +3152,23 @@ end)
 function isTeammate(otherPlayer)
 	if not otherPlayer or otherPlayer == LocalPlayer then
 		return true
+	end
+
+	if Toggles and Toggles.IgnoreSelectedTeams and Toggles.IgnoreSelectedTeams.Value then
+		local otherTeam = otherPlayer.Team
+		if otherTeam and isTeamSelected(otherTeam.Name) then
+			return true
+		end
+		local otherTeamAttr = otherPlayer:GetAttribute("Team") or otherPlayer:GetAttribute("Kingdom") or otherPlayer:GetAttribute("Clan")
+		if otherTeamAttr and isTeamSelected(tostring(otherTeamAttr)) then
+			return true
+		end
+		if otherPlayer.Character then
+			local charTeamAttr = otherPlayer.Character:GetAttribute("Team") or otherPlayer.Character:GetAttribute("Kingdom") or otherPlayer.Character:GetAttribute("Clan")
+			if charTeamAttr and isTeamSelected(tostring(charTeamAttr)) then
+				return true
+			end
+		end
 	end
 
 	if LocalPlayer.Team and otherPlayer.Team and LocalPlayer.Team == otherPlayer.Team then
@@ -8576,6 +8594,9 @@ if not (Toggles.Noclip and Toggles.Noclip.Value) then
 end
 
 Library:OnUnload(function()
+	if Toggles.IgnoreSelectedTeams and Toggles.IgnoreSelectedTeams.Value then
+		Toggles.IgnoreSelectedTeams:SetValue(false)
+	end
 	if Toggles.Reach and Toggles.Reach.Value then
 		Toggles.Reach:SetValue(false)
 	end
@@ -8723,12 +8744,6 @@ Library:OnUnload(function()
 
 	if Toggles.FastPickup and Toggles.FastPickup.Value then
 		Toggles.FastPickup:SetValue(false)
-	end
-	if Toggles.AutoEatCustom and Toggles.AutoEatCustom.Value then
-		Toggles.AutoEatCustom:SetValue(false)
-	end
-	if Toggles.AutoEatSlotSystem and Toggles.AutoEatSlotSystem.Value then
-		Toggles.AutoEatSlotSystem:SetValue(false)
 	end
 
 	pcall(function()
