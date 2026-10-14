@@ -385,7 +385,7 @@ AutoArmorDeluxeGroup:AddButton({
 
 		if Toggles.ArmorEquipOnly and Toggles.ArmorEquipOnly.Value then
 			pcall(function()
-				equipHotbarRemote:InvokeServer("inventory", 1, 197)
+				equipHotbarRemote:InvokeServer("inventory", 5, 197)
 			end)
 			pcall(function()
 				equipClothingRemote:InvokeServer("inventory", 1, 202)
@@ -440,7 +440,7 @@ AutoArmorDeluxeGroup:AddButton({
 			task.wait(0.3)
 
 			pcall(function()
-				equipHotbarRemote:InvokeServer("inventory", 1, 197)
+				equipHotbarRemote:InvokeServer("inventory", 5, 197)
 			end)
 			pcall(function()
 				equipClothingRemote:InvokeServer("inventory", 1, 202)
@@ -586,7 +586,7 @@ AutoArmorDeluxeGroup:AddButton({
 
 		if Toggles.ArmorEquipOnly and Toggles.ArmorEquipOnly.Value then
 			pcall(function()
-				equipHotbarRemote:InvokeServer("inventory", 1, 267)
+				equipHotbarRemote:InvokeServer("inventory", 5, 267)
 			end)
 			pcall(function()
 				equipClothingRemote:InvokeServer("inventory", 1, 262)
@@ -641,7 +641,7 @@ AutoArmorDeluxeGroup:AddButton({
 			task.wait(0.3)
 
 			pcall(function()
-				equipHotbarRemote:InvokeServer("inventory", 1, 267)
+				equipHotbarRemote:InvokeServer("inventory", 5, 267)
 			end)
 			pcall(function()
 				equipClothingRemote:InvokeServer("inventory", 1, 262)
@@ -685,7 +685,7 @@ AutoArmorDeluxeGroup:AddButton({
 
 		if Toggles.ArmorEquipOnly and Toggles.ArmorEquipOnly.Value then
 			pcall(function()
-				equipHotbarRemote:InvokeServer("inventory", 1, 406)
+				equipHotbarRemote:InvokeServer("inventory", 5, 406)
 			end)
 			pcall(function()
 				equipClothingRemote:InvokeServer("inventory", 1, 404)
@@ -742,7 +742,7 @@ AutoArmorDeluxeGroup:AddButton({
 			task.wait(0.3)
 
 			pcall(function()
-				equipHotbarRemote:InvokeServer("inventory", 1, 406)
+				equipHotbarRemote:InvokeServer("inventory", 5, 406)
 			end)
 			pcall(function()
 				equipClothingRemote:InvokeServer("inventory", 1, 404)
@@ -786,7 +786,7 @@ AutoArmorDeluxeGroup:AddButton({
 
 		if Toggles.ArmorEquipOnly and Toggles.ArmorEquipOnly.Value then
 			pcall(function()
-				equipHotbarRemote:InvokeServer("inventory", 1, 545)
+				equipHotbarRemote:InvokeServer("inventory", 5, 545)
 			end)
 			pcall(function()
 				equipClothingRemote:InvokeServer("inventory", 1, 541)
@@ -847,7 +847,7 @@ AutoArmorDeluxeGroup:AddButton({
 			task.wait(0.3)
 
 			pcall(function()
-				equipHotbarRemote:InvokeServer("inventory", 1, 545)
+				equipHotbarRemote:InvokeServer("inventory", 5, 545)
 			end)
 			pcall(function()
 				equipClothingRemote:InvokeServer("inventory", 1, 541)
@@ -1933,7 +1933,7 @@ end)
 -- ==========================================
 -- COMBAT
 -- ==========================================
-local CombatLeft = Tabs.Combat:AddLeftGroupbox("Kill Aura", "swords")
+local CombatLeft = Tabs.Combat:AddLeftGroupbox("Kill Aura Pro", "swords")
 
 local AimbotTabBox = Tabs.Combat:AddRightTabbox()
 local CombatCamlock = AimbotTabBox:AddTab("Camlock", "video")
