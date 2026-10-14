@@ -3348,12 +3348,79 @@ Toggles.Camlock:OnChanged(function()
 
 			local function isAlliedTeam(p)
 				if not ignoreAlliedTeams then return false end
-				if not p or not p.Team then return false end
-				local myTeam = LocalPlayer.Team
-				if not myTeam then return false end
-				local myColor = myTeam.TeamColor
-				if not myColor or myColor == BrickColor.new("White") then return false end
-				return p.Team.TeamColor == myColor
+				if not p then return false end
+
+				local myKingdomName = nil
+				pcall(function()
+					if TSG.ClientData and TSG.ClientData.getKingdom then
+						myKingdomName = TSG.ClientData.getKingdom()
+					end
+				end)
+				if not myKingdomName then return false end
+
+				local theirKingdomName = p:GetAttribute("Kingdom") or p:GetAttribute("Clan") or p:GetAttribute("Tribe") or p:GetAttribute("Team")
+				if not theirKingdomName or theirKingdomName == myKingdomName then
+					-- Same kingdom is already handled by Ignore Team; skip duplicate check
+					return false
+				end
+
+				-- Locate my kingdom object in ReplicatedStorage.kingdoms
+				local kingdomsFolder = ReplicatedStorage:FindFirstChild("kingdoms")
+				if not kingdomsFolder then return false end
+
+				local myKingdomObj = nil
+				for _, k in ipairs(kingdomsFolder:GetChildren()) do
+					if k.Name == myKingdomName or k:GetAttribute("Name") == myKingdomName or k:GetAttribute("kingdomName") == myKingdomName then
+						myKingdomObj = k
+						break
+					end
+				end
+				if not myKingdomObj then return false end
+
+				-- Read allied kingdom names (try common storage patterns)
+				local allies = {}
+				local function addAlly(name)
+					if name and name ~= "" then
+						allies[tostring(name)] = true
+					end
+				end
+
+				-- 1. Attribute holding a string/table of allies
+				for _, attrName in ipairs({"Allies", "alliances", "allyList", "AllyList", "alliedKingdoms"}) do
+					local val = myKingdomObj:GetAttribute(attrName)
+					if typeof(val) == "string" then
+						for n in string.gmatch(val, "([^,;%s]+)") do
+							addAlly(n)
+						end
+					elseif typeof(val) == "table" then
+						for _, n in ipairs(val) do
+							addAlly(n)
+						end
+					end
+				end
+
+				-- 2. Folder/model child containing StringValues or child kingdom refs
+				local alliesFolder = myKingdomObj:FindFirstChild("Allies") or myKingdomObj:FindFirstChild("alliances")
+				if alliesFolder then
+					for _, child in ipairs(alliesFolder:GetChildren()) do
+						if child:IsA("StringValue") then
+							addAlly(child.Value)
+						elseif child:IsA("ObjectValue") and child.Value then
+							addAlly(child.Value.Name)
+						else
+							addAlly(child.Name)
+						end
+					end
+				end
+
+				-- 3. Direct child StringValue(s) named Ally/Alliance
+				for _, child in ipairs(myKingdomObj:GetChildren()) do
+					if (child.Name == "Ally" or child.Name == "Alliance") and child:IsA("StringValue") then
+						addAlly(child.Value)
+					end
+				end
+
+				return allies[theirKingdomName] == true
 			end
 
 			local function isSameTeamOnly(p)
