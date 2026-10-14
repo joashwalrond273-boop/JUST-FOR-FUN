@@ -5837,13 +5837,13 @@ OreFarm:AddButton({
 })
 
 OreFarm:AddDropdown("NearestOreType", {
-	Text = "Nearest Ore Type",
-	Values = { "Any Enabled", "Coal", "Stone", "Iron", "Copper", "Gold", "Ice", "Coral", "Bluesteel" },
-	Default = "Any Enabled",
+	Text = "Ore Type",
+	Values = { "All", "Any Enabled", "Coal", "Stone", "Iron", "Copper", "Gold", "Ice", "Coral", "Bluesteel" },
+	Default = "All",
 })
 
 OreFarm:AddButton({
-	Text = "Teleport to Nearest Ore",
+	Text = "Teleport to Ores",
 	Func = function()
 		local root = getRootPart()
 		if not root then
@@ -5857,9 +5857,9 @@ OreFarm:AddButton({
 			return
 		end
 
-		local requested = Options.NearestOreType and Options.NearestOreType.Value or "Any Enabled"
+		local requested = Options.NearestOreType and Options.NearestOreType.Value or "All"
 		local rootPos = root.Position
-		local closest, closestDist, closestName = nil, math.huge, nil
+		local targets = {}
 
 		for _, chunkFolder in ipairs(folder:GetChildren()) do
 			if not chunkFolder:IsA("Folder") then continue end
@@ -5870,28 +5870,37 @@ OreFarm:AddButton({
 				-- Respect requested type and Ore ESP filters
 				if requested == "Any Enabled" then
 					if not isOreFilterEnabled(oreName) then continue end
-				elseif oreName ~= requested then
+				elseif requested ~= "All" and oreName ~= requested then
 					continue
 				end
 
 				local anchor = obj:IsA("Model") and (obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")) or (obj:IsA("BasePart") and obj)
 				if not anchor then continue end
 
-				local dist = (anchor.Position - rootPos).Magnitude
-				if dist < closestDist then
-					closestDist = dist
-					closest = anchor.Position
-					closestName = oreName
-				end
+				table.insert(targets, { pos = anchor.Position, name = oreName, dist = (anchor.Position - rootPos).Magnitude })
 			end
 		end
 
-		if closest then
-			root.CFrame = CFrame.new(closest)
-			Library:Notify({ Title = "Teleport", Description = "Teleported to " .. closestName .. " (" .. math.floor(closestDist) .. " studs)", Time = 2 })
-		else
+		if #targets == 0 then
 			Library:Notify({ Title = "Teleport", Description = "No matching ore found.", Time = 3 })
+			return
 		end
+
+		-- Sort by distance so we visit the closest first
+		table.sort(targets, function(a, b) return a.dist < b.dist end)
+
+		task.spawn(function()
+			Library:Notify({ Title = "Teleport", Description = "Teleporting to " .. #targets .. " ores...", Time = 2 })
+			for i, target in ipairs(targets) do
+				root = getRootPart()
+				if not root then break end
+				root.CFrame = CFrame.new(target.pos)
+				if i % 25 == 0 then
+					task.wait(0.05)
+				end
+			end
+			Library:Notify({ Title = "Teleport", Description = "Visited " .. #targets .. " ores.", Time = 2 })
+		end)
 	end,
 })
 
