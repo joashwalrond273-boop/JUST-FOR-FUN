@@ -2479,13 +2479,13 @@ updatePVPModulesVisibility = function()
 			Toggles.CamlockIgnoreTeam.Holder.Visible = isCam
 		end
 	end
-	local isIgnoreAlly = isCam and ((Toggles.CamlockIgnoreAlly and Toggles.CamlockIgnoreAlly.Value) or false)
+	local isIgnoreAlly = (Toggles.CamlockIgnoreAlly and Toggles.CamlockIgnoreAlly.Value) or false
 	if Toggles.CamlockIgnoreAlly then
 		if Toggles.CamlockIgnoreAlly.Visible ~= nil then
-			Toggles.CamlockIgnoreAlly.Visible = isCam
+			Toggles.CamlockIgnoreAlly.Visible = true
 		end
 		if Toggles.CamlockIgnoreAlly.Holder then
-			Toggles.CamlockIgnoreAlly.Holder.Visible = isCam
+			Toggles.CamlockIgnoreAlly.Holder.Visible = true
 		end
 	end
 	if Options.CamlockIgnoreTeams then
