@@ -2189,17 +2189,8 @@ CombatAutoSwingGroup:AddToggle("AutoSwing", {
 	Default = false,
 })
 
-CombatAutoSwingGroup:AddDropdown("AutoSwingSlot", {
-	Text = "Tool Slot",
-	Values = { "Normal", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" },
-	Default = { "Normal" },
-	Multi = true,
-})
-
-CombatAutoSwingGroup:AddDivider()
-
 CombatAutoSwingGroup:AddToggle("SmartSwing", {
-	Text = "Smart Swing",
+	Text = "Smart Plus",
 	Default = false,
 })
 
@@ -2209,9 +2200,16 @@ CombatAutoSwingGroup:AddCheckbox("SmartSwingSlotSystem", {
 })
 
 CombatAutoSwingGroup:AddDropdown("SmartSwingSlot", {
-	Text = "Tool Slot",
+	Text = "Tool Activation",
 	Values = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" },
 	Default = { "1" },
+	Multi = true,
+})
+
+CombatAutoSwingGroup:AddDropdown("AutoSwingSlot", {
+	Text = "Tool Slot",
+	Values = { "Normal", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" },
+	Default = { "Normal" },
 	Multi = true,
 })
 
@@ -5838,6 +5836,65 @@ OreFarm:AddButton({
    end,
 })
 
+OreFarm:AddDropdown("NearestOreType", {
+	Text = "Nearest Ore Type",
+	Values = { "Any Enabled", "Coal", "Stone", "Iron", "Copper", "Gold", "Ice", "Coral", "Bluesteel" },
+	Default = "Any Enabled",
+})
+
+OreFarm:AddButton({
+	Text = "Teleport to Nearest Ore",
+	Func = function()
+		local root = getRootPart()
+		if not root then
+			Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
+			return
+		end
+
+		local folder = workspace:FindFirstChild("worldResources") and workspace.worldResources:FindFirstChild("mineable")
+		if not folder then
+			Library:Notify({ Title = "Teleport", Description = "No mineable ores found.", Time = 3 })
+			return
+		end
+
+		local requested = Options.NearestOreType and Options.NearestOreType.Value or "Any Enabled"
+		local rootPos = root.Position
+		local closest, closestDist, closestName = nil, math.huge, nil
+
+		for _, chunkFolder in ipairs(folder:GetChildren()) do
+			if not chunkFolder:IsA("Folder") then continue end
+			for _, obj in ipairs(chunkFolder:GetChildren()) do
+				if not obj then continue end
+				local oreName = obj.Name or "Unknown"
+
+				-- Respect requested type and Ore ESP filters
+				if requested == "Any Enabled" then
+					if not isOreFilterEnabled(oreName) then continue end
+				elseif oreName ~= requested then
+					continue
+				end
+
+				local anchor = obj:IsA("Model") and (obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")) or (obj:IsA("BasePart") and obj)
+				if not anchor then continue end
+
+				local dist = (anchor.Position - rootPos).Magnitude
+				if dist < closestDist then
+					closestDist = dist
+					closest = anchor.Position
+					closestName = oreName
+				end
+			end
+		end
+
+		if closest then
+			root.CFrame = CFrame.new(closest)
+			Library:Notify({ Title = "Teleport", Description = "Teleported to " .. closestName .. " (" .. math.floor(closestDist) .. " studs)", Time = 2 })
+		else
+			Library:Notify({ Title = "Teleport", Description = "No matching ore found.", Time = 3 })
+		end
+	end,
+})
+
 -- ==========================================
 -- Aura highlights (one per aura type, created after makeAuraHighlight is defined)
 local hlMine = makeAuraHighlight(Options.HighlightMineColor and Options.HighlightMineColor.Value)
@@ -6419,7 +6476,7 @@ local function clearOreESPHighlights()
 	table.clear(oreESP.highlights)
 end
 
-local function isOreFilterEnabled(oreName)
+function isOreFilterEnabled(oreName)
 	local t = oreESP.oreToggles[oreName]
 	if t == nil then return true end
 	return t
