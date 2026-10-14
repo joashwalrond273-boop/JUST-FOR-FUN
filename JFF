@@ -5836,46 +5836,10 @@ OreFarm:AddButton({
    end,
 })
 
--- Map of display name -> ore object for the teleport dropdown
-local oreTeleportTargets = {}
-
-local function buildOreTeleportList()
-	oreTeleportTargets = {}
-	local names = { "All" }
-
-	local folder = workspace:FindFirstChild("worldResources") and workspace.worldResources:FindFirstChild("mineable")
-	if not folder then return names end
-
-	local typeCounts = {}
-	for _, chunkFolder in ipairs(folder:GetChildren()) do
-		if not chunkFolder:IsA("Folder") then continue end
-		for _, obj in ipairs(chunkFolder:GetChildren()) do
-			if not obj then continue end
-			local oreName = obj.Name or "Unknown"
-			typeCounts[oreName] = (typeCounts[oreName] or 0) + 1
-			local display = oreName .. " #" .. typeCounts[oreName]
-			oreTeleportTargets[display] = obj
-			table.insert(names, display)
-		end
-	end
-
-	return names
-end
-
 OreFarm:AddDropdown("NearestOreType", {
-	Text = "Select Ore",
-	Values = buildOreTeleportList(),
+	Text = "Ore Type",
+	Values = { "All", "Any Enabled", "Coal", "Stone", "Iron", "Copper", "Gold", "Ice", "Coral", "Bluesteel" },
 	Default = "All",
-})
-
-OreFarm:AddButton({
-	Text = "Refresh Ore List",
-	Func = function()
-		local names = buildOreTeleportList()
-		Options.NearestOreType:SetValues(names)
-		Options.NearestOreType:SetValue("All")
-		Library:Notify({ Title = "Ore List", Description = "Refreshed " .. (#names - 1) .. " ores.", Time = 2 })
-	end,
 })
 
 OreFarm:AddButton({
@@ -5887,38 +5851,46 @@ OreFarm:AddButton({
 			return
 		end
 
+		local folder = workspace:FindFirstChild("worldResources") and workspace.worldResources:FindFirstChild("mineable")
+		if not folder then
+			Library:Notify({ Title = "Teleport", Description = "No mineable ores found.", Time = 3 })
+			return
+		end
+
 		local requested = Options.NearestOreType and Options.NearestOreType.Value or "All"
 		local rootPos = root.Position
 		local targets = {}
 
-		if requested == "All" then
-			-- Teleport to every ore, sorted by distance
-			for display, obj in pairs(oreTeleportTargets) do
-				if not obj or not obj.Parent then continue end
-				local anchor = obj:IsA("Model") and (obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")) or (obj:IsA("BasePart") and obj)
-				if anchor then
-					table.insert(targets, { pos = anchor.Position, name = display, dist = (anchor.Position - rootPos).Magnitude })
+		for _, chunkFolder in ipairs(folder:GetChildren()) do
+			if not chunkFolder:IsA("Folder") then continue end
+			for _, obj in ipairs(chunkFolder:GetChildren()) do
+				if not obj then continue end
+				local oreName = obj.Name or "Unknown"
+
+				-- Respect requested type and Ore ESP filters
+				if requested == "Any Enabled" then
+					if not isOreFilterEnabled(oreName) then continue end
+				elseif requested ~= "All" and oreName ~= requested then
+					continue
 				end
-			end
-			table.sort(targets, function(a, b) return a.dist < b.dist end)
-		else
-			-- Teleport to the single selected ore
-			local obj = oreTeleportTargets[requested]
-			if obj and obj.Parent then
+
 				local anchor = obj:IsA("Model") and (obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")) or (obj:IsA("BasePart") and obj)
-				if anchor then
-					table.insert(targets, { pos = anchor.Position, name = requested, dist = 0 })
-				end
+				if not anchor then continue end
+
+				table.insert(targets, { pos = anchor.Position, name = oreName, dist = (anchor.Position - rootPos).Magnitude })
 			end
 		end
 
 		if #targets == 0 then
-			Library:Notify({ Title = "Teleport", Description = "No matching ore found. Try refreshing the list.", Time = 3 })
+			Library:Notify({ Title = "Teleport", Description = "No matching ore found.", Time = 3 })
 			return
 		end
 
+		-- Sort by distance so we visit the closest first
+		table.sort(targets, function(a, b) return a.dist < b.dist end)
+
 		task.spawn(function()
-			Library:Notify({ Title = "Teleport", Description = "Teleporting to " .. #targets .. " ore(s)...", Time = 2 })
+			Library:Notify({ Title = "Teleport", Description = "Teleporting to " .. #targets .. " ores...", Time = 2 })
 			for i, target in ipairs(targets) do
 				root = getRootPart()
 				if not root then break end
@@ -5927,7 +5899,7 @@ OreFarm:AddButton({
 					task.wait(3)
 				end
 			end
-			Library:Notify({ Title = "Teleport", Description = "Visited " .. #targets .. " ore(s).", Time = 2 })
+			Library:Notify({ Title = "Teleport", Description = "Visited " .. #targets .. " ores.", Time = 2 })
 		end)
 	end,
 })
