@@ -7032,40 +7032,68 @@ VisualFPS:AddToggle("FullBright", {
 	end,
 })
 
-do
-	local savedSkies = {}
+VisualFPS:AddToggle("TextureQualityOverride", {
+	Text = "Low Texture Quality",
+	Default = false,
+	Callback = function(state)
+		pcall(function()
+			if state then
+				setfflag("DFFlagTextureQualityOverrideEnabled", "True")
+				setfflag("DFIntTextureQualityOverride", "0")
+			else
+				setfflag("DFFlagTextureQualityOverrideEnabled", "False")
+				setfflag("DFIntTextureQualityOverride", "0")
+			end
+		end)
+	end,
+})
 
-	VisualFPS:AddToggle("GraySky", {
-		Text = "Gray Sky",
+do
+	local savedDecoration = nil
+
+	VisualFPS:AddToggle("NoTerrainTextures", {
+		Text = "No Terrain Textures",
 		Default = false,
 		Callback = function(state)
-			disconnect("GraySky_ChildAdded")
-			local lighting = game:GetService("Lighting")
+			disconnect("NoTerrainTextures_DescendantAdded")
+			local terrain = workspace:FindFirstChildOfClass("Terrain")
+			if not terrain then return end
 
 			if state then
-				-- Hide existing skyboxes and use a solid gray background
-				savedSkies = {}
-				for _, sky in ipairs(lighting:GetChildren()) do
-					if sky:IsA("Sky") then
-						table.insert(savedSkies, sky)
-						sky.Parent = nil
+				savedDecoration = terrain.Decoration
+				pcall(function()
+					if sethiddenproperty then
+						sethiddenproperty(terrain, "Decoration", false)
+					else
+						terrain.Decoration = false
 					end
-				end
-				lighting.BackgroundColor3 = Color3.fromRGB(128, 128, 128)
+				end)
 
-				-- Strip any skyboxes the game re-adds while enabled
-				track("GraySky_ChildAdded", lighting.ChildAdded:Connect(function(child)
-					if Toggles.GraySky and Toggles.GraySky.Value and child:IsA("Sky") then
-						table.insert(savedSkies, child)
-						child.Parent = nil
+				-- Strip SurfaceAppearance / Texture / Decal children the game may add to terrain
+				track("NoTerrainTextures_DescendantAdded", terrain.DescendantAdded:Connect(function(child)
+					if not (Toggles.NoTerrainTextures and Toggles.NoTerrainTextures.Value) then return end
+					local c = child.ClassName
+					if c == "SurfaceAppearance" or c == "Texture" or c == "Decal" then
+						pcall(function() child:Destroy() end)
 					end
 				end))
-			else
-				-- Restore all saved skyboxes
-				for _, sky in ipairs(savedSkies) do
-					sky.Parent = lighting
+				for _, child in ipairs(terrain:GetDescendants()) do
+					local c = child.ClassName
+					if c == "SurfaceAppearance" or c == "Texture" or c == "Decal" then
+						pcall(function() child:Destroy() end)
+					end
 				end
-				savedSkies = {}
+			else
+				if savedDecoration ~= nil then
+					pcall(function()
+						if sethiddenproperty then
+							sethiddenproperty(terrain, "Decoration", savedDecoration)
+						else
+							terrain.Decoration = savedDecoration
+						end
+					end)
+				end
+				savedDecoration = nil
 			end
 		end,
 	})
