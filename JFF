@@ -484,7 +484,7 @@ AutoArmorDeluxeGroup:AddButton({
 
 		if Toggles.ArmorEquipOnly and Toggles.ArmorEquipOnly.Value then
 			pcall(function()
-				equipHotbarRemote:InvokeServer("inventory", 1, 357)
+				equipHotbarRemote:InvokeServer("inventory", 6, 357)
 			end)
 			pcall(function()
 				equipClothingRemote:InvokeServer("inventory", 1, 354)
@@ -542,7 +542,7 @@ AutoArmorDeluxeGroup:AddButton({
 			task.wait(0.3)
 
 			pcall(function()
-				equipHotbarRemote:InvokeServer("inventory", 1, 357)
+				equipHotbarRemote:InvokeServer("inventory", 6, 357)
 			end)
 			pcall(function()
 				equipClothingRemote:InvokeServer("inventory", 1, 354)
@@ -898,7 +898,7 @@ Toggles.AtlanteanAutoSwap:OnChanged(function()
 			local delay = 1 / math.max(0.1, speed)
 			task.spawn(function()
 				pcall(function()
-					equipHotbarRemote:InvokeServer("inventory", 1, 357)
+					equipHotbarRemote:InvokeServer("inventory", 6, 357)
 				end)
 				task.wait(delay)
 				pcall(function()
