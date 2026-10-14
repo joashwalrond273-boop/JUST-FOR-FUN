@@ -1983,6 +1983,11 @@ CombatCamlock:AddDropdown("CamlockIgnoreTeams", {
 	Multi = true,
 })
 
+CombatCamlock:AddCheckbox("CamlockIgnoreAlliedTeams", {
+	Text = "Ignore Allied Teams",
+	Default = false,
+})
+
 CombatCamlock:AddDropdown("CamlockTarget", {
 	Text = "Target Player",
 	Values = {"All"},
@@ -2492,6 +2497,14 @@ updatePVPModulesVisibility = function()
 		Options.CamlockIgnoreTeams.Visible = isIgnoreAlly
 		if Options.CamlockIgnoreTeams.Holder then
 			Options.CamlockIgnoreTeams.Holder.Visible = isIgnoreAlly
+		end
+	end
+	if Toggles.CamlockIgnoreAlliedTeams then
+		if Toggles.CamlockIgnoreAlliedTeams.Visible ~= nil then
+			Toggles.CamlockIgnoreAlliedTeams.Visible = isCam
+		end
+		if Toggles.CamlockIgnoreAlliedTeams.Holder then
+			Toggles.CamlockIgnoreAlliedTeams.Holder.Visible = isCam
 		end
 	end
 	if Toggles.Outline then
@@ -3315,6 +3328,7 @@ Toggles.Camlock:OnChanged(function()
 			local targetSetting = Options.CamlockTarget and Options.CamlockTarget.Value or "All"
 			local ignoreTeam = Toggles.CamlockIgnoreTeam and Toggles.CamlockIgnoreTeam.Value
 			local ignoreAlly = Toggles.CamlockIgnoreAlly and Toggles.CamlockIgnoreAlly.Value
+			local ignoreAlliedTeams = Toggles.CamlockIgnoreAlliedTeams and Toggles.CamlockIgnoreAlliedTeams.Value
 			local excludedTeams = Options.CamlockIgnoreTeams and Options.CamlockIgnoreTeams.Value or {}
 
 			local function isExcludedTeam(p)
@@ -3332,6 +3346,16 @@ Toggles.Camlock:OnChanged(function()
 				return false
 			end
 
+			local function isAlliedTeam(p)
+				if not ignoreAlliedTeams then return false end
+				if not p or not p.Team then return false end
+				local myTeam = LocalPlayer.Team
+				if not myTeam then return false end
+				local myColor = myTeam.TeamColor
+				if not myColor or myColor == BrickColor.new("White") then return false end
+				return p.Team.TeamColor == myColor
+			end
+
 			local function isSameTeamOnly(p)
 				if LocalPlayer.Team and p.Team and LocalPlayer.Team == p.Team then
 					return true
@@ -3344,7 +3368,7 @@ Toggles.Camlock:OnChanged(function()
 
 			for _, otherPlayer in ipairs(Players:GetPlayers()) do
 				if otherPlayer ~= LocalPlayer and otherPlayer.Character then
-					if (not ignoreTeam or not isSameTeamOnly(otherPlayer)) and not isExcludedTeam(otherPlayer) then
+					if (not ignoreTeam or not isSameTeamOnly(otherPlayer)) and not isExcludedTeam(otherPlayer) and not isAlliedTeam(otherPlayer) then
 						local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
 						local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
 						if otherRoot and otherHum and otherHum.Health > 0 then
@@ -3368,7 +3392,7 @@ Toggles.Camlock:OnChanged(function()
 				local outlineTargetSetting = (Options.OutlineTarget and Options.OutlineTarget.Value) or "All"
 				for _, otherPlayer in ipairs(Players:GetPlayers()) do
 					if otherPlayer ~= LocalPlayer and otherPlayer.Character then
-						if (not ignoreTeam or not isSameTeamOnly(otherPlayer)) and not isExcludedTeam(otherPlayer) then
+						if (not ignoreTeam or not isSameTeamOnly(otherPlayer)) and not isExcludedTeam(otherPlayer) and not isAlliedTeam(otherPlayer) then
 							local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
 							local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
 							if otherRoot and otherHum and otherHum.Health > 0 then
@@ -3569,6 +3593,14 @@ end
 
 if Toggles.CamlockIgnoreAlly then
 	Toggles.CamlockIgnoreAlly:OnChanged(function()
+		if updatePVPModulesVisibility then
+			updatePVPModulesVisibility()
+		end
+	end)
+end
+
+if Toggles.CamlockIgnoreAlliedTeams then
+	Toggles.CamlockIgnoreAlliedTeams:OnChanged(function()
 		if updatePVPModulesVisibility then
 			updatePVPModulesVisibility()
 		end
@@ -6987,54 +7019,6 @@ VisualFPS:AddToggle("NoWaterBlur", {
 		end
 	end,
 })
-
-do
-	local originalBlur = setmetatable({}, { __mode = "k" })
-
-	local function disableBlur(v)
-		if not v or not v:IsA("BlurEffect") then return end
-		if originalBlur[v] == nil then
-			originalBlur[v] = { Enabled = v.Enabled, Size = v.Size }
-		end
-		pcall(function()
-			v.Enabled = false
-			v.Size = 0
-		end)
-	end
-
-	VisualFPS:AddToggle("NoBlur", {
-		Text = "Remove All Blur",
-		Default = false,
-		Callback = function(state)
-			disconnect("NoBlur_ChildAdded")
-			local lighting = game:GetService("Lighting")
-
-			if state then
-				-- Disable every BlurEffect currently in Lighting
-				for _, v in ipairs(lighting:GetDescendants()) do
-					disableBlur(v)
-				end
-
-				-- Strip any new BlurEffect the game adds while enabled
-				track("NoBlur_ChildAdded", lighting.DescendantAdded:Connect(function(child)
-					if Toggles.NoBlur and Toggles.NoBlur.Value and child:IsA("BlurEffect") then
-						disableBlur(child)
-					end
-				end))
-			else
-				for v, info in pairs(originalBlur) do
-					if v and v.Parent then
-						pcall(function()
-							v.Enabled = info.Enabled
-							v.Size = info.Size
-						end)
-					end
-				end
-				table.clear(originalBlur)
-			end
-		end,
-	})
-end
 
 VisualFPS:AddToggle("NoGrass", {
 	Text = "No Grass",
