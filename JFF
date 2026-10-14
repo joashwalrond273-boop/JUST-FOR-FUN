@@ -1971,6 +1971,18 @@ CombatCamlock:AddDropdown("CamlockSlotSystemSlot", {
 	Multi = true,
 })
 
+CombatCamlock:AddCheckbox("CamlockIgnoreAlly", {
+	Text = "Ignore Ally",
+	Default = false,
+})
+
+CombatCamlock:AddDropdown("CamlockIgnoreTeams", {
+	Text = "Ignore Teams",
+	Values = {},
+	Default = {},
+	Multi = true,
+})
+
 CombatCamlock:AddDropdown("CamlockTarget", {
 	Text = "Target Player",
 	Values = {"All"},
@@ -1989,13 +2001,6 @@ CombatCamlock:AddSlider("CamlockStuds", {
 CombatCamlock:AddCheckbox("CamlockIgnoreTeam", {
 	Text = "Ignore Team",
 	Default = true,
-})
-
-CombatCamlock:AddDropdown("CamlockIgnoreTeams", {
-	Text = "Ignore Teams",
-	Values = {},
-	Default = {},
-	Multi = true,
 })
 
 CombatCamlock:AddCheckbox("Outline", {
@@ -2474,10 +2479,19 @@ updatePVPModulesVisibility = function()
 			Toggles.CamlockIgnoreTeam.Holder.Visible = isCam
 		end
 	end
+	local isIgnoreAlly = isCam and ((Toggles.CamlockIgnoreAlly and Toggles.CamlockIgnoreAlly.Value) or false)
+	if Toggles.CamlockIgnoreAlly then
+		if Toggles.CamlockIgnoreAlly.Visible ~= nil then
+			Toggles.CamlockIgnoreAlly.Visible = isCam
+		end
+		if Toggles.CamlockIgnoreAlly.Holder then
+			Toggles.CamlockIgnoreAlly.Holder.Visible = isCam
+		end
+	end
 	if Options.CamlockIgnoreTeams then
-		Options.CamlockIgnoreTeams.Visible = isCam
+		Options.CamlockIgnoreTeams.Visible = isIgnoreAlly
 		if Options.CamlockIgnoreTeams.Holder then
-			Options.CamlockIgnoreTeams.Holder.Visible = isCam
+			Options.CamlockIgnoreTeams.Holder.Visible = isIgnoreAlly
 		end
 	end
 	if Toggles.Outline then
@@ -3300,9 +3314,11 @@ Toggles.Camlock:OnChanged(function()
 			local closestDist = math.huge
 			local targetSetting = Options.CamlockTarget and Options.CamlockTarget.Value or "All"
 			local ignoreTeam = Toggles.CamlockIgnoreTeam and Toggles.CamlockIgnoreTeam.Value
+			local ignoreAlly = Toggles.CamlockIgnoreAlly and Toggles.CamlockIgnoreAlly.Value
 			local excludedTeams = Options.CamlockIgnoreTeams and Options.CamlockIgnoreTeams.Value or {}
 
 			local function isExcludedTeam(p)
+				if not ignoreAlly then return false end
 				if not p or not p.Team then return false end
 				local teamName = p.Team.Name
 				if not teamName then return false end
@@ -3545,6 +3561,14 @@ end
 
 if Toggles.CamlockSlotSystem then
 	Toggles.CamlockSlotSystem:OnChanged(function()
+		if updatePVPModulesVisibility then
+			updatePVPModulesVisibility()
+		end
+	end)
+end
+
+if Toggles.CamlockIgnoreAlly then
+	Toggles.CamlockIgnoreAlly:OnChanged(function()
 		if updatePVPModulesVisibility then
 			updatePVPModulesVisibility()
 		end
