@@ -5836,14 +5836,8 @@ OreFarm:AddButton({
    end,
 })
 
-OreFarm:AddDropdown("NearestOreType", {
-	Text = "Ore Type",
-	Values = { "All", "Any Enabled", "Coal", "Stone", "Iron", "Copper", "Gold", "Ice", "Coral", "Bluesteel" },
-	Default = "All",
-})
-
 OreFarm:AddButton({
-	Text = "Teleport to Ores",
+	Text = "Ore Farm",
 	Func = function()
 		local root = getRootPart()
 		if not root then
@@ -5857,7 +5851,6 @@ OreFarm:AddButton({
 			return
 		end
 
-		local requested = Options.NearestOreType and Options.NearestOreType.Value or "All"
 		local rootPos = root.Position
 		local targets = {}
 
@@ -5867,13 +5860,6 @@ OreFarm:AddButton({
 				if not obj then continue end
 				local oreName = obj.Name or "Unknown"
 
-				-- Respect requested type and Ore ESP filters
-				if requested == "Any Enabled" then
-					if not isOreFilterEnabled(oreName) then continue end
-				elseif requested ~= "All" and oreName ~= requested then
-					continue
-				end
-
 				local anchor = obj:IsA("Model") and (obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")) or (obj:IsA("BasePart") and obj)
 				if not anchor then continue end
 
@@ -5882,7 +5868,7 @@ OreFarm:AddButton({
 		end
 
 		if #targets == 0 then
-			Library:Notify({ Title = "Teleport", Description = "No matching ore found.", Time = 3 })
+			Library:Notify({ Title = "Teleport", Description = "No ores found.", Time = 3 })
 			return
 		end
 
@@ -5896,7 +5882,7 @@ OreFarm:AddButton({
 				if not root then break end
 				root.CFrame = CFrame.new(target.pos)
 				if i < #targets then
-					task.wait(3)
+					task.wait(1.5)
 				end
 			end
 			Library:Notify({ Title = "Teleport", Description = "Visited " .. #targets .. " ores.", Time = 2 })
