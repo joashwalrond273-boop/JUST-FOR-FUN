@@ -7289,6 +7289,221 @@ do
 	})
 end
 
+-- ==========================================
+-- FFlag Optimizations (engine fast flags)
+-- Captures original values via getfflag and restores them on disable.
+-- ==========================================
+local function trySetFFlag(name, value)
+	pcall(function() setfflag(name, tostring(value)) end)
+end
+
+local function tryGetFFlag(name)
+	local ok, val = pcall(function()
+		if getfflag then
+			return getfflag(name)
+		end
+		return nil
+	end)
+	if ok and val ~= nil then
+		return tostring(val)
+	end
+	return nil
+end
+
+-- Fallback defaults used only when getfflag is unavailable.
+local FFLAG_FALLBACK_DEFAULTS = {
+	DFFlagTextureQualityOverrideEnabled = "False",
+	DFIntTextureQualityOverride = "0",
+	DFFlagDebugPauseVoxelizer = "False",
+	DFIntCSGLevelOfDetailSwitchingDistance = "250",
+	DFIntCSGLevelOfDetailSwitchingDistanceL12 = "80",
+	DFIntCSGLevelOfDetailSwitchingDistanceL23 = "130",
+	DFIntCSGLevelOfDetailSwitchingDistanceL34 = "200",
+	DFIntDebugFRMQualityLevelOverride = "0",
+	FFlagDebugSkyGray = "False",
+	FFlagDebugGraphicsPreferD3D11 = "False",
+	FFlagHandleAltEnterFullscreenManually = "True",
+	FIntGrassMovementReducedMotionFactor = "1",
+	FIntFRMMinGrassDistance = "0",
+	FIntFRMMaxGrassDistance = "250",
+	FIntDebugForceMSAASamples = "0",
+}
+
+local function applyFFlags(originals, flags)
+	for name, value in pairs(flags) do
+		if originals[name] == nil then
+			originals[name] = tryGetFFlag(name) or FFLAG_FALLBACK_DEFAULTS[name]
+		end
+		trySetFFlag(name, value)
+	end
+end
+
+local function restoreFFlags(originals)
+	for name, value in pairs(originals) do
+		trySetFFlag(name, value)
+	end
+	table.clear(originals)
+end
+
+do
+	local originals = {}
+	VisualFPS:AddToggle("FFlagLowTextures", {
+		Text = "Low Texture Quality",
+		Default = false,
+		Callback = function(state)
+			if state then
+				applyFFlags(originals, {
+					DFFlagTextureQualityOverrideEnabled = "True",
+					DFIntTextureQualityOverride = "0",
+				})
+			else
+				restoreFFlags(originals)
+			end
+		end,
+	})
+end
+
+do
+	local originals = {}
+	VisualFPS:AddToggle("FFlagPauseVoxelizer", {
+		Text = "Pause Voxelizer",
+		Default = false,
+		Callback = function(state)
+			if state then
+				applyFFlags(originals, {
+					DFFlagDebugPauseVoxelizer = "True",
+				})
+			else
+				restoreFFlags(originals)
+			end
+		end,
+	})
+end
+
+do
+	local originals = {}
+	VisualFPS:AddToggle("FFlagDisableCSGLOD", {
+		Text = "Disable CSG LOD",
+		Default = false,
+		Callback = function(state)
+			if state then
+				applyFFlags(originals, {
+					DFIntCSGLevelOfDetailSwitchingDistance = "0",
+					DFIntCSGLevelOfDetailSwitchingDistanceL12 = "0",
+					DFIntCSGLevelOfDetailSwitchingDistanceL23 = "0",
+					DFIntCSGLevelOfDetailSwitchingDistanceL34 = "0",
+				})
+			else
+				restoreFFlags(originals)
+			end
+		end,
+	})
+end
+
+do
+	local originals = {}
+	VisualFPS:AddToggle("FFlagFRMLowQuality", {
+		Text = "FRM Low Quality",
+		Default = false,
+		Callback = function(state)
+			if state then
+				applyFFlags(originals, {
+					DFIntDebugFRMQualityLevelOverride = "1",
+				})
+			else
+				restoreFFlags(originals)
+			end
+		end,
+	})
+end
+
+do
+	local originals = {}
+	VisualFPS:AddToggle("FFlagGraySky", {
+		Text = "Gray Sky",
+		Default = false,
+		Callback = function(state)
+			if state then
+				applyFFlags(originals, {
+					FFlagDebugSkyGray = "True",
+				})
+			else
+				restoreFFlags(originals)
+			end
+		end,
+	})
+end
+
+do
+	local originals = {}
+	VisualFPS:AddToggle("FFlagPreferD3D11", {
+		Text = "Prefer D3D11",
+		Default = false,
+		Callback = function(state)
+			if state then
+				applyFFlags(originals, {
+					FFlagDebugGraphicsPreferD3D11 = "True",
+				})
+			else
+				restoreFFlags(originals)
+			end
+		end,
+	})
+end
+
+do
+	local originals = {}
+	VisualFPS:AddToggle("FFlagManualFullscreen", {
+		Text = "Manual Alt-Enter",
+		Default = false,
+		Callback = function(state)
+			if state then
+				applyFFlags(originals, {
+					FFlagHandleAltEnterFullscreenManually = "False",
+				})
+			else
+				restoreFFlags(originals)
+			end
+		end,
+	})
+end
+
+do
+	local originals = {}
+	VisualFPS:AddToggle("FFlagKillGrass", {
+		Text = "Kill Grass Engine",
+		Default = false,
+		Callback = function(state)
+			if state then
+				applyFFlags(originals, {
+					FIntGrassMovementReducedMotionFactor = "0",
+					FIntFRMMinGrassDistance = "0",
+					FIntFRMMaxGrassDistance = "0",
+				})
+			else
+				restoreFFlags(originals)
+			end
+		end,
+	})
+end
+
+do
+	local originals = {}
+	VisualFPS:AddToggle("FFlagDisableMSAA", {
+		Text = "Disable MSAA",
+		Default = false,
+		Callback = function(state)
+			if state then
+				applyFFlags(originals, {
+					FIntDebugForceMSAASamples = "0",
+				})
+			else
+				restoreFFlags(originals)
+			end
+		end,
+	})
+end
+
 VisualLeft:AddToggle("PlayerESP", {
 	Text = "Enabled",
 	Default = false,
