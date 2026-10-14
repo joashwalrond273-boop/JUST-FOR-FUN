@@ -8,7 +8,6 @@ getgenv().TSG_OBSIDIAN_LOADED = true
 
 -- Services
 local Players = game:GetService("Players")
-local Teams = game:GetService("Teams")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
@@ -131,35 +130,6 @@ local function isHoldingSelectedSlot(selectedSlot)
 	end
 	if tool.Name:match("^Slot%s*" .. slotStr .. "$") or tool.Name:match("^slot%s*" .. slotStr .. "$") then
 		return true
-	end
-
-	return false
-end
-
-local function isAdvanceSlotAllowed(slotOption)
-	if not slotOption then return false end
-	local val = slotOption.Value
-	if val == nil then return false end
-
-	if typeof(val) == "table" then
-		for slotKey, isSelected in pairs(val) do
-			local targetSlot = nil
-			if isSelected == true then
-				targetSlot = slotKey
-			elseif typeof(isSelected) == "string" then
-				targetSlot = isSelected
-			elseif typeof(isSelected) == "number" then
-				targetSlot = isSelected
-			end
-			if targetSlot ~= nil then
-				if isHoldingSelectedSlot(targetSlot) then
-					return true
-				end
-			end
-		end
-		return false
-	elseif typeof(val) == "string" or typeof(val) == "number" then
-		return isHoldingSelectedSlot(val)
 	end
 
 	return false
@@ -385,7 +355,7 @@ AutoArmorDeluxeGroup:AddButton({
 
 		if Toggles.ArmorEquipOnly and Toggles.ArmorEquipOnly.Value then
 			pcall(function()
-				equipHotbarRemote:InvokeServer("inventory", 5, 197)
+				equipHotbarRemote:InvokeServer("inventory", 1, 197)
 			end)
 			pcall(function()
 				equipClothingRemote:InvokeServer("inventory", 1, 202)
@@ -440,7 +410,7 @@ AutoArmorDeluxeGroup:AddButton({
 			task.wait(0.3)
 
 			pcall(function()
-				equipHotbarRemote:InvokeServer("inventory", 5, 197)
+				equipHotbarRemote:InvokeServer("inventory", 1, 197)
 			end)
 			pcall(function()
 				equipClothingRemote:InvokeServer("inventory", 1, 202)
@@ -459,6 +429,206 @@ AutoArmorDeluxeGroup:AddButton({
 			Library:Notify({ Title = "Bluesteel", Description = "Bluesteel armor equipped", Time = 2 })
 		else
 			Library:Notify({ Title = "Bluesteel", Description = "Furnace not found", Time = 3 })
+		end
+	end,
+})
+
+AutoArmorDeluxeGroup:AddButton({
+	Text = "Darksteel",
+	Func = function()
+		local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+		local root = character and character:FindFirstChild("HumanoidRootPart")
+		if not root then return end
+		local playerPosition = root.Position
+
+		local buildRemote = TSG.BuildRemote
+		local craftRemote = TSG.CraftRemote
+		local equipHotbarRemote = TSG.EquipHotbarRemote
+		local equipClothingRemote = TSG.EquipClothingRemote
+		local deleteRemote = TSG.DeleteStructureRemote
+
+		if not equipHotbarRemote or not equipClothingRemote then
+			Library:Notify({ Title = "Error", Description = "Equip remotes not found", Time = 3 })
+			return
+		end
+
+		if Toggles.ArmorEquipOnly and Toggles.ArmorEquipOnly.Value then
+			pcall(function()
+				equipHotbarRemote:InvokeServer("inventory", 1, 267)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 1, 262)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 2, 261)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 3, 260)
+			end)
+			Library:Notify({ Title = "Darksteel", Description = "Darksteel armor equipped", Time = 2 })
+			return
+		end
+
+		if not buildRemote or not craftRemote then
+			Library:Notify({ Title = "Error", Description = "Build/Craft remote not found", Time = 3 })
+			return
+		end
+
+		pcall(function()
+			buildRemote:InvokeServer(
+				269,
+				CFrame.new(playerPosition.X, playerPosition.Y - 3, playerPosition.Z) * CFrame.Angles(0, 0, 0),
+				-3.141592653589793
+			)
+		end)
+
+		local furnace = nil
+		pcall(function()
+			for _, structure in pairs(workspace.placedStructures:GetChildren()) do
+				if structure:FindFirstChild("Darksteel Forge") then
+					furnace = structure:FindFirstChild("Darksteel Forge")
+					break
+				end
+			end
+		end)
+
+		local itemsToCraft = {
+			{267, "Darksteel Sword"},
+			{261, "Darksteel Chestplate"},
+			{260, "Darksteel Pants"},
+			{262, "Darksteel Helmet"},
+		}
+
+		if furnace then
+			for _, item in ipairs(itemsToCraft) do
+				pcall(function()
+					craftRemote:InvokeServer(item[1], furnace, 1, 0)
+				end)
+			end
+
+			task.wait(0.3)
+
+			pcall(function()
+				equipHotbarRemote:InvokeServer("inventory", 1, 267)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 1, 262)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 2, 261)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 3, 260)
+			end)
+
+			pcall(function()
+				deleteRemote:FireServer(furnace)
+			end)
+
+			Library:Notify({ Title = "Darksteel", Description = "Darksteel armor equipped", Time = 2 })
+		else
+			Library:Notify({ Title = "Darksteel", Description = "Forge not found", Time = 3 })
+		end
+	end,
+})
+
+AutoArmorDeluxeGroup:AddButton({
+	Text = "Samurai",
+	Func = function()
+		local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+		local root = character and character:FindFirstChild("HumanoidRootPart")
+		if not root then return end
+		local playerPosition = root.Position
+
+		local buildRemote = TSG.BuildRemote
+		local craftRemote = TSG.CraftRemote
+		local equipHotbarRemote = TSG.EquipHotbarRemote
+		local equipClothingRemote = TSG.EquipClothingRemote
+		local deleteRemote = TSG.DeleteStructureRemote
+
+		if not equipHotbarRemote or not equipClothingRemote then
+			Library:Notify({ Title = "Error", Description = "Equip remotes not found", Time = 3 })
+			return
+		end
+
+		if Toggles.ArmorEquipOnly and Toggles.ArmorEquipOnly.Value then
+			pcall(function()
+				equipHotbarRemote:InvokeServer("inventory", 1, 406)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 1, 404)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 2, 403)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 3, 402)
+			end)
+			Library:Notify({ Title = "Samurai", Description = "Samurai armor equipped", Time = 2 })
+			return
+		end
+
+		if not buildRemote or not craftRemote then
+			Library:Notify({ Title = "Error", Description = "Build/Craft remote not found", Time = 3 })
+			return
+		end
+
+		pcall(function()
+			buildRemote:InvokeServer(
+				423,
+				CFrame.new(playerPosition.X, playerPosition.Y - 3, playerPosition.Z) * CFrame.Angles(0, 0, 0),
+				-3.141592653589793
+			)
+		end)
+
+		task.wait(0.5)
+
+		local furnace = nil
+		pcall(function()
+			for _, structure in pairs(workspace.placedStructures:GetChildren()) do
+				if structure:FindFirstChild("Asian Forge") then
+					furnace = structure:FindFirstChild("Asian Forge")
+					break
+				end
+			end
+		end)
+
+		local itemsToCraft = {
+			{406, "Samurai Sword"},
+			{403, "Samurai Armor"},
+			{402, "Samurai Pants"},
+			{404, "Samurai Helmet"},
+		}
+
+		if furnace then
+			for _, item in ipairs(itemsToCraft) do
+				pcall(function()
+					craftRemote:InvokeServer(item[1], furnace, 1, 0)
+				end)
+			end
+
+			task.wait(0.3)
+
+			pcall(function()
+				equipHotbarRemote:InvokeServer("inventory", 1, 406)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 1, 404)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 2, 403)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 3, 402)
+			end)
+
+			pcall(function()
+				deleteRemote:FireServer(furnace)
+			end)
+
+			Library:Notify({ Title = "Samurai", Description = "Samurai armor equipped", Time = 2 })
+		else
+			Library:Notify({ Title = "Samurai", Description = "Forge not found", Time = 3 })
 		end
 	end,
 })
@@ -484,7 +654,7 @@ AutoArmorDeluxeGroup:AddButton({
 
 		if Toggles.ArmorEquipOnly and Toggles.ArmorEquipOnly.Value then
 			pcall(function()
-				equipHotbarRemote:InvokeServer("inventory", 6, 357)
+				equipHotbarRemote:InvokeServer("inventory", 1, 357)
 			end)
 			pcall(function()
 				equipClothingRemote:InvokeServer("inventory", 1, 354)
@@ -542,7 +712,7 @@ AutoArmorDeluxeGroup:AddButton({
 			task.wait(0.3)
 
 			pcall(function()
-				equipHotbarRemote:InvokeServer("inventory", 6, 357)
+				equipHotbarRemote:InvokeServer("inventory", 1, 357)
 			end)
 			pcall(function()
 				equipClothingRemote:InvokeServer("inventory", 1, 354)
@@ -561,206 +731,6 @@ AutoArmorDeluxeGroup:AddButton({
 			Library:Notify({ Title = "Atlantean", Description = "Atlantean armor equipped", Time = 2 })
 		else
 			Library:Notify({ Title = "Atlantean", Description = "Forge not found", Time = 3 })
-		end
-	end,
-})
-
-AutoArmorDeluxeGroup:AddButton({
-	Text = "Darksteel",
-	Func = function()
-		local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-		local root = character and character:FindFirstChild("HumanoidRootPart")
-		if not root then return end
-		local playerPosition = root.Position
-
-		local buildRemote = TSG.BuildRemote
-		local craftRemote = TSG.CraftRemote
-		local equipHotbarRemote = TSG.EquipHotbarRemote
-		local equipClothingRemote = TSG.EquipClothingRemote
-		local deleteRemote = TSG.DeleteStructureRemote
-
-		if not equipHotbarRemote or not equipClothingRemote then
-			Library:Notify({ Title = "Error", Description = "Equip remotes not found", Time = 3 })
-			return
-		end
-
-		if Toggles.ArmorEquipOnly and Toggles.ArmorEquipOnly.Value then
-			pcall(function()
-				equipHotbarRemote:InvokeServer("inventory", 5, 267)
-			end)
-			pcall(function()
-				equipClothingRemote:InvokeServer("inventory", 1, 262)
-			end)
-			pcall(function()
-				equipClothingRemote:InvokeServer("inventory", 2, 261)
-			end)
-			pcall(function()
-				equipClothingRemote:InvokeServer("inventory", 3, 260)
-			end)
-			Library:Notify({ Title = "Darksteel", Description = "Darksteel armor equipped", Time = 2 })
-			return
-		end
-
-		if not buildRemote or not craftRemote then
-			Library:Notify({ Title = "Error", Description = "Build/Craft remote not found", Time = 3 })
-			return
-		end
-
-		pcall(function()
-			buildRemote:InvokeServer(
-				269,
-				CFrame.new(playerPosition.X, playerPosition.Y - 3, playerPosition.Z) * CFrame.Angles(0, 0, 0),
-				-3.141592653589793
-			)
-		end)
-
-		local furnace = nil
-		pcall(function()
-			for _, structure in pairs(workspace.placedStructures:GetChildren()) do
-				if structure:FindFirstChild("Darksteel Forge") then
-					furnace = structure:FindFirstChild("Darksteel Forge")
-					break
-				end
-			end
-		end)
-
-		local itemsToCraft = {
-			{267, "Darksteel Sword"},
-			{261, "Darksteel Chestplate"},
-			{260, "Darksteel Pants"},
-			{262, "Darksteel Helmet"},
-		}
-
-		if furnace then
-			for _, item in ipairs(itemsToCraft) do
-				pcall(function()
-					craftRemote:InvokeServer(item[1], furnace, 1, 0)
-				end)
-			end
-
-			task.wait(0.3)
-
-			pcall(function()
-				equipHotbarRemote:InvokeServer("inventory", 5, 267)
-			end)
-			pcall(function()
-				equipClothingRemote:InvokeServer("inventory", 1, 262)
-			end)
-			pcall(function()
-				equipClothingRemote:InvokeServer("inventory", 2, 261)
-			end)
-			pcall(function()
-				equipClothingRemote:InvokeServer("inventory", 3, 260)
-			end)
-
-			pcall(function()
-				deleteRemote:FireServer(furnace)
-			end)
-
-			Library:Notify({ Title = "Darksteel", Description = "Darksteel armor equipped", Time = 2 })
-		else
-			Library:Notify({ Title = "Darksteel", Description = "Forge not found", Time = 3 })
-		end
-	end,
-})
-
-AutoArmorDeluxeGroup:AddButton({
-	Text = "Samurai",
-	Func = function()
-		local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-		local root = character and character:FindFirstChild("HumanoidRootPart")
-		if not root then return end
-		local playerPosition = root.Position
-
-		local buildRemote = TSG.BuildRemote
-		local craftRemote = TSG.CraftRemote
-		local equipHotbarRemote = TSG.EquipHotbarRemote
-		local equipClothingRemote = TSG.EquipClothingRemote
-		local deleteRemote = TSG.DeleteStructureRemote
-
-		if not equipHotbarRemote or not equipClothingRemote then
-			Library:Notify({ Title = "Error", Description = "Equip remotes not found", Time = 3 })
-			return
-		end
-
-		if Toggles.ArmorEquipOnly and Toggles.ArmorEquipOnly.Value then
-			pcall(function()
-				equipHotbarRemote:InvokeServer("inventory", 5, 406)
-			end)
-			pcall(function()
-				equipClothingRemote:InvokeServer("inventory", 1, 404)
-			end)
-			pcall(function()
-				equipClothingRemote:InvokeServer("inventory", 2, 403)
-			end)
-			pcall(function()
-				equipClothingRemote:InvokeServer("inventory", 3, 402)
-			end)
-			Library:Notify({ Title = "Samurai", Description = "Samurai armor equipped", Time = 2 })
-			return
-		end
-
-		if not buildRemote or not craftRemote then
-			Library:Notify({ Title = "Error", Description = "Build/Craft remote not found", Time = 3 })
-			return
-		end
-
-		pcall(function()
-			buildRemote:InvokeServer(
-				423,
-				CFrame.new(playerPosition.X, playerPosition.Y - 3, playerPosition.Z) * CFrame.Angles(0, 0, 0),
-				-3.141592653589793
-			)
-		end)
-
-		task.wait(0.5)
-
-		local furnace = nil
-		pcall(function()
-			for _, structure in pairs(workspace.placedStructures:GetChildren()) do
-				if structure:FindFirstChild("Asian Forge") then
-					furnace = structure:FindFirstChild("Asian Forge")
-					break
-				end
-			end
-		end)
-
-		local itemsToCraft = {
-			{406, "Samurai Sword"},
-			{403, "Samurai Armor"},
-			{402, "Samurai Pants"},
-			{404, "Samurai Helmet"},
-		}
-
-		if furnace then
-			for _, item in ipairs(itemsToCraft) do
-				pcall(function()
-					craftRemote:InvokeServer(item[1], furnace, 1, 0)
-				end)
-			end
-
-			task.wait(0.3)
-
-			pcall(function()
-				equipHotbarRemote:InvokeServer("inventory", 5, 406)
-			end)
-			pcall(function()
-				equipClothingRemote:InvokeServer("inventory", 1, 404)
-			end)
-			pcall(function()
-				equipClothingRemote:InvokeServer("inventory", 2, 403)
-			end)
-			pcall(function()
-				equipClothingRemote:InvokeServer("inventory", 3, 402)
-			end)
-
-			pcall(function()
-				deleteRemote:FireServer(furnace)
-			end)
-
-			Library:Notify({ Title = "Samurai", Description = "Samurai armor equipped", Time = 2 })
-		else
-			Library:Notify({ Title = "Samurai", Description = "Forge not found", Time = 3 })
 		end
 	end,
 })
@@ -786,7 +756,7 @@ AutoArmorDeluxeGroup:AddButton({
 
 		if Toggles.ArmorEquipOnly and Toggles.ArmorEquipOnly.Value then
 			pcall(function()
-				equipHotbarRemote:InvokeServer("inventory", 5, 545)
+				equipHotbarRemote:InvokeServer("inventory", 1, 545)
 			end)
 			pcall(function()
 				equipClothingRemote:InvokeServer("inventory", 1, 541)
@@ -847,7 +817,7 @@ AutoArmorDeluxeGroup:AddButton({
 			task.wait(0.3)
 
 			pcall(function()
-				equipHotbarRemote:InvokeServer("inventory", 5, 545)
+				equipHotbarRemote:InvokeServer("inventory", 1, 545)
 			end)
 			pcall(function()
 				equipClothingRemote:InvokeServer("inventory", 1, 541)
@@ -872,18 +842,9 @@ AutoArmorDeluxeGroup:AddButton({
 
 AutoArmorDeluxeGroup:AddDivider()
 
-AutoArmorDeluxeGroup:AddCheckbox("AtlanteanAutoSwap", {
+AutoArmorDeluxeGroup:AddToggle("AtlanteanAutoSwap", {
 	Text = "Atlantean Auto Swap",
 	Default = false,
-})
-
-AutoArmorDeluxeGroup:AddSlider("AtlanteanEquipSpeed", {
-	Text = "Equip Speed",
-	Default = 20,
-	Min = 1,
-	Max = 100,
-	Rounding = 0,
-	Compact = true,
 })
 
 Toggles.AtlanteanAutoSwap:OnChanged(function()
@@ -894,24 +855,17 @@ Toggles.AtlanteanAutoSwap:OnChanged(function()
 			local equipHotbarRemote = TSG.EquipHotbarRemote
 			local equipClothingRemote = TSG.EquipClothingRemote
 			if not equipHotbarRemote or not equipClothingRemote then return end
-			local speed = (Options.AtlanteanEquipSpeed and Options.AtlanteanEquipSpeed.Value) or 20
-			local delay = 1 / math.max(0.1, speed)
-			task.spawn(function()
-				pcall(function()
-					equipHotbarRemote:InvokeServer("inventory", 6, 357)
-				end)
-				task.wait(delay)
-				pcall(function()
-					equipClothingRemote:InvokeServer("inventory", 1, 354)
-				end)
-				task.wait(delay)
-				pcall(function()
-					equipClothingRemote:InvokeServer("inventory", 2, 355)
-				end)
-				task.wait(delay)
-				pcall(function()
-					equipClothingRemote:InvokeServer("inventory", 3, 356)
-				end)
+			pcall(function()
+				equipHotbarRemote:InvokeServer("inventory", 1, 357)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 1, 354)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 2, 355)
+			end)
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", 3, 356)
 			end)
 		end
 		track("AtlanteanAutoSwap", RunService.Heartbeat:Connect(function()
@@ -1190,7 +1144,7 @@ FunLeft:AddCheckbox("TouchFling", {
 FunLeft:AddSlider("TouchFlingPower", {
 	Text = "Fling Power",
 	Default = 5000,
-	Min = 50,
+	Min = 500,
 	Max = 5000,
 	Rounding = 0,
 	Compact = true,
@@ -1933,7 +1887,7 @@ end)
 -- ==========================================
 -- COMBAT
 -- ==========================================
-local CombatLeft = Tabs.Combat:AddLeftGroupbox("Kill Aura Pro", "swords")
+local CombatLeft = Tabs.Combat:AddLeftGroupbox("Kill Aura", "swords")
 
 local AimbotTabBox = Tabs.Combat:AddRightTabbox()
 local CombatCamlock = AimbotTabBox:AddTab("Camlock", "video")
@@ -1971,18 +1925,6 @@ CombatCamlock:AddDropdown("CamlockSlotSystemSlot", {
 	Multi = true,
 })
 
-CombatCamlock:AddCheckbox("CamlockIgnoreAlly", {
-	Text = "Ignore Ally",
-	Default = false,
-})
-
-CombatCamlock:AddDropdown("CamlockIgnoreTeams", {
-	Text = "Ignore Teams",
-	Values = {},
-	Default = {},
-	Multi = true,
-})
-
 CombatCamlock:AddDropdown("CamlockTarget", {
 	Text = "Target Player",
 	Values = {"All"},
@@ -1996,11 +1938,6 @@ CombatCamlock:AddSlider("CamlockStuds", {
 	Max = 100,
 	Rounding = 0,
 	Compact = true,
-})
-
-CombatCamlock:AddCheckbox("CamlockIgnoreTeam", {
-	Text = "Ignore Team",
-	Default = true,
 })
 
 CombatCamlock:AddCheckbox("Outline", {
@@ -2091,7 +2028,7 @@ CombatLeft:AddToggle("KillAura", {
 })
 
 CombatLeft:AddCheckbox("PhantomMode", {
-	Text = "Orbital Rage",
+	Text = "Rage Mode",
 	Default = false,
 })
 
@@ -2189,8 +2126,17 @@ CombatAutoSwingGroup:AddToggle("AutoSwing", {
 	Default = false,
 })
 
+CombatAutoSwingGroup:AddDropdown("AutoSwingSlot", {
+	Text = "Tool Slot",
+	Values = { "Normal", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" },
+	Default = { "Normal" },
+	Multi = true,
+})
+
+CombatAutoSwingGroup:AddDivider()
+
 CombatAutoSwingGroup:AddToggle("SmartSwing", {
-	Text = "Smart Plus",
+	Text = "Smart Swing",
 	Default = false,
 })
 
@@ -2200,16 +2146,9 @@ CombatAutoSwingGroup:AddCheckbox("SmartSwingSlotSystem", {
 })
 
 CombatAutoSwingGroup:AddDropdown("SmartSwingSlot", {
-	Text = "Tool Activation",
+	Text = "Tool Slot",
 	Values = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" },
 	Default = { "1" },
-	Multi = true,
-})
-
-CombatAutoSwingGroup:AddDropdown("AutoSwingSlot", {
-	Text = "Tool Slot",
-	Values = { "Normal", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" },
-	Default = { "Normal" },
 	Multi = true,
 })
 
@@ -2307,6 +2246,11 @@ CombatSwordBot:AddDropdown("ChooseVictim", {
 })
 
 local CombatAutoPVP = Tabs.Combat:AddRightGroupbox("PVP Modules", "swords")
+
+CombatAutoPVP:AddCheckbox("AutoShiftlock", {
+	Text = "+ Shiftlock",
+	Default = false,
+})
 
 CombatAutoPVP:AddCheckbox("SwingSpeedToggle", {
 	Text = "+ Swing Speed",
@@ -2469,29 +2413,6 @@ updatePVPModulesVisibility = function()
 			Options.CamlockStuds.Holder.Visible = isCam
 		end
 	end
-	if Toggles.CamlockIgnoreTeam then
-		if Toggles.CamlockIgnoreTeam.Visible ~= nil then
-			Toggles.CamlockIgnoreTeam.Visible = isCam
-		end
-		if Toggles.CamlockIgnoreTeam.Holder then
-			Toggles.CamlockIgnoreTeam.Holder.Visible = isCam
-		end
-	end
-	local isIgnoreAlly = (Toggles.CamlockIgnoreAlly and Toggles.CamlockIgnoreAlly.Value) or false
-	if Toggles.CamlockIgnoreAlly then
-		if Toggles.CamlockIgnoreAlly.Visible ~= nil then
-			Toggles.CamlockIgnoreAlly.Visible = true
-		end
-		if Toggles.CamlockIgnoreAlly.Holder then
-			Toggles.CamlockIgnoreAlly.Holder.Visible = true
-		end
-	end
-	if Options.CamlockIgnoreTeams then
-		Options.CamlockIgnoreTeams.Visible = isIgnoreAlly
-		if Options.CamlockIgnoreTeams.Holder then
-			Options.CamlockIgnoreTeams.Holder.Visible = isIgnoreAlly
-		end
-	end
 	if Toggles.Outline then
 		if Toggles.Outline.Visible ~= nil then
 			Toggles.Outline.Visible = isCam
@@ -2635,7 +2556,7 @@ CombatReach:AddDropdown("ReachTarget", {
 
 CombatReach:AddDropdown("AdvancePreset", {
 	Text = "Advance PRESET",
-	Values = { "Sword", "Spear", "Spear/Sword(Slot 3/5)" },
+	Values = { "Sword", "Spear" },
 	Default = "",
 })
 
@@ -2798,6 +2719,35 @@ Toggles.ImmortalMode:OnChanged(function()
 		end
 	end
 end)
+
+local function isAdvanceSlotAllowed(slotOption)
+	if not slotOption then return false end
+	local val = slotOption.Value
+	if val == nil then return false end
+
+	if typeof(val) == "table" then
+		for slotKey, isSelected in pairs(val) do
+			local targetSlot = nil
+			if isSelected == true then
+				targetSlot = slotKey
+			elseif typeof(isSelected) == "string" then
+				targetSlot = isSelected
+			elseif typeof(isSelected) == "number" then
+				targetSlot = isSelected
+			end
+			if targetSlot ~= nil then
+				if isHoldingSelectedSlot(targetSlot) then
+					return true
+				end
+			end
+		end
+		return false
+	elseif typeof(val) == "string" or typeof(val) == "number" then
+		return isHoldingSelectedSlot(val)
+	end
+
+	return false
+end
 
 local function updateAdvanceState()
 	if not (Toggles.Advance and Toggles.Advance.Value) then return end
@@ -3262,6 +3212,188 @@ do
 	end
 end
 
+
+
+local autoShiftlockVars = {
+	origCameraOffset = nil,
+	screenGui = nil,
+	toggleButton = nil,
+	crosshair = nil,
+	shiftLockEnabled = false,
+	cameraOffset = Vector3.new(1.7, 0.5, 0),
+	dragging = false,
+	dragInput = nil,
+	dragStart = nil,
+	startPos = nil,
+	dragCon1 = nil,
+	dragCon2 = nil,
+	dragCon3 = nil,
+	activatedCon = nil,
+	renderCon = nil,
+	charAddedCon = nil
+}
+
+local function destroyMobileShiftlockGui()
+	if autoShiftlockVars.charAddedCon then
+		autoShiftlockVars.charAddedCon:Disconnect()
+		autoShiftlockVars.charAddedCon = nil
+	end
+	if autoShiftlockVars.dragCon1 then autoShiftlockVars.dragCon1:Disconnect() end
+	if autoShiftlockVars.dragCon2 then autoShiftlockVars.dragCon2:Disconnect() end
+	if autoShiftlockVars.dragCon3 then autoShiftlockVars.dragCon3:Disconnect() end
+	if autoShiftlockVars.activatedCon then autoShiftlockVars.activatedCon:Disconnect() end
+	if autoShiftlockVars.renderCon then autoShiftlockVars.renderCon:Disconnect() end
+	autoShiftlockVars.dragCon1 = nil
+	autoShiftlockVars.dragCon2 = nil
+	autoShiftlockVars.dragCon3 = nil
+	autoShiftlockVars.activatedCon = nil
+	autoShiftlockVars.renderCon = nil
+	if autoShiftlockVars.screenGui then
+		pcall(function() autoShiftlockVars.screenGui:Destroy() end)
+	end
+	autoShiftlockVars.screenGui = nil
+	autoShiftlockVars.toggleButton = nil
+	autoShiftlockVars.crosshair = nil
+end
+
+local function resetMobileShiftlockState()
+	autoShiftlockVars.shiftLockEnabled = false
+	local hum = getHumanoid()
+	if hum then
+		hum.AutoRotate = true
+		hum.CameraOffset = autoShiftlockVars.origCameraOffset or Vector3.zero
+	end
+end
+
+Toggles.AutoShiftlock:OnChanged(function()
+	disconnect("AutoShiftlock")
+	destroyMobileShiftlockGui()
+	resetMobileShiftlockState()
+
+	if Toggles.AutoShiftlock.Value then
+		local hum = getHumanoid()
+		if hum then
+			autoShiftlockVars.origCameraOffset = hum.CameraOffset
+		end
+
+		local playerGui = LocalPlayer:WaitForChild("PlayerGui")
+		local screenGui = Instance.new("ScreenGui")
+		screenGui.Name = "MobileShiftlockGUI"
+		screenGui.ResetOnSpawn = false
+		screenGui.Parent = playerGui
+		autoShiftlockVars.screenGui = screenGui
+
+		local toggleButton = Instance.new("ImageButton")
+		toggleButton.Name = "ShiftlockButton"
+		toggleButton.Parent = screenGui
+		toggleButton.BackgroundTransparency = 1
+		toggleButton.Size = UDim2.new(0, 60, 0, 60)
+		toggleButton.Position = UDim2.new(0.85, -30, 0.5, -30)
+		toggleButton.Image = "rbxasset://textures/ui/mouseLock_off@2x.png"
+		autoShiftlockVars.toggleButton = toggleButton
+
+		local crosshair = Instance.new("ImageLabel")
+		crosshair.Name = "ShiftlockCursor"
+		crosshair.Parent = screenGui
+		crosshair.BackgroundTransparency = 1
+		crosshair.Position = UDim2.new(0.5, 0, 0.5, 0)
+		crosshair.AnchorPoint = Vector2.new(0.5, 0.5)
+		crosshair.Size = UDim2.new(0, 22, 0, 22)
+		crosshair.Image = "rbxasset://textures/MouseLockedCursor.png"
+		crosshair.Visible = false
+		autoShiftlockVars.crosshair = crosshair
+
+		local function update(input)
+			local delta = input.Position - autoShiftlockVars.dragStart
+			toggleButton.Position = UDim2.new(
+				autoShiftlockVars.startPos.X.Scale,
+				autoShiftlockVars.startPos.X.Offset + delta.X,
+				autoShiftlockVars.startPos.Y.Scale,
+				autoShiftlockVars.startPos.Y.Offset + delta.Y
+			)
+		end
+
+		autoShiftlockVars.dragCon1 = toggleButton.InputBegan:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+				autoShiftlockVars.dragging = true
+				autoShiftlockVars.dragStart = input.Position
+				autoShiftlockVars.startPos = toggleButton.Position
+
+				input.Changed:Connect(function()
+					if input.UserInputState == Enum.UserInputState.End then
+						autoShiftlockVars.dragging = false
+					end
+				end)
+			end
+		end)
+
+		autoShiftlockVars.dragCon2 = toggleButton.InputChanged:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+				autoShiftlockVars.dragInput = input
+			end
+		end)
+
+		autoShiftlockVars.dragCon3 = UserInputService.InputChanged:Connect(function(input)
+			if input == autoShiftlockVars.dragInput and autoShiftlockVars.dragging then
+				update(input)
+			end
+		end)
+
+		autoShiftlockVars.activatedCon = toggleButton.Activated:Connect(function()
+			autoShiftlockVars.shiftLockEnabled = not autoShiftlockVars.shiftLockEnabled
+
+			if autoShiftlockVars.shiftLockEnabled then
+				toggleButton.Image = "rbxasset://textures/ui/mouseLock_on@2x.png"
+				crosshair.Visible = true
+				if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+					LocalPlayer.Character.Humanoid.AutoRotate = false
+				end
+			else
+				toggleButton.Image = "rbxasset://textures/ui/mouseLock_off@2x.png"
+				crosshair.Visible = false
+				if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+					LocalPlayer.Character.Humanoid.AutoRotate = true
+					LocalPlayer.Character.Humanoid.CameraOffset = Vector3.new(0, 0, 0)
+				end
+			end
+		end)
+
+		autoShiftlockVars.renderCon = RunService.RenderStepped:Connect(function()
+			if autoShiftlockVars.shiftLockEnabled then
+				if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character:FindFirstChild("Humanoid") then
+					LocalPlayer.Character.Humanoid.CameraOffset = autoShiftlockVars.cameraOffset
+
+					local rootPart = LocalPlayer.Character.HumanoidRootPart
+					local camera = workspace.CurrentCamera
+					if not camera then return end
+					local lookVector = camera.CFrame.LookVector
+
+					rootPart.CFrame = CFrame.new(
+						rootPart.Position,
+						rootPart.Position + Vector3.new(lookVector.X, 0, lookVector.Z)
+					)
+				end
+			end
+		end)
+
+		autoShiftlockVars.charAddedCon = LocalPlayer.CharacterAdded:Connect(function()
+			if autoShiftlockVars.shiftLockEnabled and autoShiftlockVars.toggleButton then
+				autoShiftlockVars.toggleButton.Image = "rbxasset://textures/ui/mouseLock_off@2x.png"
+			end
+			if autoShiftlockVars.crosshair then
+				autoShiftlockVars.crosshair.Visible = false
+			end
+			autoShiftlockVars.shiftLockEnabled = false
+		end)
+	else
+		local hum = getHumanoid()
+		if hum then
+			hum.AutoRotate = true
+			hum.CameraOffset = autoShiftlockVars.origCameraOffset or Vector3.zero
+		end
+	end
+end)
+
 Toggles.ToiletBed:OnChanged(function()
 	if Toggles.ToiletBed.Value then
 		local character = LocalPlayer.Character
@@ -3311,24 +3443,7 @@ Toggles.Camlock:OnChanged(function()
 			local closestPlayer = nil
 			local closestDist = math.huge
 			local targetSetting = Options.CamlockTarget and Options.CamlockTarget.Value or "All"
-			local ignoreTeam = Toggles.CamlockIgnoreTeam and Toggles.CamlockIgnoreTeam.Value
-			local ignoreAlly = Toggles.CamlockIgnoreAlly and Toggles.CamlockIgnoreAlly.Value
-			local excludedTeams = Options.CamlockIgnoreTeams and Options.CamlockIgnoreTeams.Value or {}
-
-			local function isExcludedTeam(p)
-				if not ignoreAlly then return false end
-				if not p or not p.Team then return false end
-				local teamName = p.Team.Name
-				if not teamName then return false end
-				if typeof(excludedTeams) == "table" then
-					for name, selected in pairs(excludedTeams) do
-						if selected == true and name == teamName then
-							return true
-						end
-					end
-				end
-				return false
-			end
+			local ignoreTeam = true
 
 			local function isSameTeamOnly(p)
 				if LocalPlayer.Team and p.Team and LocalPlayer.Team == p.Team then
@@ -3342,7 +3457,7 @@ Toggles.Camlock:OnChanged(function()
 
 			for _, otherPlayer in ipairs(Players:GetPlayers()) do
 				if otherPlayer ~= LocalPlayer and otherPlayer.Character then
-					if (not ignoreTeam or not isSameTeamOnly(otherPlayer)) and not isExcludedTeam(otherPlayer) then
+					if not ignoreTeam or not isSameTeamOnly(otherPlayer) then
 						local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
 						local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
 						if otherRoot and otherHum and otherHum.Health > 0 then
@@ -3366,7 +3481,7 @@ Toggles.Camlock:OnChanged(function()
 				local outlineTargetSetting = (Options.OutlineTarget and Options.OutlineTarget.Value) or "All"
 				for _, otherPlayer in ipairs(Players:GetPlayers()) do
 					if otherPlayer ~= LocalPlayer and otherPlayer.Character then
-						if (not ignoreTeam or not isSameTeamOnly(otherPlayer)) and not isExcludedTeam(otherPlayer) then
+						if not ignoreTeam or not isSameTeamOnly(otherPlayer) then
 							local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
 							local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
 							if otherRoot and otherHum and otherHum.Health > 0 then
@@ -3559,14 +3674,6 @@ end
 
 if Toggles.CamlockSlotSystem then
 	Toggles.CamlockSlotSystem:OnChanged(function()
-		if updatePVPModulesVisibility then
-			updatePVPModulesVisibility()
-		end
-	end)
-end
-
-if Toggles.CamlockIgnoreAlly then
-	Toggles.CamlockIgnoreAlly:OnChanged(function()
 		if updatePVPModulesVisibility then
 			updatePVPModulesVisibility()
 		end
@@ -4300,7 +4407,7 @@ Toggles.PhantomMode:OnChanged(function()
 			Toggles.KillAura:SetValue(true)
 		end
 		track("PhantomMode", RunService.Heartbeat:Connect(phantomModeLoop))
-		Library:Notify({ Title = "Orbital Rage", Description = "Enabled", Time = 2 })
+		Library:Notify({ Title = "Rage Mode", Description = "Enabled", Time = 2 })
 	else
 		-- Reset
 		phantomModeVars.targetPlayer = nil
@@ -4311,7 +4418,7 @@ Toggles.PhantomMode:OnChanged(function()
 		if Toggles.KillAura and Toggles.KillAura.Value then
 			Toggles.KillAura:SetValue(false)
 		end
-		Library:Notify({ Title = "Orbital Rage", Description = "Disabled", Time = 2 })
+		Library:Notify({ Title = "Rage Mode", Description = "Disabled", Time = 2 })
 	end
 end)
 
@@ -4329,59 +4436,17 @@ Toggles.Reach:OnChanged(function()
 	end
 end)
 
-local function getHeldSlot()
-	local character = getCharacter()
-	if not character then return nil end
-	local tool = character:FindFirstChildOfClass("Tool")
-	if not tool then return nil end
-
-	local slotNum = tonumber(tool.Name)
-	if slotNum then return slotNum end
-
-	local attrSlot = tool:GetAttribute("slot") or tool:GetAttribute("Slot") or tool:GetAttribute("HotbarSlot")
-	if attrSlot then return tonumber(attrSlot) end
-
-	if tool:FindFirstChild("toolModel") then
-		local tmSlot = tool.toolModel:GetAttribute("slot") or tool.toolModel:GetAttribute("Slot") or tool.toolModel:GetAttribute("HotbarSlot")
-		if tmSlot then return tonumber(tmSlot) end
-	end
-
-	local m = tool.Name:match("^[Ss]lot%s*(%d+)$")
-	if m then return tonumber(m) end
-
-	return nil
-end
-
 Options.AdvancePreset:OnChanged(function()
-	disconnect("AdvancePresetDynamic")
 	local val = Options.AdvancePreset.Value
-	local rangeSlider = Options.ReachRange
-	local angleSlider = Options.ReachAngle
-	if not rangeSlider then return end
-
-	if val == "Sword" then
-		rangeSlider:SetValue(11)
-		if angleSlider then angleSlider:SetValue(35) end
-		Library:Notify({ Title = "Advance Preset", Description = "Preset: Sword (11) applied!", Time = 2 })
-	elseif val == "Spear" then
-		rangeSlider:SetValue(13)
-		if angleSlider then angleSlider:SetValue(35) end
-		Library:Notify({ Title = "Advance Preset", Description = "Preset: Spear (13) applied!", Time = 2 })
-	elseif val == "Spear/Sword(Slot 3/5)" then
-		Library:Notify({ Title = "Advance Preset", Description = "Preset: Spear/Sword (Slot 3/5) active!", Time = 2 })
-		local lastSlot = nil
-		track("AdvancePresetDynamic", RunService.Heartbeat:Connect(function()
-			local slot = getHeldSlot()
-			if slot == lastSlot then return end
-			lastSlot = slot
-			if slot == 3 then
-				rangeSlider:SetValue(7.0)
-				if angleSlider then angleSlider:SetValue(15) end
-			elseif slot == 5 then
-				rangeSlider:SetValue(5)
-				if angleSlider then angleSlider:SetValue(15) end
-			end
-		end))
+	local slider = Options.ReachRange
+	if slider then
+		if val == "Sword" then
+			slider:SetValue(11)
+			Library:Notify({ Title = "Advance Preset", Description = "Preset: Sword (11) applied!", Time = 2 })
+		elseif val == "Spear" then
+			slider:SetValue(13)
+			Library:Notify({ Title = "Advance Preset", Description = "Preset: Spear (13) applied!", Time = 2 })
+		end
 	end
 end)
 
@@ -5583,15 +5648,6 @@ FarmMine:AddSlider("AutoMineRange", {
 	Compact = true,
 })
 
-FarmMine:AddSlider("AutoMineSpeed", {
-	Text = "Speed",
-	Default = 5,
-	Min = 1,
-	Max = 20,
-	Rounding = 0,
-	Compact = true,
-})
-
 FarmMine:AddDropdown("AutoMineSlot", {
 	Text = "Attack Slot",
 	Values = {"1","2","3","4","5","6","7","8","9","10"},
@@ -5632,15 +5688,6 @@ FarmChop:AddSlider("AutoChopRange", {
 	Min = 5,
 	Max = 60,
 	Rounding = 1,
-	Compact = true,
-})
-
-FarmChop:AddSlider("AutoChopSpeed", {
-	Text = "Speed",
-	Default = 5,
-	Min = 1,
-	Max = 20,
-	Rounding = 0,
 	Compact = true,
 })
 
@@ -5836,60 +5883,6 @@ OreFarm:AddButton({
    end,
 })
 
-OreFarm:AddButton({
-	Text = "Ore Farm",
-	Func = function()
-		local root = getRootPart()
-		if not root then
-			Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
-			return
-		end
-
-		local folder = workspace:FindFirstChild("worldResources") and workspace.worldResources:FindFirstChild("mineable")
-		if not folder then
-			Library:Notify({ Title = "Teleport", Description = "No mineable ores found.", Time = 3 })
-			return
-		end
-
-		local rootPos = root.Position
-		local targets = {}
-
-		for _, chunkFolder in ipairs(folder:GetChildren()) do
-			if not chunkFolder:IsA("Folder") then continue end
-			for _, obj in ipairs(chunkFolder:GetChildren()) do
-				if not obj then continue end
-				local oreName = obj.Name or "Unknown"
-
-				local anchor = obj:IsA("Model") and (obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")) or (obj:IsA("BasePart") and obj)
-				if not anchor then continue end
-
-				table.insert(targets, { pos = anchor.Position, name = oreName, dist = (anchor.Position - rootPos).Magnitude })
-			end
-		end
-
-		if #targets == 0 then
-			Library:Notify({ Title = "Teleport", Description = "No ores found.", Time = 3 })
-			return
-		end
-
-		-- Sort by distance so we visit the closest first
-		table.sort(targets, function(a, b) return a.dist < b.dist end)
-
-		task.spawn(function()
-			Library:Notify({ Title = "Teleport", Description = "Teleporting to " .. #targets .. " ores...", Time = 2 })
-			for i, target in ipairs(targets) do
-				root = getRootPart()
-				if not root then break end
-				root.CFrame = CFrame.new(target.pos)
-				if i < #targets then
-					task.wait(1.5)
-				end
-			end
-			Library:Notify({ Title = "Teleport", Description = "Visited " .. #targets .. " ores.", Time = 2 })
-		end)
-	end,
-})
-
 -- ==========================================
 -- Aura highlights (one per aura type, created after makeAuraHighlight is defined)
 local hlMine = makeAuraHighlight(Options.HighlightMineColor and Options.HighlightMineColor.Value)
@@ -5941,9 +5934,7 @@ end
 
 local function autoMine()
 	if not isAlive() or not isAutoMineRunning then return end
-	local mineSpeed = (Options.AutoMineSpeed and Options.AutoMineSpeed.Value) or 5
-	local mineCooldown = 1 / math.max(0.1, mineSpeed)
-	if tick() - lastAutoMineHit < mineCooldown then return end
+	if tick() - lastAutoMineHit < 0.2 then return end
 
 	local root = getRootPart()
 	if not root then return end
@@ -6101,9 +6092,7 @@ end
 
 local function autoChop()
 	if not isAlive() or not isAutoChopRunning then return end
-	local chopSpeed = (Options.AutoChopSpeed and Options.AutoChopSpeed.Value) or 5
-	local chopCooldown = 1 / math.max(0.1, chopSpeed)
-	if tick() - lastAutoChopHit < chopCooldown then return end
+	if tick() - lastAutoChopHit < 0.2 then return end
 
 	local root = getRootPart()
 	if not root then return end
@@ -6471,7 +6460,7 @@ local function clearOreESPHighlights()
 	table.clear(oreESP.highlights)
 end
 
-function isOreFilterEnabled(oreName)
+local function isOreFilterEnabled(oreName)
 	local t = oreESP.oreToggles[oreName]
 	if t == nil then return true end
 	return t
@@ -7083,73 +7072,6 @@ VisualFPS:AddToggle("FullBright", {
 		end)
 	end,
 })
-
-VisualFPS:AddToggle("TextureQualityOverride", {
-	Text = "Hidden Quality Nerf",
-	Default = false,
-	Callback = function(state)
-		pcall(function()
-			if state then
-				setfflag("DFFlagTextureQualityOverrideEnabled", "True")
-				setfflag("DFIntTextureQualityOverride", "0")
-			else
-				setfflag("DFFlagTextureQualityOverrideEnabled", "False")
-				setfflag("DFIntTextureQualityOverride", "0")
-			end
-		end)
-	end,
-})
-
-do
-	local savedDecoration = nil
-
-	VisualFPS:AddToggle("NoTerrainTextures", {
-		Text = "No Terrain Textures",
-		Default = false,
-		Callback = function(state)
-			disconnect("NoTerrainTextures_DescendantAdded")
-			local terrain = workspace:FindFirstChildOfClass("Terrain")
-			if not terrain then return end
-
-			if state then
-				savedDecoration = terrain.Decoration
-				pcall(function()
-					if sethiddenproperty then
-						sethiddenproperty(terrain, "Decoration", false)
-					else
-						terrain.Decoration = false
-					end
-				end)
-
-				-- Strip SurfaceAppearance / Texture / Decal children the game may add to terrain
-				track("NoTerrainTextures_DescendantAdded", terrain.DescendantAdded:Connect(function(child)
-					if not (Toggles.NoTerrainTextures and Toggles.NoTerrainTextures.Value) then return end
-					local c = child.ClassName
-					if c == "SurfaceAppearance" or c == "Texture" or c == "Decal" then
-						pcall(function() child:Destroy() end)
-					end
-				end))
-				for _, child in ipairs(terrain:GetDescendants()) do
-					local c = child.ClassName
-					if c == "SurfaceAppearance" or c == "Texture" or c == "Decal" then
-						pcall(function() child:Destroy() end)
-					end
-				end
-			else
-				if savedDecoration ~= nil then
-					pcall(function()
-						if sethiddenproperty then
-							sethiddenproperty(terrain, "Decoration", savedDecoration)
-						else
-							terrain.Decoration = savedDecoration
-						end
-					end)
-				end
-				savedDecoration = nil
-			end
-		end,
-	})
-end
 
 pcall(function()
 	local lighting = game:GetService("Lighting")
@@ -8243,33 +8165,6 @@ track("AttachPlayerAdded", Players.PlayerAdded:Connect(updateAttachPlayerList))
 track("AttachPlayerRemoving", Players.PlayerRemoving:Connect(updateAttachPlayerList))
 task.spawn(updateAttachPlayerList)
 
-local function updateCamlockTeamList()
-	pcall(function()
-		if not Options.CamlockIgnoreTeams then return end
-		local teamNames = {}
-		for _, team in ipairs(Teams:GetTeams()) do
-			if team and team.Name then
-				table.insert(teamNames, team.Name)
-			end
-		end
-		local previous = Options.CamlockIgnoreTeams.Value
-		Options.CamlockIgnoreTeams:SetValues(teamNames)
-		if typeof(previous) == "table" then
-			local preserved = {}
-			for name, selected in pairs(previous) do
-				if selected == true and table.find(teamNames, name) then
-					preserved[name] = true
-				end
-			end
-			Options.CamlockIgnoreTeams:SetValue(preserved)
-		end
-	end)
-end
-
-track("CamlockTeamAdded", Teams.ChildAdded:Connect(updateCamlockTeamList))
-track("CamlockTeamRemoved", Teams.ChildRemoved:Connect(updateCamlockTeamList))
-task.spawn(updateCamlockTeamList)
-
 local function startAttach()
 	disconnect("AttachLoop")
 	if Toggles.AttachToggle.Value then
@@ -8773,6 +8668,9 @@ Library:OnUnload(function()
 	if Toggles.SwimSlotBoost and Toggles.SwimSlotBoost.Value then
 		Toggles.SwimSlotBoost:SetValue(false)
 	end
+	if Toggles.AutoShiftlock and Toggles.AutoShiftlock.Value then
+		Toggles.AutoShiftlock:SetValue(false)
+	end
 	if Toggles.Camlock and Toggles.Camlock.Value then
 		Toggles.Camlock:SetValue(false)
 	end
@@ -8822,6 +8720,16 @@ Library:OnUnload(function()
 
 	pcall(function()
 		if fovCircle then fovCircle:Remove() end
+
+		if autoShiftlockVars then
+			if autoShiftlockVars.charAddedCon then autoShiftlockVars.charAddedCon:Disconnect() end
+			if autoShiftlockVars.dragCon1 then autoShiftlockVars.dragCon1:Disconnect() end
+			if autoShiftlockVars.dragCon2 then autoShiftlockVars.dragCon2:Disconnect() end
+			if autoShiftlockVars.dragCon3 then autoShiftlockVars.dragCon3:Disconnect() end
+			if autoShiftlockVars.activatedCon then autoShiftlockVars.activatedCon:Disconnect() end
+			if autoShiftlockVars.renderCon then autoShiftlockVars.renderCon:Disconnect() end
+			if autoShiftlockVars.screenGui then autoShiftlockVars.screenGui:Destroy() end
+		end
 	end)
 	for name in pairs(Connections) do
 		disconnect(name)
