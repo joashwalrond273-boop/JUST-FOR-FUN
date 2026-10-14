@@ -7032,6 +7032,45 @@ VisualFPS:AddToggle("FullBright", {
 	end,
 })
 
+do
+	local savedSkies = {}
+
+	VisualFPS:AddToggle("GraySky", {
+		Text = "Gray Sky",
+		Default = false,
+		Callback = function(state)
+			disconnect("GraySky_ChildAdded")
+			local lighting = game:GetService("Lighting")
+
+			if state then
+				-- Hide existing skyboxes and use a solid gray background
+				savedSkies = {}
+				for _, sky in ipairs(lighting:GetChildren()) do
+					if sky:IsA("Sky") then
+						table.insert(savedSkies, sky)
+						sky.Parent = nil
+					end
+				end
+				lighting.BackgroundColor3 = Color3.fromRGB(128, 128, 128)
+
+				-- Strip any skyboxes the game re-adds while enabled
+				track("GraySky_ChildAdded", lighting.ChildAdded:Connect(function(child)
+					if Toggles.GraySky and Toggles.GraySky.Value and child:IsA("Sky") then
+						table.insert(savedSkies, child)
+						child.Parent = nil
+					end
+				end))
+			else
+				-- Restore all saved skyboxes
+				for _, sky in ipairs(savedSkies) do
+					sky.Parent = lighting
+				end
+				savedSkies = {}
+			end
+		end,
+	})
+end
+
 pcall(function()
 	local lighting = game:GetService("Lighting")
 	local oldBlur = lighting:FindFirstChild("TSG_Smoothness_Blur")
@@ -7288,133 +7327,6 @@ do
 		end,
 	})
 end
-
--- ==========================================
--- FFlag Optimizations
--- ==========================================
-local function setFFlag(name, value)
-	pcall(function() setfflag(name, tostring(value)) end)
-end
-
-VisualFPS:AddToggle("FFlagTextureQualityOverrideEnabled", {
-	Text = "Texture Quality Override",
-	Default = false,
-	Callback = function(state)
-		setFFlag("DFFlagTextureQualityOverrideEnabled", state and "True" or "False")
-	end,
-})
-
-VisualFPS:AddToggle("FFlagDebugPauseVoxelizer", {
-	Text = "Pause Voxelizer",
-	Default = false,
-	Callback = function(state)
-		setFFlag("DFFlagDebugPauseVoxelizer", state and "True" or "False")
-	end,
-})
-
-VisualFPS:AddToggle("FFlagCSGLevelOfDetailSwitchingDistanceL34", {
-	Text = "CSG LOD L34",
-	Default = false,
-	Callback = function(state)
-		setFFlag("DFIntCSGLevelOfDetailSwitchingDistanceL34", state and "0" or "200")
-	end,
-})
-
-VisualFPS:AddToggle("FFlagCSGLevelOfDetailSwitchingDistanceL23", {
-	Text = "CSG LOD L23",
-	Default = false,
-	Callback = function(state)
-		setFFlag("DFIntCSGLevelOfDetailSwitchingDistanceL23", state and "0" or "130")
-	end,
-})
-
-VisualFPS:AddToggle("FFlagCSGLevelOfDetailSwitchingDistanceL12", {
-	Text = "CSG LOD L12",
-	Default = false,
-	Callback = function(state)
-		setFFlag("DFIntCSGLevelOfDetailSwitchingDistanceL12", state and "0" or "80")
-	end,
-})
-
-VisualFPS:AddToggle("FFlagCSGLevelOfDetailSwitchingDistance", {
-	Text = "CSG LOD Base",
-	Default = false,
-	Callback = function(state)
-		setFFlag("DFIntCSGLevelOfDetailSwitchingDistance", state and "0" or "250")
-	end,
-})
-
-VisualFPS:AddToggle("FFlagDebugFRMQualityLevelOverride", {
-	Text = "FRM Quality Override",
-	Default = false,
-	Callback = function(state)
-		setFFlag("DFIntDebugFRMQualityLevelOverride", state and "1" or "0")
-	end,
-})
-
-VisualFPS:AddToggle("FFlagTextureQualityOverride", {
-	Text = "Low Textures",
-	Default = false,
-	Callback = function(state)
-		setFFlag("DFIntTextureQualityOverride", state and "0" or "0")
-	end,
-})
-
-VisualFPS:AddToggle("FFlagHandleAltEnterFullscreenManually", {
-	Text = "Manual Alt-Enter",
-	Default = false,
-	Callback = function(state)
-		setFFlag("FFlagHandleAltEnterFullscreenManually", state and "False" or "True")
-	end,
-})
-
-VisualFPS:AddToggle("FFlagDebugGraphicsPreferD3D11", {
-	Text = "Prefer D3D11",
-	Default = false,
-	Callback = function(state)
-		setFFlag("FFlagDebugGraphicsPreferD3D11", state and "True" or "False")
-	end,
-})
-
-VisualFPS:AddToggle("FFlagDebugSkyGray", {
-	Text = "Gray Sky",
-	Default = false,
-	Callback = function(state)
-		setFFlag("FFlagDebugSkyGray", state and "True" or "False")
-	end,
-})
-
-VisualFPS:AddToggle("FFlagGrassMovementReducedMotionFactor", {
-	Text = "Grass Reduced Motion",
-	Default = false,
-	Callback = function(state)
-		setFFlag("FIntGrassMovementReducedMotionFactor", state and "0" or "1")
-	end,
-})
-
-VisualFPS:AddToggle("FFlagDebugForceMSAASamples", {
-	Text = "Force MSAA Samples",
-	Default = false,
-	Callback = function(state)
-		setFFlag("FIntDebugForceMSAASamples", state and "0" or "0")
-	end,
-})
-
-VisualFPS:AddToggle("FFlagFRMMinGrassDistance", {
-	Text = "FRM Min Grass Distance",
-	Default = false,
-	Callback = function(state)
-		setFFlag("FIntFRMMinGrassDistance", state and "0" or "0")
-	end,
-})
-
-VisualFPS:AddToggle("FFlagFRMMaxGrassDistance", {
-	Text = "FRM Max Grass Distance",
-	Default = false,
-	Callback = function(state)
-		setFFlag("FIntFRMMaxGrassDistance", state and "0" or "250")
-	end,
-})
 
 VisualLeft:AddToggle("PlayerESP", {
 	Text = "Enabled",
