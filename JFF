@@ -6988,6 +6988,54 @@ VisualFPS:AddToggle("NoWaterBlur", {
 	end,
 })
 
+do
+	local originalBlur = setmetatable({}, { __mode = "k" })
+
+	local function disableBlur(v)
+		if not v or not v:IsA("BlurEffect") then return end
+		if originalBlur[v] == nil then
+			originalBlur[v] = { Enabled = v.Enabled, Size = v.Size }
+		end
+		pcall(function()
+			v.Enabled = false
+			v.Size = 0
+		end)
+	end
+
+	VisualFPS:AddToggle("NoBlur", {
+		Text = "Remove All Blur",
+		Default = false,
+		Callback = function(state)
+			disconnect("NoBlur_ChildAdded")
+			local lighting = game:GetService("Lighting")
+
+			if state then
+				-- Disable every BlurEffect currently in Lighting
+				for _, v in ipairs(lighting:GetDescendants()) do
+					disableBlur(v)
+				end
+
+				-- Strip any new BlurEffect the game adds while enabled
+				track("NoBlur_ChildAdded", lighting.DescendantAdded:Connect(function(child)
+					if Toggles.NoBlur and Toggles.NoBlur.Value and child:IsA("BlurEffect") then
+						disableBlur(child)
+					end
+				end))
+			else
+				for v, info in pairs(originalBlur) do
+					if v and v.Parent then
+						pcall(function()
+							v.Enabled = info.Enabled
+							v.Size = info.Size
+						end)
+					end
+				end
+				table.clear(originalBlur)
+			end
+		end,
+	})
+end
+
 VisualFPS:AddToggle("NoGrass", {
 	Text = "No Grass",
 	Default = false,
@@ -7033,7 +7081,7 @@ VisualFPS:AddToggle("FullBright", {
 })
 
 VisualFPS:AddToggle("TextureQualityOverride", {
-	Text = "Low Texture Quality",
+	Text = "Hidden Quality Nerf",
 	Default = false,
 	Callback = function(state)
 		pcall(function()
