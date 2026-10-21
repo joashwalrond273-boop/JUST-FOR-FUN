@@ -405,10 +405,14 @@ AutoArmorDeluxeGroup:AddSlider("ToiletBedSpeed", {
 
 AutoArmorDeluxeGroup:AddDivider()
 
-AutoArmorDeluxeGroup:AddDropdown("AutoArmorSlot", {
-	Text = "Sword Slot",
-	Values = {"1", "2", "3", "4", "5", "6", "7", "8", "9"},
-	Default = "5",
+AutoArmorDeluxeGroup:AddCheckbox("ArmorEquipOnly", {
+	Text = "Equip Only Mode",
+	Default = false,
+})
+
+AutoArmorDeluxeGroup:AddCheckbox("ArmorCraftOnly", {
+	Text = "Craft Only",
+	Default = false,
 })
 
 AutoArmorDeluxeGroup:AddButton({
@@ -487,18 +491,20 @@ AutoArmorDeluxeGroup:AddButton({
 
 			task.wait(0.3)
 
-			pcall(function()
-				equipHotbarRemote:InvokeServer("inventory", armorSlot, 197)
-			end)
-			pcall(function()
-				equipClothingRemote:InvokeServer("inventory", 1, 202)
-			end)
-			pcall(function()
-				equipClothingRemote:InvokeServer("inventory", 2, 200)
-			end)
-			pcall(function()
-				equipClothingRemote:InvokeServer("inventory", 3, 201)
-			end)
+			if not (Toggles.ArmorCraftOnly and Toggles.ArmorCraftOnly.Value) then
+				pcall(function()
+					equipHotbarRemote:InvokeServer("inventory", armorSlot, 197)
+				end)
+				pcall(function()
+					equipClothingRemote:InvokeServer("inventory", 1, 202)
+				end)
+				pcall(function()
+					equipClothingRemote:InvokeServer("inventory", 2, 200)
+				end)
+				pcall(function()
+					equipClothingRemote:InvokeServer("inventory", 3, 201)
+				end)
+			end
 
 			pcall(function()
 				deleteRemote:FireServer(furnace)
@@ -590,18 +596,20 @@ AutoArmorDeluxeGroup:AddButton({
 
 			task.wait(0.3)
 
-			pcall(function()
-				equipHotbarRemote:InvokeServer("inventory", armorSlot, 357)
-			end)
-			pcall(function()
-				equipClothingRemote:InvokeServer("inventory", 1, 354)
-			end)
-			pcall(function()
-				equipClothingRemote:InvokeServer("inventory", 2, 355)
-			end)
-			pcall(function()
-				equipClothingRemote:InvokeServer("inventory", 3, 356)
-			end)
+			if not (Toggles.ArmorCraftOnly and Toggles.ArmorCraftOnly.Value) then
+				pcall(function()
+					equipHotbarRemote:InvokeServer("inventory", armorSlot, 357)
+				end)
+				pcall(function()
+					equipClothingRemote:InvokeServer("inventory", 1, 354)
+				end)
+				pcall(function()
+					equipClothingRemote:InvokeServer("inventory", 2, 355)
+				end)
+				pcall(function()
+					equipClothingRemote:InvokeServer("inventory", 3, 356)
+				end)
+			end
 
 			pcall(function()
 				deleteRemote:FireServer(furnace)
@@ -690,18 +698,20 @@ AutoArmorDeluxeGroup:AddButton({
 
 			task.wait(0.3)
 
-			pcall(function()
-				equipHotbarRemote:InvokeServer("inventory", armorSlot, 267)
-			end)
-			pcall(function()
-				equipClothingRemote:InvokeServer("inventory", 1, 262)
-			end)
-			pcall(function()
-				equipClothingRemote:InvokeServer("inventory", 2, 261)
-			end)
-			pcall(function()
-				equipClothingRemote:InvokeServer("inventory", 3, 260)
-			end)
+			if not (Toggles.ArmorCraftOnly and Toggles.ArmorCraftOnly.Value) then
+				pcall(function()
+					equipHotbarRemote:InvokeServer("inventory", armorSlot, 267)
+				end)
+				pcall(function()
+					equipClothingRemote:InvokeServer("inventory", 1, 262)
+				end)
+				pcall(function()
+					equipClothingRemote:InvokeServer("inventory", 2, 261)
+				end)
+				pcall(function()
+					equipClothingRemote:InvokeServer("inventory", 3, 260)
+				end)
+			end
 
 			pcall(function()
 				deleteRemote:FireServer(furnace)
@@ -792,18 +802,20 @@ AutoArmorDeluxeGroup:AddButton({
 
 			task.wait(0.3)
 
-			pcall(function()
-				equipHotbarRemote:InvokeServer("inventory", armorSlot, 406)
-			end)
-			pcall(function()
-				equipClothingRemote:InvokeServer("inventory", 1, 404)
-			end)
-			pcall(function()
-				equipClothingRemote:InvokeServer("inventory", 2, 403)
-			end)
-			pcall(function()
-				equipClothingRemote:InvokeServer("inventory", 3, 402)
-			end)
+			if not (Toggles.ArmorCraftOnly and Toggles.ArmorCraftOnly.Value) then
+				pcall(function()
+					equipHotbarRemote:InvokeServer("inventory", armorSlot, 406)
+				end)
+				pcall(function()
+					equipClothingRemote:InvokeServer("inventory", 1, 404)
+				end)
+				pcall(function()
+					equipClothingRemote:InvokeServer("inventory", 2, 403)
+				end)
+				pcall(function()
+					equipClothingRemote:InvokeServer("inventory", 3, 402)
+				end)
+			end
 
 			pcall(function()
 				deleteRemote:FireServer(furnace)
@@ -898,18 +910,20 @@ AutoArmorDeluxeGroup:AddButton({
 
 			task.wait(0.3)
 
-			pcall(function()
-				equipHotbarRemote:InvokeServer("inventory", armorSlot, 545)
-			end)
-			pcall(function()
-				equipClothingRemote:InvokeServer("inventory", 1, 541)
-			end)
-			pcall(function()
-				equipClothingRemote:InvokeServer("inventory", 2, 542)
-			end)
-			pcall(function()
-				equipClothingRemote:InvokeServer("inventory", 3, 543)
-			end)
+			if not (Toggles.ArmorCraftOnly and Toggles.ArmorCraftOnly.Value) then
+				pcall(function()
+					equipHotbarRemote:InvokeServer("inventory", armorSlot, 545)
+				end)
+				pcall(function()
+					equipClothingRemote:InvokeServer("inventory", 1, 541)
+				end)
+				pcall(function()
+					equipClothingRemote:InvokeServer("inventory", 2, 542)
+				end)
+				pcall(function()
+					equipClothingRemote:InvokeServer("inventory", 3, 543)
+				end)
+			end
 
 			pcall(function()
 				deleteRemote:FireServer(furnace)
@@ -922,9 +936,10 @@ AutoArmorDeluxeGroup:AddButton({
 	end,
 })
 
-AutoArmorDeluxeGroup:AddCheckbox("ArmorEquipOnly", {
-	Text = "Equip Only Mode",
-	Default = false,
+AutoArmorDeluxeGroup:AddDropdown("AutoArmorSlot", {
+	Text = "Sword Slot",
+	Values = {"1", "2", "3", "4", "5", "6", "7", "8", "9"},
+	Default = "5",
 })
 
 AutoArmorDeluxeGroup:AddDivider()
@@ -2209,7 +2224,7 @@ CombatLeft:AddDropdown("KillAuraTarget", {
 })
 
 CombatLeft:AddCheckbox("LowestHP", {
-	Text = "Lowest HP",
+	Text = "Lowest HP Kill",
 	Default = false,
 })
 
@@ -7170,6 +7185,51 @@ VisualFPS:AddToggle("DisableEffects", {
 	end,
 })
 
+VisualFPS:AddToggle("DebrisCleaner", {
+	Text = "Debris Cleaner",
+	Default = false,
+	Callback = function(state)
+		disconnect("DebrisCleaner")
+		if state then
+			local nextPass = 0
+			local function isCharacterPart(part)
+				for _, plr in ipairs(Players:GetPlayers()) do
+					local char = plr.Character
+					if char and part:IsDescendantOf(char) then
+						return true
+					end
+				end
+				return false
+			end
+			track("DebrisCleaner", RunService.Heartbeat:Connect(function()
+				if not (Toggles.DebrisCleaner and Toggles.DebrisCleaner.Value) then return end
+				if tick() < nextPass then return end
+				nextPass = tick() + 1
+				local removed = 0
+				for _, v in ipairs(workspace:GetChildren()) do
+					if not (Toggles.DebrisCleaner and Toggles.DebrisCleaner.Value) then break end
+					if v ~= workspace.Terrain and v:IsA("BasePart") and not v.Anchored then
+						if not isCharacterPart(v) then
+							pcall(function() v:Destroy() end)
+							removed = removed + 1
+						end
+					elseif v:IsA("Model") and v.PrimaryPart == nil and not v:FindFirstChildOfClass("Humanoid") and #v:GetChildren() == 0 then
+						pcall(function() v:Destroy() end)
+						removed = removed + 1
+					end
+					if removed >= 200 then
+						removed = 0
+						task.wait()
+					end
+				end
+			end))
+			Library:Notify({ Title = "Debris Cleaner", Description = "Enabled", Time = 2 })
+		else
+			Library:Notify({ Title = "Debris Cleaner", Description = "Disabled", Time = 2 })
+		end
+	end,
+})
+
 do
 	local PARTICLE_CLASSES = {
 		ParticleEmitter = true,
@@ -8687,6 +8747,9 @@ Library:OnUnload(function()
 	end)
 	if Toggles.RemoveParticles and Toggles.RemoveParticles.Value then
 		Toggles.RemoveParticles:SetValue(false)
+	end
+	if Toggles.DebrisCleaner and Toggles.DebrisCleaner.Value then
+		Toggles.DebrisCleaner:SetValue(false)
 	end
 	if Toggles.KillHeavyPostEffects and Toggles.KillHeavyPostEffects.Value then
 		Toggles.KillHeavyPostEffects:SetValue(false)
