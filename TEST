@@ -317,14 +317,14 @@ Library.CornerRadius = 15
 
 -- Window
 local Window = Library:CreateWindow({
-	Title = "♠ URIEL",
-	Footer = "CODENAME: ♠ URIEL",
+	Title = "♠ XENO",
+	Footer = "♠ XENO - Powered by Shin",
 	Icon = nil,
 	Center = true,
 	AutoShow = true,
 	Resizable = true,
 	NotifySide = "Right",
-	ShowCustomCursor = true,
+	ShowCustomCursor = false,
 	CornerRadius = 15,
 })
 
@@ -358,6 +358,38 @@ end
 -- MAIN
 -- ==========================================
 local AutoArmorDeluxeGroup = Tabs.Player:AddLeftGroupbox("Auto Armor Deluxe", "shield")
+
+AutoArmorDeluxeGroup:AddButton({
+	Text = "Toilet/Bed",
+	Func = function()
+		local character = LocalPlayer.Character
+		local root = character and character:FindFirstChild("HumanoidRootPart")
+		if not root then return end
+		local playerPosition = root.Position
+		local buildRemote = TSG.BuildRemote
+		if not buildRemote then
+			Library:Notify({ Title = "Error", Description = "Build remote not found", Time = 3 })
+			return
+		end
+		pcall(function()
+			buildRemote:InvokeServer(
+				90,
+				CFrame.new(playerPosition.X, playerPosition.Y - 3, playerPosition.Z),
+				0,
+				nil
+			)
+		end)
+		pcall(function()
+			buildRemote:InvokeServer(
+				85,
+				CFrame.new(playerPosition.X, playerPosition.Y - 3, playerPosition.Z),
+				0,
+				nil
+			)
+		end)
+		Library:Notify({ Title = "Toilet/Bed", Description = "Structures placed", Time = 2 })
+	end,
+})
 
 AutoArmorDeluxeGroup:AddCheckbox("ArmorEquipOnly", {
 	Text = "Equip Only Mode",
@@ -2394,11 +2426,6 @@ CombatAutoPVP:AddSlider("AutoJumpDelay", {
 	Compact = true,
 })
 
-CombatAutoPVP:AddCheckbox("ToiletBed", {
-	Text = "Toilet/Bed",
-	Default = false,
-})
-
 updatePVPModulesVisibility = function()
 	local isCam = (Toggles.Camlock and Toggles.Camlock.Value) or false
 	local isCamLerp = (Toggles.CamlockCameraLerp and Toggles.CamlockCameraLerp.Value) or false
@@ -3263,38 +3290,6 @@ do
 		end)
 	end
 end
-
-Toggles.ToiletBed:OnChanged(function()
-	if Toggles.ToiletBed.Value then
-		local character = LocalPlayer.Character
-		local root = character and character:FindFirstChild("HumanoidRootPart")
-		if root then
-			local playerPosition = root.Position
-			local buildRemote = TSG.BuildRemote
-			if not buildRemote then
-				Library:Notify({ Title = "Error", Description = "Build remote not found", Time = 3 })
-				return
-			end
-			pcall(function()
-				buildRemote:InvokeServer(
-					90,
-					CFrame.new(playerPosition.X, playerPosition.Y - 3, playerPosition.Z),
-					0,
-					nil
-				)
-			end)
-			pcall(function()
-				buildRemote:InvokeServer(
-					85,
-					CFrame.new(playerPosition.X, playerPosition.Y - 3, playerPosition.Z),
-					0,
-					nil
-				)
-			end)
-			Library:Notify({ Title = "Toilet/Bed", Description = "Structures placed", Time = 2 })
-		end
-	end
-end)
 
 Toggles.Camlock:OnChanged(function()
 	disconnect("Camlock")
@@ -8480,7 +8475,7 @@ MenuGroup:AddToggle("KeybindMenuOpen", {
 
 MenuGroup:AddToggle("ShowCustomCursor", {
 	Text = "Custom Cursor",
-	Default = true,
+	Default = false,
 	Callback = function(value)
 		Library.ShowCustomCursor = value
 	end,
@@ -8534,9 +8529,12 @@ end)
 Library.ToggleKeybind = Options.MenuKeybind
 
 ThemeManager:SetLibrary(Library)
--- Set default accent color to red
+-- Set default accent color to white and background to dark grey
 ThemeManager:SetDefaultTheme({
-	AccentColor = "ff0000" -- Red
+	AccentColor = "ffffff", -- White
+	BackgroundColor = "2b2b2b", -- Dark grey
+	MainColor = "1e1e1e", -- Dark grey panels
+	OutlineColor = "3d3d3d" -- Dark grey outline
 })
 SaveManager:SetLibrary(Library)
 SaveManager:IgnoreThemeSettings()
@@ -8714,7 +8712,7 @@ Library:OnUnload(function()
 end)
 
 Library:Notify({
-	Title = "♠ URIEL",
+	Title = "♠ XENO",
 	Description = "Script loaded successfully!",
 	Time = 2,
 })
