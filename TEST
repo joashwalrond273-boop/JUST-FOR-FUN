@@ -944,6 +944,8 @@ AutoArmorDeluxeGroup:AddCheckbox("ArmorCraftOnly", {
 	Default = false,
 })
 
+AutoArmorDeluxeGroup:AddDivider()
+
 AutoArmorDeluxeGroup:AddCheckbox("AtlanteanAutoSwap", {
 	Text = "Atlantean Auto Swap",
 	Default = false,
@@ -1013,7 +1015,7 @@ AdvanceHealGroup:AddToggle("AutoEatCustom", {
 })
 
 AdvanceHealGroup:AddCheckbox("QuickSwap", {
-	Text = "Quick Swap",
+	Text = "Multi Consume",
 	Default = false,
 })
 
@@ -1449,6 +1451,16 @@ ImmuneTab:AddSlider("QuickVanishThreshold", {
 	Compact = true,
 })
 
+-- Health Threshold slider is only visible while Quick Vanish is enabled
+do
+	local qvVisible = (Toggles.QuickVanish and Toggles.QuickVanish.Value) or false
+	if Options.QuickVanishThreshold then
+		Options.QuickVanishThreshold.Visible = qvVisible
+		if Options.QuickVanishThreshold.Holder then
+			Options.QuickVanishThreshold.Holder.Visible = qvVisible
+		end
+	end
+end
 
 MainRight:AddButton({
 	Text = "Low Ping Server",
@@ -8606,6 +8618,19 @@ end
 Toggles.QuickVanish:OnChanged(function()
 	disconnect("QuickVanish")
 	quickVanishTriggered = false
+	local qvVisible = Toggles.QuickVanish.Value
+	if Options.QuickVanishThreshold then
+		Options.QuickVanishThreshold.Visible = qvVisible
+		if Options.QuickVanishThreshold.Holder then
+			Options.QuickVanishThreshold.Holder.Visible = qvVisible
+		end
+	end
+	if ImmuneTab and ImmuneTab.Resize then
+		pcall(function() ImmuneTab:Resize() end)
+	end
+	if PlayerTabBox and PlayerTabBox.Resize then
+		pcall(function() PlayerTabBox:Resize() end)
+	end
 	if Toggles.QuickVanish.Value then
 		track("QuickVanish", RunService.Heartbeat:Connect(checkQuickVanish))
 		Library:Notify({ Title = "Quick Vanish", Description = "Enabled", Time = 2 })
