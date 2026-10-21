@@ -405,16 +405,6 @@ AutoArmorDeluxeGroup:AddSlider("ToiletBedSpeed", {
 
 AutoArmorDeluxeGroup:AddDivider()
 
-AutoArmorDeluxeGroup:AddCheckbox("ArmorEquipOnly", {
-	Text = "Equip Only Mode",
-	Default = false,
-})
-
-AutoArmorDeluxeGroup:AddCheckbox("ArmorCraftOnly", {
-	Text = "Craft Only",
-	Default = false,
-})
-
 AutoArmorDeluxeGroup:AddButton({
 	Text = "Bluesteel",
 	Func = function()
@@ -944,6 +934,16 @@ AutoArmorDeluxeGroup:AddDropdown("AutoArmorSlot", {
 
 AutoArmorDeluxeGroup:AddDivider()
 
+AutoArmorDeluxeGroup:AddCheckbox("ArmorEquipOnly", {
+	Text = "Equip Only Mode",
+	Default = false,
+})
+
+AutoArmorDeluxeGroup:AddCheckbox("ArmorCraftOnly", {
+	Text = "Craft Only",
+	Default = false,
+})
+
 AutoArmorDeluxeGroup:AddCheckbox("AtlanteanAutoSwap", {
 	Text = "Atlantean Auto Swap",
 	Default = false,
@@ -1009,6 +1009,11 @@ local AdvanceHealGroup = Tabs.Player:AddRightGroupbox("Advance Heal", "heart")
 
 AdvanceHealGroup:AddToggle("AutoEatCustom", {
 	Text = "Auto Eat",
+	Default = false,
+})
+
+AdvanceHealGroup:AddCheckbox("QuickSwap", {
+	Text = "Quick Swap",
 	Default = false,
 })
 
@@ -2014,15 +2019,27 @@ local function tryEatCustom()
 	end
 
 	if shouldEat then
-		local selectedFood = Options and Options.AutoEatFood and Options.AutoEatFood.Value
-		local foodId = FoodIdMap[selectedFood] or 210
 		lastEatCustom = tick()
-		pcall(function()
-			local args = {
-				foodId
-			}
-			game:GetService("ReplicatedStorage"):WaitForChild("remoteInterface"):WaitForChild("interactions"):WaitForChild("eat"):FireServer(unpack(args))
-		end)
+		-- Quick Swap: eat bananas and cabbages together
+		if Toggles.QuickSwap and Toggles.QuickSwap.Value then
+			for _, foodId in ipairs({ 210, 367 }) do
+				pcall(function()
+					local args = {
+						foodId
+					}
+					game:GetService("ReplicatedStorage"):WaitForChild("remoteInterface"):WaitForChild("interactions"):WaitForChild("eat"):FireServer(unpack(args))
+				end)
+			end
+		else
+			local selectedFood = Options and Options.AutoEatFood and Options.AutoEatFood.Value
+			local foodId = FoodIdMap[selectedFood] or 210
+			pcall(function()
+				local args = {
+					foodId
+				}
+				game:GetService("ReplicatedStorage"):WaitForChild("remoteInterface"):WaitForChild("interactions"):WaitForChild("eat"):FireServer(unpack(args))
+			end)
+		end
 	end
 end
 
@@ -2464,7 +2481,7 @@ CombatAutoPVP:AddSlider("LookDownSens", {
 })
 
 CombatAutoPVP:AddCheckbox("AutoJump", {
-	Text = "Auto Jump",
+	Text = "+ Auto Jump",
 	Default = false,
 })
 
