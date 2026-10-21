@@ -1025,7 +1025,7 @@ CombatAutoBlock:AddToggle("ImmortalMode", {
 })
 
 CombatAutoBlock:AddCheckbox("Advance", {
-	Text = "ADV System Aura",
+	Text = "Slot System",
 	Default = false,
 })
 
@@ -1142,6 +1142,11 @@ FunAttach:AddCheckbox("HideBeneathToggle", {
 
 FunAttach:AddCheckbox("FloatOverToggle", {
         Text = "Float Over",
+        Default = false,
+})
+
+FunAttach:AddCheckbox("FrontAttachToggle", {
+        Text = "Front Attach",
         Default = false,
 })
 
@@ -1272,6 +1277,11 @@ end)
 
 MainLeft:AddCheckbox("InfiniteBackpack", {
 	Text = "Infinite Backpack",
+	Default = false,
+})
+
+MainLeft:AddCheckbox("NoSlowdown", {
+	Text = "No Slowdown",
 	Default = false,
 })
 
@@ -2658,6 +2668,15 @@ CombatReach:AddToggle("Reach", {
 	Default = false,
 })
 
+CombatReach:AddSlider("ReachMaxTargets", {
+	Text = "Target More Enemies",
+	Default = 1,
+	Min = 1,
+	Max = 10,
+	Rounding = 0,
+	Compact = true,
+})
+
 CombatReach:AddDropdown("ReachTarget", {
 	Text = "Target Player",
 	Values = {"All"},
@@ -2684,15 +2703,6 @@ CombatReach:AddSlider("ReachAngle", {
 	Default = 35,
 	Min = 5,
 	Max = 120,
-	Rounding = 0,
-	Compact = true,
-})
-
-CombatReach:AddSlider("ReachMaxTargets", {
-	Text = "Target More Enemies",
-	Default = 1,
-	Min = 1,
-	Max = 10,
 	Rounding = 0,
 	Compact = true,
 })
@@ -4544,11 +4554,6 @@ MoveLeft:AddSlider("SpeedValue", {
 	Max = 50,
 	Rounding = 1,
 	Compact = true,
-})
-
-MoveLeft:AddCheckbox("NoSlowdown", {
-	Text = "No Slowdown",
-	Default = false,
 })
 
 updateSpeedBoostVisibility = function()
@@ -8172,6 +8177,8 @@ local function startAttach()
 					myRoot.CFrame = targetRoot.CFrame * CFrame.new(0, 6, 0) -- Over head
 				elseif Toggles.HideBeneathToggle.Value then
 					myRoot.CFrame = targetRoot.CFrame * CFrame.new(0, -6, 0) -- Below feet
+				elseif Toggles.FrontAttachToggle.Value then
+					myRoot.CFrame = targetRoot.CFrame * CFrame.new(0, 0, -2.5) -- In front of player
 				else
 					myRoot.CFrame = targetRoot.CFrame * CFrame.new(0, 0, 2.5) -- Behind player
 				end
@@ -8203,6 +8210,11 @@ Toggles.HideBeneathToggle:OnChanged(function()
 	end
 end)
 Toggles.FloatOverToggle:OnChanged(function()
+	if Toggles.AttachToggle.Value then
+		startAttach()
+	end
+end)
+Toggles.FrontAttachToggle:OnChanged(function()
 	if Toggles.AttachToggle.Value then
 		startAttach()
 	end
