@@ -1358,11 +1358,6 @@ MainLeft:AddCheckbox("FastPickup", {
 	Default = false,
 })
 
-MainLeft:AddCheckbox("KillVacuum", {
-	Text = "Kill Vacuum",
-	Default = false,
-})
-
 MainLeft:AddCheckbox("VacuumPickup", {
 	Text = "Vacuum (Far Reach)",
 	Default = false,
@@ -1977,59 +1972,6 @@ Toggles.FastPickup:OnChanged(function()
 		Library:Notify({ Title = "Auto Pickup", Description = "Disabled", Time = 2 })
 	end
 end)
-
--- Kill Vacuum: after hitting a player, vacuum nearby loot (steals loot of dead players)
-local triggerKillVacuum
-do
-	local KILL_VACUUM_RANGE = 200
-	local KILL_VACUUM_DURATION = 6
-	local killVacuumUntil = 0
-	local lastKillVacuum = 0
-
-	function triggerKillVacuum()
-		if Toggles.KillVacuum and Toggles.KillVacuum.Value then
-			killVacuumUntil = tick() + KILL_VACUUM_DURATION
-		end
-	end
-
-	local function runKillVacuum()
-		if tick() > killVacuumUntil then return end
-		if tick() - lastKillVacuum < 0.3 then return end
-		if not isAlive() or not TSG.PickupRemote then return end
-		local root = getRootPart()
-		if not root then return end
-		local rootPos = root.Position
-		local count = 0
-		for _, item in ipairs(CollectionService:GetTagged("DROPPED_ITEM")) do
-			if item and item.Parent and item:IsA("BasePart") then
-				local dist = (item.Position - rootPos).Magnitude
-				if dist <= KILL_VACUUM_RANGE then
-					count += 1
-					pcall(function() item.CFrame = root.CFrame end)
-					pcall(TSG.PickupRemote.FireServer, TSG.PickupRemote, item)
-					if count >= 40 then break end
-				end
-			end
-		end
-		lastKillVacuum = tick()
-	end
-
-	Toggles.KillVacuum:OnChanged(function()
-		disconnect("KillVacuum")
-		killVacuumUntil = 0
-		if Toggles.KillVacuum.Value then
-			if not TSG.PickupRemote then
-				Library:Notify({ Title = "Kill Vacuum", Description = "Pickup remote not found.", Time = 4 })
-				Toggles.KillVacuum:SetValue(false)
-				return
-			end
-			track("KillVacuum", RunService.Heartbeat:Connect(runKillVacuum))
-			Library:Notify({ Title = "Kill Vacuum", Description = "Enabled", Time = 2 })
-		else
-			Library:Notify({ Title = "Kill Vacuum", Description = "Disabled", Time = 2 })
-		end
-	end)
-end
 
 local FoodIdMap = {
 	["Cabbage"] = 210,
@@ -3185,7 +3127,6 @@ local function killAuraLoop()
 	lastKillAuraHit = tick()
 	local targetPlayer = Players:GetPlayerFromCharacter(nearestTarget)
 	if targetPlayer then
-		triggerKillVacuum()
 		-- Player: use Crypt encryption, fire (slot, encryptedUserId)
 		if Crypt then
 			pcall(function()
@@ -4646,7 +4587,6 @@ local function connectReachTool(tool)
 
 					local slot = tonumber(tool.Name) or 1
 					if targetInfo.isPlayer and targetInfo.player then
-						triggerKillVacuum()
 						local targetPlayer = targetInfo.player
 						if Crypt then
 							pcall(function()
@@ -8965,9 +8905,6 @@ Library:OnUnload(function()
 
 	if Toggles.FastPickup and Toggles.FastPickup.Value then
 		Toggles.FastPickup:SetValue(false)
-	end
-	if Toggles.KillVacuum and Toggles.KillVacuum.Value then
-		Toggles.KillVacuum:SetValue(false)
 	end
 
 	pcall(function()
