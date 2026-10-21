@@ -391,10 +391,7 @@ AutoArmorDeluxeGroup:AddButton({
 	end,
 })
 
-AutoArmorDeluxeGroup:AddCheckbox("ArmorEquipOnly", {
-	Text = "Equip Only Mode",
-	Default = false,
-})
+AutoArmorDeluxeGroup:AddDivider()
 
 AutoArmorDeluxeGroup:AddButton({
 	Text = "Bluesteel",
@@ -516,7 +513,7 @@ AutoArmorDeluxeGroup:AddButton({
 
 		if Toggles.ArmorEquipOnly and Toggles.ArmorEquipOnly.Value then
 			pcall(function()
-				equipHotbarRemote:InvokeServer("inventory", 6, 357)
+				equipHotbarRemote:InvokeServer("inventory", 5, 357)
 			end)
 			pcall(function()
 				equipClothingRemote:InvokeServer("inventory", 1, 354)
@@ -574,7 +571,7 @@ AutoArmorDeluxeGroup:AddButton({
 			task.wait(0.3)
 
 			pcall(function()
-				equipHotbarRemote:InvokeServer("inventory", 6, 357)
+				equipHotbarRemote:InvokeServer("inventory", 5, 357)
 			end)
 			pcall(function()
 				equipClothingRemote:InvokeServer("inventory", 1, 354)
@@ -806,7 +803,7 @@ AutoArmorDeluxeGroup:AddButton({
 		local playerPosition = root.Position
 
 		local buildRemote = TSG.BuildRemote
-		local craftRemote = TSG.CraftRemote
+		local craftRemote = resolvePath(ReplicatedStorage, "remoteInterface", "interactions", "craft")
 		local equipHotbarRemote = TSG.EquipHotbarRemote
 		local equipClothingRemote = TSG.EquipClothingRemote
 		local deleteRemote = TSG.DeleteStructureRemote
@@ -902,6 +899,11 @@ AutoArmorDeluxeGroup:AddButton({
 	end,
 })
 
+AutoArmorDeluxeGroup:AddCheckbox("ArmorEquipOnly", {
+	Text = "Equip Only Mode",
+	Default = false,
+})
+
 AutoArmorDeluxeGroup:AddDivider()
 
 AutoArmorDeluxeGroup:AddCheckbox("AtlanteanAutoSwap", {
@@ -930,7 +932,7 @@ Toggles.AtlanteanAutoSwap:OnChanged(function()
 			local delay = 1 / math.max(0.1, speed)
 			task.spawn(function()
 				pcall(function()
-					equipHotbarRemote:InvokeServer("inventory", 6, 357)
+					equipHotbarRemote:InvokeServer("inventory", 5, 357)
 				end)
 				task.wait(delay)
 				pcall(function()
@@ -2057,7 +2059,7 @@ CombatCamlock:AddSlider("OutlineStuds", {
 
 -- CONFIG TAB (RIGHT)
 CombatCamlockConfig:AddCheckbox("CamlockCameraLerp", {
-	Text = "Camera Interpolation",
+	Text = "Camera Lock",
 	Default = true,
 })
 
@@ -8529,12 +8531,9 @@ end)
 Library.ToggleKeybind = Options.MenuKeybind
 
 ThemeManager:SetLibrary(Library)
--- Set default accent color to white and background to dark grey
+-- Set default accent color to red
 ThemeManager:SetDefaultTheme({
-	AccentColor = "ffffff", -- White
-	BackgroundColor = "2b2b2b", -- Dark grey
-	MainColor = "1e1e1e", -- Dark grey panels
-	OutlineColor = "3d3d3d" -- Dark grey outline
+	AccentColor = "ff0000" -- Red
 })
 SaveManager:SetLibrary(Library)
 SaveManager:IgnoreThemeSettings()
