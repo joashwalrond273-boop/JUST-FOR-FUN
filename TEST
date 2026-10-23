@@ -5004,31 +5004,37 @@ MoveRight:AddCheckbox("CreateFarmland", {
 	Default = false,
 })
 
--- Places farmland at your position while you walk (10 = Shovel item ID)
+-- Fires once when enabled: creates farmland under your feet (10 = Shovel item ID)
 Toggles.CreateFarmland:OnChanged(function()
-	disconnect("CreateFarmland")
-	local lastPlacePosition = nil
-	if Toggles.CreateFarmland.Value then
-		track("CreateFarmland", RunService.Heartbeat:Connect(function()
-			if not Toggles.CreateFarmland.Value then return end
-			if not isAlive() then return end
+	if not Toggles.CreateFarmland.Value then return end
 
-			local root = getRootPart()
-			if not root then return end
+	local root = getRootPart()
+	if not root then return end
 
-			if lastPlacePosition and (root.Position - lastPlacePosition).Magnitude < 4 then return end
-			lastPlacePosition = root.Position
+	local interactions = ReplicatedStorage:FindFirstChild("remoteInterface")
+	interactions = interactions and interactions:FindFirstChild("interactions")
+	local createFarmlandRemote = interactions and interactions:FindFirstChild("createFarmland")
+	if not createFarmlandRemote then return end
 
-			local interactions = ReplicatedStorage:FindFirstChild("remoteInterface")
-			interactions = interactions and interactions:FindFirstChild("interactions")
-			local createFarmlandRemote = interactions and interactions:FindFirstChild("createFarmland")
-			if not createFarmlandRemote then return end
+	-- Ground directly under the player
+	local character = getCharacter()
+	local rayParams = RaycastParams.new()
+	pcall(function()
+		rayParams.FilterType = Enum.RaycastFilterType.Exclude
+	end)
+	rayParams.FilterDescendantsInstances = character and { character } or {}
 
-			pcall(function()
-				createFarmlandRemote:FireServer(10, root.Position, 0)
-			end)
-		end))
+	local position = root.Position - Vector3.new(0, 3, 0)
+	local ok, result = pcall(function()
+		return workspace:Raycast(root.Position - Vector3.new(0, 3, 0), Vector3.new(0, -100, 0), rayParams)
+	end)
+	if ok and result then
+		position = result.Position
 	end
+
+	pcall(function()
+		createFarmlandRemote:FireServer(10, position, 0)
+	end)
 end)
 
 updateFlightVisibility = function()
