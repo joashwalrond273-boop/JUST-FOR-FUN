@@ -362,32 +362,6 @@ local function getCraftDelay()
 	return 1 / math.max(0.1, speed)
 end
 
--- Waits for the furnace to appear under workspace.placedStructures (the layout Cobalt used)
-local function waitForFurnace(keywords, timeout)
-	local placed = workspace:FindFirstChild("placedStructures")
-	local deadline = os.clock() + (timeout or 3)
-
-	repeat
-		if placed then
-			for _, structure in ipairs(placed:GetChildren()) do
-				for _, child in ipairs(structure:GetChildren()) do
-					local name = child.Name:lower()
-					for _, keyword in ipairs(keywords) do
-						if name:find(keyword, 1, true) then
-							return child
-						end
-					end
-				end
-			end
-		end
-
-		task.wait(0.05)
-		placed = workspace:FindFirstChild("placedStructures")
-	until os.clock() > deadline
-
-	return nil
-end
-
 local AutoArmorDeluxeGroup = Tabs.Player:AddLeftGroupbox("Auto Armor Deluxe", "shield")
 
 AutoArmorDeluxeGroup:AddButton({
@@ -486,7 +460,15 @@ AutoArmorDeluxeGroup:AddButton({
 			)
 		end)
 
-		local furnace = waitForFurnace({ "bluesteel" })
+		local furnace = nil
+		pcall(function()
+			for _, structure in pairs(workspace.placedStructures:GetChildren()) do
+				if structure:FindFirstChild("Bluesteel Furnace") then
+					furnace = structure:FindFirstChild("Bluesteel Furnace")
+					break
+				end
+			end
+		end)
 
 		local itemsToCraft = {
 			{197, "Bluesteel Sword"},
@@ -580,7 +562,18 @@ AutoArmorDeluxeGroup:AddButton({
 			)
 		end)
 
-		local furnace = waitForFurnace({ "atlantean" })
+		local furnace = nil
+		pcall(function()
+			for _, structure in pairs(workspace.placedStructures:GetChildren()) do
+				for _, child in ipairs(structure:GetChildren()) do
+					if child.Name:lower():find("atlantean") then
+						furnace = child
+						break
+					end
+				end
+				if furnace then break end
+			end
+		end)
 
 		local itemsToCraft = {
 			{357, "Atlantean Sword"},
@@ -674,7 +667,15 @@ AutoArmorDeluxeGroup:AddButton({
 			)
 		end)
 
-		local furnace = waitForFurnace({ "darksteel" })
+		local furnace = nil
+		pcall(function()
+			for _, structure in pairs(workspace.placedStructures:GetChildren()) do
+				if structure:FindFirstChild("Darksteel Forge") then
+					furnace = structure:FindFirstChild("Darksteel Forge")
+					break
+				end
+			end
+		end)
 
 		local itemsToCraft = {
 			{267, "Darksteel Sword"},
@@ -770,7 +771,15 @@ AutoArmorDeluxeGroup:AddButton({
 
 		task.wait(getCraftDelay())
 
-		local furnace = waitForFurnace({ "asian", "samurai" })
+		local furnace = nil
+		pcall(function()
+			for _, structure in pairs(workspace.placedStructures:GetChildren()) do
+				if structure:FindFirstChild("Asian Forge") then
+					furnace = structure:FindFirstChild("Asian Forge")
+					break
+				end
+			end
+		end)
 
 		local itemsToCraft = {
 			{406, "Samurai Sword"},
@@ -866,7 +875,19 @@ AutoArmorDeluxeGroup:AddButton({
 
 		task.wait(getCraftDelay())
 
-		local furnace = waitForFurnace({ "vicanite", "juggernaut" })
+		local furnace = nil
+		pcall(function()
+			for _, structure in pairs(workspace.placedStructures:GetChildren()) do
+				for _, child in ipairs(structure:GetChildren()) do
+					local name = child.Name:lower()
+					if name:find("vicanite") or name:find("juggernaut") then
+						furnace = child
+						break
+					end
+				end
+				if furnace then break end
+			end
+		end)
 
 		local itemsToCraft = {
 			{545, "Juggernaut Sword"},
@@ -1158,11 +1179,6 @@ FunAttach:AddToggle("AttachToggle", {
         Default = false,
 })
 
-FunAttach:AddCheckbox("ResetFirst", {
-        Text = "Reset First",
-        Default = false,
-})
-
 local PlusKillPlayerToggle = FunAttach:AddCheckbox("PlusKillPlayerToggle", {
         Text = "Kill Player",
         Default = false,
@@ -1176,32 +1192,6 @@ FunAttach:AddDropdown("AttachPosition", {
         Values = { "Behind", "Front", "Float Over", "Hide Beneath", "Orbit" },
         Default = "Behind",
 })
-
-FunAttach:AddSlider("AttachOrbitSpeed", {
-        Text = "Orbit Speed",
-        Default = 3,
-        Min = 1,
-        Max = 30,
-        Rounding = 1,
-        Compact = true,
-})
-
-local function updateAttachOrbitVisibility()
-        local isOrbit = (Options.AttachPosition and Options.AttachPosition.Value) == "Orbit"
-
-        if Options.AttachOrbitSpeed then
-                Options.AttachOrbitSpeed.Visible = isOrbit
-                if Options.AttachOrbitSpeed.Holder then
-                        Options.AttachOrbitSpeed.Holder.Visible = isOrbit
-                end
-        end
-
-        if FunAttach and FunAttach.Resize then
-                pcall(function() FunAttach:Resize() end)
-        end
-end
-
-updateAttachOrbitVisibility()
 
 FunAttach:AddDropdown("AttachPlayerList", {
         Text = "Target Player",
@@ -1475,7 +1465,7 @@ do
 	end
 end
 
-ImmuneTab:AddCheckbox("InvisibleFlyToggle", {
+ImmuneTab:AddToggle("InvisibleFlyToggle", {
 	Text = "Invis Fly",
 	Default = false,
 })
@@ -4695,7 +4685,6 @@ setupReachTracking()
 -- MOVEMENT
 -- ==========================================
 local MoveLeft = Tabs.Movement:AddLeftGroupbox("Speed", "gauge")
-local MoveRight = Tabs.Movement:AddRightGroupbox("Farming TEST", "plane")
 
 MoveLeft:AddToggle("SpeedHack", {
 	Text = "Speed",
@@ -5004,106 +4993,6 @@ do
 	end)
 end
 
-MoveRight:AddCheckbox("CreateFarmland", {
-	Text = "Create Farmland",
-	Default = false,
-})
-
--- Fallback plot size if there is no farmland in the world yet
-local FARMLAND_CELL_SIZE = 4
-
--- Anchor + cell size taken from an existing plot so we line up with the game's grid
-local function getFarmlandGrid()
-	local farmland = workspace:FindFirstChild("farmland")
-	if farmland then
-		for _, plot in ipairs(farmland:GetChildren()) do
-			local part
-			if plot:IsA("BasePart") then
-				part = plot
-			elseif plot:IsA("Model") then
-				part = plot.PrimaryPart or plot:FindFirstChildWhichIsA("BasePart")
-			end
-
-			if part then
-				return part.Position, math.max(part.Size.X, part.Size.Z)
-			end
-		end
-	end
-	return Vector3.new(0, 0, 0), FARMLAND_CELL_SIZE
-end
-
--- Round to the nearest plot cell, the same way the shovel does
-local function snapToFarmlandGrid(position)
-	local anchor, cell = getFarmlandGrid()
-	if not cell or cell <= 0 then
-		cell = FARMLAND_CELL_SIZE
-	end
-
-	return Vector3.new(
-		anchor.X + math.floor((position.X - anchor.X) / cell + 0.5) * cell,
-		position.Y,
-		anchor.Z + math.floor((position.Z - anchor.Z) / cell + 0.5) * cell
-	)
-end
-
--- Fires when enabled, then keeps firing as you walk (10 = Shovel item ID)
-Toggles.CreateFarmland:OnChanged(function()
-	disconnect("CreateFarmland")
-	if not Toggles.CreateFarmland.Value then return end
-
-	local function placeFarmland()
-		local root = getRootPart()
-		if not root then return end
-
-		local interactions = ReplicatedStorage:FindFirstChild("remoteInterface")
-		interactions = interactions and interactions:FindFirstChild("interactions")
-		local createFarmlandRemote = interactions and interactions:FindFirstChild("createFarmland")
-		if not createFarmlandRemote then return end
-
-		-- Ground directly under the player
-		local character = getCharacter()
-		local rayParams = RaycastParams.new()
-		pcall(function()
-			rayParams.FilterType = Enum.RaycastFilterType.Exclude
-		end)
-		rayParams.FilterDescendantsInstances = character and { character } or {}
-
-		local position = root.Position - Vector3.new(0, 3, 0)
-		local ok, result = pcall(function()
-			return workspace:Raycast(root.Position - Vector3.new(0, 3, 0), Vector3.new(0, -100, 0), rayParams)
-		end)
-		if ok and result then
-			position = result.Position
-		end
-
-		position = snapToFarmlandGrid(position)
-
-		pcall(function()
-			createFarmlandRemote:FireServer(10, position, 0)
-		end)
-	end
-
-	placeFarmland()
-
-	local root = getRootPart()
-	local lastPlacePosition = root and snapToFarmlandGrid(root.Position)
-
-	track("CreateFarmland", RunService.Heartbeat:Connect(function()
-		if not Toggles.CreateFarmland.Value then return end
-		if not isAlive() then return end
-
-		local currentRoot = getRootPart()
-		if not currentRoot then return end
-
-		-- Only fire once we step into a new plot cell, so plots tile perfectly
-		local snapped = snapToFarmlandGrid(currentRoot.Position)
-		if lastPlacePosition and (snapped - lastPlacePosition).Magnitude < 1 then return end
-		lastPlacePosition = snapped
-
-		placeFarmland()
-	end))
-end)
-
 updateFlightVisibility = function()
 	local isInvisFly = (Toggles.InvisibleFlyToggle and Toggles.InvisibleFlyToggle.Value) or false
 
@@ -5236,9 +5125,6 @@ Toggles.Noclip:OnChanged(function()
 	end
 end)
 
-
-
-
 Toggles.SpeedHack:OnChanged(function()
 	disconnect("SpeedHack")
 	if Toggles.SpeedHack.Value then
@@ -5303,7 +5189,6 @@ Toggles.NoSlowdown:OnChanged(function()
 		Library:Notify({ Title = "No Slowdown", Description = "Disabled", Time = 2 })
 	end
 end)
-
 
 
 local originalMountSpeeds = {}
@@ -7252,51 +7137,6 @@ VisualFPS:AddToggle("DisableEffects", {
 	end,
 })
 
-VisualFPS:AddToggle("DebrisCleaner", {
-	Text = "Debris Cleaner",
-	Default = false,
-	Callback = function(state)
-		disconnect("DebrisCleaner")
-		if state then
-			local nextPass = 0
-			local function isCharacterPart(part)
-				for _, plr in ipairs(Players:GetPlayers()) do
-					local char = plr.Character
-					if char and part:IsDescendantOf(char) then
-						return true
-					end
-				end
-				return false
-			end
-			track("DebrisCleaner", RunService.Heartbeat:Connect(function()
-				if not (Toggles.DebrisCleaner and Toggles.DebrisCleaner.Value) then return end
-				if tick() < nextPass then return end
-				nextPass = tick() + 1
-				local removed = 0
-				for _, v in ipairs(workspace:GetChildren()) do
-					if not (Toggles.DebrisCleaner and Toggles.DebrisCleaner.Value) then break end
-					if v ~= workspace.Terrain and v:IsA("BasePart") and not v.Anchored then
-						if not isCharacterPart(v) then
-							pcall(function() v:Destroy() end)
-							removed = removed + 1
-						end
-					elseif v:IsA("Model") and v.PrimaryPart == nil and not v:FindFirstChildOfClass("Humanoid") and #v:GetChildren() == 0 then
-						pcall(function() v:Destroy() end)
-						removed = removed + 1
-					end
-					if removed >= 200 then
-						removed = 0
-						task.wait()
-					end
-				end
-			end))
-			Library:Notify({ Title = "Debris Cleaner", Description = "Enabled", Time = 2 })
-		else
-			Library:Notify({ Title = "Debris Cleaner", Description = "Disabled", Time = 2 })
-		end
-	end,
-})
-
 do
 	local PARTICLE_CLASSES = {
 		ParticleEmitter = true,
@@ -8358,8 +8198,7 @@ local function startAttach()
 				elseif attachPosition == "Front" then
 					myRoot.CFrame = targetRoot.CFrame * CFrame.new(0, 0, -2.5) -- In front of player
 				elseif attachPosition == "Orbit" then
-					local orbitSpeed = (Options.AttachOrbitSpeed and Options.AttachOrbitSpeed.Value) or 3
-					local angle = tick() * orbitSpeed
+					local angle = tick() * 3
 					myRoot.CFrame = targetRoot.CFrame * CFrame.new(math.cos(angle) * 3, 0, math.sin(angle) * 3) -- Circle around target
 				else
 					myRoot.CFrame = targetRoot.CFrame * CFrame.new(0, 0, 2.5) -- Behind player
@@ -8371,25 +8210,6 @@ local function startAttach()
 end
 
 Toggles.AttachToggle:OnChanged(function(value)
-	if value and Toggles.ResetFirst and Toggles.ResetFirst.Value then
-		local root = getRootPart()
-		if root then
-			lastDeathPosition = root.Position
-		end
-
-		local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
-		if remoteInterface then
-			local characterFolder = remoteInterface:FindFirstChild("character")
-			if characterFolder then
-				local resetRemote = characterFolder:FindFirstChild("reset")
-				if resetRemote then
-					pcall(function()
-						resetRemote:InvokeServer()
-					end)
-				end
-			end
-		end
-	end
 	startAttach()
 end)
 Toggles.PlusKillPlayerToggle:OnChanged(function()
@@ -8408,7 +8228,6 @@ Options.AttachPlayerList:OnChanged(function()
 	end
 end)
 Options.AttachPosition:OnChanged(function()
-	updateAttachOrbitVisibility()
 	if Toggles.AttachToggle.Value then
 		startAttach()
 	end
@@ -8809,9 +8628,6 @@ Library:OnUnload(function()
 	end)
 	if Toggles.RemoveParticles and Toggles.RemoveParticles.Value then
 		Toggles.RemoveParticles:SetValue(false)
-	end
-	if Toggles.DebrisCleaner and Toggles.DebrisCleaner.Value then
-		Toggles.DebrisCleaner:SetValue(false)
 	end
 	if Toggles.KillHeavyPostEffects and Toggles.KillHeavyPostEffects.Value then
 		Toggles.KillHeavyPostEffects:SetValue(false)
