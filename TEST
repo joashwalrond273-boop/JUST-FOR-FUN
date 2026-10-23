@@ -5004,6 +5004,43 @@ MoveRight:AddCheckbox("CreateFarmland", {
 	Default = false,
 })
 
+-- Fallback plot size if there is no farmland in the world yet
+local FARMLAND_CELL_SIZE = 4
+
+-- Anchor + cell size taken from an existing plot so we line up with the game's grid
+local function getFarmlandGrid()
+	local farmland = workspace:FindFirstChild("farmland")
+	if farmland then
+		for _, plot in ipairs(farmland:GetChildren()) do
+			local part
+			if plot:IsA("BasePart") then
+				part = plot
+			elseif plot:IsA("Model") then
+				part = plot.PrimaryPart or plot:FindFirstChildWhichIsA("BasePart")
+			end
+
+			if part then
+				return part.Position, math.max(part.Size.X, part.Size.Z)
+			end
+		end
+	end
+	return Vector3.new(0, 0, 0), FARMLAND_CELL_SIZE
+end
+
+-- Round to the nearest plot cell, the same way the shovel does
+local function snapToFarmlandGrid(position)
+	local anchor, cell = getFarmlandGrid()
+	if not cell or cell <= 0 then
+		cell = FARMLAND_CELL_SIZE
+	end
+
+	return Vector3.new(
+		anchor.X + math.floor((position.X - anchor.X) / cell + 0.5) * cell,
+		position.Y,
+		anchor.Z + math.floor((position.Z - anchor.Z) / cell + 0.5) * cell
+	)
+end
+
 -- Fires when enabled, then keeps firing as you walk (10 = Shovel item ID)
 Toggles.CreateFarmland:OnChanged(function()
 	disconnect("CreateFarmland")
@@ -5034,6 +5071,8 @@ Toggles.CreateFarmland:OnChanged(function()
 			position = result.Position
 		end
 
+		position = snapToFarmlandGrid(position)
+
 		pcall(function()
 			createFarmlandRemote:FireServer(10, position, 0)
 		end)
@@ -5042,7 +5081,7 @@ Toggles.CreateFarmland:OnChanged(function()
 	placeFarmland()
 
 	local root = getRootPart()
-	local lastPlacePosition = root and root.Position
+	local lastPlacePosition = root and snapToFarmlandGrid(root.Position)
 
 	track("CreateFarmland", RunService.Heartbeat:Connect(function()
 		if not Toggles.CreateFarmland.Value then return end
@@ -5051,8 +5090,10 @@ Toggles.CreateFarmland:OnChanged(function()
 		local currentRoot = getRootPart()
 		if not currentRoot then return end
 
-		if lastPlacePosition and (currentRoot.Position - lastPlacePosition).Magnitude < 4 then return end
-		lastPlacePosition = currentRoot.Position
+		-- Only fire once we step into a new plot cell, so plots tile perfectly
+		local snapped = snapToFarmlandGrid(currentRoot.Position)
+		if lastPlacePosition and (snapped - lastPlacePosition).Magnitude < 1 then return end
+		lastPlacePosition = snapped
 
 		placeFarmland()
 	end))
