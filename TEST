@@ -1175,7 +1175,7 @@ end
 
 FunAttach:AddDropdown("AttachPosition", {
         Text = "Attach Position",
-        Values = { "Behind", "Front", "Float Over", "Hide Beneath" },
+        Values = { "Behind", "Front", "Float Over", "Hide Beneath", "Orbit" },
         Default = "Behind",
 })
 
@@ -8344,6 +8344,9 @@ local function startAttach()
 					myRoot.CFrame = targetRoot.CFrame * CFrame.new(0, -6, 0) -- Below feet
 				elseif attachPosition == "Front" then
 					myRoot.CFrame = targetRoot.CFrame * CFrame.new(0, 0, -2.5) -- In front of player
+				elseif attachPosition == "Orbit" then
+					local angle = tick() * 3
+					myRoot.CFrame = targetRoot.CFrame * CFrame.new(math.cos(angle) * 3, 0, math.sin(angle) * 3) -- Circle around target
 				else
 					myRoot.CFrame = targetRoot.CFrame * CFrame.new(0, 0, 2.5) -- Behind player
 				end
