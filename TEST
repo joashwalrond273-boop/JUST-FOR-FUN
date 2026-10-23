@@ -5004,6 +5004,17 @@ MoveRight:AddCheckbox("CreateFarmland", {
 	Default = false,
 })
 
+MoveRight:AddCheckbox("PlantToggle", {
+	Text = "Plant",
+	Default = false,
+})
+
+MoveRight:AddDropdown("PlantSeed", {
+	Text = "Seed",
+	Values = { "Berries (113)", "Cabbage (210)" },
+	Default = "Cabbage (210)",
+})
+
 -- Fires when enabled, then keeps firing as you walk (10 = Shovel item ID)
 Toggles.CreateFarmland:OnChanged(function()
 	disconnect("CreateFarmland")
@@ -5055,6 +5066,106 @@ Toggles.CreateFarmland:OnChanged(function()
 		lastPlacePosition = currentRoot.Position
 
 		placeFarmland()
+	end))
+end)
+
+-- Seed ID for each option in the Seed dropdown
+local PLANT_SEEDS = {
+	["Berries (113)"] = 113,
+	["Cabbage (210)"] = 210,
+}
+
+local function getFarmlandPosition(instance)
+	if instance:IsA("BasePart") then
+		return instance.Position
+	elseif instance:IsA("Model") then
+		local primary = instance.PrimaryPart or instance:FindFirstChildWhichIsA("BasePart")
+		return primary and primary.Position
+	end
+	return nil
+end
+
+-- Plants the selected seed into the farmland at your feet as you walk (10 = Shovel item ID)
+Toggles.PlantToggle:OnChanged(function()
+	disconnect("Plant")
+	if not Toggles.PlantToggle.Value then return end
+
+	local planted = {}
+	local scanTimer = 0
+	local lastPlace = -1
+
+	track("Plant", RunService.Heartbeat:Connect(function(deltaTime)
+		if not Toggles.PlantToggle.Value then return end
+		if not isAlive() then return end
+
+		scanTimer = scanTimer + deltaTime
+		if scanTimer < 0.15 then return end
+		scanTimer = 0
+
+		local root = getRootPart()
+		if not root then return end
+
+		local interactions = ReplicatedStorage:FindFirstChild("remoteInterface")
+		interactions = interactions and interactions:FindFirstChild("interactions")
+		if not interactions then return end
+
+		local plantRemote = interactions:FindFirstChild("plant")
+		if not plantRemote then return end
+
+		local farmland = workspace:FindFirstChild("farmland")
+		if not farmland then return end
+
+		-- Nearest farmland we haven't planted yet, within reach of the player
+		local closest, closestDistance
+		for _, plot in ipairs(farmland:GetChildren()) do
+			if not planted[plot] then
+				local plotPosition = getFarmlandPosition(plot)
+				if plotPosition then
+					local delta = plotPosition - root.Position
+					local distance = Vector3.new(delta.X, 0, delta.Z).Magnitude
+					if distance <= 8 and (not closestDistance or distance < closestDistance) then
+						closest = plot
+						closestDistance = distance
+					end
+				end
+			end
+		end
+
+		if closest then
+			planted[closest] = true
+
+			local seed = PLANT_SEEDS[Options.PlantSeed and Options.PlantSeed.Value] or 210
+			pcall(function()
+				plantRemote:FireServer(10, seed, closest)
+			end)
+			return
+		end
+
+		-- No farmland here yet: create one under the player so there's something to plant
+		if os.clock() - lastPlace < 1 then return end
+		lastPlace = os.clock()
+
+		local createFarmlandRemote = interactions:FindFirstChild("createFarmland")
+		if not createFarmlandRemote then return end
+
+		local character = getCharacter()
+		local rayParams = RaycastParams.new()
+		pcall(function()
+			rayParams.FilterType = Enum.RaycastFilterType.Exclude
+		end)
+		rayParams.FilterDescendantsInstances = character and { character } or {}
+
+		local position = root.Position - Vector3.new(0, 3, 0)
+		local ok, result = pcall(function()
+			return workspace:Raycast(root.Position - Vector3.new(0, 3, 0), Vector3.new(0, -100, 0), rayParams)
+		end)
+		if ok and result then
+			position = result.Position
+		end
+
+		pcall(function()
+			createFarmlandRemote:FireServer(10, position, 0)
+		end)
 	end))
 end)
 
