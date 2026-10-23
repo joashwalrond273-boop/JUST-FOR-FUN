@@ -5010,17 +5010,52 @@ MoveRight:AddDropdown("FarmlandRange", {
 	Default = "Small (5)",
 })
 
--- Area size (in studs) that gets filled with farmland for each Range option
-local FARMLAND_SIZES = {
+-- How many farmland plots each Range option places, 4 studs apart around you
+local FARMLAND_COUNTS = {
 	["Huge (50)"] = 50,
 	["Medium (20)"] = 20,
 	["Small (5)"] = 5,
 }
 local FARMLAND_GRID_STEP = 4
 
-local function getFarmlandSize()
+local farmlandOffsetCache = {}
+
+local function getFarmlandCount()
 	local value = Options.FarmlandRange and Options.FarmlandRange.Value
-	return FARMLAND_SIZES[value] or 5
+	return FARMLAND_COUNTS[value] or 5
+end
+
+-- Grid offsets sorted nearest-first so a count of 5 is you + 4 studs ahead/behind/sides
+local function getFarmlandOffsets(count)
+	if farmlandOffsetCache[count] then
+		return farmlandOffsetCache[count]
+	end
+
+	local offsets = {}
+	for i = -8, 8 do
+		for j = -8, 8 do
+			table.insert(offsets, Vector3.new(i * FARMLAND_GRID_STEP, 0, j * FARMLAND_GRID_STEP))
+		end
+	end
+	table.sort(offsets, function(a, b)
+		return (a.X * a.X + a.Z * a.Z) < (b.X * b.X + b.Z * b.Z)
+	end)
+
+	local result = {}
+	for index = 1, math.min(count, #offsets) do
+		result[index] = offsets[index]
+	end
+
+	farmlandOffsetCache[count] = result
+	return result
+end
+
+local function getFarmlandExtent(offsets)
+	local extent = FARMLAND_GRID_STEP
+	for _, offset in ipairs(offsets) do
+		extent = math.max(extent, math.abs(offset.X), math.abs(offset.Z))
+	end
+	return extent
 end
 
 -- Fires when enabled, then keeps firing as you walk (10 = Shovel item ID)
@@ -5055,18 +5090,12 @@ Toggles.CreateFarmland:OnChanged(function()
 			groundY = result.Position.Y
 		end
 
-		-- Fill a whole area (size x size studs) around the player with farmland
-		local half = getFarmlandSize() / 2
-		local points = {}
-		for x = -half, half, FARMLAND_GRID_STEP do
-			for z = -half, half, FARMLAND_GRID_STEP do
-				table.insert(points, Vector3.new(origin.X + x, groundY, origin.Z + z))
-			end
-		end
+		local offsets = getFarmlandOffsets(getFarmlandCount())
 
 		task.spawn(function()
-			for index, point in ipairs(points) do
+			for index, offset in ipairs(offsets) do
 				if not Toggles.CreateFarmland.Value then return end
+				local point = Vector3.new(origin.X + offset.X, groundY, origin.Z + offset.Z)
 				pcall(function()
 					createFarmlandRemote:FireServer(10, point, 0)
 				end)
@@ -5089,8 +5118,8 @@ Toggles.CreateFarmland:OnChanged(function()
 		local currentRoot = getRootPart()
 		if not currentRoot then return end
 
-		-- Refill once we've moved half the area so coverage stays continuous
-		local step = math.max(getFarmlandSize() / 2, 5)
+		-- Refire once we've walked past the current patch so it keeps a trail
+		local step = getFarmlandExtent(getFarmlandOffsets(getFarmlandCount()))
 		if lastPlacePosition and (currentRoot.Position - lastPlacePosition).Magnitude < step then return end
 		lastPlacePosition = currentRoot.Position
 
