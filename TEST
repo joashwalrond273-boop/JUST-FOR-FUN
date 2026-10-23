@@ -329,14 +329,14 @@ local Window = Library:CreateWindow({
 })
 
 local Tabs = {
-	Main = Window:AddTab("CENTRAL", "badge-info"),
+	Main = Window:AddTab("MAIN", "layout-template"),
 	Player = Window:AddTab("PLAYER", "user"),
 	Combat = Window:AddTab("COMBAT", "swords"),
-	Movement = Window:AddTab("MOVEMENT", "move"),
-	Farming = Window:AddTab("AURAS", "sparkles"),
-	Teleport = Window:AddTab("TELEPORT", "map-pin"),
-	Visuals = Window:AddTab("ESP", "scan-eye"),
-	["UI Settings"] = Window:AddTab("UI MODULES", "settings"),
+	Movement = Window:AddTab("MOVEMENT", "wind"),
+	Farming = Window:AddTab("AURAS", "flame"),
+	Teleport = Window:AddTab("TELEPORT", "signpost"),
+	Visuals = Window:AddTab("ESP", "binoculars"),
+	["UI Settings"] = Window:AddTab("UI MODULES", "sliders-horizontal"),
 }
 Tabs["UI MODULES"] = Tabs["UI Settings"]
 
@@ -357,6 +357,11 @@ end
 -- ==========================================
 -- MAIN
 -- ==========================================
+local function getCraftDelay()
+	local speed = (Options.CraftSpeed and Options.CraftSpeed.Value) or 3
+	return 1 / math.max(0.1, speed)
+end
+
 local AutoArmorDeluxeGroup = Tabs.Player:AddLeftGroupbox("Auto Armor Deluxe", "shield")
 
 AutoArmorDeluxeGroup:AddButton({
@@ -479,7 +484,7 @@ AutoArmorDeluxeGroup:AddButton({
 				end)
 			end
 
-			task.wait(0.3)
+			task.wait(getCraftDelay())
 
 			if not (Toggles.ArmorCraftOnly and Toggles.ArmorCraftOnly.Value) then
 				pcall(function()
@@ -584,7 +589,7 @@ AutoArmorDeluxeGroup:AddButton({
 				end)
 			end
 
-			task.wait(0.3)
+			task.wait(getCraftDelay())
 
 			if not (Toggles.ArmorCraftOnly and Toggles.ArmorCraftOnly.Value) then
 				pcall(function()
@@ -686,7 +691,7 @@ AutoArmorDeluxeGroup:AddButton({
 				end)
 			end
 
-			task.wait(0.3)
+			task.wait(getCraftDelay())
 
 			if not (Toggles.ArmorCraftOnly and Toggles.ArmorCraftOnly.Value) then
 				pcall(function()
@@ -764,7 +769,7 @@ AutoArmorDeluxeGroup:AddButton({
 			)
 		end)
 
-		task.wait(0.5)
+		task.wait(getCraftDelay())
 
 		local furnace = nil
 		pcall(function()
@@ -790,7 +795,7 @@ AutoArmorDeluxeGroup:AddButton({
 				end)
 			end
 
-			task.wait(0.3)
+			task.wait(getCraftDelay())
 
 			if not (Toggles.ArmorCraftOnly and Toggles.ArmorCraftOnly.Value) then
 				pcall(function()
@@ -868,7 +873,7 @@ AutoArmorDeluxeGroup:AddButton({
 			)
 		end)
 
-		task.wait(0.5)
+		task.wait(getCraftDelay())
 
 		local furnace = nil
 		pcall(function()
@@ -898,7 +903,7 @@ AutoArmorDeluxeGroup:AddButton({
 				end)
 			end
 
-			task.wait(0.3)
+			task.wait(getCraftDelay())
 
 			if not (Toggles.ArmorCraftOnly and Toggles.ArmorCraftOnly.Value) then
 				pcall(function()
@@ -924,6 +929,15 @@ AutoArmorDeluxeGroup:AddButton({
 			Library:Notify({ Title = "Juggernaut", Description = "Forge not found", Time = 3 })
 		end
 	end,
+})
+
+AutoArmorDeluxeGroup:AddSlider("CraftSpeed", {
+	Text = "Craft Speed",
+	Default = 3,
+	Min = 1,
+	Max = 20,
+	Rounding = 0,
+	Compact = true,
 })
 
 AutoArmorDeluxeGroup:AddDropdown("AutoArmorSlot", {
@@ -2066,7 +2080,7 @@ end)
 local CombatLeft = Tabs.Combat:AddLeftGroupbox("Kill Aura", "swords")
 
 local AimbotTabBox = Tabs.Combat:AddRightTabbox()
-local CombatCamlock = AimbotTabBox:AddTab("Camlock", "video")
+local CombatCamlock = AimbotTabBox:AddTab("CAMLOCK", "focus")
 local CombatCamlockConfig = AimbotTabBox:AddTab("Config", "settings")
 
 -- CAMLOCK TAB (LEFT)
@@ -5780,7 +5794,7 @@ FarmChop:AddCheckbox("HighlightChop", {
 
 -- ==========================================
 local OreTabBox = Tabs.Farming:AddRightTabbox()
-local OreFarm = OreTabBox:AddTab("Ore Factory", "pickaxe")
+local OreFarm = OreTabBox:AddTab("Ore Factory", "drill")
 
 OreFarm:AddButton({
 	Text = "Reset Character",
@@ -5896,18 +5910,20 @@ OreFarm:AddButton({
    end,
 })
 
+OreFarm:AddDivider()
+
 OreFarm:AddToggle("OreESPToggle", {
 	Text = "Ore ESP",
 	Default = false,
 })
 
 OreFarm:AddCheckbox("OreESPRemoveNames", {
-	Text = "+ Remove Names",
+	Text = "Remove Names",
 	Default = false,
 })
 
 OreFarm:AddCheckbox("OreESPHighlights", {
-	Text = "Ore Highlights (Chams)",
+	Text = "Show Chams",
 	Default = false,
 })
 
@@ -7486,19 +7502,10 @@ VisualEnv:AddToggle("ClearWeather", {
 	Default = false,
 })
 
-VisualEnv:AddToggle("AlwaysDay", {
-	Text = "Always Day",
-	Default = false,
-})
-
-VisualEnv:AddToggle("Midday", {
-	Text = "Midday",
-	Default = false,
-})
-
-VisualEnv:AddToggle("AlwaysNight", {
-	Text = "Always Night",
-	Default = false,
+VisualEnv:AddDropdown("SelectTime", {
+	Text = "Select Time",
+	Values = {"Default", "Always Day", "Midday", "Always Night"},
+	Default = "Default",
 })
 
 VisualEnv:AddSlider("ControlTheHours", {
@@ -7939,51 +7946,24 @@ local function applyClockTime(newTime)
 	end))
 end
 
-Toggles.AlwaysDay:OnChanged(function()
-	if Toggles.AlwaysDay.Value then
-		Toggles.Midday:SetValue(false)
-		Toggles.AlwaysNight:SetValue(false)
+Options.SelectTime:OnChanged(function()
+	local value = Options.SelectTime.Value
+	if value == "Always Day" then
 		applyClockTime(14)
-		Library:Notify({ Title = "Always Day", Description = "Enabled", Time = 2 })
-	else
-		if not Toggles.Midday.Value and not Toggles.AlwaysNight.Value then
-			applyClockTime(nil)
-		end
-	end
-end)
-
-Toggles.Midday:OnChanged(function()
-	if Toggles.Midday.Value then
-		Toggles.AlwaysDay:SetValue(false)
-		Toggles.AlwaysNight:SetValue(false)
+		Library:Notify({ Title = "Select Time", Description = "Always Day", Time = 2 })
+	elseif value == "Midday" then
 		applyClockTime(12)
-		Library:Notify({ Title = "Midday", Description = "Enabled", Time = 2 })
-	else
-		if not Toggles.AlwaysDay.Value and not Toggles.AlwaysNight.Value then
-			applyClockTime(nil)
-		end
-	end
-end)
-
-Toggles.AlwaysNight:OnChanged(function()
-	if Toggles.AlwaysNight.Value then
-		Toggles.AlwaysDay:SetValue(false)
-		Toggles.Midday:SetValue(false)
+		Library:Notify({ Title = "Select Time", Description = "Midday", Time = 2 })
+	elseif value == "Always Night" then
 		applyClockTime(0)
-		Library:Notify({ Title = "Always Night", Description = "Enabled", Time = 2 })
+		Library:Notify({ Title = "Select Time", Description = "Always Night", Time = 2 })
 	else
-		if not Toggles.AlwaysDay.Value and not Toggles.Midday.Value then
-			applyClockTime(nil)
-		end
+		applyClockTime(nil)
 	end
 end)
 
 Options.ControlTheHours:OnChanged(function()
-	if Toggles.AlwaysDay.Value or Toggles.Midday.Value or Toggles.AlwaysNight.Value then
-		Toggles.AlwaysDay:SetValue(false)
-		Toggles.Midday:SetValue(false)
-		Toggles.AlwaysNight:SetValue(false)
-	end
+	Options.SelectTime:SetValue("Default")
 	applyClockTime(Options.ControlTheHours.Value)
 end)
 
@@ -8697,9 +8677,10 @@ end)
 Library.ToggleKeybind = Options.MenuKeybind
 
 ThemeManager:SetLibrary(Library)
--- Set default accent color to red
+-- Set default accent and outline color
 ThemeManager:SetDefaultTheme({
-	AccentColor = "ff0000" -- Red
+	AccentColor = "00f4ff", -- RGB(0, 244, 255)
+	OutlineColor = "242424" -- RGB(36, 36, 36)
 })
 SaveManager:SetLibrary(Library)
 SaveManager:IgnoreThemeSettings()
