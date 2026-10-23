@@ -5010,6 +5010,19 @@ MoveRight:AddDropdown("FarmlandRange", {
 	Default = "Small (5)",
 })
 
+-- Area size (in studs) that gets filled with farmland for each Range option
+local FARMLAND_SIZES = {
+	["Huge (50)"] = 50,
+	["Medium (20)"] = 20,
+	["Small (5)"] = 5,
+}
+local FARMLAND_GRID_STEP = 4
+
+local function getFarmlandSize()
+	local value = Options.FarmlandRange and Options.FarmlandRange.Value
+	return FARMLAND_SIZES[value] or 5
+end
+
 -- Fires when enabled, then keeps firing as you walk (10 = Shovel item ID)
 Toggles.CreateFarmland:OnChanged(function()
 	disconnect("CreateFarmland")
@@ -5024,6 +5037,8 @@ Toggles.CreateFarmland:OnChanged(function()
 		local createFarmlandRemote = interactions and interactions:FindFirstChild("createFarmland")
 		if not createFarmlandRemote then return end
 
+		local origin = root.Position
+
 		-- Ground directly under the player
 		local character = getCharacter()
 		local rayParams = RaycastParams.new()
@@ -5032,16 +5047,33 @@ Toggles.CreateFarmland:OnChanged(function()
 		end)
 		rayParams.FilterDescendantsInstances = character and { character } or {}
 
-		local position = root.Position - Vector3.new(0, 3, 0)
+		local groundY = origin.Y - 3
 		local ok, result = pcall(function()
-			return workspace:Raycast(root.Position - Vector3.new(0, 3, 0), Vector3.new(0, -100, 0), rayParams)
+			return workspace:Raycast(origin - Vector3.new(0, 3, 0), Vector3.new(0, -100, 0), rayParams)
 		end)
 		if ok and result then
-			position = result.Position
+			groundY = result.Position.Y
 		end
 
-		pcall(function()
-			createFarmlandRemote:FireServer(10, position, 0)
+		-- Fill a whole area (size x size studs) around the player with farmland
+		local half = getFarmlandSize() / 2
+		local points = {}
+		for x = -half, half, FARMLAND_GRID_STEP do
+			for z = -half, half, FARMLAND_GRID_STEP do
+				table.insert(points, Vector3.new(origin.X + x, groundY, origin.Z + z))
+			end
+		end
+
+		task.spawn(function()
+			for index, point in ipairs(points) do
+				if not Toggles.CreateFarmland.Value then return end
+				pcall(function()
+					createFarmlandRemote:FireServer(10, point, 0)
+				end)
+				if index % 10 == 0 then
+					task.wait()
+				end
+			end
 		end)
 	end
 
@@ -5054,17 +5086,11 @@ Toggles.CreateFarmland:OnChanged(function()
 		if not Toggles.CreateFarmland.Value then return end
 		if not isAlive() then return end
 
-		local selectedRange = (Options.FarmlandRange and Options.FarmlandRange.Value) or "Small (5)"
-		local step = 5
-		if selectedRange == "Huge (50)" then
-			step = 50
-		elseif selectedRange == "Medium (20)" then
-			step = 20
-		end
-
 		local currentRoot = getRootPart()
 		if not currentRoot then return end
 
+		-- Refill once we've moved half the area so coverage stays continuous
+		local step = math.max(getFarmlandSize() / 2, 5)
 		if lastPlacePosition and (currentRoot.Position - lastPlacePosition).Magnitude < step then return end
 		lastPlacePosition = currentRoot.Position
 
