@@ -5125,6 +5125,9 @@ Toggles.Noclip:OnChanged(function()
 	end
 end)
 
+
+
+
 Toggles.SpeedHack:OnChanged(function()
 	disconnect("SpeedHack")
 	if Toggles.SpeedHack.Value then
@@ -5306,8 +5309,6 @@ Toggles.PlusSpeedBoost:OnChanged(function()
 		Library:Notify({ Title = "Slot Boost", Description = "Disabled", Time = 2 })
 	end
 end)
-
-
 
 Toggles.SwimBoost:OnChanged(function()
 	disconnect("SwimBoost")
