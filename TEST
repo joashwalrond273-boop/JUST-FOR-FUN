@@ -333,7 +333,7 @@ local Tabs = {
 	Player = Window:AddTab("PLAYER", "user"),
 	Combat = Window:AddTab("COMBAT", "swords"),
 	Movement = Window:AddTab("MOVEMENT", "wind"),
-	Farming = Window:AddTab("AURAS", "sparkles"),
+	OreFactory = Window:AddTab("ORE FACTORY", "drill"),
 	Teleport = Window:AddTab("TELEPORT", "signpost"),
 	Visuals = Window:AddTab("ESP", "binoculars"),
 	["UI Settings"] = Window:AddTab("UI MODULES", "sliders-horizontal"),
@@ -5627,9 +5627,23 @@ if LocalPlayer.Character then
 end
 
 -- ==========================================
--- FARMING
+-- ORE FACTORY
 -- ==========================================
-local FarmMine = Tabs.Farming:AddLeftGroupbox("Auto Mine", "gem")
+local OreFarm = Tabs.OreFactory:AddLeftGroupbox("Ore Factory", "drill")
+
+local function makeAuraHighlight(defaultColor)
+	local h = Instance.new("Highlight")
+	h.FillColor = defaultColor or Color3.fromRGB(255, 0, 0)
+	h.OutlineColor = Color3.fromRGB(255, 255, 255)
+	h.FillTransparency = 0.65
+	h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+	h.Enabled = false
+	h.Parent = workspace
+	return h
+end
+
+-- ==========================================
+local FarmMine = Tabs.OreFactory:AddRightGroupbox("Auto Mine", "gem")
 
 FarmMine:AddToggle("AutoMine", {
 	Text = "Auto Mine",
@@ -5681,7 +5695,7 @@ FarmMine:AddCheckbox("HighlightMine", {
 })
 
 -- ==========================================
-local FarmChop = Tabs.Farming:AddLeftGroupbox("Auto Chop", "axe")
+local FarmChop = Tabs.OreFactory:AddRightGroupbox("Auto Chop", "axe")
 
 FarmChop:AddToggle("AutoChop", {
 	Text = "Auto Chop",
@@ -5733,7 +5747,7 @@ FarmChop:AddCheckbox("HighlightChop", {
 })
 
 -- ==========================================
-local FarmAI = Tabs.Farming:AddRightGroupbox("AI Aura", "zap")
+local FarmAI = Tabs.OreFactory:AddRightGroupbox("AI Aura", "zap")
 
 FarmAI:AddToggle("AiAura", {
 	Text = "AI Aura",
@@ -5764,35 +5778,6 @@ FarmAI:AddSlider("AiAuraRange", {
 	Min = 5,
 	Max = 60,
 	Rounding = 1,
-	Compact = true,
-})
-
--- ==========================================
-local OreTabBox = Tabs.Farming:AddRightTabbox()
-local OreESPGroup = OreTabBox:AddTab("Ore ESP", "scan-eye")
-local OreFarm = OreTabBox:AddTab("Ore Farm", "gem")
-
-OreESPGroup:AddToggle("OreESPToggle", {
-	Text = "Ore ESP",
-	Default = false,
-})
-
-OreESPGroup:AddCheckbox("OreESPRemoveNames", {
-	Text = "Remove Names",
-	Default = false,
-})
-
-OreESPGroup:AddCheckbox("OreESPHighlights", {
-	Text = "Show Chams",
-	Default = false,
-})
-
-OreESPGroup:AddSlider("OreESPDistance", {
-	Text = "Max Distance",
-	Default = 500,
-	Min = 50,
-	Max = 1500,
-	Rounding = 10,
 	Compact = true,
 })
 
@@ -5908,6 +5893,32 @@ OreFarm:AddButton({
                    end
            end
    end,
+})
+
+OreFarm:AddDivider()
+
+OreFarm:AddToggle("OreESPToggle", {
+	Text = "Ore ESP",
+	Default = false,
+})
+
+OreFarm:AddCheckbox("OreESPRemoveNames", {
+	Text = "Remove Names",
+	Default = false,
+})
+
+OreFarm:AddCheckbox("OreESPHighlights", {
+	Text = "Show Chams",
+	Default = false,
+})
+
+OreFarm:AddSlider("OreESPDistance", {
+	Text = "Max Distance",
+	Default = 500,
+	Min = 50,
+	Max = 1500,
+	Rounding = 10,
+	Compact = true,
 })
 
 -- ==========================================
@@ -6670,7 +6681,7 @@ local function scanOreTypesAndBuildUI()
 			oreESP.oreColorPickers[oreName] = colorPickerKey
 
 			local toggleKey = "OreESPFilter_" .. oreName
-			OreESPGroup:AddToggle(toggleKey, {
+			OreFarm:AddToggle(toggleKey, {
 				Text = oreName,
 				Default = true,
 			}):AddColorPicker(colorPickerKey, {
