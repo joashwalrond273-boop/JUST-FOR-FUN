@@ -5125,9 +5125,6 @@ Toggles.Noclip:OnChanged(function()
 	end
 end)
 
-
-
-
 Toggles.SpeedHack:OnChanged(function()
 	disconnect("SpeedHack")
 	if Toggles.SpeedHack.Value then
@@ -5556,20 +5553,6 @@ end))
 
 if LocalPlayer.Character then
 	setupAnimationSpeedHacks(LocalPlayer.Character)
-end
-
--- ==========================================
--- FARMING
--- ==========================================
-local function makeAuraHighlight(defaultColor)
-	local h = Instance.new("Highlight")
-	h.FillColor = defaultColor or Color3.fromRGB(255, 0, 0)
-	h.OutlineColor = Color3.fromRGB(255, 255, 255)
-	h.FillTransparency = 0.65
-	h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-	h.Enabled = false
-	h.Parent = workspace
-	return h
 end
 
 -- ==========================================
