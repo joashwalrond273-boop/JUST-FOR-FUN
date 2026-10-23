@@ -1181,19 +1181,10 @@ if PlusKillPlayerToggle.TextLabel then
         PlusKillPlayerToggle.TextLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
 end
 
-FunAttach:AddCheckbox("HideBeneathToggle", {
-        Text = "Hide Beneath",
-        Default = false,
-})
-
-FunAttach:AddCheckbox("FloatOverToggle", {
-        Text = "Float Over",
-        Default = false,
-})
-
-FunAttach:AddCheckbox("FrontAttachToggle", {
-        Text = "Front Attach",
-        Default = false,
+FunAttach:AddDropdown("AttachPosition", {
+        Text = "Attach Position",
+        Values = { "Behind", "Front", "Float Over", "Hide Beneath" },
+        Default = "Behind",
 })
 
 local TeleportGroup = Tabs.Main:AddRightGroupbox("TELEPORT", "map-pin")
@@ -8348,11 +8339,12 @@ local function startAttach()
 						part.CanCollide = false
 					end
 				end
-				if Toggles.FloatOverToggle.Value then
+				local attachPosition = (Options.AttachPosition and Options.AttachPosition.Value) or "Behind"
+				if attachPosition == "Float Over" then
 					myRoot.CFrame = targetRoot.CFrame * CFrame.new(0, 6, 0) -- Over head
-				elseif Toggles.HideBeneathToggle.Value then
+				elseif attachPosition == "Hide Beneath" then
 					myRoot.CFrame = targetRoot.CFrame * CFrame.new(0, -6, 0) -- Below feet
-				elseif Toggles.FrontAttachToggle.Value then
+				elseif attachPosition == "Front" then
 					myRoot.CFrame = targetRoot.CFrame * CFrame.new(0, 0, -2.5) -- In front of player
 				else
 					myRoot.CFrame = targetRoot.CFrame * CFrame.new(0, 0, 2.5) -- Behind player
@@ -8379,17 +8371,7 @@ Options.AttachPlayerList:OnChanged(function()
 		startAttach()
 	end
 end)
-Toggles.HideBeneathToggle:OnChanged(function()
-	if Toggles.AttachToggle.Value then
-		startAttach()
-	end
-end)
-Toggles.FloatOverToggle:OnChanged(function()
-	if Toggles.AttachToggle.Value then
-		startAttach()
-	end
-end)
-Toggles.FrontAttachToggle:OnChanged(function()
+Options.AttachPosition:OnChanged(function()
 	if Toggles.AttachToggle.Value then
 		startAttach()
 	end
@@ -8718,60 +8700,6 @@ MenuGroup:AddSlider("UICornerSlider", {
 	end
 })
 
--- Sliders: keep the slider name on the bar at all times, reveal the value only while dragging
-do
-	for _, element in pairs(Library.Options) do
-		if typeof(element) == "table" and element.Type == "Slider" and element.Holder and not element.valueLabel then
-			local bar = element.Holder:FindFirstChildWhichIsA("TextButton")
-			local valueLabel = bar and bar:FindFirstChildWhichIsA("TextLabel")
-			if bar and valueLabel then
-				element.valueLabel = valueLabel
-				element.dragging = false
-
-				local baseDisplay = element.Display
-				element.Display = function(self)
-					baseDisplay(self)
-					if self.dragging then
-						valueLabel.Visible = true
-					elseif self.Compact then
-						valueLabel.Text = tostring(self.Text)
-						valueLabel.Visible = true
-					else
-						valueLabel.Visible = false
-					end
-				end
-
-				local function isOverBar(Position)
-					local BarPos, BarSize = bar.AbsolutePosition, bar.AbsoluteSize
-					return Position.X >= BarPos.X and Position.X <= BarPos.X + BarSize.X
-						and Position.Y >= BarPos.Y and Position.Y <= BarPos.Y + BarSize.Y
-				end
-
-				local function isDragInput(UserInputType)
-					return UserInputType == Enum.UserInputType.MouseButton1
-						or UserInputType == Enum.UserInputType.Touch
-				end
-
-				UserInputService.InputBegan:Connect(function(Input)
-					if isDragInput(Input.UserInputType) and isOverBar(Input.Position) then
-						element.dragging = true
-						element:Display()
-					end
-				end)
-
-				UserInputService.InputEnded:Connect(function(Input)
-					if element.dragging and isDragInput(Input.UserInputType) then
-						element.dragging = false
-						element:Display()
-					end
-				end)
-
-				element:Display()
-			end
-		end
-	end
-end
-
 MenuGroup:AddLabel("Menu bind"):AddKeyPicker("MenuKeybind", {
 	Default = "RightShift",
 	NoUI = true,
@@ -8880,12 +8808,6 @@ Library:OnUnload(function()
 		Toggles.PlusKillPlayerToggle:SetValue(false)
 	end
 
-	if Toggles.HideBeneathToggle and Toggles.HideBeneathToggle.Value then
-		Toggles.HideBeneathToggle:SetValue(false)
-	end
-	if Toggles.FloatOverToggle and Toggles.FloatOverToggle.Value then
-		Toggles.FloatOverToggle:SetValue(false)
-	end
 	if Toggles.SpectateToggle and Toggles.SpectateToggle.Value then
 		Toggles.SpectateToggle:SetValue(false)
 	end
