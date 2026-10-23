@@ -1166,25 +1166,23 @@ FunAttach:AddToggle("AttachToggle", {
 })
 
 local PlusKillPlayerToggle = FunAttach:AddCheckbox("PlusKillPlayerToggle", {
-        Text = "+ Kill player",
+        Text = "Kill Player",
         Default = false,
 })
 if PlusKillPlayerToggle.TextLabel then
         PlusKillPlayerToggle.TextLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
 end
 
-FunAttach:AddDropdown("AttachPlayerList", {
-        Text = "Target Player",
-        Values = {},
-        Default = "",
-})
-
-FunAttach:AddDivider()
-
 FunAttach:AddDropdown("AttachPosition", {
         Text = "Attach Position",
         Values = { "Behind", "Front", "Float Over", "Hide Beneath" },
         Default = "Behind",
+})
+
+FunAttach:AddDropdown("AttachPlayerList", {
+        Text = "Target Player",
+        Values = {},
+        Default = "",
 })
 
 local TeleportGroup = Tabs.Main:AddRightGroupbox("TELEPORT", "map-pin")
