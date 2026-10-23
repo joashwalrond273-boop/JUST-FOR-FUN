@@ -1021,7 +1021,7 @@ AdvanceHealGroup:AddCheckbox("QuickSwap", {
 
 AdvanceHealGroup:AddDropdown("AutoEatFood", {
 	Text = "Food Type",
-	Values = {"Cabbage", "Banana", "Spicy Meal", "Hearty Stew", "Cabbage Meal"},
+	Values = {"Cabbage", "Banana", "Spicy Meal", "Hearty Stew", "Cabbage Meal", "Rib Meal", "Sandwich", "Egg", "Delicious Stew", "Carrot", "Berries", "Delicious Meal", "Spicy Fish Meal"},
 	Default = "Cabbage",
 })
 
@@ -1968,6 +1968,14 @@ local FoodIdMap = {
 	["Spicy Meal"] = 214,
 	["Hearty Stew"] = 217,
 	["Cabbage Meal"] = 213,
+	["Rib Meal"] = 24,
+	["Sandwich"] = 212,
+	["Egg"] = 272,
+	["Delicious Stew"] = 21,
+	["Carrot"] = 95,
+	["Berries"] = 113,
+	["Delicious Meal"] = 22,
+	["Spicy Fish Meal"] = 290,
 }
 
 local lastEatCustom = 0
@@ -2241,9 +2249,10 @@ CombatLeft:AddDropdown("KillAuraTarget", {
 	Default = "All",
 })
 
-CombatLeft:AddCheckbox("LowestHP", {
-	Text = "Lowest HP Kill",
-	Default = false,
+CombatLeft:AddDropdown("KillAuraPriority", {
+	Text = "Target Priority",
+	Values = {"Normal", "Lowest HP Kill", "Highest HP Kill"},
+	Default = "Normal",
 })
 
 CombatLeft:AddDropdown("KillAuraSlot", {
@@ -3077,9 +3086,13 @@ local function killAuraLoop()
 	end
 
 	local targetSetting = Options.KillAuraTarget and Options.KillAuraTarget.Value or "All"
-	local useLowestHP = Toggles.LowestHP and Toggles.LowestHP.Value
+	local priority = (Options.KillAuraPriority and Options.KillAuraPriority.Value) or "Normal"
+	local useLowestHP = priority == "Lowest HP Kill"
+	local useHighestHP = priority == "Highest HP Kill"
 	local lowestHealth = math.huge
 	local lowestHPTarget = nil
+	local highestHealth = -math.huge
+	local highestHPTarget = nil
 
 	-- Scan Players
 	for _, otherPlayer in ipairs(Players:GetPlayers()) do
@@ -3095,6 +3108,11 @@ local function killAuraLoop()
 								lowestHealth = otherHum.Health
 								lowestHPTarget = otherPlayer.Character
 							end
+						elseif useHighestHP then
+							if otherHum.Health > highestHealth then
+								highestHealth = otherHum.Health
+								highestHPTarget = otherPlayer.Character
+							end
 						elseif d < nearestDist then
 							nearestDist = d
 							nearestTarget = otherPlayer.Character
@@ -3107,6 +3125,8 @@ local function killAuraLoop()
 
 	if useLowestHP then
 		nearestTarget = lowestHPTarget
+	elseif useHighestHP then
+		nearestTarget = highestHPTarget
 	end
 
 	if not nearestTarget then
