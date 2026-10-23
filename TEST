@@ -54,7 +54,6 @@ local updateFlightVisibility
 local updateImmortalModeVisibility
 local updatePhantomModeVisibility
 local updateSwimBoostVisibility
-local toggleSpectate
 local isTeammate
 
 Library.ShowToggleFrameInKeybinds = true
@@ -1166,14 +1165,6 @@ FunAttach:AddToggle("AttachToggle", {
         Default = false,
 })
 
-local PlusKillPlayerToggle = FunAttach:AddCheckbox("PlusKillPlayerToggle", {
-        Text = "+ Kill player",
-        Default = false,
-})
-if PlusKillPlayerToggle.TextLabel then
-        PlusKillPlayerToggle.TextLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
-end
-
 FunAttach:AddDropdown("AttachPlayerList", {
         Text = "Target Player",
         Values = {},
@@ -1181,6 +1172,14 @@ FunAttach:AddDropdown("AttachPlayerList", {
 })
 
 FunAttach:AddDivider()
+
+local PlusKillPlayerToggle = FunAttach:AddCheckbox("PlusKillPlayerToggle", {
+        Text = "+ Kill player",
+        Default = false,
+})
+if PlusKillPlayerToggle.TextLabel then
+        PlusKillPlayerToggle.TextLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
+end
 
 FunAttach:AddDropdown("AttachPosition", {
         Text = "Attach Position",
@@ -1246,17 +1245,15 @@ TeleportGroup:AddButton({
 
 local SpectateGroup = Tabs.Main:AddRightGroupbox("SPECTATE", "scan-eye")
 
+SpectateGroup:AddToggle("SpectateToggle", {
+	Text = "Spectate",
+	Default = false,
+})
+
 SpectateGroup:AddDropdown("SpectatePlayerList", {
 	Text = "Select Player",
 	Values = {},
 	Default = "",
-})
-
-SpectateGroup:AddButton({
-	Text = "Spectate",
-	Func = function()
-		toggleSpectate()
-	end,
 })
 
 local FunLeft = Tabs.Main:AddRightGroupbox("FLING A BULLY", "swords")
@@ -8404,13 +8401,11 @@ track("SpectatePlayerAdded", Players.PlayerAdded:Connect(updateSpectatePlayerLis
 track("SpectatePlayerRemoving", Players.PlayerRemoving:Connect(updateSpectatePlayerList))
 task.spawn(updateSpectatePlayerList)
 
-local spectating = false
-
 local function startSpectate()
 	disconnect("SpectateLoop")
-	if spectating then
+	if Toggles.SpectateToggle.Value then
 		track("SpectateLoop", RunService.Heartbeat:Connect(function()
-			if not spectating then return end
+			if not Toggles.SpectateToggle.Value then return end
 
 			local targetName = Options.SpectatePlayerList.Value
 			local targetPlayer = targetName and Players:FindFirstChild(targetName)
@@ -8437,18 +8432,17 @@ local function startSpectate()
 	end
 end
 
-function toggleSpectate()
-	spectating = not spectating
+Toggles.SpectateToggle:OnChanged(function()
 	startSpectate()
-	if spectating then
+	if Toggles.SpectateToggle.Value then
 		Library:Notify({ Title = "SPECTATE", Description = "Spectating: " .. tostring(Options.SpectatePlayerList.Value), Time = 2 })
 	else
 		Library:Notify({ Title = "SPECTATE", Description = "Spectate Disabled", Time = 2 })
 	end
-end
+end)
 
 Options.SpectatePlayerList:OnChanged(function()
-	if spectating then
+	if Toggles.SpectateToggle.Value then
 		startSpectate()
 	end
 end)
@@ -8814,9 +8808,8 @@ Library:OnUnload(function()
 		Toggles.PlusKillPlayerToggle:SetValue(false)
 	end
 
-	if spectating then
-		spectating = false
-		startSpectate()
+	if Toggles.SpectateToggle and Toggles.SpectateToggle.Value then
+		Toggles.SpectateToggle:SetValue(false)
 	end
 	if Toggles.TouchFling and Toggles.TouchFling.Value then
 		Toggles.TouchFling:SetValue(false)
