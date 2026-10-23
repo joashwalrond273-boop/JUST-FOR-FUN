@@ -333,7 +333,6 @@ local Tabs = {
 	Player = Window:AddTab("PLAYER", "user"),
 	Combat = Window:AddTab("COMBAT", "swords"),
 	Movement = Window:AddTab("MOVEMENT", "wind"),
-	FarmHub = Window:AddTab("FARMING", "sprout"),
 	Farming = Window:AddTab("AURAS", "flame"),
 	Teleport = Window:AddTab("TELEPORT", "signpost"),
 	Visuals = Window:AddTab("ESP", "binoculars"),
@@ -5685,9 +5684,6 @@ local function makeAuraHighlight(defaultColor)
 	h.Parent = workspace
 	return h
 end
-
--- ==========================================
-local NewFarmGroup = Tabs.FarmHub:AddLeftGroupbox("Farming", "sprout")
 
 -- ==========================================
 local FarmAI = Tabs.Farming:AddLeftGroupbox("AI Aura", "zap")
