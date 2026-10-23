@@ -4723,7 +4723,7 @@ MoveSwimBoost:AddSlider("SwimBoostValue", {
 MoveSwimBoost:AddDivider()
 
 MoveSwimBoost:AddDropdown("FastPVPDirection", {
-	Text = "Fast PVP",
+	Text = "Sink Function",
 	Values = {"Sink Fast PVP", "Rise Fast PVP"},
 	Default = {},
 	Multi = true,
@@ -5648,12 +5648,6 @@ FarmAI:AddDropdown("AiAuraSlot", {
 	Default = "1",
 })
 
-FarmAI:AddDropdown("AiAuraTarget", {
-	Text = "Target AI",
-	Values = {"All"},
-	Default = "All",
-})
-
 FarmAI:AddSlider("AiAuraRange", {
 	Text = "Range",
 	Default = 30,
@@ -5786,7 +5780,7 @@ FarmChop:AddCheckbox("HighlightChop", {
 
 -- ==========================================
 local OreTabBox = Tabs.Farming:AddRightTabbox()
-local OreFarm = OreTabBox:AddTab("Ore Factory", "factory")
+local OreFarm = OreTabBox:AddTab("Ore Factory", "pickaxe")
 
 OreFarm:AddButton({
 	Text = "Reset Character",
@@ -6287,74 +6281,6 @@ end
 -- ==========================================
 local lastAiAuraHit = 0
 
-local function getAIList()
-	local list = { "All" }
-	local seen = {}
-
-	local function addFolder(folder)
-		if not folder then return end
-		for _, ai in ipairs(folder:GetChildren()) do
-			local name = ai.Name
-			if name and name ~= "" and not seen[name] then
-				seen[name] = true
-				table.insert(list, name)
-			end
-		end
-	end
-
-	addFolder(workspace:FindFirstChild("AI_Server"))
-	addFolder(workspace:FindFirstChild("AI_Client"))
-
-	table.sort(list, function(a, b)
-		if a == "All" then return true end
-		if b == "All" then return false end
-		return a < b
-	end)
-
-	return list
-end
-
-local aiAuraTargetListCache = nil
-
-local function refreshAiAuraTargetList()
-	if not Options.AiAuraTarget then return end
-	local list = getAIList()
-	local signature = table.concat(list, "\1")
-	if signature == aiAuraTargetListCache then return end
-	aiAuraTargetListCache = signature
-
-	local current = Options.AiAuraTarget.Value
-	Options.AiAuraTarget:SetValues(list)
-	if table.find(list, current) then
-		Options.AiAuraTarget:SetValue(current)
-	else
-		Options.AiAuraTarget:SetValue("All")
-	end
-end
-
-local function hookAiAuraTargetFolder()
-	disconnect("AiAuraTargetFolderAdded")
-	disconnect("AiAuraTargetFolderRemoved")
-	local folder = workspace:FindFirstChild("AI_Server") or workspace:FindFirstChild("AI_Client")
-	if not folder then return end
-	track("AiAuraTargetFolderAdded", folder.ChildAdded:Connect(function()
-		task.wait(0.25)
-		refreshAiAuraTargetList()
-	end))
-	track("AiAuraTargetFolderRemoved", folder.ChildRemoved:Connect(function()
-		task.wait(0.25)
-		refreshAiAuraTargetList()
-	end))
-end
-
-local function isAiAuraTargetAllowed(ai)
-	local setting = Options.AiAuraTarget and Options.AiAuraTarget.Value
-	if not setting or setting == "All" then
-		return true
-	end
-	return ai.Name == setting
-end
-
 local function aiAuraLoop()
 	if not isAlive() or tick() - lastAiAuraHit < 0.25 then return end
 	local root = getRootPart()
@@ -6370,7 +6296,7 @@ local function aiAuraLoop()
 		for _, ai in ipairs(aiServer:GetChildren()) do
 			local aiHRP = ai:FindFirstChild("HumanoidRootPart") or ai.PrimaryPart
 			local hum = ai:FindFirstChildOfClass("Humanoid")
-			if ai:IsA("Model") and aiHRP and (not hum or hum.Health > 0) and isAiAuraTargetAllowed(ai) then
+			if ai:IsA("Model") and aiHRP and (not hum or hum.Health > 0) then
 				local d = (aiHRP.Position - pos).Magnitude
 				if d < dist then
 					closest, dist = ai, d
@@ -6385,7 +6311,7 @@ local function aiAuraLoop()
 		for _, ai in ipairs(aiClient:GetChildren()) do
 			local aiHRP = ai:FindFirstChild("HumanoidRootPart") or ai.PrimaryPart
 			local hum = ai:FindFirstChildOfClass("Humanoid")
-			if ai:IsA("Model") and aiHRP and (not hum or hum.Health > 0) and isAiAuraTargetAllowed(ai) then
+			if ai:IsA("Model") and aiHRP and (not hum or hum.Health > 0) then
 				local d = (aiHRP.Position - pos).Magnitude
 				if d < dist then
 					closest, dist = ai, d
@@ -6422,17 +6348,6 @@ Toggles.AiAura:OnChanged(function()
 		isAiAuraRunning = false
 	end
 end)
-
-refreshAiAuraTargetList()
-hookAiAuraTargetFolder()
-
-track("AiAuraTargetWorkspace", workspace.ChildAdded:Connect(function(child)
-	if child.Name == "AI_Server" or child.Name == "AI_Client" then
-		task.wait(0.25)
-		refreshAiAuraTargetList()
-		hookAiAuraTargetFolder()
-	end
-end))
 
 do
 	local aiSlotSaved = {
