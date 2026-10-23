@@ -1179,6 +1179,11 @@ FunAttach:AddToggle("AttachToggle", {
         Default = false,
 })
 
+FunAttach:AddCheckbox("ResetFirst", {
+        Text = "Reset First",
+        Default = false,
+})
+
 local PlusKillPlayerToggle = FunAttach:AddCheckbox("PlusKillPlayerToggle", {
         Text = "Kill Player",
         Default = false,
@@ -8319,7 +8324,28 @@ local function startAttach()
 	end
 end
 
-Toggles.AttachToggle:OnChanged(startAttach)
+Toggles.AttachToggle:OnChanged(function(value)
+	if value and Toggles.ResetFirst and Toggles.ResetFirst.Value then
+		local root = getRootPart()
+		if root then
+			lastDeathPosition = root.Position
+		end
+
+		local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
+		if remoteInterface then
+			local characterFolder = remoteInterface:FindFirstChild("character")
+			if characterFolder then
+				local resetRemote = characterFolder:FindFirstChild("reset")
+				if resetRemote then
+					pcall(function()
+						resetRemote:InvokeServer()
+					end)
+				end
+			end
+		end
+	end
+	startAttach()
+end)
 Toggles.PlusKillPlayerToggle:OnChanged(function()
 	if Toggles.PlusKillPlayerToggle.TextLabel then
 		Toggles.PlusKillPlayerToggle.TextLabel.TextColor3 = Toggles.PlusKillPlayerToggle.Value and Color3.fromRGB(255, 100, 100) or Color3.fromRGB(255, 0, 0)
