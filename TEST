@@ -1470,6 +1470,32 @@ do
 	end
 end
 
+ImmuneTab:AddToggle("InvisibleFlyToggle", {
+	Text = "Invis Fly",
+	Default = false,
+})
+
+ImmuneTab:AddSlider("InvisibleFlySpeedSlider", {
+	Text = "Invis Slider",
+	Min = 1,
+	Max = 15,
+	Default = 5,
+	Rounding = 1,
+	Compact = true,
+})
+
+local invisFillLabel = ImmuneTab:AddLabel("Highlight Fill Color")
+invisFillLabel:AddColorPicker("InvisibleFlyFillColor", {
+	Default = Color3.fromRGB(0, 255, 0),
+	Title = "Invisible Fly Highlight Fill Color",
+})
+
+local invisOutlineLabel = ImmuneTab:AddLabel("Highlight Outline Color")
+invisOutlineLabel:AddColorPicker("InvisibleFlyOutlineColor", {
+	Default = Color3.fromRGB(255, 255, 255),
+	Title = "Invisible Fly Highlight Outline Color",
+})
+
 MainRight:AddButton({
 	Text = "Low Ping Server",
 	Func = function()
@@ -4664,7 +4690,7 @@ setupReachTracking()
 -- MOVEMENT
 -- ==========================================
 local MoveLeft = Tabs.Movement:AddLeftGroupbox("Speed", "gauge")
-local MoveRight = Tabs.Movement:AddRightGroupbox("Flight", "plane")
+local MoveRight = Tabs.Movement:AddRightGroupbox("Farming TEST", "plane")
 
 MoveLeft:AddToggle("SpeedHack", {
 	Text = "Speed",
@@ -4973,56 +4999,47 @@ do
 	end)
 end
 
-MoveRight:AddToggle("Fly", {
-	Text = "Fly",
+MoveRight:AddCheckbox("CreateFarmland", {
+	Text = "Create Farmland",
 	Default = false,
 })
 
-MoveRight:AddToggle("InvisibleFlyToggle", {
-	Text = "Invis Fly",
-	Default = false,
+MoveRight:AddDropdown("SelectTool", {
+	Text = "Select Tool",
+	Values = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" },
+	Default = "1",
 })
 
-MoveRight:AddSlider("FlySpeed", {
-	Text = "Fly Speed",
-	Default = 50,
-	Min = 10,
-	Max = 150,
-	Rounding = 0,
-	Compact = true,
-})
+-- Places farmland at your position while you walk
+Toggles.CreateFarmland:OnChanged(function()
+	disconnect("CreateFarmland")
+	local lastPlacePosition = nil
+	if Toggles.CreateFarmland.Value then
+		track("CreateFarmland", RunService.Heartbeat:Connect(function()
+			if not Toggles.CreateFarmland.Value then return end
+			if not isAlive() then return end
 
-MoveRight:AddSlider("InvisibleFlySpeedSlider", {
-	Text = "Invis Slider",
-	Min = 1,
-	Max = 15,
-	Default = 5,
-	Rounding = 1,
-	Compact = true,
-})
+			local root = getRootPart()
+			if not root then return end
 
-local invisFillLabel = MoveRight:AddLabel("Highlight Fill Color")
-invisFillLabel:AddColorPicker("InvisibleFlyFillColor", {
-	Default = Color3.fromRGB(0, 255, 0),
-	Title = "Invisible Fly Highlight Fill Color",
-})
+			if lastPlacePosition and (root.Position - lastPlacePosition).Magnitude < 4 then return end
+			lastPlacePosition = root.Position
 
-local invisOutlineLabel = MoveRight:AddLabel("Highlight Outline Color")
-invisOutlineLabel:AddColorPicker("InvisibleFlyOutlineColor", {
-	Default = Color3.fromRGB(255, 255, 255),
-	Title = "Invisible Fly Highlight Outline Color",
-})
+			local interactions = ReplicatedStorage:FindFirstChild("remoteInterface")
+			interactions = interactions and interactions:FindFirstChild("interactions")
+			local createFarmlandRemote = interactions and interactions:FindFirstChild("createFarmland")
+			if not createFarmlandRemote then return end
+
+			local slot = tonumber(Options.SelectTool and Options.SelectTool.Value) or 1
+			pcall(function()
+				createFarmlandRemote:FireServer(slot, root.Position, 0)
+			end)
+		end))
+	end
+end)
 
 updateFlightVisibility = function()
-	local isFly = (Toggles.Fly and Toggles.Fly.Value) or false
 	local isInvisFly = (Toggles.InvisibleFlyToggle and Toggles.InvisibleFlyToggle.Value) or false
-
-	if Options.FlySpeed then
-		Options.FlySpeed.Visible = isFly
-		if Options.FlySpeed.Holder then
-			Options.FlySpeed.Holder.Visible = isFly
-		end
-	end
 
 	if Options.InvisibleFlySpeedSlider then
 		Options.InvisibleFlySpeedSlider.Visible = isInvisFly
@@ -5045,7 +5062,12 @@ updateFlightVisibility = function()
 		end
 	end
 
-	MoveRight:Resize()
+	if ImmuneTab and ImmuneTab.Resize then
+		pcall(function() ImmuneTab:Resize() end)
+	end
+	if PlayerTabBox and PlayerTabBox.Resize then
+		pcall(function() PlayerTabBox:Resize() end)
+	end
 end
 
 updateFlightVisibility()
@@ -5446,49 +5468,6 @@ local flyInputEnded = UserInputService.InputEnded:Connect(function(input)
 end)
 track("FlyInputBegan", flyInputBegan)
 track("FlyInputEnded", flyInputEnded)
-
-Toggles.Fly:OnChanged(function()
-	if updateFlightVisibility then
-		updateFlightVisibility()
-	end
-	disconnect("Fly")
-	if Toggles.Fly.Value then
-		track("Fly", RunService.Heartbeat:Connect(function()
-			if not isAlive() then
-				return
-			end
-			local root = getRootPart()
-			if not root then
-				return
-			end
-			local cam = workspace.CurrentCamera
-			local direction = Vector3.zero
-			if flyKeys.W then
-				direction += cam.CFrame.LookVector
-			end
-			if flyKeys.S then
-				direction -= cam.CFrame.LookVector
-			end
-			if flyKeys.A then
-				direction -= cam.CFrame.RightVector
-			end
-			if flyKeys.D then
-				direction += cam.CFrame.RightVector
-			end
-			if flyKeys.Space then
-				direction += Vector3.yAxis
-			end
-			if flyKeys.LeftControl or flyKeys.LeftShift then
-				direction -= Vector3.yAxis
-			end
-			if direction.Magnitude > 0 then
-				root.Velocity = direction.Unit * Options.FlySpeed.Value
-			else
-				root.Velocity = Vector3.zero
-			end
-		end))
-	end
-end)
 
 Toggles.MountFly:OnChanged(function()
 	disconnect("MountFly")
