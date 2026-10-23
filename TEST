@@ -5004,6 +5004,12 @@ MoveRight:AddCheckbox("CreateFarmland", {
 	Default = false,
 })
 
+MoveRight:AddDropdown("FarmlandRange", {
+	Text = "Range",
+	Values = { "Huge (50)", "Medium (20)", "Small (5)" },
+	Default = "Small (5)",
+})
+
 -- Fires when enabled, then keeps firing as you walk (10 = Shovel item ID)
 Toggles.CreateFarmland:OnChanged(function()
 	disconnect("CreateFarmland")
@@ -5048,10 +5054,18 @@ Toggles.CreateFarmland:OnChanged(function()
 		if not Toggles.CreateFarmland.Value then return end
 		if not isAlive() then return end
 
+		local selectedRange = (Options.FarmlandRange and Options.FarmlandRange.Value) or "Small (5)"
+		local step = 5
+		if selectedRange == "Huge (50)" then
+			step = 50
+		elseif selectedRange == "Medium (20)" then
+			step = 20
+		end
+
 		local currentRoot = getRootPart()
 		if not currentRoot then return end
 
-		if lastPlacePosition and (currentRoot.Position - lastPlacePosition).Magnitude < 4 then return end
+		if lastPlacePosition and (currentRoot.Position - lastPlacePosition).Magnitude < step then return end
 		lastPlacePosition = currentRoot.Position
 
 		placeFarmland()
