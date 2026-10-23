@@ -1165,14 +1165,6 @@ FunAttach:AddToggle("AttachToggle", {
         Default = false,
 })
 
-FunAttach:AddDropdown("AttachPlayerList", {
-        Text = "Target Player",
-        Values = {},
-        Default = "",
-})
-
-FunAttach:AddDivider()
-
 local PlusKillPlayerToggle = FunAttach:AddCheckbox("PlusKillPlayerToggle", {
         Text = "+ Kill player",
         Default = false,
@@ -1180,6 +1172,14 @@ local PlusKillPlayerToggle = FunAttach:AddCheckbox("PlusKillPlayerToggle", {
 if PlusKillPlayerToggle.TextLabel then
         PlusKillPlayerToggle.TextLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
 end
+
+FunAttach:AddDropdown("AttachPlayerList", {
+        Text = "Target Player",
+        Values = {},
+        Default = "",
+})
+
+FunAttach:AddDivider()
 
 FunAttach:AddDropdown("AttachPosition", {
         Text = "Attach Position",
