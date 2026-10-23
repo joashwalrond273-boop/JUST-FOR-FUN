@@ -362,6 +362,61 @@ local function getCraftDelay()
 	return 1 / math.max(0.1, speed)
 end
 
+-- Snapshots where placed structures live so we can spot the one we just built
+local function snapshotStructures()
+	local container = workspace:FindFirstChild("placedStructures") or workspace
+	local before = {}
+	for _, child in ipairs(container:GetChildren()) do
+		before[child] = true
+	end
+	return container, before
+end
+
+-- Picks the interactive part of a structure, preferring parts named after the armor set
+local function getStructurePart(instance, keywords)
+	local fallback
+	for _, desc in ipairs(instance:GetDescendants()) do
+		if desc:IsA("BasePart") then
+			local name = desc.Name:lower()
+			for _, keyword in ipairs(keywords) do
+				if name:find(keyword, 1, true) then
+					return desc, true
+				end
+			end
+			fallback = fallback or desc
+		end
+	end
+	return fallback, false
+end
+
+-- Waits for the furnace we just built to replicate, then returns it
+local function waitForFurnace(container, before, keywords, position, timeout)
+	local deadline = os.clock() + (timeout or 2)
+	local fallbackPart, fallbackDistance
+
+	repeat
+		for _, structure in ipairs(container:GetChildren()) do
+			if not before[structure] and not structure:FindFirstChildOfClass("Humanoid") then
+				local part, matched = getStructurePart(structure, keywords)
+				if part then
+					if matched then
+						return part
+					end
+
+					local distance = (part.Position - position).Magnitude
+					if not fallbackDistance or distance < fallbackDistance then
+						fallbackPart, fallbackDistance = part, distance
+					end
+				end
+			end
+		end
+
+		task.wait(0.05)
+	until os.clock() > deadline
+
+	return fallbackPart
+end
+
 local AutoArmorDeluxeGroup = Tabs.Player:AddLeftGroupbox("Auto Armor Deluxe", "shield")
 
 AutoArmorDeluxeGroup:AddButton({
@@ -419,7 +474,7 @@ AutoArmorDeluxeGroup:AddButton({
 		local playerPosition = root.Position
 
 		local buildRemote = TSG.BuildRemote
-		local craftRemote = TSG.CraftRemote
+		local craftRemote = TSG.CraftRemote or resolvePath(ReplicatedStorage, "remoteInterface", "interactions", "craft")
 		local armorSlot = tonumber(Options.AutoArmorSlot and Options.AutoArmorSlot.Value) or 5
 		local equipHotbarRemote = TSG.EquipHotbarRemote
 		local equipClothingRemote = TSG.EquipClothingRemote
@@ -452,6 +507,8 @@ AutoArmorDeluxeGroup:AddButton({
 			return
 		end
 
+		local container, before = snapshotStructures()
+
 		pcall(function()
 			buildRemote:InvokeServer(
 				199,
@@ -460,15 +517,7 @@ AutoArmorDeluxeGroup:AddButton({
 			)
 		end)
 
-		local furnace = nil
-		pcall(function()
-			for _, structure in pairs(workspace.placedStructures:GetChildren()) do
-				if structure:FindFirstChild("Bluesteel Furnace") then
-					furnace = structure:FindFirstChild("Bluesteel Furnace")
-					break
-				end
-			end
-		end)
+		local furnace = waitForFurnace(container, before, { "bluesteel" }, playerPosition)
 
 		local itemsToCraft = {
 			{197, "Bluesteel Sword"},
@@ -482,6 +531,7 @@ AutoArmorDeluxeGroup:AddButton({
 				pcall(function()
 					craftRemote:InvokeServer(item[1], furnace, 1, 0)
 				end)
+				task.wait(getCraftDelay())
 			end
 
 			task.wait(getCraftDelay())
@@ -521,7 +571,7 @@ AutoArmorDeluxeGroup:AddButton({
 		local playerPosition = root.Position
 
 		local buildRemote = TSG.BuildRemote
-		local craftRemote = TSG.CraftRemote
+		local craftRemote = TSG.CraftRemote or resolvePath(ReplicatedStorage, "remoteInterface", "interactions", "craft")
 		local armorSlot = tonumber(Options.AutoArmorSlot and Options.AutoArmorSlot.Value) or 5
 		local equipHotbarRemote = TSG.EquipHotbarRemote
 		local equipClothingRemote = TSG.EquipClothingRemote
@@ -554,6 +604,8 @@ AutoArmorDeluxeGroup:AddButton({
 			return
 		end
 
+		local container, before = snapshotStructures()
+
 		pcall(function()
 			buildRemote:InvokeServer(
 				362,
@@ -562,18 +614,7 @@ AutoArmorDeluxeGroup:AddButton({
 			)
 		end)
 
-		local furnace = nil
-		pcall(function()
-			for _, structure in pairs(workspace.placedStructures:GetChildren()) do
-				for _, child in ipairs(structure:GetChildren()) do
-					if child.Name:lower():find("atlantean") then
-						furnace = child
-						break
-					end
-				end
-				if furnace then break end
-			end
-		end)
+		local furnace = waitForFurnace(container, before, { "atlantean" }, playerPosition)
 
 		local itemsToCraft = {
 			{357, "Atlantean Sword"},
@@ -587,6 +628,7 @@ AutoArmorDeluxeGroup:AddButton({
 				pcall(function()
 					craftRemote:InvokeServer(item[1], furnace, 1, 0)
 				end)
+				task.wait(getCraftDelay())
 			end
 
 			task.wait(getCraftDelay())
@@ -626,7 +668,7 @@ AutoArmorDeluxeGroup:AddButton({
 		local playerPosition = root.Position
 
 		local buildRemote = TSG.BuildRemote
-		local craftRemote = TSG.CraftRemote
+		local craftRemote = TSG.CraftRemote or resolvePath(ReplicatedStorage, "remoteInterface", "interactions", "craft")
 		local armorSlot = tonumber(Options.AutoArmorSlot and Options.AutoArmorSlot.Value) or 5
 		local equipHotbarRemote = TSG.EquipHotbarRemote
 		local equipClothingRemote = TSG.EquipClothingRemote
@@ -659,6 +701,8 @@ AutoArmorDeluxeGroup:AddButton({
 			return
 		end
 
+		local container, before = snapshotStructures()
+
 		pcall(function()
 			buildRemote:InvokeServer(
 				269,
@@ -667,15 +711,7 @@ AutoArmorDeluxeGroup:AddButton({
 			)
 		end)
 
-		local furnace = nil
-		pcall(function()
-			for _, structure in pairs(workspace.placedStructures:GetChildren()) do
-				if structure:FindFirstChild("Darksteel Forge") then
-					furnace = structure:FindFirstChild("Darksteel Forge")
-					break
-				end
-			end
-		end)
+		local furnace = waitForFurnace(container, before, { "darksteel" }, playerPosition)
 
 		local itemsToCraft = {
 			{267, "Darksteel Sword"},
@@ -689,6 +725,7 @@ AutoArmorDeluxeGroup:AddButton({
 				pcall(function()
 					craftRemote:InvokeServer(item[1], furnace, 1, 0)
 				end)
+				task.wait(getCraftDelay())
 			end
 
 			task.wait(getCraftDelay())
@@ -728,7 +765,7 @@ AutoArmorDeluxeGroup:AddButton({
 		local playerPosition = root.Position
 
 		local buildRemote = TSG.BuildRemote
-		local craftRemote = TSG.CraftRemote
+		local craftRemote = TSG.CraftRemote or resolvePath(ReplicatedStorage, "remoteInterface", "interactions", "craft")
 		local armorSlot = tonumber(Options.AutoArmorSlot and Options.AutoArmorSlot.Value) or 5
 		local equipHotbarRemote = TSG.EquipHotbarRemote
 		local equipClothingRemote = TSG.EquipClothingRemote
@@ -761,6 +798,8 @@ AutoArmorDeluxeGroup:AddButton({
 			return
 		end
 
+		local container, before = snapshotStructures()
+
 		pcall(function()
 			buildRemote:InvokeServer(
 				423,
@@ -769,17 +808,7 @@ AutoArmorDeluxeGroup:AddButton({
 			)
 		end)
 
-		task.wait(getCraftDelay())
-
-		local furnace = nil
-		pcall(function()
-			for _, structure in pairs(workspace.placedStructures:GetChildren()) do
-				if structure:FindFirstChild("Asian Forge") then
-					furnace = structure:FindFirstChild("Asian Forge")
-					break
-				end
-			end
-		end)
+		local furnace = waitForFurnace(container, before, { "asian", "samurai" }, playerPosition)
 
 		local itemsToCraft = {
 			{406, "Samurai Sword"},
@@ -793,6 +822,7 @@ AutoArmorDeluxeGroup:AddButton({
 				pcall(function()
 					craftRemote:InvokeServer(item[1], furnace, 1, 0)
 				end)
+				task.wait(getCraftDelay())
 			end
 
 			task.wait(getCraftDelay())
@@ -832,7 +862,7 @@ AutoArmorDeluxeGroup:AddButton({
 		local playerPosition = root.Position
 
 		local buildRemote = TSG.BuildRemote
-		local craftRemote = resolvePath(ReplicatedStorage, "remoteInterface", "interactions", "craft")
+		local craftRemote = TSG.CraftRemote or resolvePath(ReplicatedStorage, "remoteInterface", "interactions", "craft")
 		local armorSlot = tonumber(Options.AutoArmorSlot and Options.AutoArmorSlot.Value) or 5
 		local equipHotbarRemote = TSG.EquipHotbarRemote
 		local equipClothingRemote = TSG.EquipClothingRemote
@@ -865,6 +895,8 @@ AutoArmorDeluxeGroup:AddButton({
 			return
 		end
 
+		local container, before = snapshotStructures()
+
 		pcall(function()
 			buildRemote:InvokeServer(
 				540,
@@ -873,21 +905,7 @@ AutoArmorDeluxeGroup:AddButton({
 			)
 		end)
 
-		task.wait(getCraftDelay())
-
-		local furnace = nil
-		pcall(function()
-			for _, structure in pairs(workspace.placedStructures:GetChildren()) do
-				for _, child in ipairs(structure:GetChildren()) do
-					local name = child.Name:lower()
-					if name:find("vicanite") or name:find("juggernaut") then
-						furnace = child
-						break
-					end
-				end
-				if furnace then break end
-			end
-		end)
+		local furnace = waitForFurnace(container, before, { "vicanite", "juggernaut" }, playerPosition)
 
 		local itemsToCraft = {
 			{545, "Juggernaut Sword"},
@@ -901,6 +919,7 @@ AutoArmorDeluxeGroup:AddButton({
 				pcall(function()
 					craftRemote:InvokeServer(item[1], furnace, 1, 0)
 				end)
+				task.wait(getCraftDelay())
 			end
 
 			task.wait(getCraftDelay())
@@ -1198,6 +1217,32 @@ FunAttach:AddDropdown("AttachPosition", {
         Default = "Behind",
 })
 
+FunAttach:AddSlider("AttachOrbitSpeed", {
+        Text = "Orbit Speed",
+        Default = 3,
+        Min = 1,
+        Max = 30,
+        Rounding = 1,
+        Compact = true,
+})
+
+local function updateAttachOrbitVisibility()
+        local isOrbit = (Options.AttachPosition and Options.AttachPosition.Value) == "Orbit"
+
+        if Options.AttachOrbitSpeed then
+                Options.AttachOrbitSpeed.Visible = isOrbit
+                if Options.AttachOrbitSpeed.Holder then
+                        Options.AttachOrbitSpeed.Holder.Visible = isOrbit
+                end
+        end
+
+        if FunAttach and FunAttach.Resize then
+                pcall(function() FunAttach:Resize() end)
+        end
+end
+
+updateAttachOrbitVisibility()
+
 FunAttach:AddDropdown("AttachPlayerList", {
         Text = "Target Player",
         Values = {},
@@ -1470,7 +1515,7 @@ do
 	end
 end
 
-ImmuneTab:AddToggle("InvisibleFlyToggle", {
+ImmuneTab:AddCheckbox("InvisibleFlyToggle", {
 	Text = "Invis Fly",
 	Default = false,
 })
@@ -5004,6 +5049,43 @@ MoveRight:AddCheckbox("CreateFarmland", {
 	Default = false,
 })
 
+-- Fallback plot size if there is no farmland in the world yet
+local FARMLAND_CELL_SIZE = 4
+
+-- Anchor + cell size taken from an existing plot so we line up with the game's grid
+local function getFarmlandGrid()
+	local farmland = workspace:FindFirstChild("farmland")
+	if farmland then
+		for _, plot in ipairs(farmland:GetChildren()) do
+			local part
+			if plot:IsA("BasePart") then
+				part = plot
+			elseif plot:IsA("Model") then
+				part = plot.PrimaryPart or plot:FindFirstChildWhichIsA("BasePart")
+			end
+
+			if part then
+				return part.Position, math.max(part.Size.X, part.Size.Z)
+			end
+		end
+	end
+	return Vector3.new(0, 0, 0), FARMLAND_CELL_SIZE
+end
+
+-- Round to the nearest plot cell, the same way the shovel does
+local function snapToFarmlandGrid(position)
+	local anchor, cell = getFarmlandGrid()
+	if not cell or cell <= 0 then
+		cell = FARMLAND_CELL_SIZE
+	end
+
+	return Vector3.new(
+		anchor.X + math.floor((position.X - anchor.X) / cell + 0.5) * cell,
+		position.Y,
+		anchor.Z + math.floor((position.Z - anchor.Z) / cell + 0.5) * cell
+	)
+end
+
 -- Fires when enabled, then keeps firing as you walk (10 = Shovel item ID)
 Toggles.CreateFarmland:OnChanged(function()
 	disconnect("CreateFarmland")
@@ -5034,6 +5116,8 @@ Toggles.CreateFarmland:OnChanged(function()
 			position = result.Position
 		end
 
+		position = snapToFarmlandGrid(position)
+
 		pcall(function()
 			createFarmlandRemote:FireServer(10, position, 0)
 		end)
@@ -5042,7 +5126,7 @@ Toggles.CreateFarmland:OnChanged(function()
 	placeFarmland()
 
 	local root = getRootPart()
-	local lastPlacePosition = root and root.Position
+	local lastPlacePosition = root and snapToFarmlandGrid(root.Position)
 
 	track("CreateFarmland", RunService.Heartbeat:Connect(function()
 		if not Toggles.CreateFarmland.Value then return end
@@ -5051,8 +5135,10 @@ Toggles.CreateFarmland:OnChanged(function()
 		local currentRoot = getRootPart()
 		if not currentRoot then return end
 
-		if lastPlacePosition and (currentRoot.Position - lastPlacePosition).Magnitude < 4 then return end
-		lastPlacePosition = currentRoot.Position
+		-- Only fire once we step into a new plot cell, so plots tile perfectly
+		local snapped = snapToFarmlandGrid(currentRoot.Position)
+		if lastPlacePosition and (snapped - lastPlacePosition).Magnitude < 1 then return end
+		lastPlacePosition = snapped
 
 		placeFarmland()
 	end))
@@ -8312,7 +8398,8 @@ local function startAttach()
 				elseif attachPosition == "Front" then
 					myRoot.CFrame = targetRoot.CFrame * CFrame.new(0, 0, -2.5) -- In front of player
 				elseif attachPosition == "Orbit" then
-					local angle = tick() * 3
+					local orbitSpeed = (Options.AttachOrbitSpeed and Options.AttachOrbitSpeed.Value) or 3
+					local angle = tick() * orbitSpeed
 					myRoot.CFrame = targetRoot.CFrame * CFrame.new(math.cos(angle) * 3, 0, math.sin(angle) * 3) -- Circle around target
 				else
 					myRoot.CFrame = targetRoot.CFrame * CFrame.new(0, 0, 2.5) -- Behind player
@@ -8361,6 +8448,7 @@ Options.AttachPlayerList:OnChanged(function()
 	end
 end)
 Options.AttachPosition:OnChanged(function()
+	updateAttachOrbitVisibility()
 	if Toggles.AttachToggle.Value then
 		startAttach()
 	end
