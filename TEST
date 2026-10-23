@@ -4722,37 +4722,33 @@ MoveSwimBoost:AddSlider("SwimBoostValue", {
 
 MoveSwimBoost:AddDivider()
 
-MoveSwimBoost:AddCheckbox("SinkFastPVP", {
-	Text = "+ Sink Fast PVP",
-	Default = false,
+MoveSwimBoost:AddDropdown("FastPVPDirection", {
+	Text = "Fast PVP",
+	Values = {"Sink Fast PVP", "Rise Fast PVP"},
+	Default = {},
+	Multi = true,
+	AllowNull = true,
 })
 
-MoveSwimBoost:AddSlider("SinkFastPVPSpeed", {
-	Text = "Sink Speed",
+MoveSwimBoost:AddSlider("FastPVPSpeed", {
+	Text = "Fast PVP Speed",
 	Default = 60,
 	Min = 10,
-	Max = 200,
+	Max = 100,
 	Rounding = 0,
 	Compact = true,
 })
 
-MoveSwimBoost:AddCheckbox("RiseFastPVP", {
-	Text = "+ Rise Fast PVP",
-	Default = false,
-})
-
-MoveSwimBoost:AddSlider("RiseFastPVPSpeed", {
-	Text = "Rise Speed",
-	Default = 60,
-	Min = 10,
-	Max = 200,
-	Rounding = 0,
-	Compact = true,
-})
+local function isFastPVPSelected(name)
+	local val = Options.FastPVPDirection and Options.FastPVPDirection.Value
+	if typeof(val) ~= "table" then
+		return false
+	end
+	return val[name] == true or table.find(val, name) ~= nil
+end
 
 updateSwimBoostVisibility = function()
-	local isSink = (Toggles.SinkFastPVP and Toggles.SinkFastPVP.Value) or false
-	local isRise = (Toggles.RiseFastPVP and Toggles.RiseFastPVP.Value) or false
+	local isFastPVP = isFastPVPSelected("Sink Fast PVP") or isFastPVPSelected("Rise Fast PVP")
 	local isSlotBoost = (Toggles.SwimSlotBoost and Toggles.SwimSlotBoost.Value) or false
 
 	if Options.SwimSlotBoostSlot then
@@ -4762,17 +4758,10 @@ updateSwimBoostVisibility = function()
 		end
 	end
 
-	if Options.SinkFastPVPSpeed then
-		Options.SinkFastPVPSpeed.Visible = isSink
-		if Options.SinkFastPVPSpeed.Holder then
-			Options.SinkFastPVPSpeed.Holder.Visible = isSink
-		end
-	end
-
-	if Options.RiseFastPVPSpeed then
-		Options.RiseFastPVPSpeed.Visible = isRise
-		if Options.RiseFastPVPSpeed.Holder then
-			Options.RiseFastPVPSpeed.Holder.Visible = isRise
+	if Options.FastPVPSpeed then
+		Options.FastPVPSpeed.Visible = isFastPVP
+		if Options.FastPVPSpeed.Holder then
+			Options.FastPVPSpeed.Holder.Visible = isFastPVP
 		end
 	end
 
@@ -5382,68 +5371,44 @@ Toggles.SwimSlotBoost:OnChanged(function()
 	end
 end)
 
-Toggles.SinkFastPVP:OnChanged(function()
+Options.FastPVPDirection:OnChanged(function()
 	if updateSwimBoostVisibility then
 		updateSwimBoostVisibility()
 	end
-	disconnect("SinkFastPVP")
-	if Toggles.SinkFastPVP.Value then
-		track("SinkFastPVP", RunService.Heartbeat:Connect(function()
-			local character = getCharacter()
-			local root = character and character:FindFirstChild("HumanoidRootPart")
-			local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-			if root and humanoid then
-				local isSwimming = humanoid:GetState() == Enum.HumanoidStateType.Swimming or character:GetAttribute("inWater")
-				if isSwimming then
-					local cam = workspace.CurrentCamera
-					local lookY = cam and cam.CFrame.LookVector.Y or 0
-					if lookY <= -0.9 then
-						local speed = (Options.SinkFastPVPSpeed and Options.SinkFastPVPSpeed.Value) or 60
-						root.AssemblyLinearVelocity = Vector3.new(
-							root.AssemblyLinearVelocity.X,
-							-speed,
-							root.AssemblyLinearVelocity.Z
-						)
-					end
-				end
-			end
-		end))
-		Library:Notify({ Title = "+ Sink Fast PVP", Description = "Enabled", Time = 2 })
-	else
-		Library:Notify({ Title = "+ Sink Fast PVP", Description = "Disabled", Time = 2 })
-	end
-end)
+	disconnect("FastPVP")
 
-Toggles.RiseFastPVP:OnChanged(function()
-	if updateSwimBoostVisibility then
-		updateSwimBoostVisibility()
+	local sinkOn = isFastPVPSelected("Sink Fast PVP")
+	local riseOn = isFastPVPSelected("Rise Fast PVP")
+	if not sinkOn and not riseOn then
+		return
 	end
-	disconnect("RiseFastPVP")
-	if Toggles.RiseFastPVP.Value then
-		track("RiseFastPVP", RunService.Heartbeat:Connect(function()
-			local character = getCharacter()
-			local root = character and character:FindFirstChild("HumanoidRootPart")
-			local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-			if root and humanoid then
-				local isSwimming = humanoid:GetState() == Enum.HumanoidStateType.Swimming or character:GetAttribute("inWater")
-				if isSwimming then
-					local cam = workspace.CurrentCamera
-					local lookY = cam and cam.CFrame.LookVector.Y or 0
-					if lookY >= 0.85 then
-						local speed = (Options.RiseFastPVPSpeed and Options.RiseFastPVPSpeed.Value) or 60
-						root.AssemblyLinearVelocity = Vector3.new(
-							root.AssemblyLinearVelocity.X,
-							speed,
-							root.AssemblyLinearVelocity.Z
-						)
-					end
+
+	track("FastPVP", RunService.Heartbeat:Connect(function()
+		local character = getCharacter()
+		local root = character and character:FindFirstChild("HumanoidRootPart")
+		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+		if root and humanoid then
+			local isSwimming = humanoid:GetState() == Enum.HumanoidStateType.Swimming or character:GetAttribute("inWater")
+			if isSwimming then
+				local cam = workspace.CurrentCamera
+				local lookY = cam and cam.CFrame.LookVector.Y or 0
+				local speed = (Options.FastPVPSpeed and Options.FastPVPSpeed.Value) or 60
+				if sinkOn and lookY <= -0.9 then
+					root.AssemblyLinearVelocity = Vector3.new(
+						root.AssemblyLinearVelocity.X,
+						-speed,
+						root.AssemblyLinearVelocity.Z
+					)
+				elseif riseOn and lookY >= 0.85 then
+					root.AssemblyLinearVelocity = Vector3.new(
+						root.AssemblyLinearVelocity.X,
+						speed,
+						root.AssemblyLinearVelocity.Z
+					)
 				end
 			end
-		end))
-		Library:Notify({ Title = "+ Rise Fast PVP", Description = "Enabled", Time = 2 })
-	else
-		Library:Notify({ Title = "+ Rise Fast PVP", Description = "Disabled", Time = 2 })
-	end
+		end
+	end))
 end)
 
 local flyKeys = { W = false, A = false, S = false, D = false, Space = false, LeftControl = false, LeftShift = false }
@@ -5658,19 +5623,53 @@ local function makeAuraHighlight(defaultColor)
 end
 
 -- ==========================================
-local BossFarm = Tabs.Farming:AddLeftGroupbox("Boss Farm", "swords")
+local FarmAI = Tabs.Farming:AddLeftGroupbox("AI Aura", "zap")
 
-BossFarm:AddCheckbox("TitanAura", {
+FarmAI:AddToggle("AiAura", {
+	Text = "AI Aura",
+	Default = false,
+})
+
+FarmAI:AddCheckbox("AiAuraSlotSystem", {
+	Text = "Slot System",
+	Default = false,
+})
+
+FarmAI:AddDropdown("AiAuraSlotSystemSlot", {
+	Text = "Tool Slot",
+	Values = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"},
+	Default = {"1"},
+	Multi = true,
+})
+
+FarmAI:AddDropdown("AiAuraSlot", {
+	Text = "Attack Slot",
+	Values = {"1","2","3","4","5","6","7","8","9","10"},
+	Default = "1",
+})
+
+FarmAI:AddSlider("AiAuraRange", {
+	Text = "Range",
+	Default = 30,
+	Min = 5,
+	Max = 60,
+	Rounding = 1,
+	Compact = true,
+})
+
+FarmAI:AddDivider()
+
+FarmAI:AddCheckbox("TitanAura", {
 	Text = "Titan Aura",
 	Default = false,
 })
 
-BossFarm:AddCheckbox("SamuraiAura", {
+FarmAI:AddCheckbox("SamuraiAura", {
 	Text = "Samurai Aura",
 	Default = false,
 })
 
-BossFarm:AddCheckbox("JuggernautAura", {
+FarmAI:AddCheckbox("JuggernautAura", {
 	Text = "Juggernaut Aura",
 	Default = false,
 })
@@ -5780,68 +5779,8 @@ FarmChop:AddCheckbox("HighlightChop", {
 })
 
 -- ==========================================
-local FarmAI = Tabs.Farming:AddRightGroupbox("AI Aura", "zap")
-
-FarmAI:AddToggle("AiAura", {
-	Text = "AI Aura",
-	Default = false,
-})
-
-FarmAI:AddCheckbox("AiAuraSlotSystem", {
-	Text = "Slot System",
-	Default = false,
-})
-
-FarmAI:AddDropdown("AiAuraSlotSystemSlot", {
-	Text = "Tool Slot",
-	Values = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"},
-	Default = {"1"},
-	Multi = true,
-})
-
-FarmAI:AddDropdown("AiAuraSlot", {
-	Text = "Attack Slot",
-	Values = {"1","2","3","4","5","6","7","8","9","10"},
-	Default = "1",
-})
-
-FarmAI:AddSlider("AiAuraRange", {
-	Text = "Range",
-	Default = 30,
-	Min = 5,
-	Max = 60,
-	Rounding = 1,
-	Compact = true,
-})
-
--- ==========================================
 local OreTabBox = Tabs.Farming:AddRightTabbox()
-local OreESPGroup = OreTabBox:AddTab("Ore ESP", "scan-eye")
-local OreFarm = OreTabBox:AddTab("Ore Farm", "gem")
-
-OreESPGroup:AddToggle("OreESPToggle", {
-	Text = "Ore ESP",
-	Default = false,
-})
-
-OreESPGroup:AddCheckbox("OreESPRemoveNames", {
-	Text = "+ Remove Names",
-	Default = false,
-})
-
-OreESPGroup:AddCheckbox("OreESPHighlights", {
-	Text = "Ore Highlights (Chams)",
-	Default = false,
-})
-
-OreESPGroup:AddSlider("OreESPDistance", {
-	Text = "Max Distance",
-	Default = 500,
-	Min = 50,
-	Max = 1500,
-	Rounding = 10,
-	Compact = true,
-})
+local OreFarm = OreTabBox:AddTab("Ore Factory", "factory")
 
 OreFarm:AddButton({
 	Text = "Reset Character",
@@ -5955,6 +5894,30 @@ OreFarm:AddButton({
                    end
            end
    end,
+})
+
+OreFarm:AddToggle("OreESPToggle", {
+	Text = "Ore ESP",
+	Default = false,
+})
+
+OreFarm:AddCheckbox("OreESPRemoveNames", {
+	Text = "+ Remove Names",
+	Default = false,
+})
+
+OreFarm:AddCheckbox("OreESPHighlights", {
+	Text = "Ore Highlights (Chams)",
+	Default = false,
+})
+
+OreFarm:AddSlider("OreESPDistance", {
+	Text = "Max Distance",
+	Default = 500,
+	Min = 50,
+	Max = 1500,
+	Rounding = 10,
+	Compact = true,
 })
 
 -- ==========================================
@@ -6717,7 +6680,7 @@ local function scanOreTypesAndBuildUI()
 			oreESP.oreColorPickers[oreName] = colorPickerKey
 
 			local toggleKey = "OreESPFilter_" .. oreName
-			OreESPGroup:AddToggle(toggleKey, {
+			OreFarm:AddToggle(toggleKey, {
 				Text = oreName,
 				Default = true,
 			}):AddColorPicker(colorPickerKey, {
