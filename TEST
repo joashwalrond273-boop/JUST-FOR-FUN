@@ -362,59 +362,30 @@ local function getCraftDelay()
 	return 1 / math.max(0.1, speed)
 end
 
--- Snapshots where placed structures live so we can spot the one we just built
-local function snapshotStructures()
-	local container = workspace:FindFirstChild("placedStructures") or workspace
-	local before = {}
-	for _, child in ipairs(container:GetChildren()) do
-		before[child] = true
-	end
-	return container, before
-end
-
--- Picks the interactive part of a structure, preferring parts named after the armor set
-local function getStructurePart(instance, keywords)
-	local fallback
-	for _, desc in ipairs(instance:GetDescendants()) do
-		if desc:IsA("BasePart") then
-			local name = desc.Name:lower()
-			for _, keyword in ipairs(keywords) do
-				if name:find(keyword, 1, true) then
-					return desc, true
-				end
-			end
-			fallback = fallback or desc
-		end
-	end
-	return fallback, false
-end
-
--- Waits for the furnace we just built to replicate, then returns it
-local function waitForFurnace(container, before, keywords, position, timeout)
-	local deadline = os.clock() + (timeout or 2)
-	local fallbackPart, fallbackDistance
+-- Waits for the furnace to appear under workspace.placedStructures (the layout Cobalt used)
+local function waitForFurnace(keywords, timeout)
+	local placed = workspace:FindFirstChild("placedStructures")
+	local deadline = os.clock() + (timeout or 3)
 
 	repeat
-		for _, structure in ipairs(container:GetChildren()) do
-			if not before[structure] and not structure:FindFirstChildOfClass("Humanoid") then
-				local part, matched = getStructurePart(structure, keywords)
-				if part then
-					if matched then
-						return part
-					end
-
-					local distance = (part.Position - position).Magnitude
-					if not fallbackDistance or distance < fallbackDistance then
-						fallbackPart, fallbackDistance = part, distance
+		if placed then
+			for _, structure in ipairs(placed:GetChildren()) do
+				for _, child in ipairs(structure:GetChildren()) do
+					local name = child.Name:lower()
+					for _, keyword in ipairs(keywords) do
+						if name:find(keyword, 1, true) then
+							return child
+						end
 					end
 				end
 			end
 		end
 
 		task.wait(0.05)
+		placed = workspace:FindFirstChild("placedStructures")
 	until os.clock() > deadline
 
-	return fallbackPart
+	return nil
 end
 
 local AutoArmorDeluxeGroup = Tabs.Player:AddLeftGroupbox("Auto Armor Deluxe", "shield")
@@ -474,7 +445,7 @@ AutoArmorDeluxeGroup:AddButton({
 		local playerPosition = root.Position
 
 		local buildRemote = TSG.BuildRemote
-		local craftRemote = TSG.CraftRemote or resolvePath(ReplicatedStorage, "remoteInterface", "interactions", "craft")
+		local craftRemote = TSG.CraftRemote
 		local armorSlot = tonumber(Options.AutoArmorSlot and Options.AutoArmorSlot.Value) or 5
 		local equipHotbarRemote = TSG.EquipHotbarRemote
 		local equipClothingRemote = TSG.EquipClothingRemote
@@ -507,8 +478,6 @@ AutoArmorDeluxeGroup:AddButton({
 			return
 		end
 
-		local container, before = snapshotStructures()
-
 		pcall(function()
 			buildRemote:InvokeServer(
 				199,
@@ -517,7 +486,7 @@ AutoArmorDeluxeGroup:AddButton({
 			)
 		end)
 
-		local furnace = waitForFurnace(container, before, { "bluesteel" }, playerPosition)
+		local furnace = waitForFurnace({ "bluesteel" })
 
 		local itemsToCraft = {
 			{197, "Bluesteel Sword"},
@@ -531,7 +500,6 @@ AutoArmorDeluxeGroup:AddButton({
 				pcall(function()
 					craftRemote:InvokeServer(item[1], furnace, 1, 0)
 				end)
-				task.wait(getCraftDelay())
 			end
 
 			task.wait(getCraftDelay())
@@ -571,7 +539,7 @@ AutoArmorDeluxeGroup:AddButton({
 		local playerPosition = root.Position
 
 		local buildRemote = TSG.BuildRemote
-		local craftRemote = TSG.CraftRemote or resolvePath(ReplicatedStorage, "remoteInterface", "interactions", "craft")
+		local craftRemote = TSG.CraftRemote
 		local armorSlot = tonumber(Options.AutoArmorSlot and Options.AutoArmorSlot.Value) or 5
 		local equipHotbarRemote = TSG.EquipHotbarRemote
 		local equipClothingRemote = TSG.EquipClothingRemote
@@ -604,8 +572,6 @@ AutoArmorDeluxeGroup:AddButton({
 			return
 		end
 
-		local container, before = snapshotStructures()
-
 		pcall(function()
 			buildRemote:InvokeServer(
 				362,
@@ -614,7 +580,7 @@ AutoArmorDeluxeGroup:AddButton({
 			)
 		end)
 
-		local furnace = waitForFurnace(container, before, { "atlantean" }, playerPosition)
+		local furnace = waitForFurnace({ "atlantean" })
 
 		local itemsToCraft = {
 			{357, "Atlantean Sword"},
@@ -628,7 +594,6 @@ AutoArmorDeluxeGroup:AddButton({
 				pcall(function()
 					craftRemote:InvokeServer(item[1], furnace, 1, 0)
 				end)
-				task.wait(getCraftDelay())
 			end
 
 			task.wait(getCraftDelay())
@@ -668,7 +633,7 @@ AutoArmorDeluxeGroup:AddButton({
 		local playerPosition = root.Position
 
 		local buildRemote = TSG.BuildRemote
-		local craftRemote = TSG.CraftRemote or resolvePath(ReplicatedStorage, "remoteInterface", "interactions", "craft")
+		local craftRemote = TSG.CraftRemote
 		local armorSlot = tonumber(Options.AutoArmorSlot and Options.AutoArmorSlot.Value) or 5
 		local equipHotbarRemote = TSG.EquipHotbarRemote
 		local equipClothingRemote = TSG.EquipClothingRemote
@@ -701,8 +666,6 @@ AutoArmorDeluxeGroup:AddButton({
 			return
 		end
 
-		local container, before = snapshotStructures()
-
 		pcall(function()
 			buildRemote:InvokeServer(
 				269,
@@ -711,7 +674,7 @@ AutoArmorDeluxeGroup:AddButton({
 			)
 		end)
 
-		local furnace = waitForFurnace(container, before, { "darksteel" }, playerPosition)
+		local furnace = waitForFurnace({ "darksteel" })
 
 		local itemsToCraft = {
 			{267, "Darksteel Sword"},
@@ -725,7 +688,6 @@ AutoArmorDeluxeGroup:AddButton({
 				pcall(function()
 					craftRemote:InvokeServer(item[1], furnace, 1, 0)
 				end)
-				task.wait(getCraftDelay())
 			end
 
 			task.wait(getCraftDelay())
@@ -765,7 +727,7 @@ AutoArmorDeluxeGroup:AddButton({
 		local playerPosition = root.Position
 
 		local buildRemote = TSG.BuildRemote
-		local craftRemote = TSG.CraftRemote or resolvePath(ReplicatedStorage, "remoteInterface", "interactions", "craft")
+		local craftRemote = TSG.CraftRemote
 		local armorSlot = tonumber(Options.AutoArmorSlot and Options.AutoArmorSlot.Value) or 5
 		local equipHotbarRemote = TSG.EquipHotbarRemote
 		local equipClothingRemote = TSG.EquipClothingRemote
@@ -798,8 +760,6 @@ AutoArmorDeluxeGroup:AddButton({
 			return
 		end
 
-		local container, before = snapshotStructures()
-
 		pcall(function()
 			buildRemote:InvokeServer(
 				423,
@@ -808,7 +768,9 @@ AutoArmorDeluxeGroup:AddButton({
 			)
 		end)
 
-		local furnace = waitForFurnace(container, before, { "asian", "samurai" }, playerPosition)
+		task.wait(getCraftDelay())
+
+		local furnace = waitForFurnace({ "asian", "samurai" })
 
 		local itemsToCraft = {
 			{406, "Samurai Sword"},
@@ -822,7 +784,6 @@ AutoArmorDeluxeGroup:AddButton({
 				pcall(function()
 					craftRemote:InvokeServer(item[1], furnace, 1, 0)
 				end)
-				task.wait(getCraftDelay())
 			end
 
 			task.wait(getCraftDelay())
@@ -862,7 +823,7 @@ AutoArmorDeluxeGroup:AddButton({
 		local playerPosition = root.Position
 
 		local buildRemote = TSG.BuildRemote
-		local craftRemote = TSG.CraftRemote or resolvePath(ReplicatedStorage, "remoteInterface", "interactions", "craft")
+		local craftRemote = resolvePath(ReplicatedStorage, "remoteInterface", "interactions", "craft")
 		local armorSlot = tonumber(Options.AutoArmorSlot and Options.AutoArmorSlot.Value) or 5
 		local equipHotbarRemote = TSG.EquipHotbarRemote
 		local equipClothingRemote = TSG.EquipClothingRemote
@@ -895,8 +856,6 @@ AutoArmorDeluxeGroup:AddButton({
 			return
 		end
 
-		local container, before = snapshotStructures()
-
 		pcall(function()
 			buildRemote:InvokeServer(
 				540,
@@ -905,7 +864,9 @@ AutoArmorDeluxeGroup:AddButton({
 			)
 		end)
 
-		local furnace = waitForFurnace(container, before, { "vicanite", "juggernaut" }, playerPosition)
+		task.wait(getCraftDelay())
+
+		local furnace = waitForFurnace({ "vicanite", "juggernaut" })
 
 		local itemsToCraft = {
 			{545, "Juggernaut Sword"},
@@ -919,7 +880,6 @@ AutoArmorDeluxeGroup:AddButton({
 				pcall(function()
 					craftRemote:InvokeServer(item[1], furnace, 1, 0)
 				end)
-				task.wait(getCraftDelay())
 			end
 
 			task.wait(getCraftDelay())
