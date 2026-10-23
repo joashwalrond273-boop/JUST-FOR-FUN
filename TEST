@@ -5004,13 +5004,7 @@ MoveRight:AddCheckbox("CreateFarmland", {
 	Default = false,
 })
 
-MoveRight:AddDropdown("SelectTool", {
-	Text = "Select Tool",
-	Values = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" },
-	Default = "1",
-})
-
--- Places farmland at your position while you walk
+-- Places farmland at your position while you walk (10 = Shovel item ID)
 Toggles.CreateFarmland:OnChanged(function()
 	disconnect("CreateFarmland")
 	local lastPlacePosition = nil
@@ -5030,9 +5024,8 @@ Toggles.CreateFarmland:OnChanged(function()
 			local createFarmlandRemote = interactions and interactions:FindFirstChild("createFarmland")
 			if not createFarmlandRemote then return end
 
-			local slot = tonumber(Options.SelectTool and Options.SelectTool.Value) or 1
 			pcall(function()
-				createFarmlandRemote:FireServer(slot, root.Position, 0)
+				createFarmlandRemote:FireServer(10, root.Position, 0)
 			end)
 		end))
 	end
