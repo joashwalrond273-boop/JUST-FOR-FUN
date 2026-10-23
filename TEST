@@ -5090,82 +5090,56 @@ Toggles.PlantToggle:OnChanged(function()
 	disconnect("Plant")
 	if not Toggles.PlantToggle.Value then return end
 
-	local planted = {}
-	local scanTimer = 0
-	local lastPlace = -1
-
-	track("Plant", RunService.Heartbeat:Connect(function(deltaTime)
-		if not Toggles.PlantToggle.Value then return end
-		if not isAlive() then return end
-
-		scanTimer = scanTimer + deltaTime
-		if scanTimer < 0.15 then return end
-		scanTimer = 0
-
+	local function plantSeed()
 		local root = getRootPart()
 		if not root then return end
 
 		local interactions = ReplicatedStorage:FindFirstChild("remoteInterface")
 		interactions = interactions and interactions:FindFirstChild("interactions")
-		if not interactions then return end
-
-		local plantRemote = interactions:FindFirstChild("plant")
+		local plantRemote = interactions and interactions:FindFirstChild("plant")
 		if not plantRemote then return end
 
 		local farmland = workspace:FindFirstChild("farmland")
 		if not farmland then return end
 
-		-- Nearest farmland we haven't planted yet, within reach of the player
+		-- Farmland plot sitting under the player
 		local closest, closestDistance
 		for _, plot in ipairs(farmland:GetChildren()) do
-			if not planted[plot] then
-				local plotPosition = getFarmlandPosition(plot)
-				if plotPosition then
-					local delta = plotPosition - root.Position
-					local distance = Vector3.new(delta.X, 0, delta.Z).Magnitude
-					if distance <= 8 and (not closestDistance or distance < closestDistance) then
-						closest = plot
-						closestDistance = distance
-					end
+			local plotPosition = getFarmlandPosition(plot)
+			if plotPosition then
+				local delta = plotPosition - root.Position
+				local distance = Vector3.new(delta.X, 0, delta.Z).Magnitude
+				if distance <= 6 and (not closestDistance or distance < closestDistance) then
+					closest = plot
+					closestDistance = distance
 				end
 			end
 		end
 
-		if closest then
-			planted[closest] = true
+		if not closest then return end
 
-			local seed = PLANT_SEEDS[Options.PlantSeed and Options.PlantSeed.Value] or 210
-			pcall(function()
-				plantRemote:FireServer(10, seed, closest)
-			end)
-			return
-		end
-
-		-- No farmland here yet: create one under the player so there's something to plant
-		if os.clock() - lastPlace < 1 then return end
-		lastPlace = os.clock()
-
-		local createFarmlandRemote = interactions:FindFirstChild("createFarmland")
-		if not createFarmlandRemote then return end
-
-		local character = getCharacter()
-		local rayParams = RaycastParams.new()
+		local seed = PLANT_SEEDS[Options.PlantSeed and Options.PlantSeed.Value] or 210
 		pcall(function()
-			rayParams.FilterType = Enum.RaycastFilterType.Exclude
+			plantRemote:FireServer(10, seed, closest)
 		end)
-		rayParams.FilterDescendantsInstances = character and { character } or {}
+	end
 
-		local position = root.Position - Vector3.new(0, 3, 0)
-		local ok, result = pcall(function()
-			return workspace:Raycast(root.Position - Vector3.new(0, 3, 0), Vector3.new(0, -100, 0), rayParams)
-		end)
-		if ok and result then
-			position = result.Position
-		end
+	plantSeed()
 
-		pcall(function()
-			createFarmlandRemote:FireServer(10, position, 0)
-		end)
+	local root = getRootPart()
+	local lastPlacePosition = root and root.Position
+
+	track("Plant", RunService.Heartbeat:Connect(function()
+		if not Toggles.PlantToggle.Value then return end
+		if not isAlive() then return end
+
+		local currentRoot = getRootPart()
+		if not currentRoot then return end
+
+		if lastPlacePosition and (currentRoot.Position - lastPlacePosition).Magnitude < 4 then return end
+		lastPlacePosition = currentRoot.Position
+
+		plantSeed()
 	end))
 end)
 
