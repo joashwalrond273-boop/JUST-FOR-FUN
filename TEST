@@ -5009,12 +5009,6 @@ MoveRight:AddCheckbox("PlantToggle", {
 	Default = false,
 })
 
-MoveRight:AddDropdown("PlantSeed", {
-	Text = "Seed",
-	Values = { "Berries (113)", "Cabbage (210)" },
-	Default = "Cabbage (210)",
-})
-
 -- Fires when enabled, then keeps firing as you walk (10 = Shovel item ID)
 Toggles.CreateFarmland:OnChanged(function()
 	disconnect("CreateFarmland")
@@ -5069,11 +5063,8 @@ Toggles.CreateFarmland:OnChanged(function()
 	end))
 end)
 
--- Seed ID for each option in the Seed dropdown
-local PLANT_SEEDS = {
-	["Berries (113)"] = 113,
-	["Cabbage (210)"] = 210,
-}
+-- Seed ID fired by the Plant toggle
+local PLANT_SEED_ID = 210
 
 local function getFarmlandPosition(instance)
 	if instance:IsA("BasePart") then
@@ -5118,9 +5109,8 @@ Toggles.PlantToggle:OnChanged(function()
 
 		if not closest then return end
 
-		local seed = PLANT_SEEDS[Options.PlantSeed and Options.PlantSeed.Value] or 210
 		pcall(function()
-			plantRemote:FireServer(10, seed, closest)
+			plantRemote:FireServer(10, PLANT_SEED_ID, closest)
 		end)
 	end
 
