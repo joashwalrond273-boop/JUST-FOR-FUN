@@ -1212,11 +1212,6 @@ TeleportGroup:AddDropdown("TeleportPlayerList", {
 	Default = "",
 })
 
-TeleportGroup:AddCheckbox("TeleportResetFirst", {
-	Text = "Reset First",
-	Default = false,
-})
-
 TeleportGroup:AddButton({
 	Text = "Teleport",
 	Func = function()
@@ -1259,47 +1254,8 @@ TeleportGroup:AddButton({
 			return
 		end
 
-		if Toggles.TeleportResetFirst and Toggles.TeleportResetFirst.Value then
-			local root = getRootPart()
-			if root then
-				lastDeathPosition = root.Position
-			end
-
-			local previousCharacter = player.Character
-			local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
-			if remoteInterface then
-				local characterFolder = remoteInterface:FindFirstChild("character")
-				if characterFolder then
-					local resetRemote = characterFolder:FindFirstChild("reset")
-					if resetRemote then
-						pcall(function()
-							resetRemote:InvokeServer()
-						end)
-					end
-				end
-			end
-
-			local deadline = tick() + 15
-			repeat
-				task.wait(0.1)
-			until (player.Character ~= previousCharacter and player.Character and player.Character:FindFirstChild("HumanoidRootPart")) or tick() > deadline
-
-			-- Let the game's own spawn logic finish before forcing the position
-			task.wait(0.5)
-		end
-
-		local targetRoot = targetCharacter:FindFirstChild("HumanoidRootPart")
-		if targetRoot then
-			local destination = targetRoot.CFrame + Vector3.new(0, 3, 0)
-			-- Keep re-applying so the spawn logic cannot override the teleport
-			local repinDeadline = tick() + 1.5
-			repeat
-				local root = getRootPart()
-				if root and isAlive() then
-					root.CFrame = destination
-				end
-				task.wait(0.1)
-			until tick() > repinDeadline
+		if targetCharacter:FindFirstChild("HumanoidRootPart") and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+			player.Character.HumanoidRootPart.CFrame = targetCharacter.HumanoidRootPart.CFrame + Vector3.new(0, 3, 0)
 		end
 	end,
 })
