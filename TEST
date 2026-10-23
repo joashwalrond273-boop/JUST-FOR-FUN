@@ -1470,7 +1470,7 @@ do
 	end
 end
 
-ImmuneTab:AddToggle("InvisibleFlyToggle", {
+ImmuneTab:AddCheckbox("InvisibleFlyToggle", {
 	Text = "Invis Fly",
 	Default = false,
 })
