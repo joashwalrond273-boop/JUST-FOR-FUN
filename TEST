@@ -5004,11 +5004,6 @@ MoveRight:AddCheckbox("CreateFarmland", {
 	Default = false,
 })
 
-MoveRight:AddCheckbox("PlantToggle", {
-	Text = "Plant",
-	Default = false,
-})
-
 -- Fires when enabled, then keeps firing as you walk (10 = Shovel item ID)
 Toggles.CreateFarmland:OnChanged(function()
 	disconnect("CreateFarmland")
@@ -5060,76 +5055,6 @@ Toggles.CreateFarmland:OnChanged(function()
 		lastPlacePosition = currentRoot.Position
 
 		placeFarmland()
-	end))
-end)
-
--- Seed ID fired by the Plant toggle
-local PLANT_SEED_ID = 210
-
-local function getFarmlandPosition(instance)
-	if instance:IsA("BasePart") then
-		return instance.Position
-	elseif instance:IsA("Model") then
-		local primary = instance.PrimaryPart or instance:FindFirstChildWhichIsA("BasePart")
-		return primary and primary.Position
-	end
-	return nil
-end
-
--- Plants the selected seed into the farmland at your feet as you walk (10 = Shovel item ID)
-Toggles.PlantToggle:OnChanged(function()
-	disconnect("Plant")
-	if not Toggles.PlantToggle.Value then return end
-
-	local function plantSeed()
-		local root = getRootPart()
-		if not root then return end
-
-		local interactions = ReplicatedStorage:FindFirstChild("remoteInterface")
-		interactions = interactions and interactions:FindFirstChild("interactions")
-		local plantRemote = interactions and interactions:FindFirstChild("plant")
-		if not plantRemote then return end
-
-		local farmland = workspace:FindFirstChild("farmland")
-		if not farmland then return end
-
-		-- Farmland plot sitting under the player
-		local closest, closestDistance
-		for _, plot in ipairs(farmland:GetChildren()) do
-			local plotPosition = getFarmlandPosition(plot)
-			if plotPosition then
-				local delta = plotPosition - root.Position
-				local distance = Vector3.new(delta.X, 0, delta.Z).Magnitude
-				if distance <= 6 and (not closestDistance or distance < closestDistance) then
-					closest = plot
-					closestDistance = distance
-				end
-			end
-		end
-
-		if not closest then return end
-
-		pcall(function()
-			plantRemote:FireServer(10, PLANT_SEED_ID, closest)
-		end)
-	end
-
-	plantSeed()
-
-	local root = getRootPart()
-	local lastPlacePosition = root and root.Position
-
-	track("Plant", RunService.Heartbeat:Connect(function()
-		if not Toggles.PlantToggle.Value then return end
-		if not isAlive() then return end
-
-		local currentRoot = getRootPart()
-		if not currentRoot then return end
-
-		if lastPlacePosition and (currentRoot.Position - lastPlacePosition).Magnitude < 4 then return end
-		lastPlacePosition = currentRoot.Position
-
-		plantSeed()
 	end))
 end)
 
