@@ -5004,60 +5004,6 @@ MoveRight:AddCheckbox("CreateFarmland", {
 	Default = false,
 })
 
-MoveRight:AddDropdown("FarmlandRange", {
-	Text = "Range",
-	Values = { "Huge (50)", "Medium (20)", "Small (5)" },
-	Default = "Small (5)",
-})
-
--- How many farmland plots each Range option places, 4 studs apart around you
-local FARMLAND_COUNTS = {
-	["Huge (50)"] = 50,
-	["Medium (20)"] = 20,
-	["Small (5)"] = 5,
-}
-local FARMLAND_GRID_STEP = 4
-
-local farmlandOffsetCache = {}
-
-local function getFarmlandCount()
-	local value = Options.FarmlandRange and Options.FarmlandRange.Value
-	return FARMLAND_COUNTS[value] or 5
-end
-
--- Grid offsets sorted nearest-first so a count of 5 is you + 4 studs ahead/behind/sides
-local function getFarmlandOffsets(count)
-	if farmlandOffsetCache[count] then
-		return farmlandOffsetCache[count]
-	end
-
-	local offsets = {}
-	for i = -8, 8 do
-		for j = -8, 8 do
-			table.insert(offsets, Vector3.new(i * FARMLAND_GRID_STEP, 0, j * FARMLAND_GRID_STEP))
-		end
-	end
-	table.sort(offsets, function(a, b)
-		return (a.X * a.X + a.Z * a.Z) < (b.X * b.X + b.Z * b.Z)
-	end)
-
-	local result = {}
-	for index = 1, math.min(count, #offsets) do
-		result[index] = offsets[index]
-	end
-
-	farmlandOffsetCache[count] = result
-	return result
-end
-
-local function getFarmlandExtent(offsets)
-	local extent = FARMLAND_GRID_STEP
-	for _, offset in ipairs(offsets) do
-		extent = math.max(extent, math.abs(offset.X), math.abs(offset.Z))
-	end
-	return extent
-end
-
 -- Fires when enabled, then keeps firing as you walk (10 = Shovel item ID)
 Toggles.CreateFarmland:OnChanged(function()
 	disconnect("CreateFarmland")
@@ -5072,8 +5018,6 @@ Toggles.CreateFarmland:OnChanged(function()
 		local createFarmlandRemote = interactions and interactions:FindFirstChild("createFarmland")
 		if not createFarmlandRemote then return end
 
-		local origin = root.Position
-
 		-- Ground directly under the player
 		local character = getCharacter()
 		local rayParams = RaycastParams.new()
@@ -5082,27 +5026,16 @@ Toggles.CreateFarmland:OnChanged(function()
 		end)
 		rayParams.FilterDescendantsInstances = character and { character } or {}
 
-		local groundY = origin.Y - 3
+		local position = root.Position - Vector3.new(0, 3, 0)
 		local ok, result = pcall(function()
-			return workspace:Raycast(origin - Vector3.new(0, 3, 0), Vector3.new(0, -100, 0), rayParams)
+			return workspace:Raycast(root.Position - Vector3.new(0, 3, 0), Vector3.new(0, -100, 0), rayParams)
 		end)
 		if ok and result then
-			groundY = result.Position.Y
+			position = result.Position
 		end
 
-		local offsets = getFarmlandOffsets(getFarmlandCount())
-
-		task.spawn(function()
-			for index, offset in ipairs(offsets) do
-				if not Toggles.CreateFarmland.Value then return end
-				local point = Vector3.new(origin.X + offset.X, groundY, origin.Z + offset.Z)
-				pcall(function()
-					createFarmlandRemote:FireServer(10, point, 0)
-				end)
-				if index % 10 == 0 then
-					task.wait()
-				end
-			end
+		pcall(function()
+			createFarmlandRemote:FireServer(10, position, 0)
 		end)
 	end
 
@@ -5118,9 +5051,7 @@ Toggles.CreateFarmland:OnChanged(function()
 		local currentRoot = getRootPart()
 		if not currentRoot then return end
 
-		-- Refire once we've walked past the current patch so it keeps a trail
-		local step = getFarmlandExtent(getFarmlandOffsets(getFarmlandCount()))
-		if lastPlacePosition and (currentRoot.Position - lastPlacePosition).Magnitude < step then return end
+		if lastPlacePosition and (currentRoot.Position - lastPlacePosition).Magnitude < 4 then return end
 		lastPlacePosition = currentRoot.Position
 
 		placeFarmland()
