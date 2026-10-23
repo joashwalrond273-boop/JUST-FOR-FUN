@@ -333,6 +333,7 @@ local Tabs = {
 	Player = Window:AddTab("PLAYER", "user"),
 	Combat = Window:AddTab("COMBAT", "swords"),
 	Movement = Window:AddTab("MOVEMENT", "wind"),
+	FarmHub = Window:AddTab("FARMING", "sprout"),
 	Farming = Window:AddTab("AURAS", "flame"),
 	Teleport = Window:AddTab("TELEPORT", "signpost"),
 	Visuals = Window:AddTab("ESP", "binoculars"),
@@ -1279,14 +1280,27 @@ TeleportGroup:AddButton({
 				end
 			end
 
-			local deadline = tick() + 10
+			local deadline = tick() + 15
 			repeat
 				task.wait(0.1)
 			until (player.Character ~= previousCharacter and player.Character and player.Character:FindFirstChild("HumanoidRootPart")) or tick() > deadline
+
+			-- Let the game's own spawn logic finish before forcing the position
+			task.wait(0.5)
 		end
 
-		if targetCharacter:FindFirstChild("HumanoidRootPart") and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-			player.Character.HumanoidRootPart.CFrame = targetCharacter.HumanoidRootPart.CFrame + Vector3.new(0, 3, 0)
+		local targetRoot = targetCharacter:FindFirstChild("HumanoidRootPart")
+		if targetRoot then
+			local destination = targetRoot.CFrame + Vector3.new(0, 3, 0)
+			-- Keep re-applying so the spawn logic cannot override the teleport
+			local repinDeadline = tick() + 1.5
+			repeat
+				local root = getRootPart()
+				if root and isAlive() then
+					root.CFrame = destination
+				end
+				task.wait(0.1)
+			until tick() > repinDeadline
 		end
 	end,
 })
@@ -5671,6 +5685,9 @@ local function makeAuraHighlight(defaultColor)
 	h.Parent = workspace
 	return h
 end
+
+-- ==========================================
+local NewFarmGroup = Tabs.FarmHub:AddLeftGroupbox("Farming", "sprout")
 
 -- ==========================================
 local FarmAI = Tabs.Farming:AddLeftGroupbox("AI Aura", "zap")
