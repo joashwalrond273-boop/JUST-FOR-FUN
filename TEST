@@ -4760,7 +4760,7 @@ setupReachTracking()
 -- MOVEMENT
 -- ==========================================
 local MoveLeft = Tabs.Movement:AddLeftGroupbox("Speed", "gauge")
-local MoveRight = Tabs.Movement:AddRightGroupbox("Trap a Bully", "target")
+local MoveRight = Tabs.Movement:AddRightGroupbox("Trap a Bully", "crosshair")
 
 MoveRight:AddToggle("BearTrapClown", {
 	Text = "Bear Trap a Clown",
@@ -4796,9 +4796,27 @@ MoveRight:AddDropdown("SpikeTrapSlotSystemSlot", {
 	Multi = true,
 })
 
+MoveRight:AddToggle("JailCellBully", {
+	Text = "Jail Cell a Bully",
+	Default = false,
+})
+
+MoveRight:AddCheckbox("JailCellSlotSystem", {
+	Text = "Slot System",
+	Default = false,
+})
+
+MoveRight:AddDropdown("JailCellSlotSystemSlot", {
+	Text = "Tool Slot",
+	Values = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" },
+	Default = { "1" },
+	Multi = true,
+})
+
 updateTrapBullyVisibility = function()
 	local isBearTrapSlot = (Toggles.BearTrapSlotSystem and Toggles.BearTrapSlotSystem.Value) or false
 	local isSpikeTrapSlot = (Toggles.SpikeTrapSlotSystem and Toggles.SpikeTrapSlotSystem.Value) or false
+	local isJailCellSlot = (Toggles.JailCellSlotSystem and Toggles.JailCellSlotSystem.Value) or false
 
 	if Options.BearTrapSlotSystemSlot then
 		Options.BearTrapSlotSystemSlot.Visible = isBearTrapSlot
@@ -4810,6 +4828,12 @@ updateTrapBullyVisibility = function()
 		Options.SpikeTrapSlotSystemSlot.Visible = isSpikeTrapSlot
 		if Options.SpikeTrapSlotSystemSlot.Holder then
 			Options.SpikeTrapSlotSystemSlot.Holder.Visible = isSpikeTrapSlot
+		end
+	end
+	if Options.JailCellSlotSystemSlot then
+		Options.JailCellSlotSystemSlot.Visible = isJailCellSlot
+		if Options.JailCellSlotSystemSlot.Holder then
+			Options.JailCellSlotSystemSlot.Holder.Visible = isJailCellSlot
 		end
 	end
 	if MoveRight and MoveRight.Resize then
@@ -4829,9 +4853,16 @@ Toggles.SpikeTrapSlotSystem:OnChanged(function()
 	end
 end)
 
+Toggles.JailCellSlotSystem:OnChanged(function()
+	if updateTrapBullyVisibility then
+		updateTrapBullyVisibility()
+	end
+end)
+
 -- Trap a Clown: auto-activates while a chosen tool slot is held
 local BEAR_TRAP_ID = 432
 local SPIKE_TRAP_ID = 431
+local JAIL_CELL_ID = 82
 local TRAP_RANGE = 25
 local TRAP_AHEAD = 9
 
@@ -4859,7 +4890,7 @@ local function createTrapAheadLoop(trapId, toggleName, slotToggleName, slotOptio
 				local hum = player.Character:FindFirstChildOfClass("Humanoid")
 				if targetRoot and hum and hum.Health > 0 then
 					if (targetRoot.Position - root.Position).Magnitude <= TRAP_RANGE then
-						if now - (lastPlaced[player] or 0) >= 1 then
+						if now - (lastPlaced[player] or 0) >= 0.5 then
 							lastPlaced[player] = now
 							local look = targetRoot.CFrame.LookVector
 							local dir = Vector3.new(look.X, 0, look.Z)
@@ -4897,6 +4928,7 @@ end
 
 track("BearTrapClown", createTrapAheadLoop(BEAR_TRAP_ID, "BearTrapClown", "BearTrapSlotSystem", "BearTrapSlotSystemSlot"))
 track("SpikeTrapClown", createTrapAheadLoop(SPIKE_TRAP_ID, "SpikeTrapClown", "SpikeTrapSlotSystem", "SpikeTrapSlotSystemSlot"))
+track("JailCellBully", createTrapAheadLoop(JAIL_CELL_ID, "JailCellBully", "JailCellSlotSystem", "JailCellSlotSystemSlot"))
 
 updateTrapBullyVisibility()
 task.spawn(function()
@@ -8928,6 +8960,12 @@ Library:OnUnload(function()
 	end
 	if Toggles.SpikeTrapSlotSystem and Toggles.SpikeTrapSlotSystem.Value then
 		Toggles.SpikeTrapSlotSystem:SetValue(false)
+	end
+	if Toggles.JailCellBully and Toggles.JailCellBully.Value then
+		Toggles.JailCellBully:SetValue(false)
+	end
+	if Toggles.JailCellSlotSystem and Toggles.JailCellSlotSystem.Value then
+		Toggles.JailCellSlotSystem:SetValue(false)
 	end
 
 	if Toggles.SwordBot and Toggles.SwordBot.Value then
