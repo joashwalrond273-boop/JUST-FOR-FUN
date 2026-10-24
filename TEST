@@ -2694,7 +2694,6 @@ updatePVPModulesVisibility = function()
 	local isCam = (Toggles.Camlock and Toggles.Camlock.Value) or false
 	local isCamLerp = (Toggles.CamlockCameraLerp and Toggles.CamlockCameraLerp.Value) or false
 	local isSwingSpeed = (Toggles.SwingSpeedToggle and Toggles.SwingSpeedToggle.Value) or false
-	local isBearTrap = (Toggles.BearTrapClown and Toggles.BearTrapClown.Value) or false
 	local isCLSlot = (Toggles.CamlockSlotSystem and Toggles.CamlockSlotSystem.Value) or false
 
 	local isOutline = isCam and ((Toggles.Outline and Toggles.Outline.Value) or (Toggles.Cutline and Toggles.Cutline.Value) or false)
@@ -2706,9 +2705,9 @@ updatePVPModulesVisibility = function()
 		end
 	end
 	if Options.BearTrapSlotSystemSlot then
-		Options.BearTrapSlotSystemSlot.Visible = isBearTrap
+		Options.BearTrapSlotSystemSlot.Visible = true
 		if Options.BearTrapSlotSystemSlot.Holder then
-			Options.BearTrapSlotSystemSlot.Holder.Visible = isBearTrap
+			Options.BearTrapSlotSystemSlot.Holder.Visible = true
 		end
 	end
 	if Toggles.CamlockCameraLerp then
