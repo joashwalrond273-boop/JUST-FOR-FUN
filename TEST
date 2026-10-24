@@ -1482,6 +1482,11 @@ ImmuneTab:AddCheckbox("NoBearTrapDMG", {
 	Default = false,
 })
 
+ImmuneTab:AddCheckbox("BearTrapClown", {
+	Text = "Bear Trap a Clown",
+	Default = false,
+})
+
 ImmuneTab:AddCheckbox("AntiLava", {
 	Text = "Anti Fire / Lava",
 	Default = false,
@@ -1770,6 +1775,48 @@ Toggles.NoBearTrapDMG:OnChanged(function()
 		Library:Notify({ Title = "No Bear Trap DMG", Description = "Enabled", Time = 2 })
 	else
 		Library:Notify({ Title = "No Bear Trap DMG", Description = "Disabled", Time = 2 })
+	end
+end)
+
+-- Places bear traps (item 432) under nearby players' feet
+local BEAR_TRAP_ID = 432
+local BEAR_TRAP_RANGE = 50
+
+Toggles.BearTrapClown:OnChanged(function()
+	disconnect("BearTrapClown")
+	if Toggles.BearTrapClown.Value then
+		local lastPlaced = {}
+		track("BearTrapClown", RunService.Heartbeat:Connect(function()
+			local buildRemote = TSG.BuildRemote
+			local root = getRootPart()
+			if not buildRemote or not root then return end
+			local now = os.clock()
+			for _, player in ipairs(Players:GetPlayers()) do
+				if player ~= LocalPlayer and player.Character then
+					local targetRoot = player.Character:FindFirstChild("HumanoidRootPart")
+					local hum = player.Character:FindFirstChildOfClass("Humanoid")
+					if targetRoot and hum and hum.Health > 0 then
+						if (targetRoot.Position - root.Position).Magnitude <= BEAR_TRAP_RANGE then
+							if now - (lastPlaced[player] or 0) >= 1 then
+								lastPlaced[player] = now
+								local pos = targetRoot.Position
+								pcall(function()
+									buildRemote:InvokeServer(
+										BEAR_TRAP_ID,
+										CFrame.new(pos.X, pos.Y - 3, pos.Z),
+										0,
+										nil
+									)
+								end)
+							end
+						end
+					end
+				end
+			end
+		end))
+		Library:Notify({ Title = "Bear Trap a Clown", Description = "Enabled", Time = 2 })
+	else
+		Library:Notify({ Title = "Bear Trap a Clown", Description = "Disabled", Time = 2 })
 	end
 end)
 
@@ -8752,6 +8799,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.NoBearTrapDMG and Toggles.NoBearTrapDMG.Value then
 		Toggles.NoBearTrapDMG:SetValue(false)
+	end
+	if Toggles.BearTrapClown and Toggles.BearTrapClown.Value then
+		Toggles.BearTrapClown:SetValue(false)
 	end
 
 	if Toggles.SwordBot and Toggles.SwordBot.Value then
