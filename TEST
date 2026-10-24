@@ -2475,6 +2475,11 @@ CombatAutoSwingGroup:AddToggle("SmartSwingIgnoreTeam", {
 	Default = true,
 })
 
+CombatAutoSwingGroup:AddToggle("SmartSwingIgnoreAlly", {
+	Text = "Ignore Ally",
+	Default = false,
+})
+
 updateAutoSwingSliderVisibility = function()
 	local isAutoSwingToggled = (Toggles.AutoSwing and Toggles.AutoSwing.Value) or false
 	local isSmartSwingToggled = (Toggles.SmartSwing and Toggles.SmartSwing.Value) or false
@@ -2521,6 +2526,14 @@ updateAutoSwingSliderVisibility = function()
 			Toggles.SmartSwingIgnoreTeam.Holder.Visible = isSmartSwingToggled
 		end
 	end
+	if Toggles.SmartSwingIgnoreAlly then
+		if Toggles.SmartSwingIgnoreAlly.Visible ~= nil then
+			Toggles.SmartSwingIgnoreAlly.Visible = isSmartSwingToggled
+		end
+		if Toggles.SmartSwingIgnoreAlly.Holder then
+			Toggles.SmartSwingIgnoreAlly.Holder.Visible = isSmartSwingToggled
+		end
+	end
 	CombatAutoSwingGroup:Resize()
 end
 
@@ -2546,121 +2559,6 @@ CombatSwordBot:AddDropdown("ChooseVictim", {
 })
 
 local CombatAutoPVP = Tabs.Combat:AddRightGroupbox("PVP Modules", "swords")
-
-CombatAutoPVP:AddToggle("BearTrapClown", {
-	Text = "Bear Trap a Clown",
-	Default = false,
-})
-
-CombatAutoPVP:AddCheckbox("BearTrapSlotSystem", {
-	Text = "Slot System",
-	Default = false,
-})
-
-Toggles.BearTrapSlotSystem:OnChanged(function()
-	if updatePVPModulesVisibility then
-		updatePVPModulesVisibility()
-	end
-end)
-
-CombatAutoPVP:AddDropdown("BearTrapSlotSystemSlot", {
-	Text = "Tool Slot",
-	Values = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" },
-	Default = { "1" },
-	Multi = true,
-})
-
-CombatAutoPVP:AddToggle("SpikeTrapClown", {
-	Text = "Spike Trap a Clown",
-	Default = false,
-})
-
-CombatAutoPVP:AddCheckbox("SpikeTrapSlotSystem", {
-	Text = "Slot System",
-	Default = false,
-})
-
-Toggles.SpikeTrapSlotSystem:OnChanged(function()
-	if updatePVPModulesVisibility then
-		updatePVPModulesVisibility()
-	end
-end)
-
-CombatAutoPVP:AddDropdown("SpikeTrapSlotSystemSlot", {
-	Text = "Tool Slot",
-	Values = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" },
-	Default = { "1" },
-	Multi = true,
-})
-
--- Trap a Clown: auto-activates while a chosen tool slot is held
-local BEAR_TRAP_ID = 432
-local SPIKE_TRAP_ID = 431
-local TRAP_RANGE = 25
-local TRAP_AHEAD = 9
-
-local function createTrapAheadLoop(trapId, toggleName, slotToggleName, slotOptionName)
-	local lastPlaced = {}
-	return RunService.Heartbeat:Connect(function()
-		local useSlot = Toggles[slotToggleName] and Toggles[slotToggleName].Value
-		local active
-		if useSlot then
-			active = isAdvanceSlotAllowed(Options[slotOptionName])
-			if Toggles[toggleName] and Toggles[toggleName].Value ~= active then
-				Toggles[toggleName]:SetValue(active)
-			end
-		else
-			active = (Toggles[toggleName] and Toggles[toggleName].Value) or false
-		end
-		if not active then return end
-		local buildRemote = TSG.BuildRemote
-		local root = getRootPart()
-		if not buildRemote or not root then return end
-		local now = os.clock()
-		for _, player in ipairs(Players:GetPlayers()) do
-			if player ~= LocalPlayer and player.Character then
-				local targetRoot = player.Character:FindFirstChild("HumanoidRootPart")
-				local hum = player.Character:FindFirstChildOfClass("Humanoid")
-				if targetRoot and hum and hum.Health > 0 then
-					if (targetRoot.Position - root.Position).Magnitude <= TRAP_RANGE then
-						if now - (lastPlaced[player] or 0) >= 1 then
-							lastPlaced[player] = now
-							local look = targetRoot.CFrame.LookVector
-							local dir = Vector3.new(look.X, 0, look.Z)
-							if dir.Magnitude > 0 then
-								dir = dir.Unit
-							end
-							local pos = targetRoot.Position + dir * TRAP_AHEAD
-							local groundY = pos.Y - 3
-							local rayParams = RaycastParams.new()
-							pcall(function()
-								rayParams.FilterType = Enum.RaycastFilterType.Exclude
-							end)
-							rayParams.FilterDescendantsInstances = { LocalPlayer.Character, player.Character }
-							local ok, result = pcall(function()
-								return workspace:Raycast(Vector3.new(pos.X, pos.Y + 5, pos.Z), Vector3.new(0, -200, 0), rayParams)
-							end)
-							if ok and result then
-								groundY = result.Position.Y
-							end
-							pcall(function()
-								buildRemote:InvokeServer(
-									trapId,
-									CFrame.new(pos.X, groundY, pos.Z),
-									0,
-									nil
-								)
-							end)
-						end
-					end
-				end
-			end
-		end
-	end)
-end
-
-track("BearTrapClown", createTrapAheadLoop(BEAR_TRAP_ID, "BearTrapClown", "BearTrapSlotSystem", "BearTrapSlotSystemSlot"))
-track("SpikeTrapClown", createTrapAheadLoop(SPIKE_TRAP_ID, "SpikeTrapClown", "SpikeTrapSlotSystem", "SpikeTrapSlotSystemSlot"))
 
 CombatAutoPVP:AddToggle("SwingSpeedToggle", {
 	Text = "Swing Speed",
@@ -2750,8 +2648,6 @@ updatePVPModulesVisibility = function()
 	local isCam = (Toggles.Camlock and Toggles.Camlock.Value) or false
 	local isCamLerp = (Toggles.CamlockCameraLerp and Toggles.CamlockCameraLerp.Value) or false
 	local isSwingSpeed = (Toggles.SwingSpeedToggle and Toggles.SwingSpeedToggle.Value) or false
-	local isBearTrapSlot = (Toggles.BearTrapSlotSystem and Toggles.BearTrapSlotSystem.Value) or false
-	local isSpikeTrapSlot = (Toggles.SpikeTrapSlotSystem and Toggles.SpikeTrapSlotSystem.Value) or false
 	local isCLSlot = (Toggles.CamlockSlotSystem and Toggles.CamlockSlotSystem.Value) or false
 
 	local isOutline = isCam and ((Toggles.Outline and Toggles.Outline.Value) or (Toggles.Cutline and Toggles.Cutline.Value) or false)
@@ -2760,18 +2656,6 @@ updatePVPModulesVisibility = function()
 		Options.SwingSpeedVal.Visible = isSwingSpeed
 		if Options.SwingSpeedVal.Holder then
 			Options.SwingSpeedVal.Holder.Visible = isSwingSpeed
-		end
-	end
-	if Options.BearTrapSlotSystemSlot then
-		Options.BearTrapSlotSystemSlot.Visible = isBearTrapSlot
-		if Options.BearTrapSlotSystemSlot.Holder then
-			Options.BearTrapSlotSystemSlot.Holder.Visible = isBearTrapSlot
-		end
-	end
-	if Options.SpikeTrapSlotSystemSlot then
-		Options.SpikeTrapSlotSystemSlot.Visible = isSpikeTrapSlot
-		if Options.SpikeTrapSlotSystemSlot.Holder then
-			Options.SpikeTrapSlotSystemSlot.Holder.Visible = isSpikeTrapSlot
 		end
 	end
 	if Toggles.CamlockCameraLerp then
@@ -3525,12 +3409,13 @@ Toggles.SmartSwing:OnChanged(function()
 
 			local maxDist = Options.PlayerStuds and Options.PlayerStuds.Value or 20
 			local ignoreTeam = Toggles.SmartSwingIgnoreTeam and Toggles.SmartSwingIgnoreTeam.Value
+			local ignoreAlly = Toggles.SmartSwingIgnoreAlly and Toggles.SmartSwingIgnoreAlly.Value
 			local pos = root.Position
 			local playerNearby = false
 
 			for _, otherPlayer in ipairs(Players:GetPlayers()) do
 				if otherPlayer ~= LocalPlayer and otherPlayer.Character then
-					if not ignoreTeam or not isTeammate(otherPlayer) then
+					if (not ignoreTeam and not ignoreAlly) or not isTeammate(otherPlayer) then
 						local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart") or otherPlayer.Character.PrimaryPart
 						local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
 						if otherRoot and otherHum and otherHum.Health > 0 then
@@ -4875,7 +4760,151 @@ setupReachTracking()
 -- MOVEMENT
 -- ==========================================
 local MoveLeft = Tabs.Movement:AddLeftGroupbox("Speed", "gauge")
-local MoveRight = Tabs.Movement:AddRightGroupbox("Farming TEST", "plane")
+local MoveRight = Tabs.Movement:AddRightGroupbox("Trap a Bully", "target")
+
+MoveRight:AddToggle("BearTrapClown", {
+	Text = "Bear Trap a Clown",
+	Default = false,
+})
+
+MoveRight:AddCheckbox("BearTrapSlotSystem", {
+	Text = "Slot System",
+	Default = false,
+})
+
+MoveRight:AddDropdown("BearTrapSlotSystemSlot", {
+	Text = "Tool Slot",
+	Values = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" },
+	Default = { "1" },
+	Multi = true,
+})
+
+MoveRight:AddToggle("SpikeTrapClown", {
+	Text = "Spike Trap a Clown",
+	Default = false,
+})
+
+MoveRight:AddCheckbox("SpikeTrapSlotSystem", {
+	Text = "Slot System",
+	Default = false,
+})
+
+MoveRight:AddDropdown("SpikeTrapSlotSystemSlot", {
+	Text = "Tool Slot",
+	Values = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" },
+	Default = { "1" },
+	Multi = true,
+})
+
+updateTrapBullyVisibility = function()
+	local isBearTrapSlot = (Toggles.BearTrapSlotSystem and Toggles.BearTrapSlotSystem.Value) or false
+	local isSpikeTrapSlot = (Toggles.SpikeTrapSlotSystem and Toggles.SpikeTrapSlotSystem.Value) or false
+
+	if Options.BearTrapSlotSystemSlot then
+		Options.BearTrapSlotSystemSlot.Visible = isBearTrapSlot
+		if Options.BearTrapSlotSystemSlot.Holder then
+			Options.BearTrapSlotSystemSlot.Holder.Visible = isBearTrapSlot
+		end
+	end
+	if Options.SpikeTrapSlotSystemSlot then
+		Options.SpikeTrapSlotSystemSlot.Visible = isSpikeTrapSlot
+		if Options.SpikeTrapSlotSystemSlot.Holder then
+			Options.SpikeTrapSlotSystemSlot.Holder.Visible = isSpikeTrapSlot
+		end
+	end
+	if MoveRight and MoveRight.Resize then
+		pcall(function() MoveRight:Resize() end)
+	end
+end
+
+Toggles.BearTrapSlotSystem:OnChanged(function()
+	if updateTrapBullyVisibility then
+		updateTrapBullyVisibility()
+	end
+end)
+
+Toggles.SpikeTrapSlotSystem:OnChanged(function()
+	if updateTrapBullyVisibility then
+		updateTrapBullyVisibility()
+	end
+end)
+
+-- Trap a Clown: auto-activates while a chosen tool slot is held
+local BEAR_TRAP_ID = 432
+local SPIKE_TRAP_ID = 431
+local TRAP_RANGE = 25
+local TRAP_AHEAD = 9
+
+local function createTrapAheadLoop(trapId, toggleName, slotToggleName, slotOptionName)
+	local lastPlaced = {}
+	return RunService.Heartbeat:Connect(function()
+		local useSlot = Toggles[slotToggleName] and Toggles[slotToggleName].Value
+		local active
+		if useSlot then
+			active = isAdvanceSlotAllowed(Options[slotOptionName])
+			if Toggles[toggleName] and Toggles[toggleName].Value ~= active then
+				Toggles[toggleName]:SetValue(active)
+			end
+		else
+			active = (Toggles[toggleName] and Toggles[toggleName].Value) or false
+		end
+		if not active then return end
+		local buildRemote = TSG.BuildRemote
+		local root = getRootPart()
+		if not buildRemote or not root then return end
+		local now = os.clock()
+		for _, player in ipairs(Players:GetPlayers()) do
+			if player ~= LocalPlayer and player.Character then
+				local targetRoot = player.Character:FindFirstChild("HumanoidRootPart")
+				local hum = player.Character:FindFirstChildOfClass("Humanoid")
+				if targetRoot and hum and hum.Health > 0 then
+					if (targetRoot.Position - root.Position).Magnitude <= TRAP_RANGE then
+						if now - (lastPlaced[player] or 0) >= 1 then
+							lastPlaced[player] = now
+							local look = targetRoot.CFrame.LookVector
+							local dir = Vector3.new(look.X, 0, look.Z)
+							if dir.Magnitude > 0 then
+								dir = dir.Unit
+							end
+							local pos = targetRoot.Position + dir * TRAP_AHEAD
+							local groundY = pos.Y - 3
+							local rayParams = RaycastParams.new()
+							pcall(function()
+								rayParams.FilterType = Enum.RaycastFilterType.Exclude
+							end)
+							rayParams.FilterDescendantsInstances = { LocalPlayer.Character, player.Character }
+							local ok, result = pcall(function()
+								return workspace:Raycast(Vector3.new(pos.X, pos.Y + 5, pos.Z), Vector3.new(0, -200, 0), rayParams)
+							end)
+							if ok and result then
+								groundY = result.Position.Y
+							end
+							pcall(function()
+								buildRemote:InvokeServer(
+									trapId,
+									CFrame.new(pos.X, groundY, pos.Z),
+									0,
+									nil
+								)
+							end)
+						end
+					end
+				end
+			end
+		end
+	end)
+end
+
+track("BearTrapClown", createTrapAheadLoop(BEAR_TRAP_ID, "BearTrapClown", "BearTrapSlotSystem", "BearTrapSlotSystemSlot"))
+track("SpikeTrapClown", createTrapAheadLoop(SPIKE_TRAP_ID, "SpikeTrapClown", "SpikeTrapSlotSystem", "SpikeTrapSlotSystemSlot"))
+
+updateTrapBullyVisibility()
+task.spawn(function()
+	task.wait(0.05)
+	if updateTrapBullyVisibility then
+		updateTrapBullyVisibility()
+	end
+end)
 
 MoveLeft:AddToggle("SpeedHack", {
 	Text = "Speed",
@@ -5183,65 +5212,6 @@ do
 		end))
 	end)
 end
-
-MoveRight:AddCheckbox("CreateFarmland", {
-	Text = "Create Farmland",
-	Default = false,
-})
-
--- Fires when enabled, then keeps firing as you walk (10 = Shovel item ID)
-Toggles.CreateFarmland:OnChanged(function()
-	disconnect("CreateFarmland")
-	if not Toggles.CreateFarmland.Value then return end
-
-	local function placeFarmland()
-		local root = getRootPart()
-		if not root then return end
-
-		local interactions = ReplicatedStorage:FindFirstChild("remoteInterface")
-		interactions = interactions and interactions:FindFirstChild("interactions")
-		local createFarmlandRemote = interactions and interactions:FindFirstChild("createFarmland")
-		if not createFarmlandRemote then return end
-
-		-- Ground directly under the player
-		local character = getCharacter()
-		local rayParams = RaycastParams.new()
-		pcall(function()
-			rayParams.FilterType = Enum.RaycastFilterType.Exclude
-		end)
-		rayParams.FilterDescendantsInstances = character and { character } or {}
-
-		local position = root.Position - Vector3.new(0, 3, 0)
-		local ok, result = pcall(function()
-			return workspace:Raycast(root.Position - Vector3.new(0, 3, 0), Vector3.new(0, -100, 0), rayParams)
-		end)
-		if ok and result then
-			position = result.Position
-		end
-
-		pcall(function()
-			createFarmlandRemote:FireServer(10, position, 0)
-		end)
-	end
-
-	placeFarmland()
-
-	local root = getRootPart()
-	local lastPlacePosition = root and root.Position
-
-	track("CreateFarmland", RunService.Heartbeat:Connect(function()
-		if not Toggles.CreateFarmland.Value then return end
-		if not isAlive() then return end
-
-		local currentRoot = getRootPart()
-		if not currentRoot then return end
-
-		if lastPlacePosition and (currentRoot.Position - lastPlacePosition).Magnitude < 4 then return end
-		lastPlacePosition = currentRoot.Position
-
-		placeFarmland()
-	end))
-end)
 
 updateFlightVisibility = function()
 	local isInvisFly = (Toggles.InvisibleFlyToggle and Toggles.InvisibleFlyToggle.Value) or false
@@ -5930,6 +5900,67 @@ FarmChop:AddCheckbox("HighlightChop", {
 	Default = Color3.fromRGB(255, 0, 0),
 	Title = "Highlight Target Color",
 })
+
+FarmChop:AddDivider()
+
+FarmChop:AddCheckbox("CreateFarmland", {
+	Text = "Create Farmland",
+	Default = false,
+})
+
+-- Fires when enabled, then keeps firing as you walk (10 = Shovel item ID)
+Toggles.CreateFarmland:OnChanged(function()
+	disconnect("CreateFarmland")
+	if not Toggles.CreateFarmland.Value then return end
+
+	local function placeFarmland()
+		local root = getRootPart()
+		if not root then return end
+
+		local interactions = ReplicatedStorage:FindFirstChild("remoteInterface")
+		interactions = interactions and interactions:FindFirstChild("interactions")
+		local createFarmlandRemote = interactions and interactions:FindFirstChild("createFarmland")
+		if not createFarmlandRemote then return end
+
+		-- Ground directly under the player
+		local character = getCharacter()
+		local rayParams = RaycastParams.new()
+		pcall(function()
+			rayParams.FilterType = Enum.RaycastFilterType.Exclude
+		end)
+		rayParams.FilterDescendantsInstances = character and { character } or {}
+
+		local position = root.Position - Vector3.new(0, 3, 0)
+		local ok, result = pcall(function()
+			return workspace:Raycast(root.Position - Vector3.new(0, 3, 0), Vector3.new(0, -100, 0), rayParams)
+		end)
+		if ok and result then
+			position = result.Position
+		end
+
+		pcall(function()
+			createFarmlandRemote:FireServer(10, position, 0)
+		end)
+	end
+
+	placeFarmland()
+
+	local root = getRootPart()
+	local lastPlacePosition = root and root.Position
+
+	track("CreateFarmland", RunService.Heartbeat:Connect(function()
+		if not Toggles.CreateFarmland.Value then return end
+		if not isAlive() then return end
+
+		local currentRoot = getRootPart()
+		if not currentRoot then return end
+
+		if lastPlacePosition and (currentRoot.Position - lastPlacePosition).Magnitude < 4 then return end
+		lastPlacePosition = currentRoot.Position
+
+		placeFarmland()
+	end))
+end)
 
 -- ==========================================
 local FarmAI = Tabs.OreFactory:AddRightGroupbox("AI Aura", "zap")
