@@ -958,6 +958,58 @@ AutoArmorDeluxeGroup:AddCheckbox("ArmorCraftOnly", {
 	Default = false,
 })
 
+AutoArmorDeluxeGroup:AddButton({
+	Text = "Equip Best Armor",
+	Func = function()
+		local equipClothingRemote = TSG.EquipClothingRemote
+		if not equipClothingRemote then
+			Library:Notify({ Title = "Error", Description = "Equip remotes not found", Time = 3 })
+			return
+		end
+		if not TSG.ClientData or not TSG.Items then
+			Library:Notify({ Title = "Error", Description = "Item data not loaded", Time = 3 })
+			return
+		end
+
+		local best = {}
+		for itemId in pairs(TSG.ClientData.getInventory()) do
+			local data = TSG.Items.getItemData(itemId)
+			local stats = data and data.itemStats
+			if stats and stats.defense then
+				local kind = data.itemType and data.itemType[1]
+				if kind == "Helmet" or kind == "Shirt" or kind == "Pants" then
+					local current = best[kind]
+					if not current or stats.defense > current.def then
+						best[kind] = {
+							id = itemId,
+							def = stats.defense,
+							name = TSG.Items.getItemNameById(itemId) or tostring(itemId),
+						}
+					end
+				end
+			end
+		end
+
+		local clothingSlots = { Helmet = 1, Shirt = 2, Pants = 3 }
+		local equipped = {}
+		for kind, slot in pairs(clothingSlots) do
+			local pick = best[kind]
+			if pick then
+				pcall(function()
+					equipClothingRemote:InvokeServer("inventory", slot, pick.id)
+				end)
+				table.insert(equipped, pick.name)
+			end
+		end
+
+		if #equipped > 0 then
+			Library:Notify({ Title = "Best Armor", Description = table.concat(equipped, ", "), Time = 3 })
+		else
+			Library:Notify({ Title = "Best Armor", Description = "No armor found in inventory", Time = 3 })
+		end
+	end,
+})
+
 AutoArmorDeluxeGroup:AddDivider()
 
 AutoArmorDeluxeGroup:AddCheckbox("AtlanteanAutoSwap", {
@@ -7368,11 +7420,6 @@ VisualLeft:AddCheckbox("ShowHealthText", {
 	Default = false,
 })
 
-VisualLeft:AddCheckbox("ToolSlotESP", {
-	Text = "Tool Slot ESP",
-	Default = false,
-})
-
 VisualLeft:AddSlider("ESPDistance", {
 	Text = "Max Distance",
 	Default = 500,
@@ -7464,35 +7511,6 @@ local function clearESP()
 	if espFolder then
 		pcall(function() espFolder:ClearAllChildren() end)
 	end
-end
-
-local function getPlayerToolSlots(player)
-	local names = {}
-	local char = player.Character
-	if char then
-		for _, t in ipairs(char:GetChildren()) do
-			if t:IsA("Tool") then
-				table.insert(names, "★ " .. t.Name)
-			end
-		end
-	end
-	local backpack = player:FindFirstChildOfClass("Backpack")
-	if backpack then
-		for _, t in ipairs(backpack:GetChildren()) do
-			if t:IsA("Tool") then
-				table.insert(names, t.Name)
-			end
-		end
-	end
-	if #names == 0 then
-		return "No tools"
-	end
-	local parts = {}
-	for i, n in ipairs(names) do
-		if i > 10 then break end
-		parts[#parts + 1] = "[" .. i .. "] " .. n
-	end
-	return table.concat(parts, "\n")
 end
 
 local function getOrCreateESP(player)
@@ -7608,21 +7626,6 @@ local function getOrCreateESP(player)
 		hpText.Visible = showHpText
 		hpText.Parent = container
 
-		local toolLabel = Instance.new("TextLabel")
-		toolLabel.Name = "ToolLabel"
-		toolLabel.Size = UDim2.new(1, 0, 0, 12)
-		toolLabel.Position = UDim2.new(0, 0, 0, 46)
-		toolLabel.BackgroundTransparency = 1
-		toolLabel.TextColor3 = Color3.fromRGB(0, 244, 255)
-		toolLabel.TextStrokeTransparency = 0.3
-		toolLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-		toolLabel.Font = Enum.Font.Gotham
-		toolLabel.TextSize = 10
-		toolLabel.Text = ""
-		toolLabel.TextYAlignment = Enum.TextYAlignment.Top
-		toolLabel.Visible = false
-		toolLabel.Parent = container
-
 		local highlight = Instance.new("Highlight")
 		highlight.FillTransparency = 1
 		highlight.OutlineColor = oColor
@@ -7643,11 +7646,9 @@ local function getOrCreateESP(player)
 			healthBg = healthBg,
 			healthFill = healthFill,
 			hpText = hpText,
-			toolLabel = toolLabel,
 			highlight = highlight,
 			lastDist = -1,
 			lastHealth = -1,
-			lastTools = nil,
 		}
 		espObjects[player] = entry
 	else
@@ -7682,7 +7683,6 @@ local function updateAllESP()
 	local showDist = (Toggles and Toggles.ShowDistance and Toggles.ShowDistance.Value) or false
 	local showHealth = (Toggles and Toggles.PlayerHealthBar and Toggles.PlayerHealthBar.Value) or false
 	local showHpText = (Toggles and Toggles.ShowHealthText and Toggles.ShowHealthText.Value) or false
-	local showTools = (Toggles and Toggles.ToolSlotESP and Toggles.ToolSlotESP.Value) or false
 	local outlineEnabled = (Toggles.OutlineESP and Toggles.OutlineESP.Value) or false
 
 	for _, player in ipairs(Players:GetPlayers()) do
@@ -7751,30 +7751,6 @@ local function updateAllESP()
 					else
 						if entry.hpText.Visible then
 							entry.hpText.Visible = false
-						end
-					end
-
-					if showTools and entry.toolLabel then
-						local toolStr = getPlayerToolSlots(entry.player)
-						if entry.lastTools ~= toolStr then
-							entry.lastTools = toolStr
-							entry.toolLabel.Text = toolStr
-							local lineCount = select(2, toolStr:gsub("\n", "")) + 1
-							entry.toolLabel.Size = UDim2.new(1, 0, 0, lineCount * 12)
-							if entry.billboard then
-								entry.billboard.Size = UDim2.fromOffset(150, 48 + lineCount * 12)
-							end
-						end
-						if not entry.toolLabel.Visible then
-							entry.toolLabel.Visible = true
-						end
-					elseif entry.toolLabel then
-						if entry.toolLabel.Visible then
-							entry.toolLabel.Visible = false
-							entry.lastTools = nil
-							if entry.billboard then
-								entry.billboard.Size = UDim2.fromOffset(150, 48)
-							end
 						end
 					end
 				end
@@ -7862,21 +7838,6 @@ Toggles.ShowDistance:OnChanged(function()
 	for _, entry in pairs(espObjects) do
 		if entry.distLabel then
 			entry.distLabel.Visible = enabled
-		end
-	end
-end)
-
-Toggles.ToolSlotESP:OnChanged(function()
-	local enabled = Toggles.ToolSlotESP.Value
-	for _, entry in pairs(espObjects) do
-		if not enabled then
-			if entry.toolLabel then
-				entry.toolLabel.Visible = false
-			end
-			if entry.billboard then
-				entry.billboard.Size = UDim2.fromOffset(150, 48)
-			end
-			entry.lastTools = nil
 		end
 	end
 end)
