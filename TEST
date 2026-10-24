@@ -2922,6 +2922,49 @@ local function isSwingAnimation(trackObj)
 	return true
 end
 
+-- All shield item IDs (source: game.Items)
+local SHIELD_IDS = {
+	293, 294, 295, 296, 297, 298, 358,
+	475, 476, 477, 478, 479, 480,
+}
+local SHIELD_SLOT = 5
+
+local function isShieldItem(itemId)
+	if table.find(SHIELD_IDS, itemId) then
+		return true
+	end
+	if TSG.Items then
+		local data = TSG.Items.getItemData(itemId)
+		return (data and data.itemType and data.itemType[1] == "Shield") or false
+	end
+	return false
+end
+
+local function equipBestShield()
+	local equipClothingRemote = TSG.EquipClothingRemote
+	if not equipClothingRemote or not TSG.ClientData then return end
+	local bestId, bestTier = nil, -1
+	for itemId in pairs(TSG.ClientData.getInventory()) do
+		if isShieldItem(itemId) then
+			local tier = 0
+			if TSG.Items then
+				local data = TSG.Items.getItemData(itemId)
+				tier = (data and data.itemTier) or 0
+			end
+			if tier > bestTier then
+				bestTier = tier
+				bestId = itemId
+			end
+		end
+	end
+	if bestId then
+		pcall(function()
+			equipClothingRemote:InvokeServer("inventory", SHIELD_SLOT, bestId)
+		end)
+	end
+	return bestId
+end
+
 local isShielding = false
 local lastShieldFire = 0
 local multiSnapIndex = 1
@@ -2939,6 +2982,7 @@ local function updateImmortalMode()
 	local root = getRootPart()
 	if not root then return end
 
+	local wasShielding = isShielding
 	local shouldShield = false
 	local checkDistance = (Options.ImmortalModeStuds and Options.ImmortalModeStuds.Value) or 18
 	local nearestEnemy = nil
@@ -2976,6 +3020,9 @@ local function updateImmortalMode()
 	end
 
 	if shouldShield then
+		if not wasShielding then
+			equipBestShield()
+		end
 		local targetToFace = nil
 		if #activeAttackers > 0 then
 			table.sort(activeAttackers, function(a, b) return a.dist < b.dist end)
