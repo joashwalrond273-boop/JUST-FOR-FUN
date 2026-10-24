@@ -1799,7 +1799,12 @@ Toggles.BearTrapClown:OnChanged(function()
 						if (targetRoot.Position - root.Position).Magnitude <= BEAR_TRAP_RANGE then
 							if now - (lastPlaced[player] or 0) >= 1 then
 								lastPlaced[player] = now
-								local pos = targetRoot.Position
+								local look = targetRoot.CFrame.LookVector
+								local dir = Vector3.new(look.X, 0, look.Z)
+								if dir.Magnitude > 0 then
+									dir = dir.Unit
+								end
+								local pos = targetRoot.Position + dir * 9
 								pcall(function()
 									buildRemote:InvokeServer(
 										BEAR_TRAP_ID,
