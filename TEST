@@ -2553,6 +2553,12 @@ CombatAutoPVP:AddCheckbox("BearTrapSlotSystem", {
 	Default = false,
 })
 
+Toggles.BearTrapSlotSystem:OnChanged(function()
+	if updatePVPModulesVisibility then
+		updatePVPModulesVisibility()
+	end
+end)
+
 CombatAutoPVP:AddDropdown("BearTrapSlotSystemSlot", {
 	Text = "Tool Slot",
 	Values = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" },
@@ -2698,6 +2704,7 @@ updatePVPModulesVisibility = function()
 	local isCam = (Toggles.Camlock and Toggles.Camlock.Value) or false
 	local isCamLerp = (Toggles.CamlockCameraLerp and Toggles.CamlockCameraLerp.Value) or false
 	local isSwingSpeed = (Toggles.SwingSpeedToggle and Toggles.SwingSpeedToggle.Value) or false
+	local isBearTrapSlot = (Toggles.BearTrapSlotSystem and Toggles.BearTrapSlotSystem.Value) or false
 	local isCLSlot = (Toggles.CamlockSlotSystem and Toggles.CamlockSlotSystem.Value) or false
 
 	local isOutline = isCam and ((Toggles.Outline and Toggles.Outline.Value) or (Toggles.Cutline and Toggles.Cutline.Value) or false)
@@ -2709,9 +2716,9 @@ updatePVPModulesVisibility = function()
 		end
 	end
 	if Options.BearTrapSlotSystemSlot then
-		Options.BearTrapSlotSystemSlot.Visible = true
+		Options.BearTrapSlotSystemSlot.Visible = isBearTrapSlot
 		if Options.BearTrapSlotSystemSlot.Holder then
-			Options.BearTrapSlotSystemSlot.Holder.Visible = true
+			Options.BearTrapSlotSystemSlot.Holder.Visible = isBearTrapSlot
 		end
 	end
 	if Toggles.CamlockCameraLerp then
