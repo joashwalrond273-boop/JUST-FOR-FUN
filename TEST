@@ -1482,11 +1482,6 @@ ImmuneTab:AddCheckbox("NoBearTrapDMG", {
 	Default = false,
 })
 
-ImmuneTab:AddCheckbox("BearTrapClown", {
-	Text = "Bear Trap a Clown",
-	Default = false,
-})
-
 ImmuneTab:AddCheckbox("AntiLava", {
 	Text = "Anti Fire / Lava",
 	Default = false,
@@ -1780,13 +1775,17 @@ end)
 
 -- Places bear traps (item 432) under nearby players' feet
 local BEAR_TRAP_ID = 432
-local BEAR_TRAP_RANGE = 50
+local BEAR_TRAP_RANGE = 25
 
 Toggles.BearTrapClown:OnChanged(function()
 	disconnect("BearTrapClown")
+	if updatePVPModulesVisibility then
+		updatePVPModulesVisibility()
+	end
 	if Toggles.BearTrapClown.Value then
 		local lastPlaced = {}
 		track("BearTrapClown", RunService.Heartbeat:Connect(function()
+			if not isAdvanceSlotAllowed(Options.BearTrapSlotSystemSlot) then return end
 			local buildRemote = TSG.BuildRemote
 			local root = getRootPart()
 			if not buildRemote or not root then return end
@@ -2595,6 +2594,18 @@ CombatSwordBot:AddDropdown("ChooseVictim", {
 
 local CombatAutoPVP = Tabs.Combat:AddRightGroupbox("PVP Modules", "swords")
 
+CombatAutoPVP:AddCheckbox("BearTrapClown", {
+	Text = "Bear Trap a Clown",
+	Default = false,
+})
+
+CombatAutoPVP:AddDropdown("BearTrapSlotSystemSlot", {
+	Text = "Tool Slot",
+	Values = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" },
+	Default = { "1" },
+	Multi = true,
+})
+
 CombatAutoPVP:AddCheckbox("SwingSpeedToggle", {
 	Text = "+ Swing Speed",
 	Default = false,
@@ -2683,6 +2694,7 @@ updatePVPModulesVisibility = function()
 	local isCam = (Toggles.Camlock and Toggles.Camlock.Value) or false
 	local isCamLerp = (Toggles.CamlockCameraLerp and Toggles.CamlockCameraLerp.Value) or false
 	local isSwingSpeed = (Toggles.SwingSpeedToggle and Toggles.SwingSpeedToggle.Value) or false
+	local isBearTrap = (Toggles.BearTrapClown and Toggles.BearTrapClown.Value) or false
 	local isCLSlot = (Toggles.CamlockSlotSystem and Toggles.CamlockSlotSystem.Value) or false
 
 	local isOutline = isCam and ((Toggles.Outline and Toggles.Outline.Value) or (Toggles.Cutline and Toggles.Cutline.Value) or false)
@@ -2691,6 +2703,12 @@ updatePVPModulesVisibility = function()
 		Options.SwingSpeedVal.Visible = isSwingSpeed
 		if Options.SwingSpeedVal.Holder then
 			Options.SwingSpeedVal.Holder.Visible = isSwingSpeed
+		end
+	end
+	if Options.BearTrapSlotSystemSlot then
+		Options.BearTrapSlotSystemSlot.Visible = isBearTrap
+		if Options.BearTrapSlotSystemSlot.Holder then
+			Options.BearTrapSlotSystemSlot.Holder.Visible = isBearTrap
 		end
 	end
 	if Toggles.CamlockCameraLerp then
