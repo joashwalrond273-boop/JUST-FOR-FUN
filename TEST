@@ -2548,6 +2548,11 @@ CombatAutoPVP:AddCheckbox("BearTrapClown", {
 	Default = false,
 })
 
+CombatAutoPVP:AddCheckbox("BearTrapSlotSystem", {
+	Text = "Slot System",
+	Default = false,
+})
+
 CombatAutoPVP:AddDropdown("BearTrapSlotSystemSlot", {
 	Text = "Tool Slot",
 	Values = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" },
@@ -2561,11 +2566,17 @@ local BEAR_TRAP_RANGE = 25
 
 local lastBearTrapPlaced = {}
 track("BearTrapClown", RunService.Heartbeat:Connect(function()
-	local holding = isAdvanceSlotAllowed(Options.BearTrapSlotSystemSlot)
-	if Toggles.BearTrapClown and Toggles.BearTrapClown.Value ~= holding then
-		Toggles.BearTrapClown:SetValue(holding)
+	local useSlot = Toggles.BearTrapSlotSystem and Toggles.BearTrapSlotSystem.Value
+	local active
+	if useSlot then
+		active = isAdvanceSlotAllowed(Options.BearTrapSlotSystemSlot)
+		if Toggles.BearTrapClown and Toggles.BearTrapClown.Value ~= active then
+			Toggles.BearTrapClown:SetValue(active)
+		end
+	else
+		active = (Toggles.BearTrapClown and Toggles.BearTrapClown.Value) or false
 	end
-	if not holding then return end
+	if not active then return end
 	local buildRemote = TSG.BuildRemote
 	local root = getRootPart()
 	if not buildRemote or not root then return end
@@ -8817,6 +8828,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.BearTrapClown and Toggles.BearTrapClown.Value then
 		Toggles.BearTrapClown:SetValue(false)
+	end
+	if Toggles.BearTrapSlotSystem and Toggles.BearTrapSlotSystem.Value then
+		Toggles.BearTrapSlotSystem:SetValue(false)
 	end
 
 	if Toggles.SwordBot and Toggles.SwordBot.Value then
