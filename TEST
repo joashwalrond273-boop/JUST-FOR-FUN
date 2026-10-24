@@ -4762,51 +4762,19 @@ setupReachTracking()
 local MoveLeft = Tabs.Movement:AddLeftGroupbox("Speed", "gauge")
 local MoveRight = Tabs.Movement:AddRightGroupbox("Trap a Bully", "crosshair")
 
-MoveRight:AddToggle("BearTrapClown", {
-	Text = "Bear Trap a Clown",
-	Default = false,
-})
-
-MoveRight:AddCheckbox("BearTrapSlotSystem", {
-	Text = "Slot System",
-	Default = false,
-})
-
-MoveRight:AddDropdown("BearTrapSlotSystemSlot", {
-	Text = "Tool Slot",
-	Values = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" },
-	Default = { "1" },
+MoveRight:AddDropdown("TrapBullyTypes", {
+	Text = "Traps",
+	Values = { "Bear Trap", "Spike Trap", "Jail Cell" },
+	Default = {},
 	Multi = true,
 })
 
-MoveRight:AddToggle("SpikeTrapClown", {
-	Text = "Spike Trap a Clown",
-	Default = false,
-})
-
-MoveRight:AddCheckbox("SpikeTrapSlotSystem", {
+MoveRight:AddCheckbox("TrapBullySlotSystem", {
 	Text = "Slot System",
 	Default = false,
 })
 
-MoveRight:AddDropdown("SpikeTrapSlotSystemSlot", {
-	Text = "Tool Slot",
-	Values = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" },
-	Default = { "1" },
-	Multi = true,
-})
-
-MoveRight:AddToggle("JailCellBully", {
-	Text = "Jail Cell a Bully",
-	Default = false,
-})
-
-MoveRight:AddCheckbox("JailCellSlotSystem", {
-	Text = "Slot System",
-	Default = false,
-})
-
-MoveRight:AddDropdown("JailCellSlotSystemSlot", {
+MoveRight:AddDropdown("TrapBullySlot", {
 	Text = "Tool Slot",
 	Values = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" },
 	Default = { "1" },
@@ -4814,26 +4782,12 @@ MoveRight:AddDropdown("JailCellSlotSystemSlot", {
 })
 
 updateTrapBullyVisibility = function()
-	local isBearTrapSlot = (Toggles.BearTrapSlotSystem and Toggles.BearTrapSlotSystem.Value) or false
-	local isSpikeTrapSlot = (Toggles.SpikeTrapSlotSystem and Toggles.SpikeTrapSlotSystem.Value) or false
-	local isJailCellSlot = (Toggles.JailCellSlotSystem and Toggles.JailCellSlotSystem.Value) or false
+	local isSlotSystem = (Toggles.TrapBullySlotSystem and Toggles.TrapBullySlotSystem.Value) or false
 
-	if Options.BearTrapSlotSystemSlot then
-		Options.BearTrapSlotSystemSlot.Visible = isBearTrapSlot
-		if Options.BearTrapSlotSystemSlot.Holder then
-			Options.BearTrapSlotSystemSlot.Holder.Visible = isBearTrapSlot
-		end
-	end
-	if Options.SpikeTrapSlotSystemSlot then
-		Options.SpikeTrapSlotSystemSlot.Visible = isSpikeTrapSlot
-		if Options.SpikeTrapSlotSystemSlot.Holder then
-			Options.SpikeTrapSlotSystemSlot.Holder.Visible = isSpikeTrapSlot
-		end
-	end
-	if Options.JailCellSlotSystemSlot then
-		Options.JailCellSlotSystemSlot.Visible = isJailCellSlot
-		if Options.JailCellSlotSystemSlot.Holder then
-			Options.JailCellSlotSystemSlot.Holder.Visible = isJailCellSlot
+	if Options.TrapBullySlot then
+		Options.TrapBullySlot.Visible = isSlotSystem
+		if Options.TrapBullySlot.Holder then
+			Options.TrapBullySlot.Holder.Visible = isSlotSystem
 		end
 	end
 	if MoveRight and MoveRight.Resize then
@@ -4841,94 +4795,88 @@ updateTrapBullyVisibility = function()
 	end
 end
 
-Toggles.BearTrapSlotSystem:OnChanged(function()
+Toggles.TrapBullySlotSystem:OnChanged(function()
 	if updateTrapBullyVisibility then
 		updateTrapBullyVisibility()
 	end
 end)
 
-Toggles.SpikeTrapSlotSystem:OnChanged(function()
-	if updateTrapBullyVisibility then
-		updateTrapBullyVisibility()
-	end
-end)
-
-Toggles.JailCellSlotSystem:OnChanged(function()
-	if updateTrapBullyVisibility then
-		updateTrapBullyVisibility()
-	end
-end)
-
--- Trap a Clown: auto-activates while a chosen tool slot is held
-local BEAR_TRAP_ID = 432
-local SPIKE_TRAP_ID = 431
-local JAIL_CELL_ID = 82
+-- Trap a Bully: drops the chosen traps in front of nearby players
+local TRAP_TYPES = {
+	["Bear Trap"] = 432,
+	["Spike Trap"] = 431,
+	["Jail Cell"] = 82,
+}
 local TRAP_RANGE = 25
 local TRAP_AHEAD = 9
+local TRAP_COOLDOWN = 0.5
 
-local function createTrapAheadLoop(trapId, toggleName, slotToggleName, slotOptionName)
-	local lastPlaced = {}
-	return RunService.Heartbeat:Connect(function()
-		local useSlot = Toggles[slotToggleName] and Toggles[slotToggleName].Value
-		local active
-		if useSlot then
-			active = isAdvanceSlotAllowed(Options[slotOptionName])
-			if Toggles[toggleName] and Toggles[toggleName].Value ~= active then
-				Toggles[toggleName]:SetValue(active)
-			end
-		else
-			active = (Toggles[toggleName] and Toggles[toggleName].Value) or false
-		end
-		if not active then return end
-		local buildRemote = TSG.BuildRemote
-		local root = getRootPart()
-		if not buildRemote or not root then return end
-		local now = os.clock()
-		for _, player in ipairs(Players:GetPlayers()) do
-			if player ~= LocalPlayer and player.Character then
-				local targetRoot = player.Character:FindFirstChild("HumanoidRootPart")
-				local hum = player.Character:FindFirstChildOfClass("Humanoid")
-				if targetRoot and hum and hum.Health > 0 then
-					if (targetRoot.Position - root.Position).Magnitude <= TRAP_RANGE then
-						if now - (lastPlaced[player] or 0) >= 0.5 then
-							lastPlaced[player] = now
-							local look = targetRoot.CFrame.LookVector
-							local dir = Vector3.new(look.X, 0, look.Z)
-							if dir.Magnitude > 0 then
-								dir = dir.Unit
+local lastTrapsPlaced = {}
+
+track("TrapABully", RunService.Heartbeat:Connect(function()
+	local selection = Options.TrapBullyTypes and Options.TrapBullyTypes.Value
+	if not selection then return end
+	local anySelected = false
+	for _ in pairs(selection) do
+		anySelected = true
+		break
+	end
+	if not anySelected then return end
+
+	if Toggles.TrapBullySlotSystem and Toggles.TrapBullySlotSystem.Value then
+		if not isAdvanceSlotAllowed(Options.TrapBullySlot) then return end
+	end
+
+	local buildRemote = TSG.BuildRemote
+	local root = getRootPart()
+	if not buildRemote or not root then return end
+
+	local now = os.clock()
+	for trapName, trapId in pairs(TRAP_TYPES) do
+		if selection[trapName] then
+			for _, player in ipairs(Players:GetPlayers()) do
+				if player ~= LocalPlayer and player.Character then
+					local targetRoot = player.Character:FindFirstChild("HumanoidRootPart")
+					local hum = player.Character:FindFirstChildOfClass("Humanoid")
+					if targetRoot and hum and hum.Health > 0 then
+						if (targetRoot.Position - root.Position).Magnitude <= TRAP_RANGE then
+							local key = player.UserId .. ":" .. trapName
+							if now - (lastTrapsPlaced[key] or 0) >= TRAP_COOLDOWN then
+								lastTrapsPlaced[key] = now
+								local look = targetRoot.CFrame.LookVector
+								local dir = Vector3.new(look.X, 0, look.Z)
+								if dir.Magnitude > 0 then
+									dir = dir.Unit
+								end
+								local pos = targetRoot.Position + dir * TRAP_AHEAD
+								local groundY = pos.Y - 3
+								local rayParams = RaycastParams.new()
+								pcall(function()
+									rayParams.FilterType = Enum.RaycastFilterType.Exclude
+								end)
+								rayParams.FilterDescendantsInstances = { LocalPlayer.Character, player.Character }
+								local ok, result = pcall(function()
+									return workspace:Raycast(Vector3.new(pos.X, pos.Y + 5, pos.Z), Vector3.new(0, -200, 0), rayParams)
+								end)
+								if ok and result then
+									groundY = result.Position.Y
+								end
+								pcall(function()
+									buildRemote:InvokeServer(
+										trapId,
+										CFrame.new(pos.X, groundY, pos.Z),
+										0,
+										nil
+									)
+								end)
 							end
-							local pos = targetRoot.Position + dir * TRAP_AHEAD
-							local groundY = pos.Y - 3
-							local rayParams = RaycastParams.new()
-							pcall(function()
-								rayParams.FilterType = Enum.RaycastFilterType.Exclude
-							end)
-							rayParams.FilterDescendantsInstances = { LocalPlayer.Character, player.Character }
-							local ok, result = pcall(function()
-								return workspace:Raycast(Vector3.new(pos.X, pos.Y + 5, pos.Z), Vector3.new(0, -200, 0), rayParams)
-							end)
-							if ok and result then
-								groundY = result.Position.Y
-							end
-							pcall(function()
-								buildRemote:InvokeServer(
-									trapId,
-									CFrame.new(pos.X, groundY, pos.Z),
-									0,
-									nil
-								)
-							end)
 						end
 					end
 				end
 			end
 		end
-	end)
-end
-
-track("BearTrapClown", createTrapAheadLoop(BEAR_TRAP_ID, "BearTrapClown", "BearTrapSlotSystem", "BearTrapSlotSystemSlot"))
-track("SpikeTrapClown", createTrapAheadLoop(SPIKE_TRAP_ID, "SpikeTrapClown", "SpikeTrapSlotSystem", "SpikeTrapSlotSystemSlot"))
-track("JailCellBully", createTrapAheadLoop(JAIL_CELL_ID, "JailCellBully", "JailCellSlotSystem", "JailCellSlotSystemSlot"))
+	end
+end))
 
 updateTrapBullyVisibility()
 task.spawn(function()
@@ -8949,23 +8897,11 @@ Library:OnUnload(function()
 	if Toggles.NoBearTrapDMG and Toggles.NoBearTrapDMG.Value then
 		Toggles.NoBearTrapDMG:SetValue(false)
 	end
-	if Toggles.BearTrapClown and Toggles.BearTrapClown.Value then
-		Toggles.BearTrapClown:SetValue(false)
+	if Toggles.TrapBullySlotSystem and Toggles.TrapBullySlotSystem.Value then
+		Toggles.TrapBullySlotSystem:SetValue(false)
 	end
-	if Toggles.BearTrapSlotSystem and Toggles.BearTrapSlotSystem.Value then
-		Toggles.BearTrapSlotSystem:SetValue(false)
-	end
-	if Toggles.SpikeTrapClown and Toggles.SpikeTrapClown.Value then
-		Toggles.SpikeTrapClown:SetValue(false)
-	end
-	if Toggles.SpikeTrapSlotSystem and Toggles.SpikeTrapSlotSystem.Value then
-		Toggles.SpikeTrapSlotSystem:SetValue(false)
-	end
-	if Toggles.JailCellBully and Toggles.JailCellBully.Value then
-		Toggles.JailCellBully:SetValue(false)
-	end
-	if Toggles.JailCellSlotSystem and Toggles.JailCellSlotSystem.Value then
-		Toggles.JailCellSlotSystem:SetValue(false)
+	if Options.TrapBullyTypes then
+		Options.TrapBullyTypes:SetValue({})
 	end
 
 	if Toggles.SwordBot and Toggles.SwordBot.Value then
