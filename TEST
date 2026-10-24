@@ -1393,11 +1393,6 @@ MainLeft:AddCheckbox("InfiniteBackpack", {
 	Default = false,
 })
 
-MainLeft:AddCheckbox("NoSlowdown", {
-	Text = "No Slowdown",
-	Default = false,
-})
-
 MainLeft:AddCheckbox("InfiniteStamina", {
 	Text = "Infinite Stamina",
 	Default = false,
@@ -1700,20 +1695,6 @@ local function applyCharacterModuleToggles()
 		end
 	end
 end
-
-Toggles.InfiniteBackpack:OnChanged(function()
-	disconnect("InfiniteBackpack")
-	if Toggles.InfiniteBackpack.Value then
-		pcall(function()
-			loadstring(game:HttpGet("https://luaprot.net/api/v2/loaders/get/22146161941616905772"))()
-			getgenv().InfiniteBagEnabled = true
-		end)
-		Library:Notify({ Title = "Infinite Backpack", Description = "Enabled", Time = 2 })
-	else
-		getgenv().InfiniteBagEnabled = false
-		Library:Notify({ Title = "Infinite Backpack", Description = "Disabled", Time = 2 })
-	end
-end)
 
 Toggles.InfiniteStamina:OnChanged(function()
 	disconnect("InfiniteStamina")
@@ -2601,10 +2582,22 @@ track("BearTrapClown", RunService.Heartbeat:Connect(function()
 							dir = dir.Unit
 						end
 						local pos = targetRoot.Position + dir * 9
+						local groundY = pos.Y - 3
+						local rayParams = RaycastParams.new()
+						pcall(function()
+							rayParams.FilterType = Enum.RaycastFilterType.Exclude
+						end)
+						rayParams.FilterDescendantsInstances = { LocalPlayer.Character, player.Character }
+						local ok, result = pcall(function()
+							return workspace:Raycast(Vector3.new(pos.X, pos.Y + 5, pos.Z), Vector3.new(0, -200, 0), rayParams)
+						end)
+						if ok and result then
+							groundY = result.Position.Y
+						end
 						pcall(function()
 							buildRemote:InvokeServer(
 								BEAR_TRAP_ID,
-								CFrame.new(pos.X, pos.Y - 3, pos.Z),
+								CFrame.new(pos.X, groundY, pos.Z),
 								0,
 								nil
 							)
@@ -5347,7 +5340,7 @@ Toggles.SpeedHack:OnChanged(function()
 	end
 end)
 
-Toggles.NoSlowdown:OnChanged(function()
+Toggles.InfiniteBackpack:OnChanged(function()
 	disconnect("NoSlowdown_WS")
 	disconnect("NoSlowdown_CharAdded")
 	local function applySlowdownDisabled(disabled)
@@ -5361,7 +5354,7 @@ Toggles.NoSlowdown:OnChanged(function()
 			end
 		end
 	end
-	if Toggles.NoSlowdown.Value then
+	if Toggles.InfiniteBackpack.Value then
 		applySlowdownDisabled(true)
 		hookCharFolderBehaviors()
 		local function setupHumanoid(char)
@@ -5373,7 +5366,7 @@ Toggles.NoSlowdown:OnChanged(function()
 				end
 				disconnect("NoSlowdown_WS")
 				track("NoSlowdown_WS", hum:GetPropertyChangedSignal("WalkSpeed"):Connect(function()
-					if Toggles.NoSlowdown and Toggles.NoSlowdown.Value and hum.WalkSpeed < 16 then
+					if Toggles.InfiniteBackpack and Toggles.InfiniteBackpack.Value and hum.WalkSpeed < 16 then
 						hum.WalkSpeed = 16
 					end
 				end))
@@ -5383,10 +5376,10 @@ Toggles.NoSlowdown:OnChanged(function()
 			setupHumanoid(LocalPlayer.Character)
 		end
 		track("NoSlowdown_CharAdded", LocalPlayer.CharacterAdded:Connect(setupHumanoid))
-		Library:Notify({ Title = "No Slowdown", Description = "Enabled", Time = 2 })
+		Library:Notify({ Title = "Infinite Backpack", Description = "Enabled", Time = 2 })
 	else
 		applySlowdownDisabled(false)
-		Library:Notify({ Title = "No Slowdown", Description = "Disabled", Time = 2 })
+		Library:Notify({ Title = "Infinite Backpack", Description = "Disabled", Time = 2 })
 	end
 end)
 
