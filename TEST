@@ -2543,7 +2543,7 @@ CombatSwordBot:AddDropdown("ChooseVictim", {
 
 local CombatAutoPVP = Tabs.Combat:AddRightGroupbox("PVP Modules", "swords")
 
-CombatAutoPVP:AddCheckbox("BearTrapClown", {
+CombatAutoPVP:AddToggle("BearTrapClown", {
 	Text = "Bear Trap a Clown",
 	Default = false,
 })
@@ -2616,8 +2616,8 @@ track("BearTrapClown", RunService.Heartbeat:Connect(function()
 	end
 end))
 
-CombatAutoPVP:AddCheckbox("SwingSpeedToggle", {
-	Text = "+ Swing Speed",
+CombatAutoPVP:AddToggle("SwingSpeedToggle", {
+	Text = "Swing Speed",
 	Default = false,
 })
 
@@ -2630,8 +2630,8 @@ CombatAutoPVP:AddSlider("SwingSpeedVal", {
 	Compact = true,
 })
 
-CombatAutoPVP:AddCheckbox("LookDownFloor", {
-	Text = "+ Look at Floor",
+CombatAutoPVP:AddToggle("LookDownFloor", {
+	Text = "Look at Floor",
 	Default = false,
 })
 
@@ -2660,8 +2660,8 @@ CombatAutoPVP:AddSlider("LookDownSens", {
 	Compact = true,
 })
 
-CombatAutoPVP:AddCheckbox("AutoJump", {
-	Text = "+ Auto Jump",
+CombatAutoPVP:AddToggle("AutoJump", {
+	Text = "Auto Jump",
 	Default = false,
 })
 
