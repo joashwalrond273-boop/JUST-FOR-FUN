@@ -313,7 +313,7 @@ end)
 
 
 Library.Font = Enum.Font.Gotham
-Library.CornerRadius = 15
+Library.CornerRadius = 20
 
 -- Window
 local Window = Library:CreateWindow({
@@ -325,7 +325,7 @@ local Window = Library:CreateWindow({
 	Resizable = true,
 	NotifySide = "Right",
 	ShowCustomCursor = false,
-	CornerRadius = 15,
+	CornerRadius = 20,
 })
 
 local Tabs = {
@@ -1258,6 +1258,29 @@ FunAttach:AddDropdown("AttachPlayerList", {
 
 local TeleportGroup = Tabs.Main:AddRightGroupbox("TELEPORT", "map-pin")
 
+TeleportGroup:AddButton({
+	Text = "Reset Character",
+	Func = function()
+		local root = getRootPart()
+		if root then
+			lastDeathPosition = root.Position
+		end
+
+		local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
+		if remoteInterface then
+			local characterFolder = remoteInterface:FindFirstChild("character")
+			if characterFolder then
+				local resetRemote = characterFolder:FindFirstChild("reset")
+				if resetRemote then
+					pcall(function()
+						resetRemote:InvokeServer()
+					end)
+				end
+			end
+		end
+	end,
+})
+
 TeleportGroup:AddDropdown("TeleportPlayerList", {
 	Text = "Select Player",
 	Values = {},
@@ -1432,6 +1455,11 @@ MainLeft:AddCheckbox("Noclip", {
 	Default = false,
 })
 
+MainLeft:AddCheckbox("AntiAFK", {
+	Text = "Anti-AFK",
+	Default = false,
+})
+
 updateAutoPickupVisibility = function()
 	local isPickup = (Toggles.FastPickup and Toggles.FastPickup.Value) or false
 	if Options.AutoPickupRange then
@@ -1484,11 +1512,6 @@ ImmuneTab:AddCheckbox("AntiLava", {
 
 ImmuneTab:AddCheckbox("AutoAirBubbles", {
 	Text = "Auto Air Bubbles",
-	Default = false,
-})
-
-ImmuneTab:AddCheckbox("AntiAFK", {
-	Text = "Anti-AFK",
 	Default = false,
 })
 
