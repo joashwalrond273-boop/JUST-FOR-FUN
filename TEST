@@ -4767,6 +4767,15 @@ MoveRight:AddToggle("BearTrapClown", {
 	Default = false,
 })
 
+MoveRight:AddSlider("BearTrapSpeed", {
+	Text = "Speed",
+	Default = 2,
+	Min = 1,
+	Max = 10,
+	Rounding = 0,
+	Compact = true,
+})
+
 MoveRight:AddCheckbox("BearTrapSlotSystem", {
 	Text = "Slot System",
 	Default = false,
@@ -4786,6 +4795,15 @@ MoveRight:AddToggle("SpikeTrapClown", {
 	Default = false,
 })
 
+MoveRight:AddSlider("SpikeTrapSpeed", {
+	Text = "Speed",
+	Default = 2,
+	Min = 1,
+	Max = 10,
+	Rounding = 0,
+	Compact = true,
+})
+
 MoveRight:AddCheckbox("SpikeTrapSlotSystem", {
 	Text = "Slot System",
 	Default = false,
@@ -4803,6 +4821,15 @@ MoveRight:AddDivider()
 MoveRight:AddToggle("JailCellBully", {
 	Text = "Jail Cell a Bully",
 	Default = false,
+})
+
+MoveRight:AddSlider("JailCellSpeed", {
+	Text = "Speed",
+	Default = 2,
+	Min = 1,
+	Max = 10,
+	Rounding = 0,
+	Compact = true,
 })
 
 MoveRight:AddCheckbox("JailCellSlotSystem", {
@@ -4870,7 +4897,7 @@ local JAIL_CELL_ID = 82
 local TRAP_RANGE = 25
 local TRAP_AHEAD = 9
 
-local function createTrapAheadLoop(trapId, toggleName, slotToggleName, slotOptionName)
+local function createTrapAheadLoop(trapId, toggleName, slotToggleName, slotOptionName, speedOptionName)
 	local lastPlaced = {}
 	return RunService.Heartbeat:Connect(function()
 		local useSlot = Toggles[slotToggleName] and Toggles[slotToggleName].Value
@@ -4884,6 +4911,8 @@ local function createTrapAheadLoop(trapId, toggleName, slotToggleName, slotOptio
 			active = (Toggles[toggleName] and Toggles[toggleName].Value) or false
 		end
 		if not active then return end
+		local speed = (Options[speedOptionName] and Options[speedOptionName].Value) or 2
+		local delay = 1 / math.max(0.1, speed)
 		local buildRemote = TSG.BuildRemote
 		local root = getRootPart()
 		if not buildRemote or not root then return end
@@ -4894,7 +4923,7 @@ local function createTrapAheadLoop(trapId, toggleName, slotToggleName, slotOptio
 				local hum = player.Character:FindFirstChildOfClass("Humanoid")
 				if targetRoot and hum and hum.Health > 0 then
 					if (targetRoot.Position - root.Position).Magnitude <= TRAP_RANGE then
-						if now - (lastPlaced[player] or 0) >= 0.5 then
+						if now - (lastPlaced[player] or 0) >= delay then
 							lastPlaced[player] = now
 							local look = targetRoot.CFrame.LookVector
 							local dir = Vector3.new(look.X, 0, look.Z)
@@ -4930,9 +4959,9 @@ local function createTrapAheadLoop(trapId, toggleName, slotToggleName, slotOptio
 	end)
 end
 
-track("BearTrapClown", createTrapAheadLoop(BEAR_TRAP_ID, "BearTrapClown", "BearTrapSlotSystem", "BearTrapSlotSystemSlot"))
-track("SpikeTrapClown", createTrapAheadLoop(SPIKE_TRAP_ID, "SpikeTrapClown", "SpikeTrapSlotSystem", "SpikeTrapSlotSystemSlot"))
-track("JailCellBully", createTrapAheadLoop(JAIL_CELL_ID, "JailCellBully", "JailCellSlotSystem", "JailCellSlotSystemSlot"))
+track("BearTrapClown", createTrapAheadLoop(BEAR_TRAP_ID, "BearTrapClown", "BearTrapSlotSystem", "BearTrapSlotSystemSlot", "BearTrapSpeed"))
+track("SpikeTrapClown", createTrapAheadLoop(SPIKE_TRAP_ID, "SpikeTrapClown", "SpikeTrapSlotSystem", "SpikeTrapSlotSystemSlot", "SpikeTrapSpeed"))
+track("JailCellBully", createTrapAheadLoop(JAIL_CELL_ID, "JailCellBully", "JailCellSlotSystem", "JailCellSlotSystemSlot", "JailCellSpeed"))
 
 updateTrapBullyVisibility()
 task.spawn(function()
