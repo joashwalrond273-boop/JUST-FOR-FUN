@@ -6067,6 +6067,11 @@ FarmAI:AddToggle("BossSpawnNotifier", {
 	Default = false,
 })
 
+FarmAI:AddToggle("BossAliveHUD", {
+	Text = "Boss Alive HUD",
+	Default = false,
+})
+
 OreFarm:AddButton({
 	Text = "Reset Character",
 	Func = function()
@@ -6732,28 +6737,29 @@ do
 end
 
 -- ==========================================
+-- Boss data (shared by the Spawn Notifier and the Alive HUD)
+local BOSS_NAMES = {
+	"The Great Spider",
+	"The Juggernaut",
+	"The Samurai",
+	"The Titan",
+}
+
+local function getBossName(name)
+	if type(name) ~= "string" then return nil end
+	for _, boss in ipairs(BOSS_NAMES) do
+		if name == boss or string.find(name, boss, 1, true) then
+			return boss
+		end
+	end
+	return nil
+end
+
 -- Boss Spawn Notifier
 do
-	local BOSS_NAMES = {
-		"The Great Spider",
-		"The Juggernaut",
-		"The Samurai",
-		"The Titan",
-	}
-
 	local bossNotifyRunning = false
 	local bossNotifyAlerts = {}
 	local bossNotifyLastRefresh = 0
-
-	local function getBossName(name)
-		if type(name) ~= "string" then return nil end
-		for _, boss in ipairs(BOSS_NAMES) do
-			if name == boss or string.find(name, boss, 1, true) then
-				return boss
-			end
-		end
-		return nil
-	end
 
 	local function alertBoss(boss, instance)
 		local now = tick()
@@ -6838,6 +6844,229 @@ do
 
 		Library:Notify({ Title = "Boss Spawn Notifier", Description = "Enabled", Time = 2 })
 	end)
+end
+
+-- ==========================================
+-- Boss Alive HUD
+local bossHUDCleanup = nil
+do
+	local hudGui = nil
+	local hudFrame = nil
+	local hudRows = {}
+	local hudRunning = false
+	local hudLastScan = 0
+
+	local function getHUDParent()
+		local safeParent = nil
+		pcall(function()
+			if typeof(gethui) == "function" then
+				safeParent = gethui()
+			elseif typeof(CoreGui) == "Instance" then
+				safeParent = CoreGui
+			end
+		end)
+		return safeParent or LocalPlayer:WaitForChild("PlayerGui")
+	end
+
+	local function buildHUD()
+		if hudGui and hudGui.Parent then return end
+
+		hudGui = Instance.new("ScreenGui")
+		hudGui.Name = "TSG_BossAliveHUD"
+		hudGui.ResetOnSpawn = false
+		hudGui.IgnoreGuiInset = true
+		hudGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+		hudGui.Parent = getHUDParent()
+
+		hudFrame = Instance.new("Frame")
+		hudFrame.Name = "HUDFrame"
+		hudFrame.Position = UDim2.fromOffset(12, 60)
+		hudFrame.Size = UDim2.fromOffset(196, 0)
+		hudFrame.AutomaticSize = Enum.AutomaticSize.Y
+		hudFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
+		hudFrame.BackgroundTransparency = 0.15
+		hudFrame.BorderSizePixel = 0
+		hudFrame.Visible = false
+		hudFrame.Parent = hudGui
+
+		local stroke = Instance.new("UIStroke")
+		stroke.Color = Color3.fromRGB(0, 244, 255)
+		stroke.Thickness = 1
+		stroke.Transparency = 0.4
+		stroke.Parent = hudFrame
+
+		local padding = Instance.new("UIPadding")
+		padding.PaddingTop = UDim.new(0, 6)
+		padding.PaddingBottom = UDim.new(0, 6)
+		padding.PaddingLeft = UDim.new(0, 8)
+		padding.PaddingRight = UDim.new(0, 8)
+		padding.Parent = hudFrame
+
+		local layout = Instance.new("UIListLayout")
+		layout.SortOrder = Enum.SortOrder.LayoutOrder
+		layout.Padding = UDim.new(0, 3)
+		layout.Parent = hudFrame
+
+		local title = Instance.new("TextLabel")
+		title.Name = "Title"
+		title.LayoutOrder = 0
+		title.Size = UDim2.new(1, 0, 0, 15)
+		title.BackgroundTransparency = 1
+		title.TextXAlignment = Enum.TextXAlignment.Left
+		title.Text = "BOSSES ALIVE"
+		title.TextColor3 = Color3.fromRGB(0, 244, 255)
+		title.TextStrokeTransparency = 0.5
+		title.Font = Enum.Font.GothamBold
+		title.TextSize = 12
+		title.Parent = hudFrame
+	end
+
+	local function createRow(boss, order)
+		local row = Instance.new("Frame")
+		row.Name = boss
+		row.LayoutOrder = order
+		row.Size = UDim2.new(1, 0, 0, 15)
+		row.BackgroundTransparency = 1
+		row.Parent = hudFrame
+
+		local nameLabel = Instance.new("TextLabel")
+		nameLabel.Name = "BossName"
+		nameLabel.Size = UDim2.new(0.66, 0, 1, 0)
+		nameLabel.BackgroundTransparency = 1
+		nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+		nameLabel.TextColor3 = Color3.fromRGB(235, 235, 235)
+		nameLabel.TextStrokeTransparency = 0.6
+		nameLabel.Font = Enum.Font.Gotham
+		nameLabel.TextSize = 12
+		nameLabel.Text = boss
+		nameLabel.Parent = row
+
+		local hpLabel = Instance.new("TextLabel")
+		hpLabel.Name = "BossHP"
+		hpLabel.AnchorPoint = Vector2.new(1, 0)
+		hpLabel.Position = UDim2.fromScale(1, 0)
+		hpLabel.Size = UDim2.new(0.34, 0, 1, 0)
+		hpLabel.BackgroundTransparency = 1
+		hpLabel.TextXAlignment = Enum.TextXAlignment.Right
+		hpLabel.TextColor3 = Color3.fromRGB(0, 255, 120)
+		hpLabel.TextStrokeTransparency = 0.6
+		hpLabel.Font = Enum.Font.GothamBold
+		hpLabel.TextSize = 12
+		hpLabel.Text = ""
+		hpLabel.Parent = row
+
+		return { frame = row, name = nameLabel, hp = hpLabel }
+	end
+
+	local function findAliveBosses()
+		local found = {}
+		local root = getRootPart()
+		local myPos = root and root.Position
+
+		local containers = { workspace }
+		local aiServer = workspace:FindFirstChild("AI_Server")
+		if aiServer then table.insert(containers, aiServer) end
+		local aiClient = workspace:FindFirstChild("AI_Client")
+		if aiClient then table.insert(containers, aiClient) end
+
+		for _, container in ipairs(containers) do
+			for _, child in ipairs(container:GetChildren()) do
+				local boss = child:IsA("Model") and getBossName(child.Name) or nil
+				if boss and not found[boss] then
+					local hum = child:FindFirstChildOfClass("Humanoid")
+					if not hum or hum.Health > 0 then
+						local part = child.PrimaryPart
+							or child:FindFirstChild("HumanoidRootPart")
+							or child:FindFirstChildWhichIsA("BasePart")
+						local dist = (part and myPos) and (part.Position - myPos).Magnitude or nil
+						found[boss] = {
+							dist = dist,
+							health = hum and hum.Health,
+							maxHealth = hum and hum.MaxHealth,
+						}
+					end
+				end
+			end
+		end
+
+		return found
+	end
+
+	local function refreshHUD()
+		if not (hudFrame and hudFrame.Parent) then return end
+
+		local found = findAliveBosses()
+
+		for boss, row in pairs(hudRows) do
+			if not found[boss] then
+				row.frame:Destroy()
+				hudRows[boss] = nil
+			end
+		end
+
+		local anyAlive = false
+		for index, boss in ipairs(BOSS_NAMES) do
+			local data = found[boss]
+			if data then
+				anyAlive = true
+				local row = hudRows[boss]
+				if not row then
+					row = createRow(boss, index)
+					hudRows[boss] = row
+				end
+
+				local distText = data.dist and string.format("  %.0fm", data.dist) or ""
+				row.name.Text = boss .. distText
+
+				if data.health and data.maxHealth and data.maxHealth > 0 then
+					local pct = math.clamp(data.health / data.maxHealth, 0, 1)
+					row.hp.Text = string.format("%d/%d", math.floor(data.health), math.floor(data.maxHealth))
+					row.hp.TextColor3 = Color3.fromHSV(pct * 0.33, 1, 1)
+				else
+					row.hp.Text = "ALIVE"
+					row.hp.TextColor3 = Color3.fromRGB(0, 255, 120)
+				end
+			end
+		end
+
+		hudFrame.Visible = anyAlive
+	end
+
+	Toggles.BossAliveHUD:OnChanged(function()
+		hudRunning = false
+		disconnect("BossHUD_Loop")
+
+		if not Toggles.BossAliveHUD.Value then
+			if hudFrame then hudFrame.Visible = false end
+			Library:Notify({ Title = "Boss Alive HUD", Description = "Disabled", Time = 2 })
+			return
+		end
+
+		hudRunning = true
+		buildHUD()
+		refreshHUD()
+
+		track("BossHUD_Loop", RunService.Heartbeat:Connect(function()
+			if not hudRunning then return end
+			local now = tick()
+			if now - hudLastScan < 0.5 then return end
+			hudLastScan = now
+			refreshHUD()
+		end))
+
+		Library:Notify({ Title = "Boss Alive HUD", Description = "Enabled", Time = 2 })
+	end)
+
+	bossHUDCleanup = function()
+		hudRunning = false
+		disconnect("BossHUD_Loop")
+		table.clear(hudRows)
+		if hudGui then
+			pcall(function() hudGui:Destroy() end)
+		end
+		hudGui = nil
+		hudFrame = nil
+	end
 end
 
 -- ==========================================
@@ -9191,6 +9420,7 @@ Library:OnUnload(function()
 	end
 	clearESP()
 	pcall(function() clearOreESPHighlights() end)
+	pcall(function() if bossHUDCleanup then bossHUDCleanup() end end)
 	workspace.Gravity = 196.2
 	getgenv().TSG_OBSIDIAN_LOADED = nil
 end)
