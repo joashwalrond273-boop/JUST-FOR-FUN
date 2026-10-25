@@ -6090,157 +6090,96 @@ OreFarm:AddButton({
 	end,
 })
 
--- ---------------------------------------------------------------
--- Ore Factory pickers
--- Ore types and their world spots are read live from
--- workspace.worldResources.mineable (chunk folders -> ore objects)
--- ---------------------------------------------------------------
+local goldLocations = {
+	{ name = "Gold 1",  pos = Vector3.new(1732.94, 113.13, 2295.19) },
+	{ name = "Gold 2",  pos = Vector3.new(1447.98, 39.83,  2400.27) },
+	{ name = "Gold 3",  pos = Vector3.new(1837.06, 29.36,  2471.74) },
+	{ name = "Gold 4",  pos = Vector3.new(1177.61, 29.01,  -609.47) },
+	{ name = "Gold 5",  pos = Vector3.new(1188.42, 20.58,  -563.03) },
+	{ name = "Gold 6",  pos = Vector3.new(-651.84, 226.09, 654.28)  },
+	{ name = "Gold 7",  pos = Vector3.new(-540.20, 76.40,  297.97)  },
+	{ name = "Gold 8",  pos = Vector3.new(-2202.22, 51.01, 22.08)   },
+	{ name = "Gold 9",  pos = Vector3.new(-1182.86, 54.42, 6608.34) },
+	{ name = "Gold 10", pos = Vector3.new(-2015.67, 30.73, -39.95)  },
+	{ name = "Gold 11", pos = Vector3.new(-912.17, 125.72, -408.72) },
+	{ name = "Gold 12", pos = Vector3.new(-264.65, 47.32,  1427.81) },
+    { name = "Gold 13", pos = Vector3.new(245.51,  45.00,  460.77)  },
+	{ name = "Gold 14", pos = Vector3.new(-1261.77, 43.72, 6281.94) },
+	{ name = "Gold 15", pos = Vector3.new(-1765.08, 95.91, 7158.15) },
+	{ name = "Gold 16", pos = Vector3.new(1686.60, 41.64, -917.39)  },
+	{ name = "Gold 17", pos = Vector3.new(1566.16, 23.19, -946.35)  },
+	{ name = "Gold 18", pos = Vector3.new(252.14, 22.06, 811.69)    },
+	{ name = "Gold 19", pos = Vector3.new(50.11, 125.73, -1040.40)  },
+	{ name = "Gold 20", pos = Vector3.new(462.81, 100.69, -455.26)  },
+	{ name = "Coal 1",  pos = Vector3.new(1130.93, 24.94, -601.55)  },
+	{ name = "Coal 2",  pos = Vector3.new(1319.54, 25.26, -1129.08) },
+	{ name = "Coal 3",  pos = Vector3.new(-681.19, 173.56, 657.90)  },
+	{ name = "Coal 4",  pos = Vector3.new(-886.51, 75.31, 192.70)   },
+	{ name = "Coal 5",  pos = Vector3.new(-1351.22, 31.18, -167.99) },
+	{ name = "Coal 6",  pos = Vector3.new(-1872.79, 30.78, 194.66)  },
+	{ name = "Coal 7",  pos = Vector3.new(-2255.10, 29.20, 964.32)  },
+	{ name = "Coal 8",  pos = Vector3.new(331.57, 47.36, 492.03)    },
+	{ name = "Coal 9",  pos = Vector3.new(264.71, 27.19, 267.24)    },
+	{ name = "Coal 10", pos = Vector3.new(-680.98, 26.07, 254.45)   },
+	{ name = "Coal 11", pos = Vector3.new(182.10, 25.26, -934.94)   },
+	{ name = "Coal 12", pos = Vector3.new(11.22, 36.86, -1008.32)   },
+}
 
-local function getMineableAnchor(obj)
-	if not obj then return nil end
-	if obj:IsA("BasePart") then return obj end
-	if obj:IsA("Model") then
-		return obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
-	end
-	return nil
-end
-
--- Groups every ore spot in the folder by its ore name.
--- Returns sortedOreNames and { [oreName] = { Vector3, ... } } (sorted by position)
-local function scanMineableOres()
-	local locations = {}
-	local folder = workspace:FindFirstChild("worldResources")
-	folder = folder and folder:FindFirstChild("mineable")
-
-	local function collect(obj)
-		if not obj or not obj.Name or obj.Name == "" then return end
-		local anchor = getMineableAnchor(obj)
-		if not anchor then return end
-		local list = locations[obj.Name]
-		if not list then
-			list = {}
-			locations[obj.Name] = list
-		end
-		table.insert(list, anchor.Position)
-	end
-
-	if folder then
-		for _, child in ipairs(folder:GetChildren()) do
-			if child:IsA("Folder") then
-				for _, obj in ipairs(child:GetChildren()) do
-					collect(obj)
-				end
-			else
-				collect(child)
-			end
+local function filterLocations(prefix)
+	local names = {}
+	for _, loc in ipairs(goldLocations) do
+		if loc.name:sub(1, #prefix) == prefix then
+			table.insert(names, loc.name)
 		end
 	end
-
-	local oreNames = {}
-	for oreName, list in pairs(locations) do
-		table.sort(list, function(a, b)
-			if math.abs(a.X - b.X) > 0.05 then return a.X < b.X end
-			return a.Z < b.Z
-		end)
-		table.insert(oreNames, oreName)
-	end
-	table.sort(oreNames)
-	return oreNames, locations
-end
-
--- label ("Gold 1") -> world position
-local oreLocationPositions = {}
-
-local function buildLocationLabels(oreName, locations)
-	table.clear(oreLocationPositions)
-	local labels = {}
-	for i, pos in ipairs(locations[oreName] or {}) do
-		local label = oreName .. " " .. i
-		labels[i] = label
-		oreLocationPositions[label] = pos
-	end
-	return labels
-end
-
-local refreshingOreList = false
-
-local function refreshOreFactory()
-	local oreNames, locations = scanMineableOres()
-
-	-- Ore type list (keeps the current pick while it still exists)
-	if #oreNames > 0 then
-		local previousOre = Options.SelectOreDropdown.Value
-		local stillValid = table.find(oreNames, previousOre) ~= nil
-		refreshingOreList = true
-		Options.SelectOreDropdown:SetValues(oreNames)
-		Options.SelectOreDropdown:SetValue(stillValid and previousOre or oreNames[1])
-		refreshingOreList = false
-	end
-
-	-- Location list for the selected ore
-	local selectedOre = Options.SelectOreDropdown.Value
-	local previousLoc = Options.GoldLocationsDropdown.Value
-	local labels = buildLocationLabels(selectedOre, locations)
-
-	Options.GoldLocationsDropdown:SetValues(#labels > 0 and labels or { "(no spots)" })
-	if #labels > 0 then
-		if previousLoc and oreLocationPositions[previousLoc] then
-			Options.GoldLocationsDropdown:SetValue(previousLoc)
-		else
-			Options.GoldLocationsDropdown:SetValue(labels[1])
-		end
-	end
+	return names
 end
 
 OreFarm:AddDropdown("SelectOreDropdown", {
 	Text = "Select Ore",
-	Values = { "None" },
-	Default = "None",
+	Values = { "Gold", "Coal" },
+	Default = "Gold",
 })
 
 OreFarm:AddDropdown("GoldLocationsDropdown", {
 	Text = "Select Ore Location",
-	Values = { "None" },
-	Default = "None",
+	Values = filterLocations("Gold"),
+	Default = "Gold 1",
 })
 
 Options.SelectOreDropdown:OnChanged(function()
-	if refreshingOreList then return end
-	refreshOreFactory()
+	local value = Options.SelectOreDropdown.Value
+	local filtered = filterLocations(value)
+	Options.GoldLocationsDropdown:SetValues(filtered)
+	if value == "Gold" then
+		Options.GoldLocationsDropdown:SetValue("Gold 1")
+	elseif value == "Coal" then
+		Options.GoldLocationsDropdown:SetValue("Coal 1")
+	end
 end)
 
 OreFarm:AddButton({
 	Text = "Teleport to Selected",
 	Func = function()
-		local selected = Options.GoldLocationsDropdown.Value
-		local targetPos = selected and oreLocationPositions[selected]
-
-		if not targetPos then
-			Library:Notify({ Title = "Teleport", Description = "No ore location selected.", Time = 3 })
-			return
-		end
-
-		local root = getRootPart()
-		if not root then
-			Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
-			return
-		end
-
-		root.CFrame = CFrame.new(targetPos + Vector3.new(0, 3, 0))
-		Library:Notify({ Title = "Teleport", Description = "Teleported to " .. selected, Time = 1.5 })
-	end,
+           local selected = Options.GoldLocationsDropdown.Value
+           local targetPos = nil
+           for _, loc in ipairs(goldLocations) do
+                   if loc.name == selected then
+                           targetPos = loc.pos
+                           break
+                   end
+           end
+           if targetPos then
+                   local root = getRootPart()
+                   if root then
+                           root.CFrame = CFrame.new(targetPos)
+                           Library:Notify({ Title = "Teleport", Description = "Teleported to " .. selected, Time = 1.5 })
+                   else
+                           Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
+                   end
+           end
+   end,
 })
-
--- Populate now and keep in sync as chunks stream in / ores respawn
-refreshOreFactory()
-
-local lastOreFactoryRefresh = 0
-track("OreFactoryRefresh", RunService.Heartbeat:Connect(function()
-	local now = tick()
-	if now - lastOreFactoryRefresh < 2 then return end
-	lastOreFactoryRefresh = now
-	pcall(refreshOreFactory)
-end))
 
 OreFarm:AddDivider()
 
