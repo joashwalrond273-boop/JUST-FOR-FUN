@@ -1085,6 +1085,18 @@ AdvanceHealGroup:AddCheckbox("QuickSwap", {
 	Default = false,
 })
 
+AdvanceHealGroup:AddDropdown("QuickSwapFood1", {
+	Text = "Multi Food 1",
+	Values = {"Cabbage", "Banana", "Spicy Meal", "Hearty Stew", "Cabbage Meal", "Rib Meal", "Sandwich", "Egg", "Delicious Stew", "Carrot", "Berries", "Delicious Meal", "Spicy Fish Meal"},
+	Default = "Cabbage",
+})
+
+AdvanceHealGroup:AddDropdown("QuickSwapFood2", {
+	Text = "Multi Food 2",
+	Values = {"Cabbage", "Banana", "Spicy Meal", "Hearty Stew", "Cabbage Meal", "Rib Meal", "Sandwich", "Egg", "Delicious Stew", "Carrot", "Berries", "Delicious Meal", "Spicy Fish Meal"},
+	Default = "Banana",
+})
+
 AdvanceHealGroup:AddDropdown("AutoEatFood", {
 	Text = "Food Type",
 	Values = {"Cabbage", "Banana", "Spicy Meal", "Hearty Stew", "Cabbage Meal", "Rib Meal", "Sandwich", "Egg", "Delicious Stew", "Carrot", "Berries", "Delicious Meal", "Spicy Fish Meal"},
@@ -1123,6 +1135,37 @@ AdvanceHealGroup:AddSlider("AutoEatCooldown", {
 	Rounding = 1,
 	Compact = true,
 })
+
+updateQuickSwapVisibility = function()
+	local enabled = (Toggles.QuickSwap and Toggles.QuickSwap.Value) or false
+	if Options.QuickSwapFood1 then
+		Options.QuickSwapFood1.Visible = enabled
+		if Options.QuickSwapFood1.Holder then
+			Options.QuickSwapFood1.Holder.Visible = enabled
+		end
+	end
+	if Options.QuickSwapFood2 then
+		Options.QuickSwapFood2.Visible = enabled
+		if Options.QuickSwapFood2.Holder then
+			Options.QuickSwapFood2.Holder.Visible = enabled
+		end
+	end
+	AdvanceHealGroup:Resize()
+end
+
+Toggles.QuickSwap:OnChanged(function()
+	if updateQuickSwapVisibility then
+		updateQuickSwapVisibility()
+	end
+end)
+
+updateQuickSwapVisibility()
+task.spawn(function()
+	task.wait(0.05)
+	if updateQuickSwapVisibility then
+		updateQuickSwapVisibility()
+	end
+end)
 
 local MainRight = Tabs.Player:AddRightGroupbox("Settings", "settings")
 
@@ -2130,9 +2173,13 @@ local function tryEatCustom()
 
 	if shouldEat then
 		lastEatCustom = tick()
-		-- Quick Swap: eat bananas and cabbages together
+		-- Quick Swap: eat two chosen foods together
 		if Toggles.QuickSwap and Toggles.QuickSwap.Value then
-			for _, foodId in ipairs({ 210, 367 }) do
+			local food1 = Options and Options.QuickSwapFood1 and Options.QuickSwapFood1.Value
+			local food2 = Options and Options.QuickSwapFood2 and Options.QuickSwapFood2.Value
+			local id1 = FoodIdMap[food1] or 210
+			local id2 = FoodIdMap[food2] or 367
+			for _, foodId in ipairs({ id1, id2 }) do
 				pcall(function()
 					local args = {
 						foodId
@@ -4870,9 +4917,10 @@ local JAIL_CELL_ID = 82
 local TRAP_RANGE = 25
 local TRAP_AHEAD = 9
 
-local function createTrapAheadLoop(trapId, toggleName, slotToggleName, slotOptionName)
+local function createTrapAheadLoop(trapId, toggleName, slotToggleName, slotOptionName, delayOptionName)
 	local lastPlaced = {}
 	return RunService.Heartbeat:Connect(function()
+		local delay = (delayOptionName and Options[delayOptionName] and Options[delayOptionName].Value) or 0.5
 		local useSlot = Toggles[slotToggleName] and Toggles[slotToggleName].Value
 		local active
 		if useSlot then
@@ -4894,7 +4942,7 @@ local function createTrapAheadLoop(trapId, toggleName, slotToggleName, slotOptio
 				local hum = player.Character:FindFirstChildOfClass("Humanoid")
 				if targetRoot and hum and hum.Health > 0 then
 					if (targetRoot.Position - root.Position).Magnitude <= TRAP_RANGE then
-						if now - (lastPlaced[player] or 0) >= 0.5 then
+						if now - (lastPlaced[player] or 0) >= delay then
 							lastPlaced[player] = now
 							local look = targetRoot.CFrame.LookVector
 							local dir = Vector3.new(look.X, 0, look.Z)
@@ -4930,9 +4978,38 @@ local function createTrapAheadLoop(trapId, toggleName, slotToggleName, slotOptio
 	end)
 end
 
-track("BearTrapClown", createTrapAheadLoop(BEAR_TRAP_ID, "BearTrapClown", "BearTrapSlotSystem", "BearTrapSlotSystemSlot"))
-track("SpikeTrapClown", createTrapAheadLoop(SPIKE_TRAP_ID, "SpikeTrapClown", "SpikeTrapSlotSystem", "SpikeTrapSlotSystemSlot"))
-track("JailCellBully", createTrapAheadLoop(JAIL_CELL_ID, "JailCellBully", "JailCellSlotSystem", "JailCellSlotSystemSlot"))
+track("BearTrapClown", createTrapAheadLoop(BEAR_TRAP_ID, "BearTrapClown", "BearTrapSlotSystem", "BearTrapSlotSystemSlot", "BearTrapDelay"))
+track("SpikeTrapClown", createTrapAheadLoop(SPIKE_TRAP_ID, "SpikeTrapClown", "SpikeTrapSlotSystem", "SpikeTrapSlotSystemSlot", "SpikeTrapDelay"))
+track("JailCellBully", createTrapAheadLoop(JAIL_CELL_ID, "JailCellBully", "JailCellSlotSystem", "JailCellSlotSystemSlot", "JailCellDelay"))
+
+local MoveTrapConfig = Tabs.Movement:AddRightGroupbox("Config", "settings")
+
+MoveTrapConfig:AddSlider("BearTrapDelay", {
+	Text = "Bear Trap Cooldown (s)",
+	Default = 0.5,
+	Min = 0.05,
+	Max = 3,
+	Rounding = 2,
+	Compact = true,
+})
+
+MoveTrapConfig:AddSlider("SpikeTrapDelay", {
+	Text = "Spike Trap Cooldown (s)",
+	Default = 0.5,
+	Min = 0.05,
+	Max = 3,
+	Rounding = 2,
+	Compact = true,
+})
+
+MoveTrapConfig:AddSlider("JailCellDelay", {
+	Text = "Jail Cell Cooldown (s)",
+	Default = 0.5,
+	Min = 0.05,
+	Max = 3,
+	Rounding = 2,
+	Compact = true,
+})
 
 updateTrapBullyVisibility()
 task.spawn(function()
@@ -6154,14 +6231,11 @@ OreFarm:AddToggle("OreESPToggle", {
 	Default = false,
 })
 
-OreFarm:AddCheckbox("OreESPRemoveNames", {
-	Text = "Remove Names",
-	Default = false,
-})
-
-OreFarm:AddCheckbox("OreESPHighlights", {
-	Text = "Show Chams",
-	Default = false,
+OreFarm:AddDropdown("OreESPFeatures", {
+	Text = "ESP Options",
+	Values = { "Remove Names", "Show Chams" },
+	Default = { "Show Chams" },
+	Multi = true,
 })
 
 OreFarm:AddSlider("OreESPDistance", {
