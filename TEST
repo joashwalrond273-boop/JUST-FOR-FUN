@@ -6062,6 +6062,11 @@ FarmAI:AddSlider("AiAuraRange", {
 	Compact = true,
 })
 
+FarmAI:AddToggle("BossSpawnNotifier", {
+	Text = "Boss Spawn Notifier",
+	Default = false,
+})
+
 OreFarm:AddButton({
 	Text = "Reset Character",
 	Func = function()
@@ -6724,6 +6729,115 @@ do
 			updateAiAuraSlotSystemState()
 		end)
 	end
+end
+
+-- ==========================================
+-- Boss Spawn Notifier
+do
+	local BOSS_NAMES = {
+		"The Great Spider",
+		"The Juggernaut",
+		"The Samurai",
+		"The Titan",
+	}
+
+	local bossNotifyRunning = false
+	local bossNotifyAlerts = {}
+	local bossNotifyLastRefresh = 0
+
+	local function getBossName(name)
+		if type(name) ~= "string" then return nil end
+		for _, boss in ipairs(BOSS_NAMES) do
+			if name == boss or string.find(name, boss, 1, true) then
+				return boss
+			end
+		end
+		return nil
+	end
+
+	local function alertBoss(boss, instance)
+		local now = tick()
+		if bossNotifyAlerts[boss] and now - bossNotifyAlerts[boss] < 5 then return end
+		bossNotifyAlerts[boss] = now
+
+		local desc = boss
+		local root = getRootPart()
+		if root and instance and instance:IsA("Model") then
+			local part = instance.PrimaryPart
+				or instance:FindFirstChild("HumanoidRootPart")
+				or instance:FindFirstChildWhichIsA("BasePart")
+			if part then
+				desc = string.format("%s - %dm away", boss, math.floor((part.Position - root.Position).Magnitude))
+			end
+		end
+
+		Library:Notify({ Title = "Boss Spawned", Description = desc, Time = 5 })
+	end
+
+	local function onBossChildAdded(child)
+		if not bossNotifyRunning then return end
+		local boss = getBossName(child and child.Name)
+		if boss then
+			alertBoss(boss, child)
+		end
+	end
+
+	local function refreshBossHooks()
+		if not bossNotifyRunning then return end
+
+		if not Connections["BossNotify_Workspace"] then
+			track("BossNotify_Workspace", workspace.ChildAdded:Connect(onBossChildAdded))
+		end
+
+		local aiServer = workspace:FindFirstChild("AI_Server")
+		if aiServer and not Connections["BossNotify_AI_Server"] then
+			track("BossNotify_AI_Server", aiServer.ChildAdded:Connect(onBossChildAdded))
+		end
+
+		local aiClient = workspace:FindFirstChild("AI_Client")
+		if aiClient and not Connections["BossNotify_AI_Client"] then
+			track("BossNotify_AI_Client", aiClient.ChildAdded:Connect(onBossChildAdded))
+		end
+
+		local gameFolder = ReplicatedStorage:FindFirstChild("game")
+		local aiModels = gameFolder and gameFolder:FindFirstChild("AIModels")
+		if aiModels and not Connections["BossNotify_AIModels"] then
+			track("BossNotify_AIModels", aiModels.ChildRemoved:Connect(function(child)
+				if not bossNotifyRunning then return end
+				local boss = getBossName(child and child.Name)
+				if boss then
+					alertBoss(boss, child)
+				end
+			end))
+		end
+	end
+
+	Toggles.BossSpawnNotifier:OnChanged(function()
+		bossNotifyRunning = false
+		disconnect("BossNotify_Workspace")
+		disconnect("BossNotify_AI_Server")
+		disconnect("BossNotify_AI_Client")
+		disconnect("BossNotify_AIModels")
+		disconnect("BossNotify_Poll")
+		table.clear(bossNotifyAlerts)
+
+		if not Toggles.BossSpawnNotifier.Value then
+			Library:Notify({ Title = "Boss Spawn Notifier", Description = "Disabled", Time = 2 })
+			return
+		end
+
+		bossNotifyRunning = true
+		refreshBossHooks()
+
+		track("BossNotify_Poll", RunService.Heartbeat:Connect(function()
+			local now = tick()
+			if now - bossNotifyLastRefresh < 1 then return end
+			bossNotifyLastRefresh = now
+			refreshBossHooks()
+		end))
+
+		Library:Notify({ Title = "Boss Spawn Notifier", Description = "Enabled", Time = 2 })
+	end)
 end
 
 -- ==========================================
