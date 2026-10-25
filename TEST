@@ -55,6 +55,9 @@ local updateImmortalModeVisibility
 local updatePhantomModeVisibility
 local updateSwimBoostVisibility
 local isTeammate
+local findBossModel
+local getAvailableBosses
+local startBossSpectate
 
 Library.ShowToggleFrameInKeybinds = true
 
@@ -6062,6 +6065,82 @@ FarmAI:AddSlider("AiAuraRange", {
 	Compact = true,
 })
 
+FarmAI:AddDivider()
+
+FarmAI:AddToggle("BossSpectate", {
+	Text = "Boss Spectate",
+	Default = false,
+})
+
+FarmAI:AddDropdown("BossSpectateTarget", {
+	Text = "Select Boss",
+	Values = {
+		"The Great Spider",
+		"The Juggernaut",
+		"The Samurai",
+		"The Titan",
+	},
+	Default = "The Great Spider",
+})
+
+FarmAI:AddButton({
+	Text = "Teleport to Boss",
+	Func = function()
+		local bossName = Options.BossSpectateTarget and Options.BossSpectateTarget.Value
+		if not bossName or bossName == "" then return end
+		local bossModel = typeof(findBossModel) == "function" and findBossModel(bossName)
+		if not bossModel then
+			Library:Notify({ Title = "Boss Teleport", Description = bossName .. " not found in server.", Time = 3 })
+			return
+		end
+		local bossPart = bossModel:FindFirstChild("HumanoidRootPart") or bossModel.PrimaryPart or bossModel:FindFirstChildWhichIsA("BasePart")
+		local myRoot = getRootPart()
+		if bossPart and myRoot then
+			myRoot.CFrame = bossPart.CFrame + Vector3.new(0, 6, 6)
+			Library:Notify({ Title = "Boss Teleport", Description = "Teleported to " .. bossName, Time = 2 })
+		else
+			Library:Notify({ Title = "Boss Teleport", Description = "Could not locate root part of " .. bossName, Time = 3 })
+		end
+	end,
+})
+
+FarmAI:AddButton({
+	Text = "Check Boss Status",
+	Func = function()
+		local bossName = Options.BossSpectateTarget and Options.BossSpectateTarget.Value
+		if not bossName or bossName == "" then return end
+		local bossModel = typeof(findBossModel) == "function" and findBossModel(bossName)
+		if not bossModel then
+			Library:Notify({ Title = "Boss Status", Description = bossName .. ": NOT SPAWNED", Time = 3 })
+			return
+		end
+		local hum = bossModel:FindFirstChildOfClass("Humanoid")
+		local root = bossModel:FindFirstChild("HumanoidRootPart") or bossModel.PrimaryPart or bossModel:FindFirstChildWhichIsA("BasePart")
+		local myRoot = getRootPart()
+		local distStr = "Unknown"
+		if root and myRoot then
+			distStr = tostring(math.floor((root.Position - myRoot.Position).Magnitude)) .. " studs"
+		end
+		local hpStr = (hum and hum.MaxHealth > 0) and (tostring(math.floor(hum.Health)) .. "/" .. tostring(math.floor(hum.MaxHealth))) or "Alive"
+		Library:Notify({
+			Title = bossName,
+			Description = "Status: Alive | HP: " .. hpStr .. " | Dist: " .. distStr,
+			Time = 4,
+		})
+	end,
+})
+
+FarmAI:AddButton({
+	Text = "Refresh Boss List",
+	Func = function()
+		if Options.BossSpectateTarget and typeof(getAvailableBosses) == "function" then
+			local bosses = getAvailableBosses()
+			Options.BossSpectateTarget:SetValues(bosses)
+			Library:Notify({ Title = "Boss List", Description = "Refreshed (" .. #bosses .. " bosses found)", Time = 2 })
+		end
+	end,
+})
+
 OreFarm:AddButton({
 	Text = "Reset Character",
 	Func = function()
@@ -6725,6 +6804,240 @@ do
 		end)
 	end
 end
+
+-- ==========================================
+-- Boss Spectate Logic
+-- ==========================================
+local defaultBosses = {
+	"The Great Spider",
+	"The Juggernaut",
+	"The Samurai",
+	"The Titan",
+}
+
+function getAvailableBosses()
+	local list = {}
+	local seen = {}
+
+	pcall(function()
+		local aiModels = ReplicatedStorage:FindFirstChild("game") and ReplicatedStorage.game:FindFirstChild("AIModels")
+		if aiModels then
+			for _, child in ipairs(aiModels:GetChildren()) do
+				if not seen[child.Name] then
+					seen[child.Name] = true
+					table.insert(list, child.Name)
+				end
+			end
+		end
+	end)
+
+	for _, boss in ipairs(defaultBosses) do
+		if not seen[boss] then
+			seen[boss] = true
+			table.insert(list, boss)
+		end
+	end
+
+	return list
+end
+
+local function getBossMatchScore(model, bossName)
+	if not model or not model:IsA("Model") then return 0 end
+
+	local hum = model:FindFirstChildOfClass("Humanoid")
+	if hum and hum.Health <= 0 then return 0 end
+
+	local part = model:FindFirstChild("HumanoidRootPart") or model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart")
+	if not part then return 0 end
+
+	local cleanBoss = string.lower(bossName)
+	local shortBoss = string.lower(string.gsub(bossName, "^The%s+", ""))
+	local cleanModel = string.lower(model.Name)
+
+	if cleanModel == cleanBoss then
+		return 100
+	end
+
+	for _, attr in ipairs({"Name", "AIType", "aiType", "Type", "type", "AI", "ai", "Model", "model"}) do
+		local val = model:GetAttribute(attr)
+		if typeof(val) == "string" and string.lower(val) == cleanBoss then
+			return 95
+		end
+	end
+
+	if hum and hum.DisplayName and string.lower(hum.DisplayName) == cleanBoss then
+		return 90
+	end
+
+	if string.find(cleanModel, cleanBoss, 1, true) then
+		return 80
+	end
+
+	for _, attr in ipairs({"Name", "AIType", "aiType", "Type", "type", "AI", "ai", "Model", "model"}) do
+		local val = model:GetAttribute(attr)
+		if typeof(val) == "string" and string.find(string.lower(val), cleanBoss, 1, true) then
+			return 75
+		end
+	end
+
+	if cleanModel == shortBoss then
+		return 70
+	end
+	if string.find(cleanModel, shortBoss, 1, true) then
+		return 60
+	end
+
+	for _, attr in ipairs({"Name", "AIType", "aiType", "Type", "type", "AI", "ai", "Model", "model"}) do
+		local val = model:GetAttribute(attr)
+		if typeof(val) == "string" and (string.lower(val) == shortBoss or string.find(string.lower(val), shortBoss, 1, true)) then
+			return 55
+		end
+	end
+
+	return 0
+end
+
+function findBossModel(bossName)
+	if not bossName or bossName == "" then return nil end
+
+	local bestModel = nil
+	local bestScore = 0
+
+	local function scanContainer(container, baseBonus)
+		if not container then return end
+		for _, child in ipairs(container:GetChildren()) do
+			local score = getBossMatchScore(child, bossName)
+			if score > 0 then
+				local totalScore = score + (baseBonus or 0)
+				if totalScore > bestScore then
+					bestScore = totalScore
+					bestModel = child
+				end
+			end
+		end
+	end
+
+	-- Preferred visual model (client rendered with animations)
+	scanContainer(workspace:FindFirstChild("AI_Client"), 10)
+	-- Server hitbox model
+	scanContainer(workspace:FindFirstChild("AI_Server"), 0)
+	-- Other containers
+	scanContainer(workspace:FindFirstChild("animals"), 0)
+	scanContainer(workspace:FindFirstChild("Mobs"), 0)
+	scanContainer(workspace:FindFirstChild("NPCs"), 0)
+	scanContainer(workspace:FindFirstChild("AI"), 0)
+
+	if not bestModel then
+		scanContainer(workspace, -5)
+	end
+
+	if bestModel and AiController and workspace:FindFirstChild("AI_Client") then
+		pcall(function()
+			if typeof(AiController.GetClientModelFromServerModel) == "function" then
+				local clientModel = AiController:GetClientModelFromServerModel(bestModel)
+				if clientModel and clientModel:IsDescendantOf(workspace) then
+					bestModel = clientModel
+				end
+			end
+		end)
+	end
+
+	return bestModel
+end
+
+function startBossSpectate()
+	disconnect("BossSpectateLoop")
+	if Toggles.BossSpectate and Toggles.BossSpectate.Value then
+		if Toggles.SpectateToggle and Toggles.SpectateToggle.Value then
+			Toggles.SpectateToggle:SetValue(false)
+		end
+
+		local lastNotFoundWarn = 0
+
+		track("BossSpectateLoop", RunService.Heartbeat:Connect(function()
+			if not (Toggles.BossSpectate and Toggles.BossSpectate.Value) then return end
+
+			local selectedBoss = Options.BossSpectateTarget and Options.BossSpectateTarget.Value
+			local camera = workspace.CurrentCamera
+			if not camera then return end
+
+			local bossModel = findBossModel(selectedBoss)
+			if bossModel then
+				local bossHum = bossModel:FindFirstChildOfClass("Humanoid")
+				local bossRoot = bossModel:FindFirstChild("HumanoidRootPart") or bossModel.PrimaryPart or bossModel:FindFirstChildWhichIsA("BasePart")
+				local targetSubject = (bossHum and bossHum.Health > 0 and bossHum) or bossRoot
+
+				if targetSubject and camera.CameraSubject ~= targetSubject then
+					camera.CameraSubject = targetSubject
+				end
+			else
+				local localHum = getHumanoid()
+				if localHum and camera.CameraSubject ~= localHum then
+					camera.CameraSubject = localHum
+				end
+
+				if tick() - lastNotFoundWarn > 5 then
+					lastNotFoundWarn = tick()
+					Library:Notify({
+						Title = "Boss Spectate",
+						Description = tostring(selectedBoss) .. " is not currently spawned in server.",
+						Time = 3,
+					})
+				end
+			end
+		end))
+	else
+		local camera = workspace.CurrentCamera
+		local localHum = getHumanoid()
+		if camera and localHum then
+			camera.CameraSubject = localHum
+			camera.CameraType = Enum.CameraType.Custom
+		end
+	end
+end
+
+if Toggles.BossSpectate then
+	Toggles.BossSpectate:OnChanged(function()
+		startBossSpectate()
+		if Toggles.BossSpectate.Value then
+			local selected = Options.BossSpectateTarget and Options.BossSpectateTarget.Value or "Boss"
+			Library:Notify({ Title = "BOSS SPECTATE", Description = "Spectating: " .. tostring(selected), Time = 2 })
+		else
+			Library:Notify({ Title = "BOSS SPECTATE", Description = "Boss Spectate Disabled", Time = 2 })
+		end
+	end)
+end
+
+if Options.BossSpectateTarget then
+	Options.BossSpectateTarget:OnChanged(function()
+		if Toggles.BossSpectate and Toggles.BossSpectate.Value then
+			startBossSpectate()
+			local selected = Options.BossSpectateTarget.Value or "Boss"
+			Library:Notify({ Title = "BOSS SPECTATE", Description = "Target changed to: " .. tostring(selected), Time = 2 })
+		end
+	end)
+end
+
+track("BossSpectateCharAdded", LocalPlayer.CharacterAdded:Connect(function(char)
+	if not (Toggles.BossSpectate and Toggles.BossSpectate.Value) then
+		local camera = workspace.CurrentCamera
+		local hum = char:WaitForChild("Humanoid", 5)
+		if camera and hum then
+			camera.CameraSubject = hum
+			camera.CameraType = Enum.CameraType.Custom
+		end
+	end
+end))
+
+task.spawn(function()
+	task.wait(1)
+	if Options.BossSpectateTarget then
+		local bosses = getAvailableBosses()
+		pcall(function()
+			Options.BossSpectateTarget:SetValues(bosses)
+		end)
+	end
+end)
 
 -- ==========================================
 -- Ore ESP (reads ore names from workspace.worldResources.mineable, per-ore filters)
@@ -8571,6 +8884,9 @@ task.spawn(updateSpectatePlayerList)
 local function startSpectate()
 	disconnect("SpectateLoop")
 	if Toggles.SpectateToggle.Value then
+		if Toggles.BossSpectate and Toggles.BossSpectate.Value then
+			Toggles.BossSpectate:SetValue(false)
+		end
 		track("SpectateLoop", RunService.Heartbeat:Connect(function()
 			if not Toggles.SpectateToggle.Value then return end
 
