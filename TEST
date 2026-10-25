@@ -6062,6 +6062,19 @@ FarmAI:AddSlider("AiAuraRange", {
 	Compact = true,
 })
 
+FarmAI:AddDivider()
+
+FarmAI:AddToggle("BossSpectate", {
+	Text = "Boss Spectate",
+	Default = false,
+})
+
+FarmAI:AddDropdown("BossSpectateList", {
+	Text = "Boss",
+	Values = { "The Great Spider", "The Juggernaut", "The Samurai", "The Titan" },
+	Default = "The Great Spider",
+})
+
 OreFarm:AddButton({
 	Text = "Reset Character",
 	Func = function()
@@ -8611,6 +8624,81 @@ end)
 Options.SpectatePlayerList:OnChanged(function()
 	if Toggles.SpectateToggle.Value then
 		startSpectate()
+	end
+end)
+
+-- Boss Spectate Logic
+local function findBossInstance(bossName)
+	if not bossName then return nil end
+	-- Prefer the live, replicated boss inside the AI containers
+	for _, containerName in ipairs({ "AI_Server", "AI_Client" }) do
+		local container = workspace:FindFirstChild(containerName)
+		if container then
+			local found = container:FindFirstChild(bossName, true)
+			if found then return found end
+		end
+	end
+	-- Fallback: search the whole workspace
+	local live = workspace:FindFirstChild(bossName, true)
+	if live then return live end
+	-- Fallback: the AIModels template in ReplicatedStorage
+	local gameFolder = ReplicatedStorage:FindFirstChild("game")
+	local aiModels = gameFolder and gameFolder:FindFirstChild("AIModels")
+	if aiModels then
+		return aiModels:FindFirstChild(bossName)
+	end
+	return nil
+end
+
+local function startBossSpectate()
+	disconnect("BossSpectateLoop")
+	local camera = workspace.CurrentCamera
+	if Toggles.BossSpectate and Toggles.BossSpectate.Value then
+		track("BossSpectateLoop", RunService.Heartbeat:Connect(function()
+			if not (Toggles.BossSpectate and Toggles.BossSpectate.Value) then return end
+			if not camera then return end
+			local bossName = Options.BossSpectateList and Options.BossSpectateList.Value
+			local boss = findBossInstance(bossName)
+			if boss then
+				local hum = boss:FindFirstChildOfClass("Humanoid")
+				if hum then
+					if camera.CameraSubject ~= hum then
+						camera.CameraSubject = hum
+					end
+				else
+					local part = boss:FindFirstChild("HumanoidRootPart") or boss.PrimaryPart or boss:FindFirstChild("Head")
+					if part then
+						camera.CameraSubject = nil
+						camera.CFrame = CFrame.new(part.Position + Vector3.new(0, 8, 14), part.Position)
+					end
+				end
+			else
+				local localHum = getHumanoid()
+				if localHum and camera.CameraSubject ~= localHum then
+					camera.CameraSubject = localHum
+				end
+			end
+		end))
+	else
+		local localHum = getHumanoid()
+		if camera and localHum and camera.CameraSubject ~= localHum then
+			camera.CameraSubject = localHum
+		end
+	end
+end
+
+Toggles.BossSpectate:OnChanged(function()
+	startBossSpectate()
+	if Toggles.BossSpectate.Value then
+		Library:Notify({ Title = "BOSS SPECTATE", Description = "Spectating: " .. tostring(Options.BossSpectateList.Value), Time = 2 })
+	else
+		Library:Notify({ Title = "BOSS SPECTATE", Description = "Disabled", Time = 2 })
+	end
+end)
+
+Options.BossSpectateList:OnChanged(function()
+	if Toggles.BossSpectate and Toggles.BossSpectate.Value then
+		startBossSpectate()
 	end
 end)
 
