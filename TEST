@@ -1971,7 +1971,7 @@ do
 	local radarList = nil
 	local radarRows = {}
 	local radarLastUpdate = 0
-	local RADAR_MAX_DIST = 300
+	local RADAR_MAX_DIST = 200
 
 	local function buildRadarHud()
 		local playerGui = LocalPlayer:FindFirstChildOfClass("PlayerGui")
@@ -2144,7 +2144,7 @@ do
 		track("ThreatRadar_Loop", RunService.RenderStepped:Connect(function()
 			if not radarRunning or not radarList then return end
 			local now = tick()
-			if now - radarLastUpdate < 0.25 then return end
+			if now - radarLastUpdate < 0.35 then return end
 			radarLastUpdate = now
 			pcall(refreshRadar)
 		end))
