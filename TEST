@@ -2953,6 +2953,79 @@ CombatSwordBot:AddDropdown("ChooseVictim", {
 
 local CombatAutoPVP = Tabs.Combat:AddRightGroupbox("PVP Modules", "swords")
 
+HotbarPresets = {}
+
+CombatAutoPVP:AddSlider("HotbarPresetSlot", {
+	Text = "Hotbar Preset Slot",
+	Default = 1,
+	Min = 1,
+	Max = 5,
+	Rounding = 0,
+	Compact = true,
+})
+
+CombatAutoPVP:AddButton({
+	Text = "Save Hotbar",
+	Func = function()
+		local presetSlot = math.floor((Options.HotbarPresetSlot and Options.HotbarPresetSlot.Value) or 1)
+		local loadout = {}
+		local backpack = LocalPlayer:FindFirstChild("Backpack")
+		local character = LocalPlayer.Character
+
+		for slot = 1, 10 do
+			local slotStr = tostring(slot)
+			local tool = (backpack and backpack:FindFirstChild(slotStr)) or (character and character:FindFirstChild(slotStr))
+			if tool and tool:FindFirstChild("toolModel") then
+				local itemId = tool.toolModel:GetAttribute("itemId")
+				if itemId then
+					loadout[slot] = itemId
+				end
+			end
+		end
+
+		HotbarPresets[presetSlot] = loadout
+
+		local count = 0
+		for _ in pairs(loadout) do
+			count = count + 1
+		end
+		Library:Notify({ Title = "Hotbar Presets", Description = string.format("Saved %d item(s) to slot %d", count, presetSlot), Time = 2 })
+	end,
+})
+
+CombatAutoPVP:AddButton({
+	Text = "Load Hotbar",
+	Func = function()
+		local presetSlot = math.floor((Options.HotbarPresetSlot and Options.HotbarPresetSlot.Value) or 1)
+		local loadout = HotbarPresets[presetSlot]
+		if not loadout or next(loadout) == nil then
+			Library:Notify({ Title = "Hotbar Presets", Description = string.format("Hotbar slot %d is empty", presetSlot), Time = 2 })
+			return
+		end
+
+		local equipHotbarRemote = TSG.EquipHotbarRemote
+		if not equipHotbarRemote then
+			Library:Notify({ Title = "Hotbar Presets", Description = "Equip remote not found", Time = 2 })
+			return
+		end
+
+		local applied = 0
+		for slot, itemId in pairs(loadout) do
+			local ok = pcall(function()
+				equipHotbarRemote:InvokeServer("inventory", slot, itemId)
+			end)
+			if ok then
+				applied = applied + 1
+			end
+			task.wait(0.05)
+		end
+
+		Library:Notify({ Title = "Hotbar Presets", Description = string.format("Loaded %d item(s) from slot %d", applied, presetSlot), Time = 2 })
+	end,
+})
+
+CombatAutoPVP:AddDivider()
+
 CombatAutoPVP:AddToggle("SwingSpeedToggle", {
 	Text = "Swing Speed",
 	Default = false,
@@ -3035,79 +3108,6 @@ CombatAutoPVP:AddSlider("AutoJumpDelay", {
 	Max = 2,
 	Rounding = 2,
 	Compact = true,
-})
-
-HotbarPresets = {}
-
-CombatAutoPVP:AddDivider()
-
-CombatAutoPVP:AddSlider("HotbarPresetSlot", {
-	Text = "Hotbar Preset Slot",
-	Default = 1,
-	Min = 1,
-	Max = 5,
-	Rounding = 0,
-	Compact = true,
-})
-
-CombatAutoPVP:AddButton({
-	Text = "Save Hotbar",
-	Func = function()
-		local presetSlot = math.floor((Options.HotbarPresetSlot and Options.HotbarPresetSlot.Value) or 1)
-		local loadout = {}
-		local backpack = LocalPlayer:FindFirstChild("Backpack")
-		local character = LocalPlayer.Character
-
-		for slot = 1, 10 do
-			local slotStr = tostring(slot)
-			local tool = (backpack and backpack:FindFirstChild(slotStr)) or (character and character:FindFirstChild(slotStr))
-			if tool and tool:FindFirstChild("toolModel") then
-				local itemId = tool.toolModel:GetAttribute("itemId")
-				if itemId then
-					loadout[slot] = itemId
-				end
-			end
-		end
-
-		HotbarPresets[presetSlot] = loadout
-
-		local count = 0
-		for _ in pairs(loadout) do
-			count = count + 1
-		end
-		Library:Notify({ Title = "Hotbar Presets", Description = string.format("Saved %d item(s) to slot %d", count, presetSlot), Time = 2 })
-	end,
-})
-
-CombatAutoPVP:AddButton({
-	Text = "Load Hotbar",
-	Func = function()
-		local presetSlot = math.floor((Options.HotbarPresetSlot and Options.HotbarPresetSlot.Value) or 1)
-		local loadout = HotbarPresets[presetSlot]
-		if not loadout or next(loadout) == nil then
-			Library:Notify({ Title = "Hotbar Presets", Description = string.format("Hotbar slot %d is empty", presetSlot), Time = 2 })
-			return
-		end
-
-		local equipHotbarRemote = TSG.EquipHotbarRemote
-		if not equipHotbarRemote then
-			Library:Notify({ Title = "Hotbar Presets", Description = "Equip remote not found", Time = 2 })
-			return
-		end
-
-		local applied = 0
-		for slot, itemId in pairs(loadout) do
-			local ok = pcall(function()
-				equipHotbarRemote:InvokeServer("inventory", slot, itemId)
-			end)
-			if ok then
-				applied = applied + 1
-			end
-			task.wait(0.05)
-		end
-
-		Library:Notify({ Title = "Hotbar Presets", Description = string.format("Loaded %d item(s) from slot %d", applied, presetSlot), Time = 2 })
-	end,
 })
 
 updatePVPModulesVisibility = function()
