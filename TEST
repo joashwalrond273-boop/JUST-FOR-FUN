@@ -1680,6 +1680,11 @@ MainRight:AddCheckbox("PerfHud", {
 	Default = false,
 })
 
+MainRight:AddCheckbox("ThreatRadar", {
+	Text = "Threat Radar",
+	Default = false,
+})
+
 MainRight:AddDivider()
 
 do
@@ -1956,6 +1961,195 @@ do
 		end))
 
 		Library:Notify({ Title = "Ping / FPS HUD", Description = "Enabled", Time = 2 })
+	end)
+end
+
+do
+	local radarRunning = false
+	local radarGui = nil
+	local radarFrame = nil
+	local radarList = nil
+	local radarRows = {}
+	local radarLastUpdate = 0
+	local RADAR_MAX_DIST = 300
+
+	local function buildRadarHud()
+		local playerGui = LocalPlayer:FindFirstChildOfClass("PlayerGui")
+		if not playerGui then return end
+
+		radarGui = Instance.new("ScreenGui")
+		radarGui.Name = "XenoThreatRadarHud"
+		radarGui.ResetOnSpawn = false
+		radarGui.IgnoreGuiInset = true
+		radarGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+		radarGui.Parent = playerGui
+
+		local frame = Instance.new("Frame")
+		frame.Name = "Panel"
+		frame.Position = UDim2.new(0, 16, 0, 30)
+		frame.Size = UDim2.new(0, 200, 0, 20)
+		frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+		frame.BackgroundTransparency = 0.25
+		frame.BorderSizePixel = 0
+		frame.Active = true
+		frame.Parent = radarGui
+		radarFrame = frame
+
+		local corner = Instance.new("UICorner")
+		corner.CornerRadius = UDim.new(0, 5)
+		corner.Parent = frame
+
+		local stroke = Instance.new("UIStroke")
+		stroke.Color = Color3.fromRGB(0, 244, 255)
+		stroke.Transparency = 0.4
+		stroke.Thickness = 1
+		stroke.Parent = frame
+
+		local title = Instance.new("TextLabel")
+		title.Position = UDim2.new(0, 6, 0, 2)
+		title.Size = UDim2.new(1, -12, 0, 14)
+		title.BackgroundTransparency = 1
+		title.Font = Enum.Font.Code
+		title.TextSize = 11
+		title.TextColor3 = Color3.fromRGB(0, 244, 255)
+		title.TextXAlignment = Enum.TextXAlignment.Left
+		title.Text = "THREAT RADAR"
+		title.Parent = frame
+
+		local list = Instance.new("Frame")
+		list.Position = UDim2.new(0, 6, 0, 18)
+		list.Size = UDim2.new(1, -12, 0, 0)
+		list.BackgroundTransparency = 1
+		list.Parent = frame
+		radarList = list
+
+		local layout = Instance.new("UIListLayout")
+		layout.SortOrder = Enum.SortOrder.LayoutOrder
+		layout.Padding = UDim.new(0, 1)
+		layout.Parent = list
+
+		local dragging, dragStart, dragPos = false, nil, nil
+		frame.InputBegan:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+				dragging = true
+				dragStart = input.Position
+				dragPos = frame.Position
+				input.Changed:Connect(function()
+					if input.UserInputState == Enum.UserInputState.End then
+						dragging = false
+					end
+				end)
+			end
+		end)
+		frame.InputChanged:Connect(function(input)
+			if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+				local delta = input.Position - dragStart
+				frame.Position = UDim2.new(dragPos.X.Scale, dragPos.X.Offset + delta.X, dragPos.Y.Scale, dragPos.Y.Offset + delta.Y)
+			end
+		end)
+	end
+
+	local function getRadarRow(index)
+		local row = radarRows[index]
+		if row then return row end
+
+		row = Instance.new("TextLabel")
+		row.Name = "Row" .. index
+		row.BackgroundTransparency = 1
+		row.Size = UDim2.new(1, 0, 0, 12)
+		row.Font = Enum.Font.Code
+		row.TextSize = 11
+		row.TextColor3 = Color3.fromRGB(230, 230, 230)
+		row.TextXAlignment = Enum.TextXAlignment.Left
+		row.TextYAlignment = Enum.TextYAlignment.Center
+		row.RichText = true
+		row.Text = ""
+		row.LayoutOrder = index
+		row.Parent = radarList
+
+		radarRows[index] = row
+		return row
+	end
+
+	local function refreshRadar()
+		if not radarList then return end
+
+		local myChar = LocalPlayer.Character
+		local myRoot = myChar and (myChar:FindFirstChild("HumanoidRootPart") or myChar.PrimaryPart)
+		if not myRoot then
+			for _, row in ipairs(radarRows) do
+				row.Visible = false
+			end
+			radarList.Size = UDim2.new(1, -12, 0, 0)
+			radarFrame.Size = UDim2.new(0, 200, 0, 20)
+			return
+		end
+
+		local myPos = myRoot.Position
+		local entries = {}
+		for _, plr in ipairs(Players:GetPlayers()) do
+			if plr ~= LocalPlayer then
+				local char = plr.Character
+				local hum = char and char:FindFirstChildOfClass("Humanoid")
+				local root = char and (char:FindFirstChild("HumanoidRootPart") or char.PrimaryPart)
+				if hum and hum.Health > 0 and root then
+					local dist = (root.Position - myPos).Magnitude
+					if dist <= RADAR_MAX_DIST then
+						table.insert(entries, { plr = plr, dist = dist, hp = math.floor(hum.Health + 0.5) })
+					end
+				end
+			end
+		end
+
+		table.sort(entries, function(a, b) return a.dist < b.dist end)
+
+		for i, entry in ipairs(entries) do
+			local row = getRadarRow(i)
+			local color = entry.plr.TeamColor and entry.plr.TeamColor.Color or Color3.fromRGB(230, 230, 230)
+			local hex = string.format("%02X%02X%02X", math.floor(color.R * 255), math.floor(color.G * 255), math.floor(color.B * 255))
+			row.Text = string.format('<font color="#%s">%s</font>  %dm  %dHP', hex, entry.plr.Name, math.floor(entry.dist + 0.5), entry.hp)
+			row.Visible = true
+		end
+
+		for i = #entries + 1, #radarRows do
+			radarRows[i].Visible = false
+		end
+
+		local count = #entries
+		radarList.Size = UDim2.new(1, -12, 0, count * 13)
+		radarFrame.Size = UDim2.new(0, 200, 0, 20 + count * 13)
+	end
+
+	Toggles.ThreatRadar:OnChanged(function()
+		radarRunning = false
+		disconnect("ThreatRadar_Loop")
+
+		if radarGui then
+			radarGui:Destroy()
+			radarGui = nil
+			radarFrame = nil
+			radarList = nil
+			radarRows = {}
+		end
+
+		if not Toggles.ThreatRadar.Value then
+			Library:Notify({ Title = "Threat Radar", Description = "Disabled", Time = 2 })
+			return
+		end
+
+		buildRadarHud()
+		radarRunning = true
+		radarLastUpdate = 0
+
+		track("ThreatRadar_Loop", RunService.RenderStepped:Connect(function()
+			if not radarRunning or not radarList then return end
+			local now = tick()
+			if now - radarLastUpdate < 0.25 then return end
+			radarLastUpdate = now
+			pcall(refreshRadar)
+		end))
+
+		Library:Notify({ Title = "Threat Radar", Description = "Enabled", Time = 2 })
 	end)
 end
 
