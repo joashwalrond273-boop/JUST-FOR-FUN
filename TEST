@@ -6067,6 +6067,11 @@ FarmAI:AddToggle("BossSpawnNotifier", {
 	Default = false,
 })
 
+FarmAI:AddToggle("BossSpawnPredictor", {
+	Text = "Spawn Predictor",
+	Default = false,
+})
+
 OreFarm:AddButton({
 	Text = "Reset Character",
 	Func = function()
@@ -6837,6 +6842,282 @@ do
 		end))
 
 		Library:Notify({ Title = "Boss Spawn Notifier", Description = "Enabled", Time = 2 })
+	end)
+end
+
+-- ==========================================
+-- Boss Next-Spawn Predictor (learns per-boss spawn interval from observed spawns)
+do
+	local BOSS_NAMES = {
+		"The Great Spider",
+		"The Juggernaut",
+		"The Samurai",
+		"The Titan",
+	}
+
+	local PREDICTOR_HISTORY = 6          -- spawn samples kept per boss
+	local PREDICTOR_MIN_INTERVAL = 5     -- ignore gaps shorter than this (seconds)
+	local PREDICTOR_MAX_INTERVAL = 3600  -- ignore gaps longer than this (server reset / AFK)
+
+	local predictorRunning = false
+	local predictorLastRefresh = 0
+	local predictorSpawnTimes = {}       -- boss -> { tick(), ... }
+	local predictorIntervals = {}        -- boss -> running average seconds
+	local predictorAlive = {}            -- boss -> bool
+
+	local predictorGui = nil
+	local predictorRows = {}             -- boss -> { status, fill }
+
+	local function getBossName(name)
+		if type(name) ~= "string" then return nil end
+		for _, boss in ipairs(BOSS_NAMES) do
+			if name == boss or string.find(name, boss, 1, true) then
+				return boss
+			end
+		end
+		return nil
+	end
+
+	local function recordSpawn(boss)
+		predictorAlive[boss] = true
+
+		local times = predictorSpawnTimes[boss]
+		if not times then
+			times = {}
+			predictorSpawnTimes[boss] = times
+		end
+
+		local now = tick()
+		local prev = times[#times]
+		if prev then
+			local gap = now - prev
+			if gap >= PREDICTOR_MIN_INTERVAL and gap <= PREDICTOR_MAX_INTERVAL then
+				local avg = predictorIntervals[boss]
+				predictorIntervals[boss] = avg and (avg * 0.5 + gap * 0.5) or gap
+			end
+		end
+
+		times[#times + 1] = now
+		while #times > PREDICTOR_HISTORY do
+			table.remove(times, 1)
+		end
+	end
+
+	local function onPredictorSpawned(child)
+		if not predictorRunning then return end
+		local boss = getBossName(child and child.Name)
+		if boss then
+			recordSpawn(boss)
+		end
+	end
+
+	local function onPredictorRemoved(child)
+		if not predictorRunning then return end
+		local boss = getBossName(child and child.Name)
+		if boss then
+			predictorAlive[boss] = false
+		end
+	end
+
+	local function scanExistingBosses()
+		local containers = {
+			workspace:FindFirstChild("AI_Server"),
+			workspace:FindFirstChild("AI_Client"),
+		}
+		for _, container in ipairs(containers) do
+			if container then
+				for _, child in ipairs(container:GetChildren()) do
+					local boss = getBossName(child.Name)
+					if boss then
+						predictorAlive[boss] = true
+					end
+				end
+			end
+		end
+	end
+
+	local function refreshPredictorHooks()
+		if not predictorRunning then return end
+
+		local aiServer = workspace:FindFirstChild("AI_Server")
+		if aiServer and not Connections["Predict_AI_Server"] then
+			track("Predict_AI_Server", aiServer.ChildAdded:Connect(onPredictorSpawned))
+		end
+
+		local aiClient = workspace:FindFirstChild("AI_Client")
+		if aiClient and not Connections["Predict_AI_Client"] then
+			track("Predict_AI_Client", aiClient.ChildAdded:Connect(onPredictorSpawned))
+		end
+
+		if not Connections["Predict_Workspace"] then
+			track("Predict_Workspace", workspace.ChildAdded:Connect(onPredictorSpawned))
+		end
+
+		if not Connections["Predict_WorkspaceRemoved"] then
+			track("Predict_WorkspaceRemoved", workspace.ChildRemoved:Connect(onPredictorRemoved))
+		end
+	end
+
+	local function updatePredictorGui()
+		local playerGui = LocalPlayer:FindFirstChildOfClass("PlayerGui")
+		if not playerGui then return end
+
+		if not predictorGui or not predictorGui.Parent then
+			predictorGui = Instance.new("ScreenGui")
+			predictorGui.Name = "XenoSpawnPredictor"
+			predictorGui.ResetOnSpawn = false
+			predictorGui.IgnoreGuiInset = true
+			predictorGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+			predictorGui.Parent = playerGui
+
+			local frame = Instance.new("Frame")
+			frame.Name = "Panel"
+			frame.Position = UDim2.new(0, 16, 0, 90)
+			frame.Size = UDim2.new(0, 220, 0, 26 + #BOSS_NAMES * 22)
+			frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+			frame.BackgroundTransparency = 0.25
+			frame.BorderSizePixel = 0
+			frame.Parent = predictorGui
+
+			local corner = Instance.new("UICorner")
+			corner.CornerRadius = UDim.new(0, 6)
+			corner.Parent = frame
+
+			local stroke = Instance.new("UIStroke")
+			stroke.Color = Color3.fromRGB(0, 244, 255)
+			stroke.Transparency = 0.4
+			stroke.Thickness = 1
+			stroke.Parent = frame
+
+			local title = Instance.new("TextLabel")
+			title.Size = UDim2.new(1, -16, 0, 22)
+			title.Position = UDim2.new(0, 8, 0, 2)
+			title.BackgroundTransparency = 1
+			title.Font = Enum.Font.GothamBold
+			title.TextSize = 13
+			title.TextColor3 = Color3.fromRGB(0, 244, 255)
+			title.TextXAlignment = Enum.TextXAlignment.Left
+			title.Text = "Boss Spawn Predictor"
+			title.Parent = frame
+
+			predictorRows = {}
+
+			for index, boss in ipairs(BOSS_NAMES) do
+				local row = Instance.new("Frame")
+				row.BackgroundTransparency = 1
+				row.Size = UDim2.new(1, -16, 0, 20)
+				row.Position = UDim2.new(0, 8, 0, 4 + index * 22)
+				row.Parent = frame
+
+				local nameLabel = Instance.new("TextLabel")
+				nameLabel.Size = UDim2.new(0.62, 0, 1, 0)
+				nameLabel.BackgroundTransparency = 1
+				nameLabel.Font = Enum.Font.Gotham
+				nameLabel.TextSize = 12
+				nameLabel.TextColor3 = Color3.fromRGB(235, 235, 235)
+				nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+				nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
+				nameLabel.Text = boss
+				nameLabel.Parent = row
+
+				local status = Instance.new("TextLabel")
+				status.Size = UDim2.new(0.38, 0, 1, 0)
+				status.Position = UDim2.new(0.62, 0, 0, 0)
+				status.BackgroundTransparency = 1
+				status.Font = Enum.Font.GothamBold
+				status.TextSize = 12
+				status.TextColor3 = Color3.fromRGB(180, 180, 180)
+				status.TextXAlignment = Enum.TextXAlignment.Right
+				status.Text = "..."
+				status.Parent = row
+
+				local fillBg = Instance.new("Frame")
+				fillBg.Size = UDim2.new(1, 0, 0, 2)
+				fillBg.Position = UDim2.new(0, 0, 1, -1)
+				fillBg.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+				fillBg.BorderSizePixel = 0
+				fillBg.Parent = row
+
+				local fill = Instance.new("Frame")
+				fill.Size = UDim2.new(0, 0, 1, 0)
+				fill.BackgroundColor3 = Color3.fromRGB(0, 244, 255)
+				fill.BorderSizePixel = 0
+				fill.Parent = fillBg
+
+				predictorRows[boss] = { status = status, fill = fill }
+			end
+		end
+
+		local now = tick()
+
+		for _, boss in ipairs(BOSS_NAMES) do
+			local row = predictorRows[boss]
+			if row then
+				if predictorAlive[boss] then
+					row.status.Text = "ALIVE"
+					row.status.TextColor3 = Color3.fromRGB(255, 90, 90)
+					row.fill.Size = UDim2.new(1, 0, 1, 0)
+					row.fill.BackgroundColor3 = Color3.fromRGB(255, 90, 90)
+				else
+					local interval = predictorIntervals[boss]
+					local times = predictorSpawnTimes[boss]
+					if not interval or not times or #times < 2 then
+						row.status.Text = "learning..."
+						row.status.TextColor3 = Color3.fromRGB(180, 180, 180)
+						row.fill.Size = UDim2.new(0, 0, 1, 0)
+					else
+						local remaining = (times[#times] + interval) - now
+						if remaining <= 0 then
+							row.status.Text = "due now"
+							row.status.TextColor3 = Color3.fromRGB(255, 200, 60)
+							row.fill.Size = UDim2.new(1, 0, 1, 0)
+							row.fill.BackgroundColor3 = Color3.fromRGB(255, 200, 60)
+						else
+							row.status.Text = string.format("~%02d:%02d", math.floor(remaining / 60), math.floor(remaining % 60))
+							row.status.TextColor3 = Color3.fromRGB(0, 244, 255)
+							row.fill.Size = UDim2.new(1 - math.clamp(remaining / interval, 0, 1), 0, 1, 0)
+							row.fill.BackgroundColor3 = Color3.fromRGB(0, 244, 255)
+						end
+					end
+				end
+			end
+		end
+	end
+
+	Toggles.BossSpawnPredictor:OnChanged(function()
+		predictorRunning = false
+		disconnect("Predict_AI_Server")
+		disconnect("Predict_AI_Client")
+		disconnect("Predict_Workspace")
+		disconnect("Predict_WorkspaceRemoved")
+		disconnect("Predict_Poll")
+		predictorLastRefresh = 0
+
+		if predictorGui then
+			predictorGui:Destroy()
+			predictorGui = nil
+			predictorRows = {}
+		end
+
+		if not Toggles.BossSpawnPredictor.Value then
+			Library:Notify({ Title = "Spawn Predictor", Description = "Disabled", Time = 2 })
+			return
+		end
+
+		predictorRunning = true
+		scanExistingBosses()
+		refreshPredictorHooks()
+		updatePredictorGui()
+
+		track("Predict_Poll", RunService.Heartbeat:Connect(function()
+			local now = tick()
+			if now - predictorLastRefresh < 0.25 then return end
+			predictorLastRefresh = now
+			refreshPredictorHooks()
+			updatePredictorGui()
+		end))
+
+		Library:Notify({ Title = "Spawn Predictor", Description = "Learning spawn intervals...", Time = 3 })
 	end)
 end
 
