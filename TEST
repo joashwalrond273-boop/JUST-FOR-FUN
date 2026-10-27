@@ -1670,12 +1670,180 @@ invisOutlineLabel:AddColorPicker("InvisibleFlyOutlineColor", {
 	Title = "Invisible Fly Highlight Outline Color",
 })
 
-MainRight:AddToggle("PerfHud", {
+MainRight:AddCheckbox("SessionStatsHud", {
+	Text = "Session Stats HUD",
+	Default = false,
+})
+
+MainRight:AddCheckbox("PerfHud", {
 	Text = "Ping / FPS HUD",
 	Default = false,
 })
 
 MainRight:AddDivider()
+
+do
+	local statsRunning = false
+	local statsGui = nil
+	local statsLabel = nil
+	local sessionStart = 0
+	local sessionKills = 0
+	local sessionDeaths = 0
+	local aliveState = {}
+	local myAlive = true
+	local statsLastPoll = 0
+	local statsLastLabel = 0
+
+	local function formatSessionTime(seconds)
+		seconds = math.max(0, math.floor(seconds))
+		local hours = math.floor(seconds / 3600)
+		local minutes = math.floor((seconds % 3600) / 60)
+		local secs = seconds % 60
+		if hours > 0 then
+			return string.format("%d:%02d:%02d", hours, minutes, secs)
+		end
+		return string.format("%02d:%02d", minutes, secs)
+	end
+
+	local function refreshStatsLabel()
+		if not statsLabel then return end
+		statsLabel.Text = string.format("SESSION %s   KILLS %d   DEATHS %d", formatSessionTime(tick() - sessionStart), sessionKills, sessionDeaths)
+	end
+
+	local function pollSessionStats()
+		local myChar = LocalPlayer.Character
+		local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+		local nowAlive = myHum ~= nil and myHum.Health > 0
+		if myAlive and not nowAlive then
+			sessionDeaths = sessionDeaths + 1
+		end
+		myAlive = nowAlive
+
+		local myRoot = myChar and (myChar:FindFirstChild("HumanoidRootPart") or myChar.PrimaryPart)
+
+		for _, otherPlayer in ipairs(Players:GetPlayers()) do
+			if otherPlayer ~= LocalPlayer then
+				local char = otherPlayer.Character
+				local hum = char and char:FindFirstChildOfClass("Humanoid")
+				local isAlive = hum ~= nil and hum.Health > 0
+				if aliveState[otherPlayer] == true and not isAlive and myRoot then
+					local otherRoot = char and (char:FindFirstChild("HumanoidRootPart") or char.PrimaryPart)
+					if otherRoot and (otherRoot.Position - myRoot.Position).Magnitude <= 50 then
+						sessionKills = sessionKills + 1
+					end
+				end
+				aliveState[otherPlayer] = isAlive
+			end
+		end
+	end
+
+	local function buildStatsHud()
+		local playerGui = LocalPlayer:FindFirstChildOfClass("PlayerGui")
+		if not playerGui then return end
+
+		statsGui = Instance.new("ScreenGui")
+		statsGui.Name = "XenoSessionStatsHud"
+		statsGui.ResetOnSpawn = false
+		statsGui.IgnoreGuiInset = true
+		statsGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+		statsGui.Parent = playerGui
+
+		local frame = Instance.new("Frame")
+		frame.Name = "Panel"
+		frame.Position = UDim2.new(0, 16, 0, 190)
+		frame.Size = UDim2.new(0, 230, 0, 20)
+		frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+		frame.BackgroundTransparency = 0.25
+		frame.BorderSizePixel = 0
+		frame.Active = true
+		frame.Parent = statsGui
+
+		local corner = Instance.new("UICorner")
+		corner.CornerRadius = UDim.new(0, 5)
+		corner.Parent = frame
+
+		local stroke = Instance.new("UIStroke")
+		stroke.Color = Color3.fromRGB(0, 244, 255)
+		stroke.Transparency = 0.4
+		stroke.Thickness = 1
+		stroke.Parent = frame
+
+		statsLabel = Instance.new("TextLabel")
+		statsLabel.Size = UDim2.new(1, -12, 1, 0)
+		statsLabel.Position = UDim2.new(0, 6, 0, 0)
+		statsLabel.BackgroundTransparency = 1
+		statsLabel.Font = Enum.Font.Code
+		statsLabel.TextSize = 11
+		statsLabel.TextColor3 = Color3.fromRGB(0, 244, 255)
+		statsLabel.TextXAlignment = Enum.TextXAlignment.Left
+		statsLabel.Text = "SESSION 00:00   KILLS 0   DEATHS 0"
+		statsLabel.Parent = frame
+
+		local dragging, dragStart, dragPos = false, nil, nil
+		frame.InputBegan:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+				dragging = true
+				dragStart = input.Position
+				dragPos = frame.Position
+				input.Changed:Connect(function()
+					if input.UserInputState == Enum.UserInputState.End then
+						dragging = false
+					end
+				end)
+			end
+		end)
+		frame.InputChanged:Connect(function(input)
+			if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+				local delta = input.Position - dragStart
+				frame.Position = UDim2.new(dragPos.X.Scale, dragPos.X.Offset + delta.X, dragPos.Y.Scale, dragPos.Y.Offset + delta.Y)
+			end
+		end)
+	end
+
+	Toggles.SessionStatsHud:OnChanged(function()
+		statsRunning = false
+		disconnect("SessionStats_Loop")
+
+		if statsGui then
+			statsGui:Destroy()
+			statsGui = nil
+			statsLabel = nil
+		end
+
+		if not Toggles.SessionStatsHud.Value then
+			Library:Notify({ Title = "Session Stats HUD", Description = "Disabled", Time = 2 })
+			return
+		end
+
+		sessionStart = tick()
+		sessionKills = 0
+		sessionDeaths = 0
+		aliveState = {}
+		myAlive = true
+		statsLastPoll = 0
+		statsLastLabel = 0
+
+		buildStatsHud()
+		refreshStatsLabel()
+		statsRunning = true
+
+		track("SessionStats_Loop", RunService.RenderStepped:Connect(function()
+			if not statsRunning or not statsLabel then return end
+
+			local now = tick()
+			if now - statsLastPoll >= 0.5 then
+				statsLastPoll = now
+				pcall(pollSessionStats)
+			end
+			if now - statsLastLabel >= 0.25 then
+				statsLastLabel = now
+				refreshStatsLabel()
+			end
+		end))
+
+		Library:Notify({ Title = "Session Stats HUD", Description = "Enabled", Time = 2 })
+	end)
+end
 
 do
 	local perfRunning = false
@@ -2705,18 +2873,10 @@ CombatAutoSwingGroup:AddToggle("SmartSwingIgnoreAlly", {
 	Default = false,
 })
 
-CombatAutoSwingGroup:AddDropdown("SmartSwingIgnoreTeams", {
-	Text = "Ignore Teams",
-	Values = {},
-	Default = {},
-	Multi = true,
-})
-
 updateAutoSwingSliderVisibility = function()
 	local isAutoSwingToggled = (Toggles.AutoSwing and Toggles.AutoSwing.Value) or false
 	local isSmartSwingToggled = (Toggles.SmartSwing and Toggles.SmartSwing.Value) or false
 	local isSSSlot = (Toggles.SmartSwingSlotSystem and Toggles.SmartSwingSlotSystem.Value) or false
-	local isSSIgnoreAlly = (Toggles.SmartSwingIgnoreAlly and Toggles.SmartSwingIgnoreAlly.Value) or false
 	local isAnyToggled = isAutoSwingToggled or isSmartSwingToggled
 
 	if Options.AutoSwingSlot then
@@ -2767,12 +2927,6 @@ updateAutoSwingSliderVisibility = function()
 			Toggles.SmartSwingIgnoreAlly.Holder.Visible = isSmartSwingToggled
 		end
 	end
-	if Options.SmartSwingIgnoreTeams then
-		Options.SmartSwingIgnoreTeams.Visible = isSmartSwingToggled and isSSIgnoreAlly
-		if Options.SmartSwingIgnoreTeams.Holder then
-			Options.SmartSwingIgnoreTeams.Holder.Visible = isSmartSwingToggled and isSSIgnoreAlly
-		end
-	end
 	CombatAutoSwingGroup:Resize()
 end
 
@@ -2783,14 +2937,6 @@ task.spawn(function()
 		updateAutoSwingSliderVisibility()
 	end
 end)
-
-if Toggles.SmartSwingIgnoreAlly then
-	Toggles.SmartSwingIgnoreAlly:OnChanged(function()
-		if updateAutoSwingSliderVisibility then
-			updateAutoSwingSliderVisibility()
-		end
-	end)
-end
 
 local CombatSwordBot = Tabs.Combat:AddLeftGroupbox("Sword Bot", "swords")
 
@@ -3657,28 +3803,12 @@ Toggles.SmartSwing:OnChanged(function()
 			local maxDist = Options.PlayerStuds and Options.PlayerStuds.Value or 20
 			local ignoreTeam = Toggles.SmartSwingIgnoreTeam and Toggles.SmartSwingIgnoreTeam.Value
 			local ignoreAlly = Toggles.SmartSwingIgnoreAlly and Toggles.SmartSwingIgnoreAlly.Value
-			local excludedTeams = Options.SmartSwingIgnoreTeams and Options.SmartSwingIgnoreTeams.Value or {}
 			local pos = root.Position
 			local playerNearby = false
 
-			local function isExcludedTeam(p)
-				if not ignoreAlly then return false end
-				if not p or not p.Team then return false end
-				local teamName = p.Team.Name
-				if not teamName then return false end
-				if typeof(excludedTeams) == "table" then
-					for name, selected in pairs(excludedTeams) do
-						if selected == true and name == teamName then
-							return true
-						end
-					end
-				end
-				return false
-			end
-
 			for _, otherPlayer in ipairs(Players:GetPlayers()) do
 				if otherPlayer ~= LocalPlayer and otherPlayer.Character then
-					if ((not ignoreTeam and not ignoreAlly) or not isTeammate(otherPlayer)) and not isExcludedTeam(otherPlayer) then
+					if (not ignoreTeam and not ignoreAlly) or not isTeammate(otherPlayer) then
 						local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart") or otherPlayer.Character.PrimaryPart
 						local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
 						if otherRoot and otherHum and otherHum.Health > 0 then
@@ -9215,33 +9345,6 @@ end
 track("CamlockTeamAdded", Teams.ChildAdded:Connect(updateCamlockTeamList))
 track("CamlockTeamRemoved", Teams.ChildRemoved:Connect(updateCamlockTeamList))
 task.spawn(updateCamlockTeamList)
-
-local function updateSmartSwingTeamList()
-	pcall(function()
-		if not Options.SmartSwingIgnoreTeams then return end
-		local teamNames = {}
-		for _, team in ipairs(Teams:GetTeams()) do
-			if team and team.Name then
-				table.insert(teamNames, team.Name)
-			end
-		end
-		local previous = Options.SmartSwingIgnoreTeams.Value
-		Options.SmartSwingIgnoreTeams:SetValues(teamNames)
-		if typeof(previous) == "table" then
-			local preserved = {}
-			for name, selected in pairs(previous) do
-				if selected == true and table.find(teamNames, name) then
-					preserved[name] = true
-				end
-			end
-			Options.SmartSwingIgnoreTeams:SetValue(preserved)
-		end
-	end)
-end
-
-track("SmartSwingTeamAdded", Teams.ChildAdded:Connect(updateSmartSwingTeamList))
-track("SmartSwingTeamRemoved", Teams.ChildRemoved:Connect(updateSmartSwingTeamList))
-task.spawn(updateSmartSwingTeamList)
 
 local function startAttach()
 	disconnect("AttachLoop")
