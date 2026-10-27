@@ -56,19 +56,6 @@ local updatePhantomModeVisibility
 local updateSwimBoostVisibility
 local isTeammate
 
--- Show/hide a Tool Slot dropdown based on its Slot System checkbox
-local function updateSlotDropdownVisibility(dropdown, checkbox, groupbox)
-	if not dropdown then return end
-	local visible = (checkbox and checkbox.Value) or false
-	dropdown.Visible = visible
-	if dropdown.Holder then
-		dropdown.Holder.Visible = visible
-	end
-	if groupbox then
-		pcall(function() groupbox:Resize() end)
-	end
-end
-
 Library.ShowToggleFrameInKeybinds = true
 
 
@@ -1042,8 +1029,6 @@ AutoArmorDeluxeGroup:AddDropdown("AtlanteanSlotSystemSlot", {
 	Multi = true,
 })
 
-updateSlotDropdownVisibility(Options.AtlanteanSlotSystemSlot, Toggles.AtlanteanSlotSystem, AutoArmorDeluxeGroup)
-
 AutoArmorDeluxeGroup:AddSlider("AtlanteanEquipSpeed", {
 	Text = "Equip Speed",
 	Default = 20,
@@ -1134,8 +1119,6 @@ do
 			disconnect("AtlanteanSlotSystem_ChildAdded")
 			disconnect("AtlanteanSlotSystem_ChildRemoved")
 			disconnect("AtlanteanSlotSystem_CharAdded")
-
-			updateSlotDropdownVisibility(Options.AtlanteanSlotSystemSlot, Toggles.AtlanteanSlotSystem, AutoArmorDeluxeGroup)
 
 			if Toggles.AtlanteanSlotSystem.Value then
 				local function hookAtlanteanSlotChar(char)
@@ -1686,125 +1669,6 @@ invisOutlineLabel:AddColorPicker("InvisibleFlyOutlineColor", {
 	Default = Color3.fromRGB(255, 255, 255),
 	Title = "Invisible Fly Highlight Outline Color",
 })
-
-MainRight:AddToggle("PerfHud", {
-	Text = "Ping / FPS HUD",
-	Default = false,
-})
-
-do
-	local perfRunning = false
-	local perfGui = nil
-	local perfLabel = nil
-	local perfFrames = 0
-	local perfLastUpdate = 0
-
-	local function buildPerfHud()
-		local playerGui = LocalPlayer:FindFirstChildOfClass("PlayerGui")
-		if not playerGui then return end
-
-		perfGui = Instance.new("ScreenGui")
-		perfGui.Name = "XenoPerfHud"
-		perfGui.ResetOnSpawn = false
-		perfGui.IgnoreGuiInset = true
-		perfGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-		perfGui.Parent = playerGui
-
-		local frame = Instance.new("Frame")
-		frame.Name = "Panel"
-		frame.Position = UDim2.new(0, 16, 0, 60)
-		frame.Size = UDim2.new(0, 150, 0, 20)
-		frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-		frame.BackgroundTransparency = 0.25
-		frame.BorderSizePixel = 0
-		frame.Active = true
-		frame.Parent = perfGui
-
-		local corner = Instance.new("UICorner")
-		corner.CornerRadius = UDim.new(0, 5)
-		corner.Parent = frame
-
-		local stroke = Instance.new("UIStroke")
-		stroke.Color = Color3.fromRGB(0, 244, 255)
-		stroke.Transparency = 0.4
-		stroke.Thickness = 1
-		stroke.Parent = frame
-
-		perfLabel = Instance.new("TextLabel")
-		perfLabel.Size = UDim2.new(1, -12, 1, 0)
-		perfLabel.Position = UDim2.new(0, 6, 0, 0)
-		perfLabel.BackgroundTransparency = 1
-		perfLabel.Font = Enum.Font.Code
-		perfLabel.TextSize = 11
-		perfLabel.TextColor3 = Color3.fromRGB(0, 244, 255)
-		perfLabel.TextXAlignment = Enum.TextXAlignment.Left
-		perfLabel.Text = "PING --ms   FPS --"
-		perfLabel.Parent = frame
-
-		local dragging, dragStart, dragPos = false, nil, nil
-		frame.InputBegan:Connect(function(input)
-			if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-				dragging = true
-				dragStart = input.Position
-				dragPos = frame.Position
-				input.Changed:Connect(function()
-					if input.UserInputState == Enum.UserInputState.End then
-						dragging = false
-					end
-				end)
-			end
-		end)
-		frame.InputChanged:Connect(function(input)
-			if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-				local delta = input.Position - dragStart
-				frame.Position = UDim2.new(dragPos.X.Scale, dragPos.X.Offset + delta.X, dragPos.Y.Scale, dragPos.Y.Offset + delta.Y)
-			end
-		end)
-	end
-
-	Toggles.PerfHud:OnChanged(function()
-		perfRunning = false
-		disconnect("PerfHud_Render")
-
-		if perfGui then
-			perfGui:Destroy()
-			perfGui = nil
-			perfLabel = nil
-		end
-
-		if not Toggles.PerfHud.Value then
-			Library:Notify({ Title = "Ping / FPS HUD", Description = "Disabled", Time = 2 })
-			return
-		end
-
-		buildPerfHud()
-		perfRunning = true
-		perfFrames = 0
-		perfLastUpdate = tick()
-
-		track("PerfHud_Render", RunService.RenderStepped:Connect(function()
-			if not perfRunning or not perfLabel then return end
-
-			perfFrames = perfFrames + 1
-			local now = tick()
-			local elapsed = now - perfLastUpdate
-			if elapsed < 0.25 then return end
-
-			local fps = math.floor(perfFrames / elapsed + 0.5)
-			perfFrames = 0
-			perfLastUpdate = now
-
-			local ping = 0
-			pcall(function()
-				ping = math.floor(LocalPlayer:GetNetworkPing() * 1000 + 0.5)
-			end)
-
-			perfLabel.Text = string.format("PING %dms   FPS %d", ping, fps)
-		end))
-
-		Library:Notify({ Title = "Ping / FPS HUD", Description = "Enabled", Time = 2 })
-	end)
-end
 
 MainRight:AddButton({
 	Text = "Low Ping Server",
@@ -6128,8 +5992,6 @@ FarmMine:AddDropdown("AutoMineSlotSystemSlot", {
 	Multi = true,
 })
 
-updateSlotDropdownVisibility(Options.AutoMineSlotSystemSlot, Toggles.AutoMineSlotSystem, FarmMine)
-
 FarmMine:AddSlider("AutoMineRange", {
 	Text = "Range",
 	Default = 30,
@@ -6181,8 +6043,6 @@ FarmChop:AddDropdown("AutoChopSlotSystemSlot", {
 	Default = {"1"},
 	Multi = true,
 })
-
-updateSlotDropdownVisibility(Options.AutoChopSlotSystemSlot, Toggles.AutoChopSlotSystem, FarmChop)
 
 FarmChop:AddSlider("AutoChopRange", {
 	Text = "Range",
@@ -6296,8 +6156,6 @@ FarmAI:AddDropdown("AiAuraSlotSystemSlot", {
 	Default = {"1"},
 	Multi = true,
 })
-
-updateSlotDropdownVisibility(Options.AiAuraSlotSystemSlot, Toggles.AiAuraSlotSystem, FarmAI)
 
 FarmAI:AddSlider("AiAuraRange", {
 	Text = "Range",
@@ -6603,8 +6461,6 @@ do
 			disconnect("AutoMineSlotSystem_ChildRemoved")
 			disconnect("AutoMineSlotSystem_CharAdded")
 
-			updateSlotDropdownVisibility(Options.AutoMineSlotSystemSlot, Toggles.AutoMineSlotSystem, FarmMine)
-
 			if Toggles.AutoMineSlotSystem.Value then
 				local function hookMineSlotChar(char)
 					if not char then return end
@@ -6765,8 +6621,6 @@ do
 			disconnect("AutoChopSlotSystem_ChildAdded")
 			disconnect("AutoChopSlotSystem_ChildRemoved")
 			disconnect("AutoChopSlotSystem_CharAdded")
-
-			updateSlotDropdownVisibility(Options.AutoChopSlotSystemSlot, Toggles.AutoChopSlotSystem, FarmChop)
 
 			if Toggles.AutoChopSlotSystem.Value then
 				local function hookChopSlotChar(char)
@@ -6933,8 +6787,6 @@ do
 			disconnect("AiAuraSlotSystem_ChildAdded")
 			disconnect("AiAuraSlotSystem_ChildRemoved")
 			disconnect("AiAuraSlotSystem_CharAdded")
-
-			updateSlotDropdownVisibility(Options.AiAuraSlotSystemSlot, Toggles.AiAuraSlotSystem, FarmAI)
 
 			if Toggles.AiAuraSlotSystem.Value then
 				local function hookAiAuraSlotChar(char)
