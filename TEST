@@ -1675,6 +1675,8 @@ MainRight:AddToggle("PerfHud", {
 	Default = false,
 })
 
+MainRight:AddDivider()
+
 do
 	local perfRunning = false
 	local perfGui = nil
@@ -2703,10 +2705,18 @@ CombatAutoSwingGroup:AddToggle("SmartSwingIgnoreAlly", {
 	Default = false,
 })
 
+CombatAutoSwingGroup:AddDropdown("SmartSwingIgnoreTeams", {
+	Text = "Ignore Teams",
+	Values = {},
+	Default = {},
+	Multi = true,
+})
+
 updateAutoSwingSliderVisibility = function()
 	local isAutoSwingToggled = (Toggles.AutoSwing and Toggles.AutoSwing.Value) or false
 	local isSmartSwingToggled = (Toggles.SmartSwing and Toggles.SmartSwing.Value) or false
 	local isSSSlot = (Toggles.SmartSwingSlotSystem and Toggles.SmartSwingSlotSystem.Value) or false
+	local isSSIgnoreAlly = (Toggles.SmartSwingIgnoreAlly and Toggles.SmartSwingIgnoreAlly.Value) or false
 	local isAnyToggled = isAutoSwingToggled or isSmartSwingToggled
 
 	if Options.AutoSwingSlot then
@@ -2757,6 +2767,12 @@ updateAutoSwingSliderVisibility = function()
 			Toggles.SmartSwingIgnoreAlly.Holder.Visible = isSmartSwingToggled
 		end
 	end
+	if Options.SmartSwingIgnoreTeams then
+		Options.SmartSwingIgnoreTeams.Visible = isSmartSwingToggled and isSSIgnoreAlly
+		if Options.SmartSwingIgnoreTeams.Holder then
+			Options.SmartSwingIgnoreTeams.Holder.Visible = isSmartSwingToggled and isSSIgnoreAlly
+		end
+	end
 	CombatAutoSwingGroup:Resize()
 end
 
@@ -2767,6 +2783,14 @@ task.spawn(function()
 		updateAutoSwingSliderVisibility()
 	end
 end)
+
+if Toggles.SmartSwingIgnoreAlly then
+	Toggles.SmartSwingIgnoreAlly:OnChanged(function()
+		if updateAutoSwingSliderVisibility then
+			updateAutoSwingSliderVisibility()
+		end
+	end)
+end
 
 local CombatSwordBot = Tabs.Combat:AddLeftGroupbox("Sword Bot", "swords")
 
@@ -3633,12 +3657,28 @@ Toggles.SmartSwing:OnChanged(function()
 			local maxDist = Options.PlayerStuds and Options.PlayerStuds.Value or 20
 			local ignoreTeam = Toggles.SmartSwingIgnoreTeam and Toggles.SmartSwingIgnoreTeam.Value
 			local ignoreAlly = Toggles.SmartSwingIgnoreAlly and Toggles.SmartSwingIgnoreAlly.Value
+			local excludedTeams = Options.SmartSwingIgnoreTeams and Options.SmartSwingIgnoreTeams.Value or {}
 			local pos = root.Position
 			local playerNearby = false
 
+			local function isExcludedTeam(p)
+				if not ignoreAlly then return false end
+				if not p or not p.Team then return false end
+				local teamName = p.Team.Name
+				if not teamName then return false end
+				if typeof(excludedTeams) == "table" then
+					for name, selected in pairs(excludedTeams) do
+						if selected == true and name == teamName then
+							return true
+						end
+					end
+				end
+				return false
+			end
+
 			for _, otherPlayer in ipairs(Players:GetPlayers()) do
 				if otherPlayer ~= LocalPlayer and otherPlayer.Character then
-					if (not ignoreTeam and not ignoreAlly) or not isTeammate(otherPlayer) then
+					if ((not ignoreTeam and not ignoreAlly) or not isTeammate(otherPlayer)) and not isExcludedTeam(otherPlayer) then
 						local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart") or otherPlayer.Character.PrimaryPart
 						local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
 						if otherRoot and otherHum and otherHum.Health > 0 then
@@ -9175,6 +9215,33 @@ end
 track("CamlockTeamAdded", Teams.ChildAdded:Connect(updateCamlockTeamList))
 track("CamlockTeamRemoved", Teams.ChildRemoved:Connect(updateCamlockTeamList))
 task.spawn(updateCamlockTeamList)
+
+local function updateSmartSwingTeamList()
+	pcall(function()
+		if not Options.SmartSwingIgnoreTeams then return end
+		local teamNames = {}
+		for _, team in ipairs(Teams:GetTeams()) do
+			if team and team.Name then
+				table.insert(teamNames, team.Name)
+			end
+		end
+		local previous = Options.SmartSwingIgnoreTeams.Value
+		Options.SmartSwingIgnoreTeams:SetValues(teamNames)
+		if typeof(previous) == "table" then
+			local preserved = {}
+			for name, selected in pairs(previous) do
+				if selected == true and table.find(teamNames, name) then
+					preserved[name] = true
+				end
+			end
+			Options.SmartSwingIgnoreTeams:SetValue(preserved)
+		end
+	end)
+end
+
+track("SmartSwingTeamAdded", Teams.ChildAdded:Connect(updateSmartSwingTeamList))
+track("SmartSwingTeamRemoved", Teams.ChildRemoved:Connect(updateSmartSwingTeamList))
+task.spawn(updateSmartSwingTeamList)
 
 local function startAttach()
 	disconnect("AttachLoop")
