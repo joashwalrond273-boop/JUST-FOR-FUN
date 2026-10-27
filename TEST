@@ -1017,6 +1017,18 @@ AutoArmorDeluxeGroup:AddCheckbox("AtlanteanAutoSwap", {
 	Default = false,
 })
 
+AutoArmorDeluxeGroup:AddCheckbox("AtlanteanSlotSystem", {
+	Text = "Slot System",
+	Default = false,
+})
+
+AutoArmorDeluxeGroup:AddDropdown("AtlanteanSlotSystemSlot", {
+	Text = "Tool Slot",
+	Values = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"},
+	Default = {"1"},
+	Multi = true,
+})
+
 AutoArmorDeluxeGroup:AddSlider("AtlanteanEquipSpeed", {
 	Text = "Equip Speed",
 	Default = 20,
@@ -1068,6 +1080,98 @@ Toggles.AtlanteanAutoSwap:OnChanged(function()
 		end))
 	end
 end)
+
+do
+	local atlanteanSlotSaved = nil
+	local fromAtlanteanSlotSystem = false
+
+	local function updateAtlanteanSlotSystemState()
+		if not (Toggles.AtlanteanSlotSystem and Toggles.AtlanteanSlotSystem.Value) then return end
+		if not isAlive() then return end
+
+		local holding = isAdvanceSlotAllowed(Options.AtlanteanSlotSystemSlot)
+
+		if holding then
+			if atlanteanSlotSaved == nil then
+				atlanteanSlotSaved = Toggles.AtlanteanAutoSwap and Toggles.AtlanteanAutoSwap.Value or false
+			end
+
+			if Toggles.AtlanteanAutoSwap and not Toggles.AtlanteanAutoSwap.Value then
+				fromAtlanteanSlotSystem = true
+				Toggles.AtlanteanAutoSwap:SetValue(true)
+				fromAtlanteanSlotSystem = false
+			end
+		else
+			if atlanteanSlotSaved ~= nil then
+				if Toggles.AtlanteanAutoSwap and Toggles.AtlanteanAutoSwap.Value ~= atlanteanSlotSaved then
+					fromAtlanteanSlotSystem = true
+					Toggles.AtlanteanAutoSwap:SetValue(atlanteanSlotSaved)
+					fromAtlanteanSlotSystem = false
+				end
+				atlanteanSlotSaved = nil
+			end
+		end
+	end
+
+	if Toggles.AtlanteanSlotSystem then
+		Toggles.AtlanteanSlotSystem:OnChanged(function()
+			disconnect("AtlanteanSlotSystem_Poll")
+			disconnect("AtlanteanSlotSystem_ChildAdded")
+			disconnect("AtlanteanSlotSystem_ChildRemoved")
+			disconnect("AtlanteanSlotSystem_CharAdded")
+
+			if Toggles.AtlanteanSlotSystem.Value then
+				local function hookAtlanteanSlotChar(char)
+					if not char then return end
+					disconnect("AtlanteanSlotSystem_ChildAdded")
+					disconnect("AtlanteanSlotSystem_ChildRemoved")
+					track("AtlanteanSlotSystem_ChildAdded", char.ChildAdded:Connect(function(child)
+						if child:IsA("Tool") then
+							task.wait()
+							updateAtlanteanSlotSystemState()
+						end
+					end))
+					track("AtlanteanSlotSystem_ChildRemoved", char.ChildRemoved:Connect(function(child)
+						if child:IsA("Tool") then
+							task.wait()
+							updateAtlanteanSlotSystemState()
+						end
+					end))
+				end
+
+				if LocalPlayer.Character then
+					hookAtlanteanSlotChar(LocalPlayer.Character)
+				end
+				track("AtlanteanSlotSystem_CharAdded", LocalPlayer.CharacterAdded:Connect(hookAtlanteanSlotChar))
+
+				track("AtlanteanSlotSystem_Poll", RunService.Heartbeat:Connect(function()
+					updateAtlanteanSlotSystemState()
+				end))
+
+				updateAtlanteanSlotSystemState()
+
+				Library:Notify({ Title = "Atlantean Slot System", Description = "Enabled", Time = 2 })
+			else
+				if atlanteanSlotSaved ~= nil then
+					if Toggles.AtlanteanAutoSwap and Toggles.AtlanteanAutoSwap.Value ~= atlanteanSlotSaved then
+						fromAtlanteanSlotSystem = true
+						Toggles.AtlanteanAutoSwap:SetValue(atlanteanSlotSaved)
+						fromAtlanteanSlotSystem = false
+					end
+					atlanteanSlotSaved = nil
+				end
+
+				Library:Notify({ Title = "Atlantean Slot System", Description = "Disabled", Time = 2 })
+			end
+		end)
+	end
+
+	if Options.AtlanteanSlotSystemSlot then
+		Options.AtlanteanSlotSystemSlot:OnChanged(function()
+			updateAtlanteanSlotSystemState()
+		end)
+	end
+end
 
 local PlayerTabBox = Tabs.Player:AddLeftTabbox()
 local MainLeft = PlayerTabBox:AddTab("Player", "user")
@@ -5870,6 +5974,12 @@ FarmMine:AddToggle("AutoMine", {
 	Default = false,
 })
 
+FarmMine:AddDropdown("AutoMineSlot", {
+	Text = "Attack Slot",
+	Values = {"1","2","3","4","5","6","7","8","9","10"},
+	Default = "1",
+})
+
 FarmMine:AddCheckbox("AutoMineSlotSystem", {
 	Text = "Slot System",
 	Default = false,
@@ -5900,12 +6010,6 @@ FarmMine:AddSlider("AutoMineSpeed", {
 	Compact = true,
 })
 
-FarmMine:AddDropdown("AutoMineSlot", {
-	Text = "Attack Slot",
-	Values = {"1","2","3","4","5","6","7","8","9","10"},
-	Default = "1",
-})
-
 FarmMine:AddCheckbox("HighlightMine", {
 	Text = "Highlight Target",
 	Default = true,
@@ -5920,6 +6024,12 @@ local FarmChop = Tabs.OreFactory:AddRightGroupbox("Auto Chop", "axe")
 FarmChop:AddToggle("AutoChop", {
 	Text = "Auto Chop",
 	Default = false,
+})
+
+FarmChop:AddDropdown("AutoChopSlot", {
+	Text = "Attack Slot",
+	Values = {"1","2","3","4","5","6","7","8","9","10"},
+	Default = "1",
 })
 
 FarmChop:AddCheckbox("AutoChopSlotSystem", {
@@ -5950,12 +6060,6 @@ FarmChop:AddSlider("AutoChopSpeed", {
 	Max = 20,
 	Rounding = 0,
 	Compact = true,
-})
-
-FarmChop:AddDropdown("AutoChopSlot", {
-	Text = "Attack Slot",
-	Values = {"1","2","3","4","5","6","7","8","9","10"},
-	Default = "1",
 })
 
 FarmChop:AddCheckbox("HighlightChop", {
@@ -6035,6 +6139,12 @@ FarmAI:AddToggle("AiAura", {
 	Default = false,
 })
 
+FarmAI:AddDropdown("AiAuraSlot", {
+	Text = "Attack Slot",
+	Values = {"1","2","3","4","5","6","7","8","9","10"},
+	Default = "1",
+})
+
 FarmAI:AddCheckbox("AiAuraSlotSystem", {
 	Text = "Slot System",
 	Default = false,
@@ -6047,12 +6157,6 @@ FarmAI:AddDropdown("AiAuraSlotSystemSlot", {
 	Multi = true,
 })
 
-FarmAI:AddDropdown("AiAuraSlot", {
-	Text = "Attack Slot",
-	Values = {"1","2","3","4","5","6","7","8","9","10"},
-	Default = "1",
-})
-
 FarmAI:AddSlider("AiAuraRange", {
 	Text = "Range",
 	Default = 30,
@@ -6061,6 +6165,8 @@ FarmAI:AddSlider("AiAuraRange", {
 	Rounding = 1,
 	Compact = true,
 })
+
+FarmAI:AddDivider()
 
 FarmAI:AddToggle("BossSpawnNotifier", {
 	Text = "Boss Spawn Notifier",
@@ -6864,6 +6970,7 @@ do
 	local predictorSpawnTimes = {}       -- boss -> { tick(), ... }
 	local predictorIntervals = {}        -- boss -> running average seconds
 	local predictorAlive = {}            -- boss -> bool
+	local predictorModels = {}           -- boss -> tracked model instance
 
 	local predictorGui = nil
 	local predictorRows = {}             -- boss -> { status, fill }
@@ -6903,11 +7010,59 @@ do
 		end
 	end
 
+	local function clearBossModel(boss)
+		predictorModels[boss] = nil
+		disconnect("Predict_Hum_" .. boss)
+		disconnect("Predict_HumHealth_" .. boss)
+		disconnect("Predict_HumWait_" .. boss)
+	end
+
+	-- Track the spawned model's Humanoid so we can tell when it actually dies
+	local function bindBossModel(boss, model)
+		if not model or not model:IsA("Model") then
+			predictorAlive[boss] = true
+			return
+		end
+
+		predictorModels[boss] = model
+		predictorAlive[boss] = true
+
+		local function bindHumanoid(hum)
+			if not hum then return end
+			disconnect("Predict_Hum_" .. boss)
+			disconnect("Predict_HumHealth_" .. boss)
+			disconnect("Predict_HumWait_" .. boss)
+			track("Predict_Hum_" .. boss, hum.Died:Connect(function()
+				predictorAlive[boss] = false
+			end))
+			track("Predict_HumHealth_" .. boss, hum.HealthChanged:Connect(function(health)
+				if health <= 0 then
+					predictorAlive[boss] = false
+				end
+			end))
+		end
+
+		local hum = model:FindFirstChildWhichIsA("Humanoid")
+		if hum then
+			bindHumanoid(hum)
+		else
+			disconnect("Predict_Hum_" .. boss)
+			disconnect("Predict_HumHealth_" .. boss)
+			disconnect("Predict_HumWait_" .. boss)
+			track("Predict_HumWait_" .. boss, model.DescendantAdded:Connect(function(desc)
+				if desc:IsA("Humanoid") then
+					bindHumanoid(desc)
+				end
+			end))
+		end
+	end
+
 	local function onPredictorSpawned(child)
 		if not predictorRunning then return end
 		local boss = getBossName(child and child.Name)
 		if boss then
 			recordSpawn(boss)
+			bindBossModel(boss, child)
 		end
 	end
 
@@ -6916,6 +7071,7 @@ do
 		local boss = getBossName(child and child.Name)
 		if boss then
 			predictorAlive[boss] = false
+			clearBossModel(boss)
 		end
 	end
 
@@ -6929,7 +7085,7 @@ do
 				for _, child in ipairs(container:GetChildren()) do
 					local boss = getBossName(child.Name)
 					if boss then
-						predictorAlive[boss] = true
+						bindBossModel(boss, child)
 					end
 				end
 			end
@@ -6943,10 +7099,16 @@ do
 		if aiServer and not Connections["Predict_AI_Server"] then
 			track("Predict_AI_Server", aiServer.ChildAdded:Connect(onPredictorSpawned))
 		end
+		if aiServer and not Connections["Predict_AI_ServerRemoved"] then
+			track("Predict_AI_ServerRemoved", aiServer.ChildRemoved:Connect(onPredictorRemoved))
+		end
 
 		local aiClient = workspace:FindFirstChild("AI_Client")
 		if aiClient and not Connections["Predict_AI_Client"] then
 			track("Predict_AI_Client", aiClient.ChildAdded:Connect(onPredictorSpawned))
+		end
+		if aiClient and not Connections["Predict_AI_ClientRemoved"] then
+			track("Predict_AI_ClientRemoved", aiClient.ChildRemoved:Connect(onPredictorRemoved))
 		end
 
 		if not Connections["Predict_Workspace"] then
@@ -6973,14 +7135,15 @@ do
 			local frame = Instance.new("Frame")
 			frame.Name = "Panel"
 			frame.Position = UDim2.new(0, 16, 0, 90)
-			frame.Size = UDim2.new(0, 220, 0, 26 + #BOSS_NAMES * 22)
+			frame.Size = UDim2.new(0, 152, 0, 18 + #BOSS_NAMES * 15)
 			frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 			frame.BackgroundTransparency = 0.25
 			frame.BorderSizePixel = 0
+			frame.Active = true
 			frame.Parent = predictorGui
 
 			local corner = Instance.new("UICorner")
-			corner.CornerRadius = UDim.new(0, 6)
+			corner.CornerRadius = UDim.new(0, 5)
 			corner.Parent = frame
 
 			local stroke = Instance.new("UIStroke")
@@ -6990,30 +7153,50 @@ do
 			stroke.Parent = frame
 
 			local title = Instance.new("TextLabel")
-			title.Size = UDim2.new(1, -16, 0, 22)
-			title.Position = UDim2.new(0, 8, 0, 2)
+			title.Size = UDim2.new(1, -12, 0, 14)
+			title.Position = UDim2.new(0, 6, 0, 2)
 			title.BackgroundTransparency = 1
 			title.Font = Enum.Font.GothamBold
-			title.TextSize = 13
+			title.TextSize = 11
 			title.TextColor3 = Color3.fromRGB(0, 244, 255)
 			title.TextXAlignment = Enum.TextXAlignment.Left
 			title.Text = "Boss Spawn Predictor"
 			title.Parent = frame
+
+			local dragging, dragStart, dragPos = false, nil, nil
+			frame.InputBegan:Connect(function(input)
+				if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+					dragging = true
+					dragStart = input.Position
+					dragPos = frame.Position
+					input.Changed:Connect(function()
+						if input.UserInputState == Enum.UserInputState.End then
+							dragging = false
+						end
+					end)
+				end
+			end)
+			frame.InputChanged:Connect(function(input)
+				if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+					local delta = input.Position - dragStart
+					frame.Position = UDim2.new(dragPos.X.Scale, dragPos.X.Offset + delta.X, dragPos.Y.Scale, dragPos.Y.Offset + delta.Y)
+				end
+			end)
 
 			predictorRows = {}
 
 			for index, boss in ipairs(BOSS_NAMES) do
 				local row = Instance.new("Frame")
 				row.BackgroundTransparency = 1
-				row.Size = UDim2.new(1, -16, 0, 20)
-				row.Position = UDim2.new(0, 8, 0, 4 + index * 22)
+				row.Size = UDim2.new(1, -12, 0, 13)
+				row.Position = UDim2.new(0, 6, 0, 2 + index * 15)
 				row.Parent = frame
 
 				local nameLabel = Instance.new("TextLabel")
 				nameLabel.Size = UDim2.new(0.62, 0, 1, 0)
 				nameLabel.BackgroundTransparency = 1
 				nameLabel.Font = Enum.Font.Gotham
-				nameLabel.TextSize = 12
+				nameLabel.TextSize = 10
 				nameLabel.TextColor3 = Color3.fromRGB(235, 235, 235)
 				nameLabel.TextXAlignment = Enum.TextXAlignment.Left
 				nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
@@ -7025,7 +7208,7 @@ do
 				status.Position = UDim2.new(0.62, 0, 0, 0)
 				status.BackgroundTransparency = 1
 				status.Font = Enum.Font.GothamBold
-				status.TextSize = 12
+				status.TextSize = 10
 				status.TextColor3 = Color3.fromRGB(180, 180, 180)
 				status.TextXAlignment = Enum.TextXAlignment.Right
 				status.Text = "..."
@@ -7053,6 +7236,18 @@ do
 		for _, boss in ipairs(BOSS_NAMES) do
 			local row = predictorRows[boss]
 			if row then
+				-- Sanity check: a tracked model that died or was removed is no longer alive
+				if predictorAlive[boss] then
+					local model = predictorModels[boss]
+					if model then
+						local hum = model:FindFirstChildWhichIsA("Humanoid")
+						if not model.Parent or (hum and hum.Health <= 0) then
+							predictorAlive[boss] = false
+							clearBossModel(boss)
+						end
+					end
+				end
+
 				if predictorAlive[boss] then
 					row.status.Text = "ALIVE"
 					row.status.TextColor3 = Color3.fromRGB(255, 90, 90)
@@ -7087,10 +7282,15 @@ do
 	Toggles.BossSpawnPredictor:OnChanged(function()
 		predictorRunning = false
 		disconnect("Predict_AI_Server")
+		disconnect("Predict_AI_ServerRemoved")
 		disconnect("Predict_AI_Client")
+		disconnect("Predict_AI_ClientRemoved")
 		disconnect("Predict_Workspace")
 		disconnect("Predict_WorkspaceRemoved")
 		disconnect("Predict_Poll")
+		for _, boss in ipairs(BOSS_NAMES) do
+			clearBossModel(boss)
+		end
 		predictorLastRefresh = 0
 
 		if predictorGui then
