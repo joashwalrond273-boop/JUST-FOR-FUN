@@ -1434,7 +1434,8 @@ TeleportGroup:AddButton({
 		end
 
 		if targetCharacter:FindFirstChild("HumanoidRootPart") and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-			player.Character.HumanoidRootPart.CFrame = targetCharacter.HumanoidRootPart.CFrame + Vector3.new(0, 3, 0)
+			local targetCFrame = targetCharacter.HumanoidRootPart.CFrame
+			player.Character.HumanoidRootPart.CFrame = targetCFrame - targetCFrame.LookVector * 4
 		end
 	end,
 })
@@ -1693,7 +1694,7 @@ MainRight:AddCheckbox("AdminCham", {
 })
 
 MainRight:AddCheckbox("AdminSpectateAlert", {
-	Text = "Alert When Admin Spectates Me",
+	Text = "Alert Admin Spectates",
 	Default = false,
 })
 
