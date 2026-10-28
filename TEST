@@ -1687,6 +1687,13 @@ MainRight:AddCheckbox("ThreatRadar", {
 
 MainRight:AddDivider()
 
+MainRight:AddToggle("AdminCham", {
+	Text = "Highlight Admin",
+	Default = false,
+})
+
+MainRight:AddDivider()
+
 do
 	local statsRunning = false
 	local statsGui = nil
@@ -2150,6 +2157,102 @@ do
 		end))
 
 		Library:Notify({ Title = "Threat Radar", Description = "Enabled", Time = 2 })
+	end)
+end
+
+do
+	local ADMIN_NAME = "Porkchop12309"
+	local adminChamActive = false
+
+	local function removeCham(character)
+		if not character then return end
+		local hl = character:FindFirstChild("XenoAdminCham")
+		if hl then pcall(function() hl:Destroy() end) end
+		local tag = character:FindFirstChild("XenoAdminTag")
+		if tag then pcall(function() tag:Destroy() end) end
+	end
+
+	local function removeAllChams()
+		for _, plr in ipairs(Players:GetPlayers()) do
+			removeCham(plr.Character)
+		end
+	end
+
+	local function applyCham(character)
+		if not adminChamActive or not character or not character.Parent then return end
+		local root = character:FindFirstChild("HumanoidRootPart") or character.PrimaryPart
+		if not root then return end
+		if character:FindFirstChild("XenoAdminCham") then return end
+
+		local highlight = Instance.new("Highlight")
+		highlight.Name = "XenoAdminCham"
+		highlight.FillColor = Color3.fromRGB(255, 0, 0)
+		highlight.FillTransparency = 0.5
+		highlight.OutlineColor = Color3.fromRGB(255, 0, 0)
+		highlight.OutlineTransparency = 0
+		highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+		highlight.Adornee = character
+		highlight.Parent = character
+
+		local billboard = Instance.new("BillboardGui")
+		billboard.Name = "XenoAdminTag"
+		billboard.Size = UDim2.fromOffset(80, 24)
+		billboard.StudsOffset = Vector3.new(0, 3, 0)
+		billboard.AlwaysOnTop = true
+		billboard.Adornee = root
+		billboard.Parent = character
+
+		local label = Instance.new("TextLabel")
+		label.Size = UDim2.fromScale(1, 1)
+		label.BackgroundTransparency = 1
+		label.Font = Enum.Font.GothamBold
+		label.TextSize = 14
+		label.TextColor3 = Color3.fromRGB(255, 0, 0)
+		label.TextStrokeTransparency = 0.2
+		label.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+		label.Text = "Mod"
+		label.Parent = billboard
+	end
+
+	local function watchPlayer(plr)
+		if not plr or plr.Name ~= ADMIN_NAME then return end
+		plr.CharacterAdded:Connect(function(character)
+			if adminChamActive then
+				task.wait(0.1)
+				applyCham(character)
+			end
+		end)
+		if plr.Character and adminChamActive then
+			applyCham(plr.Character)
+		end
+	end
+
+	for _, plr in ipairs(Players:GetPlayers()) do
+		watchPlayer(plr)
+	end
+	Players.PlayerAdded:Connect(watchPlayer)
+	Players.PlayerRemoving:Connect(function(plr)
+		if plr.Name == ADMIN_NAME then
+			removeCham(plr.Character)
+		end
+	end)
+
+	Toggles.AdminCham:OnChanged(function()
+		adminChamActive = Toggles.AdminCham.Value
+
+		if not adminChamActive then
+			removeAllChams()
+			Library:Notify({ Title = "Highlight Admin", Description = "Disabled", Time = 2 })
+			return
+		end
+
+		for _, plr in ipairs(Players:GetPlayers()) do
+			if plr.Name == ADMIN_NAME and plr.Character then
+				applyCham(plr.Character)
+			end
+		end
+
+		Library:Notify({ Title = "Highlight Admin", Description = "Enabled", Time = 2 })
 	end)
 end
 
