@@ -1687,8 +1687,13 @@ MainRight:AddCheckbox("ThreatRadar", {
 
 MainRight:AddDivider()
 
-MainRight:AddToggle("AdminCham", {
+MainRight:AddCheckbox("AdminCham", {
 	Text = "Highlight Admin",
+	Default = false,
+})
+
+MainRight:AddCheckbox("AdminSpectateAlert", {
+	Text = "Alert When Admin Spectates Me",
 	Default = false,
 })
 
@@ -2253,6 +2258,70 @@ do
 		end
 
 		Library:Notify({ Title = "Highlight Admin", Description = "Enabled", Time = 2 })
+	end)
+end
+
+do
+	local ADMIN_NAME = "Porkchop12309"
+	local spectateAlertActive = false
+	local spectateLastAlert = 0
+
+	local function valueReferencesMe(value)
+		if typeof(value) == "Instance" then
+			return value == LocalPlayer or (LocalPlayer.Character ~= nil and value == LocalPlayer.Character)
+		elseif type(value) == "string" then
+			return value == LocalPlayer.Name or value == tostring(LocalPlayer.UserId)
+		elseif type(value) == "number" then
+			return value == LocalPlayer.UserId
+		end
+		return false
+	end
+
+	local function adminIsSpectatingMe()
+		local admin = Players:FindFirstChild(ADMIN_NAME)
+		if not admin then return false end
+
+		local ok, attrs = pcall(function() return admin:GetAttributes() end)
+		if ok and type(attrs) == "table" then
+			for _, v in pairs(attrs) do
+				if valueReferencesMe(v) then return true end
+			end
+		end
+
+		for _, obj in ipairs(admin:GetDescendants()) do
+			if obj:IsA("ObjectValue") or obj:IsA("StringValue") or obj:IsA("NumberValue") or obj:IsA("IntValue") then
+				if valueReferencesMe(obj.Value) then return true end
+			end
+		end
+
+		return false
+	end
+
+	Toggles.AdminSpectateAlert:OnChanged(function()
+		spectateAlertActive = Toggles.AdminSpectateAlert.Value
+		disconnect("AdminSpectateAlert_Loop")
+
+		if not spectateAlertActive then
+			Library:Notify({ Title = "Spectate Alert", Description = "Disabled", Time = 2 })
+			return
+		end
+
+		spectateLastAlert = 0
+
+		track("AdminSpectateAlert_Loop", RunService.Heartbeat:Connect(function()
+			if not spectateAlertActive then return end
+
+			local now = tick()
+			if now - spectateLastAlert < 4 then return end
+
+			local ok, watching = pcall(adminIsSpectatingMe)
+			if ok and watching then
+				spectateLastAlert = now
+				Library:Notify({ Title = "SPECTATE ALERT", Description = ADMIN_NAME .. " may be spectating you!", Time = 4 })
+			end
+		end))
+
+		Library:Notify({ Title = "Spectate Alert", Description = "Enabled", Time = 2 })
 	end)
 end
 
