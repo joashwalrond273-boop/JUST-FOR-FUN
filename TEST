@@ -1435,7 +1435,8 @@ TeleportGroup:AddButton({
 
 		if targetCharacter:FindFirstChild("HumanoidRootPart") and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
 			local targetCFrame = targetCharacter.HumanoidRootPart.CFrame
-			player.Character.HumanoidRootPart.CFrame = targetCFrame - targetCFrame.LookVector * 4
+			local offsetPos = targetCFrame.Position - targetCFrame.LookVector * 30
+			player.Character.HumanoidRootPart.CFrame = CFrame.new(offsetPos, offsetPos - targetCFrame.LookVector)
 		end
 	end,
 })
@@ -1695,6 +1696,11 @@ MainRight:AddCheckbox("AdminCham", {
 
 MainRight:AddCheckbox("AdminSpectateAlert", {
 	Text = "Alert Admin Spectates",
+	Default = false,
+})
+
+MainRight:AddCheckbox("ServerHopOnAdmin", {
+	Text = "Server Hop on Admin Join",
 	Default = false,
 })
 
@@ -2329,6 +2335,13 @@ do
 	track("AdminJoinNotify", Players.PlayerAdded:Connect(function(plr)
 		if plr.Name == ADMIN_NAME then
 			Library:Notify({ Title = "ADMIN JOINED", Description = ADMIN_NAME .. " joined the server!", Time = 5 })
+			if Toggles.ServerHopOnAdmin and Toggles.ServerHopOnAdmin.Value then
+				Library:Notify({ Title = "Admin Hop", Description = "Hopping to a new server...", Time = 3 })
+				task.wait(1)
+				if joinLowPingServer then
+					joinLowPingServer()
+				end
+			end
 		end
 	end))
 end
