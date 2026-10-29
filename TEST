@@ -1280,6 +1280,22 @@ CombatAutoBlock:AddSlider("ImmortalShieldSpeed", {
 	Compact = true,
 })
 
+CombatAutoBlock:AddDivider()
+
+CombatAutoBlock:AddCheckbox("AutoShieldUp", {
+	Text = "Auto Shield Up",
+	Default = false,
+})
+
+CombatAutoBlock:AddSlider("AutoShieldHealth", {
+	Text = "Shield Below HP",
+	Default = 50,
+	Min = 5,
+	Max = 95,
+	Rounding = 0,
+	Compact = true,
+})
+
 updateImmortalModeVisibility = function()
 	local isImmortal = (Toggles.ImmortalMode and Toggles.ImmortalMode.Value) or false
 	if Options.ImmortalModeStuds then
@@ -2324,6 +2340,13 @@ do
 
 		Library:Notify({ Title = "Spectate Alert", Description = "Enabled", Time = 2 })
 	end)
+
+	-- Notify whenever the admin joins the server
+	track("AdminJoinNotify", Players.PlayerAdded:Connect(function(plr)
+		if plr.Name == ADMIN_NAME then
+			Library:Notify({ Title = "ADMIN JOINED", Description = ADMIN_NAME .. " joined the server!", Time = 5 })
+		end
+	end))
 end
 
 MainRight:AddButton({
@@ -3877,6 +3900,50 @@ Toggles.ImmortalMode:OnChanged(function()
 			end)
 		end
 	end
+end)
+
+local autoShieldShielded = false
+local lastAutoShieldFire = 0
+
+local function releaseAutoShield()
+	if autoShieldShielded and not (Toggles.ImmortalMode and Toggles.ImmortalMode.Value) then
+		autoShieldShielded = false
+		pcall(function()
+			game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(false)
+		end)
+	end
+end
+
+Toggles.AutoShieldUp:OnChanged(function()
+	disconnect("AutoShieldUp")
+	if not Toggles.AutoShieldUp.Value then
+		releaseAutoShield()
+		return
+	end
+
+	lastAutoShieldFire = 0
+
+	track("AutoShieldUp", RunService.Heartbeat:Connect(function()
+		if not (Toggles.AutoShieldUp and Toggles.AutoShieldUp.Value) then return end
+
+		local char = LocalPlayer.Character
+		local hum = char and char:FindFirstChildOfClass("Humanoid")
+		if not hum or hum.Health <= 0 then return end
+
+		local threshold = (Options.AutoShieldHealth and Options.AutoShieldHealth.Value) or 50
+
+		if hum.Health <= threshold then
+			if tick() - lastAutoShieldFire >= 0.1 then
+				lastAutoShieldFire = tick()
+				autoShieldShielded = true
+				pcall(function()
+					game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(true)
+				end)
+			end
+		else
+			releaseAutoShield()
+		end
+	end))
 end)
 
 local function updateAdvanceState()
@@ -10134,6 +10201,341 @@ end
 track("TeleportPlayerAdded", Players.PlayerAdded:Connect(updateTeleportPlayerList))
 track("TeleportPlayerRemoving", Players.PlayerRemoving:Connect(updateTeleportPlayerList))
 task.spawn(updateTeleportPlayerList)
+
+-- ==========================================
+-- CHEST ESP
+-- ==========================================
+local VisualChest = Tabs.Visuals:AddRightGroupbox("Chest ESP", "box")
+
+local CHEST_KEYWORDS = {
+	"chest", "storage", "crate", "box", "barrel", "safe", "stash",
+	"locker", "container", "vault", "cupboard", "trunk", "bin",
+}
+
+local function nameLooksLikeChest(name)
+	if type(name) ~= "string" then return false end
+	local lower = string.lower(name)
+	for _, kw in ipairs(CHEST_KEYWORDS) do
+		if string.find(lower, kw, 1, true) then return true end
+	end
+	return false
+end
+
+-- Best-effort enumeration of every item name from TSG.Items (handles several API shapes)
+local function collectAllItemNames()
+	local names, seen = {}, {}
+	local function add(n)
+		if type(n) == "string" and n ~= "" and not seen[n] then
+			seen[n] = true
+			table.insert(names, n)
+		end
+	end
+
+	if not TSG.Items then return names end
+
+	pcall(function()
+		local api = TSG.Items.getAllItems or TSG.Items.getItems or TSG.Items.getItemNames or TSG.Items.getItemsList
+		if type(api) == "function" then
+			for _, v in pairs(api() or {}) do
+				if type(v) == "string" then add(v)
+				elseif type(v) == "table" then add(v.itemName or v.name) end
+			end
+		end
+	end)
+
+	local candidates = { TSG.Items, TSG.Items.items, TSG.Items.itemData, TSG.Items.data, TSG.Items.dictionary, TSG.Items.all, TSG.Items.list }
+	for _, tbl in ipairs(candidates) do
+		if type(tbl) == "table" then
+			pcall(function()
+				for k, v in pairs(tbl) do
+					if type(k) == "number" and type(v) == "table" then
+						add(v.itemName or v.name)
+					end
+				end
+			end)
+		end
+	end
+
+	if #names == 0 and type(TSG.Items.getItemNameById) == "function" then
+		pcall(function()
+			for id = 1, 900 do
+				local ok, n = pcall(function() return TSG.Items.getItemNameById(id) end)
+				if ok then add(n) end
+			end
+		end)
+	end
+
+	table.sort(names)
+	return names
+end
+
+local allItemNames = collectAllItemNames()
+
+local chestItemNames = {}
+for _, n in ipairs(allItemNames) do
+	if nameLooksLikeChest(n) then
+		chestItemNames[string.lower(n)] = true
+	end
+end
+
+local chestFilterValues = { "All" }
+for _, n in ipairs(allItemNames) do
+	table.insert(chestFilterValues, n)
+end
+
+VisualChest:AddCheckbox("ChestESP", {
+	Text = "Chest ESP",
+	Default = false,
+})
+
+VisualChest:AddSlider("ChestESPDistance", {
+	Text = "Distance",
+	Default = 500,
+	Min = 50,
+	Max = 2000,
+	Rounding = 0,
+	Compact = true,
+})
+
+VisualChest:AddCheckbox("ChestESPShowContents", {
+	Text = "Show Contents",
+	Default = true,
+})
+
+VisualChest:AddDropdown("ChestESPFilter", {
+	Text = "Find Item",
+	Values = chestFilterValues,
+	Default = "All",
+	Multi = false,
+})
+
+local chestESP = { entries = {} }
+
+local function chestContents(model)
+	local agg = {}
+
+	local function addItem(id, count)
+		if id == nil then return end
+		local key = tostring(id)
+		agg[key] = (agg[key] or 0) + (tonumber(count) or 1)
+	end
+
+	local ok, attrs = pcall(function() return model:GetAttributes() end)
+	if ok and type(attrs) == "table" then
+		for _, v in pairs(attrs) do
+			if type(v) == "string" and (string.find(v, "{", 1, true) or string.find(v, "[", 1, true)) then
+				local decoded
+				pcall(function() decoded = game:GetService("HttpService"):JSONDecode(v) end)
+				if type(decoded) == "table" then
+					for id, count in pairs(decoded) do
+						addItem(id, count)
+					end
+				end
+			end
+		end
+	end
+
+	for _, d in ipairs(model:GetDescendants()) do
+		local id = d:GetAttribute("itemId")
+		if id then
+			local count = d:GetAttribute("amount") or d:GetAttribute("count") or d:GetAttribute("quantity") or d:GetAttribute("stack") or 1
+			addItem(id, count)
+		end
+	end
+
+	local list = {}
+	for id, count in pairs(agg) do
+		local numId = tonumber(id)
+		local itemName
+		if numId and TSG.Items and TSG.Items.getItemNameById then
+			pcall(function() itemName = TSG.Items.getItemNameById(numId) end)
+		end
+		table.insert(list, { name = itemName or ("Item " .. tostring(id)), count = count })
+	end
+
+	table.sort(list, function(a, b) return a.name < b.name end)
+	return list
+end
+
+local function isChestObject(obj)
+	local n = obj and obj.Name
+	if not n then return false end
+	if nameLooksLikeChest(n) then return true end
+	return chestItemNames[string.lower(n)] == true
+end
+
+local function getChestAnchor(obj)
+	if obj:IsA("Model") then
+		return obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
+	elseif obj:IsA("BasePart") then
+		return obj
+	end
+	return nil
+end
+
+local function chestESPLoop()
+	local root = getRootPart()
+	local rootPos = root and root.Position
+	if not rootPos then return end
+
+	local maxDist = (Options.ChestESPDistance and Options.ChestESPDistance.Value) or 500
+	local showContents = (Toggles.ChestESPShowContents and Toggles.ChestESPShowContents.Value) ~= false
+	local filter = Options.ChestESPFilter and Options.ChestESPFilter.Value
+	local filterAll = (filter == nil or filter == "" or filter == "All")
+	local filterLower = (not filterAll) and string.lower(filter) or nil
+
+	local containers = {
+		workspace:FindFirstChild("placedStructures"),
+		workspace:FindFirstChild("worldResources"),
+		workspace:FindFirstChild("structures"),
+	}
+
+	local seen = {}
+
+	for _, container in ipairs(containers) do
+		if container then
+			for _, obj in ipairs(container:GetChildren()) do
+				if obj and obj.Parent and isChestObject(obj) then
+					local anchor = getChestAnchor(obj)
+					local dist = anchor and (anchor.Position - rootPos).Magnitude or 9999
+
+					if not anchor or dist > maxDist then
+						local existing = chestESP.entries[obj]
+						if existing and existing.bill then existing.bill.Enabled = false end
+						continue
+					end
+
+					seen[obj] = true
+
+					local contents = showContents and chestContents(obj) or {}
+					local matchesFilter = false
+					if filterLower then
+						for _, it in ipairs(contents) do
+							if string.find(string.lower(it.name), filterLower, 1, true) then
+								matchesFilter = true
+								break
+							end
+						end
+					end
+
+					local entry = chestESP.entries[obj]
+					if not entry then
+						local bill = Instance.new("BillboardGui")
+						bill.Name = "TSG_ChestESP"
+						bill.Size = UDim2.fromOffset(200, 40)
+						bill.StudsOffset = Vector3.new(0, 3, 0)
+						bill.AlwaysOnTop = true
+						bill.Adornee = anchor
+						bill.MaxDistance = maxDist
+						bill.Parent = workspace
+
+						local frame = Instance.new("Frame")
+						frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+						frame.BackgroundTransparency = 0.25
+						frame.Size = UDim2.fromScale(1, 1)
+						frame.Parent = bill
+
+						local corner = Instance.new("UICorner")
+						corner.CornerRadius = UDim.new(0, 6)
+						corner.Parent = frame
+
+						local stroke = Instance.new("UIStroke")
+						stroke.Color = Color3.fromRGB(0, 244, 255)
+						stroke.Thickness = 1
+						stroke.Parent = frame
+
+						local title = Instance.new("TextLabel")
+						title.BackgroundTransparency = 1
+						title.Size = UDim2.new(1, 0, 0, 16)
+						title.Position = UDim2.new(0, 0, 0, 2)
+						title.Font = Enum.Font.GothamBold
+						title.TextSize = 13
+						title.TextColor3 = Color3.fromRGB(0, 244, 255)
+						title.TextStrokeTransparency = 0.4
+						title.Text = obj.Name
+						title.Parent = frame
+
+						local body = Instance.new("TextLabel")
+						body.BackgroundTransparency = 1
+						body.Size = UDim2.new(1, -8, 1, -18)
+						body.Position = UDim2.new(0, 4, 0, 18)
+						body.Font = Enum.Font.Code
+						body.TextSize = 11
+						body.TextColor3 = Color3.fromRGB(255, 255, 255)
+						body.TextStrokeTransparency = 0.5
+						body.TextXAlignment = Enum.TextXAlignment.Left
+						body.TextYAlignment = Enum.TextYAlignment.Top
+						body.Text = ""
+						body.Parent = frame
+
+						entry = { bill = bill, frame = frame, stroke = stroke, title = title, body = body, lastText = nil, lastMatch = nil }
+						chestESP.entries[obj] = entry
+					end
+
+					if entry.bill.Adornee == nil then entry.bill.Adornee = anchor end
+					if entry.bill.MaxDistance ~= maxDist then entry.bill.MaxDistance = maxDist end
+					if not entry.bill.Enabled then entry.bill.Enabled = true end
+					if entry.title.Text ~= obj.Name then entry.title.Text = obj.Name end
+
+					local text = ""
+					if showContents then
+						if #contents > 0 then
+							local lines = {}
+							for _, it in ipairs(contents) do
+								table.insert(lines, it.name .. " x" .. tostring(it.count))
+							end
+							text = table.concat(lines, "\n")
+						else
+							text = "(contents hidden)"
+						end
+					end
+					if entry.lastText ~= text then
+						entry.lastText = text
+						entry.body.Text = text
+					end
+
+					local matchNow = (filterLower ~= nil) and matchesFilter
+					if entry.lastMatch ~= matchNow then
+						entry.lastMatch = matchNow
+						local col = matchNow and Color3.fromRGB(0, 255, 120) or Color3.fromRGB(0, 244, 255)
+						entry.stroke.Color = col
+						entry.title.TextColor3 = col
+					end
+				end
+			end
+		end
+	end
+
+	for obj, entry in pairs(chestESP.entries) do
+		if not seen[obj] or not obj or not obj.Parent then
+			if entry.bill then pcall(function() entry.bill:Destroy() end) end
+			chestESP.entries[obj] = nil
+		end
+	end
+end
+
+Toggles.ChestESP:OnChanged(function()
+	disconnect("ChestESP")
+	disconnect("ChestESPLoop")
+
+	if not Toggles.ChestESP.Value then
+		for _, entry in pairs(chestESP.entries) do
+			if entry.bill then pcall(function() entry.bill:Destroy() end) end
+		end
+		table.clear(chestESP.entries)
+		return
+	end
+
+	track("ChestESPLoop", RunService.Heartbeat:Connect(function()
+		if not (Toggles.ChestESP and Toggles.ChestESP.Value) then return end
+		local now = tick()
+		if now - (chestESP.lastUpdate or 0) < 0.5 then return end
+		chestESP.lastUpdate = now
+		pcall(chestESPLoop)
+	end))
+
+	Library:Notify({ Title = "Chest ESP", Description = "Enabled", Time = 2 })
+end)
 
 -- ==========================================
 -- UI SETTINGS
