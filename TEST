@@ -2469,6 +2469,128 @@ MainRight:AddButton({
 	end,
 })
 
+-- Auto Craft (auto-places the required station, then crafts the selected item)
+local AutoCraftRecipes = {
+	{ buildId = 199, rot = -3.141592653589793, station = { "bluesteel" }, items = {
+		{ 197, "Bluesteel Sword" },
+		{ 202, "Bluesteel Helmet" },
+		{ 200, "Bluesteel Chestplate" },
+		{ 201, "Bluesteel Pants" },
+	} },
+	{ buildId = 362, rot = -3.141592653589793, station = { "atlantean" }, items = {
+		{ 357, "Atlantean Sword" },
+		{ 354, "Atlantean Helmet" },
+		{ 355, "Atlantean Armor" },
+		{ 356, "Atlantean Pants" },
+	} },
+	{ buildId = 269, rot = -3.141592653589793, station = { "darksteel" }, items = {
+		{ 267, "Darksteel Sword" },
+		{ 262, "Darksteel Helmet" },
+		{ 261, "Darksteel Chestplate" },
+		{ 260, "Darksteel Pants" },
+	} },
+	{ buildId = 423, rot = -3.141592653589793, station = { "asian" }, items = {
+		{ 406, "Samurai Sword" },
+		{ 404, "Samurai Helmet" },
+		{ 403, "Samurai Armor" },
+		{ 402, "Samurai Pants" },
+	} },
+	{ buildId = 540, rot = 0, station = { "vicanite", "juggernaut" }, items = {
+		{ 545, "Juggernaut Sword" },
+		{ 541, "Juggernaut Helmet" },
+		{ 542, "Juggernaut Armor" },
+		{ 543, "Juggernaut Pants" },
+	} },
+}
+
+local AutoCraftLookup = {}
+local autoCraftNames = {}
+for _, recipe in ipairs(AutoCraftRecipes) do
+	for _, item in ipairs(recipe.items) do
+		AutoCraftLookup[item[2]] = { id = item[1], buildId = recipe.buildId, rot = recipe.rot, station = recipe.station }
+		table.insert(autoCraftNames, item[2])
+	end
+end
+table.sort(autoCraftNames)
+
+MainRight:AddDropdown("AutoCraftItem", {
+	Text = "Craft Item",
+	Values = autoCraftNames,
+	Default = autoCraftNames[1] or "",
+})
+
+MainRight:AddCheckbox("AutoCraft", {
+	Text = "Auto Craft",
+	Default = false,
+})
+
+local autoCraftActive = false
+
+local function findAutoCraftStation(substrings)
+	local placed = workspace:FindFirstChild("placedStructures")
+	if not placed then return nil end
+	for _, structure in pairs(placed:GetChildren()) do
+		if structure:IsA("Instance") then
+			for _, child in ipairs(structure:GetChildren()) do
+				local name = child.Name:lower()
+				for _, sub in ipairs(substrings) do
+					if name:find(sub, 1, true) then
+						return child
+					end
+				end
+			end
+		end
+	end
+	return nil
+end
+
+local function autoCraftLoop()
+	local buildRemote = TSG.BuildRemote
+	local craftRemote = TSG.CraftRemote
+	if not buildRemote or not craftRemote then
+		Library:Notify({ Title = "Auto Craft", Description = "Build/Craft remote not found", Time = 3 })
+		return
+	end
+
+	while autoCraftActive do
+		local pick = AutoCraftLookup[Options.AutoCraftItem and Options.AutoCraftItem.Value]
+		if pick then
+			local character = LocalPlayer.Character
+			local root = character and character:FindFirstChild("HumanoidRootPart")
+			if root then
+				local station = findAutoCraftStation(pick.station)
+				if not station then
+					pcall(function()
+						buildRemote:InvokeServer(
+							pick.buildId,
+							CFrame.new(root.Position.X, root.Position.Y - 3, root.Position.Z) * CFrame.Angles(0, 0, 0),
+							pick.rot
+						)
+					end)
+					task.wait(math.max(0.4, getCraftDelay()))
+					station = findAutoCraftStation(pick.station)
+				end
+
+				if station then
+					pcall(function()
+						craftRemote:InvokeServer(pick.id, station, 1, 0)
+					end)
+				end
+			end
+		end
+		task.wait(getCraftDelay())
+	end
+end
+
+Toggles.AutoCraft:OnChanged(function()
+	autoCraftActive = Toggles.AutoCraft.Value
+	if autoCraftActive then
+		Library:Notify({ Title = "Auto Craft", Description = "Enabled", Time = 2 })
+		task.spawn(autoCraftLoop)
+	else
+		Library:Notify({ Title = "Auto Craft", Description = "Disabled", Time = 2 })
+	end
+end)
 
 -- Infinite stamina, no fall damage, anti lava (Behavior > Disabled on workspace.Characters.[name] or Character itself)
 local function hookCharFolderBehaviors()
