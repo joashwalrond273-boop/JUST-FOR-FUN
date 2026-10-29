@@ -9354,11 +9354,19 @@ local function updateAllESP()
 					end
 
 					if showSpeed then
-						local vel = entry.root.AssemblyLinearVelocity
-						local spd = math.floor(Vector3.new(vel.X, 0, vel.Z).Magnitude + 0.5)
-						if entry.lastSpeed ~= spd then
-							entry.lastSpeed = spd
-							entry.speedLabel.Text = tostring(spd) .. " spd"
+						local nowT = tick()
+						local prevPos = entry.lastPos
+						local prevT = entry.lastSpeedTime
+						local curPos = entry.root.Position
+						entry.lastPos = curPos
+						entry.lastSpeedTime = nowT
+						if prevPos and prevT and (nowT - prevT) > 0 then
+							local delta = curPos - prevPos
+							local spd = math.floor(Vector3.new(delta.X, 0, delta.Z).Magnitude / (nowT - prevT) + 0.5)
+							if entry.lastSpeed ~= spd then
+								entry.lastSpeed = spd
+								entry.speedLabel.Text = tostring(spd) .. " spd"
+							end
 						end
 						if not entry.speedLabel.Visible then
 							entry.speedLabel.Visible = true
@@ -9367,6 +9375,8 @@ local function updateAllESP()
 						if entry.speedLabel.Visible then
 							entry.speedLabel.Visible = false
 						end
+						entry.lastPos = nil
+						entry.lastSpeedTime = nil
 					end
 				end
 			else
