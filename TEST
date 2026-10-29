@@ -1280,22 +1280,6 @@ CombatAutoBlock:AddSlider("ImmortalShieldSpeed", {
 	Compact = true,
 })
 
-CombatAutoBlock:AddDivider()
-
-CombatAutoBlock:AddCheckbox("AutoShieldUp", {
-	Text = "Auto Shield Up",
-	Default = false,
-})
-
-CombatAutoBlock:AddSlider("AutoShieldHealth", {
-	Text = "Shield Below HP",
-	Default = 50,
-	Min = 5,
-	Max = 95,
-	Rounding = 0,
-	Compact = true,
-})
-
 updateImmortalModeVisibility = function()
 	local isImmortal = (Toggles.ImmortalMode and Toggles.ImmortalMode.Value) or false
 	if Options.ImmortalModeStuds then
@@ -3900,50 +3884,6 @@ Toggles.ImmortalMode:OnChanged(function()
 			end)
 		end
 	end
-end)
-
-local autoShieldShielded = false
-local lastAutoShieldFire = 0
-
-local function releaseAutoShield()
-	if autoShieldShielded and not (Toggles.ImmortalMode and Toggles.ImmortalMode.Value) then
-		autoShieldShielded = false
-		pcall(function()
-			game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(false)
-		end)
-	end
-end
-
-Toggles.AutoShieldUp:OnChanged(function()
-	disconnect("AutoShieldUp")
-	if not Toggles.AutoShieldUp.Value then
-		releaseAutoShield()
-		return
-	end
-
-	lastAutoShieldFire = 0
-
-	track("AutoShieldUp", RunService.Heartbeat:Connect(function()
-		if not (Toggles.AutoShieldUp and Toggles.AutoShieldUp.Value) then return end
-
-		local char = LocalPlayer.Character
-		local hum = char and char:FindFirstChildOfClass("Humanoid")
-		if not hum or hum.Health <= 0 then return end
-
-		local threshold = (Options.AutoShieldHealth and Options.AutoShieldHealth.Value) or 50
-
-		if hum.Health <= threshold then
-			if tick() - lastAutoShieldFire >= 0.1 then
-				lastAutoShieldFire = tick()
-				autoShieldShielded = true
-				pcall(function()
-					game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(true)
-				end)
-			end
-		else
-			releaseAutoShield()
-		end
-	end))
 end)
 
 local function updateAdvanceState()
