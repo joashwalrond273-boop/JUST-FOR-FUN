@@ -8974,14 +8974,6 @@ VisualLeft:AddCheckbox("ShowDistance", {
 	Title = "Show Distance Color",
 })
 
-VisualLeft:AddCheckbox("SpeedESP", {
-	Text = "Speed ESP",
-	Default = false,
-}):AddColorPicker("SpeedESPColor", {
-	Default = Color3.fromRGB(0, 244, 255),
-	Title = "Speed ESP Color",
-})
-
 VisualLeft:AddCheckbox("OutlineESP", {
 	Text = "Outline ESP",
 	Default = false,
@@ -9125,10 +9117,8 @@ local function getOrCreateESP(player)
 		local maxDist = (Options and Options.ESPDistance and Options.ESPDistance.Value) or 500
 		local pColor = (Options and Options.PlayerESPColor and Options.PlayerESPColor.Value) or Color3.fromRGB(255, 255, 255)
 		local dColor = (Options and Options.ShowDistanceColor and Options.ShowDistanceColor.Value) or Color3.fromRGB(255, 255, 255)
-		local sColor = (Options and Options.SpeedESPColor and Options.SpeedESPColor.Value) or Color3.fromRGB(0, 244, 255)
 		local oColor = (Options and Options.OutlineESPColor and Options.OutlineESPColor.Value) or Color3.fromRGB(255, 255, 255)
 		local showDist = (Toggles and Toggles.ShowDistance and Toggles.ShowDistance.Value) or false
-		local showSpeed = (Toggles and Toggles.SpeedESP and Toggles.SpeedESP.Value) or false
 		local showHealth = (Toggles and Toggles.PlayerHealthBar and Toggles.PlayerHealthBar.Value) or false
 		local showHpText = (Toggles and Toggles.ShowHealthText and Toggles.ShowHealthText.Value) or false
 		local outlineOn = (Toggles and Toggles.OutlineESP and Toggles.OutlineESP.Value) or false
@@ -9209,20 +9199,6 @@ local function getOrCreateESP(player)
 		hpText.Visible = showHpText
 		hpText.Parent = container
 
-		local speedLabel = Instance.new("TextLabel")
-		speedLabel.Name = "SpeedLabel"
-		speedLabel.Size = UDim2.new(1, 0, 0, 11)
-		speedLabel.Position = UDim2.new(0, 0, 0, 44)
-		speedLabel.BackgroundTransparency = 1
-		speedLabel.TextColor3 = sColor
-		speedLabel.TextStrokeTransparency = 0.3
-		speedLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-		speedLabel.Font = Enum.Font.GothamBold
-		speedLabel.TextSize = 11
-		speedLabel.Text = "0 spd"
-		speedLabel.Visible = showSpeed
-		speedLabel.Parent = container
-
 		local highlight = Instance.new("Highlight")
 		highlight.FillTransparency = 1
 		highlight.OutlineColor = oColor
@@ -9243,11 +9219,9 @@ local function getOrCreateESP(player)
 			healthBg = healthBg,
 			healthFill = healthFill,
 			hpText = hpText,
-			speedLabel = speedLabel,
 			highlight = highlight,
 			lastDist = -1,
 			lastHealth = -1,
-			lastSpeed = -1,
 		}
 		espObjects[player] = entry
 	else
@@ -9352,32 +9326,6 @@ local function updateAllESP()
 							entry.hpText.Visible = false
 						end
 					end
-
-					if showSpeed then
-						local nowT = tick()
-						local prevPos = entry.lastPos
-						local prevT = entry.lastSpeedTime
-						local curPos = entry.root.Position
-						entry.lastPos = curPos
-						entry.lastSpeedTime = nowT
-						if prevPos and prevT and (nowT - prevT) > 0 then
-							local delta = curPos - prevPos
-							local spd = math.floor(Vector3.new(delta.X, 0, delta.Z).Magnitude / (nowT - prevT) + 0.5)
-							if entry.lastSpeed ~= spd then
-								entry.lastSpeed = spd
-								entry.speedLabel.Text = tostring(spd) .. " spd"
-							end
-						end
-						if not entry.speedLabel.Visible then
-							entry.speedLabel.Visible = true
-						end
-					else
-						if entry.speedLabel.Visible then
-							entry.speedLabel.Visible = false
-						end
-						entry.lastPos = nil
-						entry.lastSpeedTime = nil
-					end
 				end
 			else
 				if entry and entry.billboard and entry.billboard.Enabled then entry.billboard.Enabled = false end
@@ -9467,15 +9415,6 @@ Toggles.ShowDistance:OnChanged(function()
 	end
 end)
 
-Toggles.SpeedESP:OnChanged(function()
-	local enabled = Toggles.SpeedESP.Value
-	for _, entry in pairs(espObjects) do
-		if entry.speedLabel then
-			entry.speedLabel.Visible = enabled
-		end
-	end
-end)
-
 Options.OutlineESPColor:OnChanged(function()
 	local color = Options.OutlineESPColor.Value
 	for _, entry in pairs(espObjects) do
@@ -9499,15 +9438,6 @@ Options.ShowDistanceColor:OnChanged(function()
 	for _, entry in pairs(espObjects) do
 		if entry.distLabel then
 			entry.distLabel.TextColor3 = color
-		end
-	end
-end)
-
-Options.SpeedESPColor:OnChanged(function()
-	local color = Options.SpeedESPColor.Value
-	for _, entry in pairs(espObjects) do
-		if entry.speedLabel then
-			entry.speedLabel.TextColor3 = color
 		end
 	end
 end)
