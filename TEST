@@ -4616,10 +4616,24 @@ Toggles.Camlock:OnChanged(function()
 									local targetVel = targetRoot.AssemblyLinearVelocity or targetRoot.Velocity or Vector3.zero
 									aimPos = aimPos + (targetVel * (pred * 0.1))
 								end
-								local targetCamCFrame = CFrame.new(camera.CFrame.Position, aimPos)
 								local smoothness = (Options.CamlockSmoothness and Options.CamlockSmoothness.Value) or 0.2
 								local lerpFactor = math.clamp(smoothness, 0.01, 1)
-								camera.CFrame = camera.CFrame:Lerp(targetCamCFrame, lerpFactor)
+
+								-- Interpolate only the yaw (horizontal aim) toward the target so the
+								-- player keeps full vertical (pitch) camera control
+								local curCF = camera.CFrame
+								local look = curCF.LookVector
+								local curYaw = math.atan2(-look.X, -look.Z)
+								local curPitch = math.asin(math.clamp(look.Y, -1, 1))
+
+								local toTarget = aimPos - curCF.Position
+								local flatDir = Vector3.new(toTarget.X, 0, toTarget.Z)
+								if flatDir.Magnitude > 0.001 then
+									local targetYaw = math.atan2(-flatDir.X, -flatDir.Z)
+									local yawDelta = ((targetYaw - curYaw + math.pi) % (2 * math.pi)) - math.pi
+									local newYaw = curYaw + yawDelta * lerpFactor
+									camera.CFrame = CFrame.new(curCF.Position) * CFrame.fromOrientation(curPitch, newYaw, 0)
+								end
 							end
 						end
 					end
@@ -4906,29 +4920,6 @@ local function getFloorLookMouseSens()
 	return base * multiplier
 end
 
--- Capture the direction the player is actually looking (camera yaw), falling back to
--- body facing only when the camera is pointing straight up/down
-local function captureFloorLookYaw()
-	local flatLook
-	local camera = workspace.CurrentCamera
-	if camera then
-		local look = camera.CFrame.LookVector
-		flatLook = Vector3.new(look.X, 0, look.Z)
-	end
-	if not flatLook or flatLook.Magnitude <= 0.001 then
-		local root = getRootPart()
-		if root then
-			local look = root.CFrame.LookVector
-			flatLook = Vector3.new(look.X, 0, look.Z)
-		end
-	end
-	if flatLook and flatLook.Magnitude > 0.001 then
-		floorLookYaw = math.atan2(-flatLook.X, -flatLook.Z)
-	else
-		floorLookYaw = 0
-	end
-end
-
 local function isLookDownSlotAllowed(slotOption)
 	if not slotOption then return false end
 	local val = slotOption.Value
@@ -4965,7 +4956,18 @@ if Toggles.LookDownFloor then
 		end
 
 		if Toggles.LookDownFloor.Value then
-			captureFloorLookYaw()
+			local root = getRootPart()
+			if root then
+				local look = root.CFrame.LookVector
+				local flatLook = Vector3.new(look.X, 0, look.Z)
+				if flatLook.Magnitude > 0.001 then
+					floorLookYaw = math.atan2(-flatLook.X, -flatLook.Z)
+				else
+					floorLookYaw = 0
+				end
+			else
+				floorLookYaw = 0
+			end
 
 			-- Helper to apply horizontal turn delta from thumb or mouse
 			local function applyTurnDelta(deltaX, posX, isTouch)
@@ -5021,8 +5023,11 @@ if Toggles.LookDownFloor then
 				if isHolding then
 					if not isLookDownEngaged then
 						isLookDownEngaged = true
-						captureFloorLookYaw()
-						camera.CameraType = Enum.CameraType.Scriptable
+						local look = r.CFrame.LookVector
+						local flatLook = Vector3.new(look.X, 0, look.Z)
+						if flatLook.Magnitude > 0.001 then
+							floorLookYaw = math.atan2(-flatLook.X, -flatLook.Z)
+						end
 					end
 
 					-- Disable AutoRotate so joystick only moves/strafes without twisting character facing direction
