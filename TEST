@@ -3034,16 +3034,6 @@ CombatCamlock:AddSlider("OutlineStuds", {
 	Compact = true,
 })
 
-CombatCamlock:AddCheckbox("AntiCamlock", {
-	Text = "Anti Camlock",
-	Default = false,
-})
-
-CombatCamlock:AddCheckbox("CamlockDodgePrediction", {
-	Text = "Dodge Prediction",
-	Default = false,
-})
-
 -- CONFIG TAB (RIGHT)
 CombatCamlockConfig:AddCheckbox("CamlockCameraLerp", {
 	Text = "Camera Lock",
@@ -3051,7 +3041,7 @@ CombatCamlockConfig:AddCheckbox("CamlockCameraLerp", {
 })
 
 CombatCamlockConfig:AddCheckbox("CamlockFreePitch", {
-	Text = "Allow Look Down",
+	Text = "Allow Rotation FOV",
 	Default = false,
 })
 
@@ -3510,6 +3500,16 @@ CombatAutoPVP:AddSlider("AutoJumpDelay", {
 	Max = 2,
 	Rounding = 2,
 	Compact = true,
+})
+
+CombatAutoPVP:AddCheckbox("AntiCamlock", {
+	Text = "Anti Camlock",
+	Default = false,
+})
+
+CombatAutoPVP:AddCheckbox("CamlockDodgePrediction", {
+	Text = "Dodge Prediction",
+	Default = false,
 })
 
 updatePVPModulesVisibility = function()
