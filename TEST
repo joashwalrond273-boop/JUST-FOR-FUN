@@ -3045,18 +3045,14 @@ CombatCamlock:AddCheckbox("CamlockDodgePrediction", {
 })
 
 -- CONFIG TAB (RIGHT)
-CombatCamlockConfig:AddSlider("CamlockStrength", {
-	Text = "Camlock Strength",
-	Default = 100,
-	Min = 1,
-	Max = 100,
-	Rounding = 0,
-	Compact = true,
-})
-
 CombatCamlockConfig:AddCheckbox("CamlockCameraLerp", {
 	Text = "Camera Lock",
 	Default = true,
+})
+
+CombatCamlockConfig:AddCheckbox("CamlockFreePitch", {
+	Text = "Allow Look Down",
+	Default = false,
 })
 
 CombatCamlockConfig:AddSlider("CamlockSmoothness", {
@@ -3065,24 +3061,6 @@ CombatCamlockConfig:AddSlider("CamlockSmoothness", {
 	Min = 0.01,
 	Max = 1,
 	Rounding = 2,
-	Compact = true,
-})
-
-CombatCamlockConfig:AddSlider("CamlockMaxTurn", {
-	Text = "Max Turn Rate",
-	Default = 180,
-	Min = 1,
-	Max = 180,
-	Rounding = 0,
-	Compact = true,
-})
-
-CombatCamlockConfig:AddSlider("CamlockSpeed", {
-	Text = "Lock Speed",
-	Default = 720,
-	Min = 20,
-	Max = 720,
-	Rounding = 0,
 	Compact = true,
 })
 
@@ -3556,28 +3534,18 @@ updatePVPModulesVisibility = function()
 			Toggles.CamlockCameraLerp.Holder.Visible = true
 		end
 	end
-	if Options.CamlockStrength then
-		Options.CamlockStrength.Visible = isCamLerp
-		if Options.CamlockStrength.Holder then
-			Options.CamlockStrength.Holder.Visible = isCamLerp
+	if Toggles.CamlockFreePitch then
+		if Toggles.CamlockFreePitch.Visible ~= nil then
+			Toggles.CamlockFreePitch.Visible = true
+		end
+		if Toggles.CamlockFreePitch.Holder then
+			Toggles.CamlockFreePitch.Holder.Visible = true
 		end
 	end
 	if Options.CamlockSmoothness then
 		Options.CamlockSmoothness.Visible = isCamLerp
 		if Options.CamlockSmoothness.Holder then
 			Options.CamlockSmoothness.Holder.Visible = isCamLerp
-		end
-	end
-	if Options.CamlockMaxTurn then
-		Options.CamlockMaxTurn.Visible = isCamLerp
-		if Options.CamlockMaxTurn.Holder then
-			Options.CamlockMaxTurn.Holder.Visible = isCamLerp
-		end
-	end
-	if Options.CamlockSpeed then
-		Options.CamlockSpeed.Visible = isCamLerp
-		if Options.CamlockSpeed.Holder then
-			Options.CamlockSpeed.Holder.Visible = isCamLerp
 		end
 	end
 	if Options.CamlockAimPart then
@@ -4672,28 +4640,28 @@ Toggles.Camlock:OnChanged(function()
 									aimPos = aimPos + (targetVel * (pred * 0.1))
 								end
 								local smoothness = (Options.CamlockSmoothness and Options.CamlockSmoothness.Value) or 0.2
-								local strength = (Options.CamlockStrength and Options.CamlockStrength.Value) or 100
-								local lerpFactor = math.clamp(smoothness * (strength / 100), 0.01, 1)
-								local maxTurn = (Options.CamlockMaxTurn and Options.CamlockMaxTurn.Value) or 180
-								local lockSpeed = (Options.CamlockSpeed and Options.CamlockSpeed.Value) or 720
+								local lerpFactor = math.clamp(smoothness, 0.01, 1)
 
-								-- Interpolate only the yaw (horizontal aim) toward the target so the
-								-- player keeps full vertical (pitch) camera control
-								local curCF = camera.CFrame
-								local look = curCF.LookVector
-								local curYaw = math.atan2(-look.X, -look.Z)
-								local curPitch = math.asin(math.clamp(look.Y, -1, 1))
+								if Toggles.CamlockFreePitch and Toggles.CamlockFreePitch.Value then
+									-- Allow Look Down: interpolate only the yaw (horizontal aim) toward
+									-- the target so the player keeps full vertical (pitch) control
+									local curCF = camera.CFrame
+									local look = curCF.LookVector
+									local curYaw = math.atan2(-look.X, -look.Z)
+									local curPitch = math.asin(math.clamp(look.Y, -1, 1))
 
-								local toTarget = aimPos - curCF.Position
-								local flatDir = Vector3.new(toTarget.X, 0, toTarget.Z)
-								if flatDir.Magnitude > 0.001 then
-									local targetYaw = math.atan2(-flatDir.X, -flatDir.Z)
-									local yawDelta = ((targetYaw - curYaw + math.pi) % (2 * math.pi)) - math.pi
-									local step = yawDelta * lerpFactor
-									local maxStep = math.min(math.rad(maxTurn), math.rad(lockSpeed * dt))
-									step = math.clamp(step, -maxStep, maxStep)
-									local newYaw = curYaw + step
-									camera.CFrame = CFrame.new(curCF.Position) * CFrame.fromOrientation(curPitch, newYaw, 0)
+									local toTarget = aimPos - curCF.Position
+									local flatDir = Vector3.new(toTarget.X, 0, toTarget.Z)
+									if flatDir.Magnitude > 0.001 then
+										local targetYaw = math.atan2(-flatDir.X, -flatDir.Z)
+										local yawDelta = ((targetYaw - curYaw + math.pi) % (2 * math.pi)) - math.pi
+										local newYaw = curYaw + (yawDelta * lerpFactor)
+										camera.CFrame = CFrame.new(curCF.Position) * CFrame.fromOrientation(curPitch, newYaw, 0)
+									end
+								else
+									-- Default lock: the camera fully follows the target (pitch included)
+									local desiredCF = CFrame.new(camera.CFrame.Position, aimPos)
+									camera.CFrame = camera.CFrame:Lerp(desiredCF, lerpFactor)
 								end
 							end
 						end
