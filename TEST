@@ -4902,10 +4902,6 @@ if Toggles.SpearSword then
 end
 
 local floorLookYaw = 0
-local FLOOR_CAM_TRANSITION = 0.18
-local floorCamBlend = 1
-local floorBlendFromCF = nil
-local floorReleasing = false
 
 local function getFloorLookTouchSens()
 	local multiplier = (Options.LookDownSens and Options.LookDownSens.Value) or 12
@@ -4922,19 +4918,6 @@ local function getFloorLookMouseSens()
 	end)
 	local multiplier = (Options.LookDownSens and (Options.LookDownSens.Value / 12)) or 1
 	return base * multiplier
-end
-
--- Reconstruct a default-style third-person camera pose behind the character
-local function getFloorNormalCameraCF()
-	local r = getRootPart()
-	local camera = workspace.CurrentCamera
-	if not r or not camera then
-		return camera and camera.CFrame or CFrame.new()
-	end
-	local headPos = r.Position + Vector3.new(0, 1.5, 0)
-	local behind = Vector3.new(math.sin(floorLookYaw), 0, math.cos(floorLookYaw))
-	local camPos = headPos + behind * 12 + Vector3.new(0, 1.5, 0)
-	return CFrame.lookAt(camPos, headPos)
 end
 
 local function isLookDownSlotAllowed(slotOption)
@@ -4967,8 +4950,6 @@ if Toggles.LookDownFloor then
 		disconnect("LookDownFloor_Input")
 		disconnect("LookDownFloor_TouchMoved")
 		isLookDownEngaged = false
-		floorReleasing = false
-		floorCamBlend = 1
 
 		if updatePVPModulesVisibility then
 			updatePVPModulesVisibility()
@@ -5038,16 +5019,10 @@ if Toggles.LookDownFloor then
 				if not r or not h or not camera then return end
 
 				local isHolding = isLookDownSlotAllowed(Options.LookDownSlot)
-				local easeOut = function(alpha)
-					return 1 - (1 - alpha) * (1 - alpha) * (1 - alpha)
-				end
 
 				if isHolding then
 					if not isLookDownEngaged then
 						isLookDownEngaged = true
-						floorReleasing = false
-						floorCamBlend = 0
-						floorBlendFromCF = camera.CFrame
 						local look = r.CFrame.LookVector
 						local flatLook = Vector3.new(look.X, 0, look.Z)
 						if flatLook.Magnitude > 0.001 then
@@ -5070,13 +5045,9 @@ if Toggles.LookDownFloor then
 					local zoomDist = (Options.LookDownZoom and Options.LookDownZoom.Value) or 20
 					local rootPos = r.Position
 
-					local targetCF = CFrame.new(rootPos + Vector3.new(0, zoomDist, 0))
+					camera.CFrame = CFrame.new(rootPos + Vector3.new(0, zoomDist, 0))
 						* CFrame.Angles(0, floorLookYaw, 0)
 						* CFrame.Angles(-math.rad(89.5), 0, 0)
-
-					-- Smoothly ease the camera into the top-down view
-					floorCamBlend = math.min(1, floorCamBlend + dt / FLOOR_CAM_TRANSITION)
-					camera.CFrame = floorBlendFromCF:Lerp(targetCF, easeOut(floorCamBlend))
 
 					-- Rotate character body to face the thumb aim direction
 					r.CFrame = CFrame.new(rootPos) * CFrame.Angles(0, floorLookYaw, 0)
@@ -5084,20 +5055,8 @@ if Toggles.LookDownFloor then
 					if isLookDownEngaged then
 						isLookDownEngaged = false
 						h.AutoRotate = true
-						floorReleasing = true
-						floorCamBlend = 0
-						floorBlendFromCF = camera.CFrame
-					end
-
-					if floorReleasing then
-						-- Smoothly ease the camera back out of the top-down view
-						floorCamBlend = math.min(1, floorCamBlend + dt / FLOOR_CAM_TRANSITION)
-						camera.CFrame = floorBlendFromCF:Lerp(getFloorNormalCameraCF(), easeOut(floorCamBlend))
-						if floorCamBlend >= 1 then
-							floorReleasing = false
-							camera.CameraSubject = h
-							camera.CameraType = Enum.CameraType.Custom
-						end
+						camera.CameraSubject = h
+						camera.CameraType = Enum.CameraType.Custom
 					end
 				end
 			end))
