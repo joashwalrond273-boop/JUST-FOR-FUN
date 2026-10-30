@@ -3077,6 +3077,15 @@ CombatCamlockConfig:AddSlider("CamlockMaxTurn", {
 	Compact = true,
 })
 
+CombatCamlockConfig:AddSlider("CamlockSpeed", {
+	Text = "Lock Speed",
+	Default = 720,
+	Min = 20,
+	Max = 720,
+	Rounding = 0,
+	Compact = true,
+})
+
 CombatCamlockConfig:AddDropdown("CamlockAimPart", {
 	Text = "Aim Part",
 	Values = {"Head", "HumanoidRootPart", "UpperTorso"},
@@ -3563,6 +3572,12 @@ updatePVPModulesVisibility = function()
 		Options.CamlockMaxTurn.Visible = isCamLerp
 		if Options.CamlockMaxTurn.Holder then
 			Options.CamlockMaxTurn.Holder.Visible = isCamLerp
+		end
+	end
+	if Options.CamlockSpeed then
+		Options.CamlockSpeed.Visible = isCamLerp
+		if Options.CamlockSpeed.Holder then
+			Options.CamlockSpeed.Holder.Visible = isCamLerp
 		end
 	end
 	if Options.CamlockAimPart then
@@ -4660,6 +4675,7 @@ Toggles.Camlock:OnChanged(function()
 								local strength = (Options.CamlockStrength and Options.CamlockStrength.Value) or 100
 								local lerpFactor = math.clamp(smoothness * (strength / 100), 0.01, 1)
 								local maxTurn = (Options.CamlockMaxTurn and Options.CamlockMaxTurn.Value) or 180
+								local lockSpeed = (Options.CamlockSpeed and Options.CamlockSpeed.Value) or 720
 
 								-- Interpolate only the yaw (horizontal aim) toward the target so the
 								-- player keeps full vertical (pitch) camera control
@@ -4674,7 +4690,7 @@ Toggles.Camlock:OnChanged(function()
 									local targetYaw = math.atan2(-flatDir.X, -flatDir.Z)
 									local yawDelta = ((targetYaw - curYaw + math.pi) % (2 * math.pi)) - math.pi
 									local step = yawDelta * lerpFactor
-									local maxStep = math.rad(maxTurn)
+									local maxStep = math.min(math.rad(maxTurn), math.rad(lockSpeed * dt))
 									step = math.clamp(step, -maxStep, maxStep)
 									local newYaw = curYaw + step
 									camera.CFrame = CFrame.new(curCF.Position) * CFrame.fromOrientation(curPitch, newYaw, 0)
