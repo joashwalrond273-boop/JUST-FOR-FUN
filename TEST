@@ -281,6 +281,40 @@ TSG.BuildRemote = (keyedRemotes and rawget(keyedRemotes, "build")) or (interacti
 TSG.CraftRemote = (keyedRemotes and rawget(keyedRemotes, "craft")) or (interactionsFolder and interactionsFolder:FindFirstChild("craft"))
 TSG.DeleteStructureRemote = (keyedRemotes and rawget(keyedRemotes, "deleteStructure")) or (interactionsFolder and interactionsFolder:FindFirstChild("deleteStructure"))
 
+-- Resolve the inventory remote used to drop an item by its ID
+local function findDropRemote()
+	local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
+	local inventory = remoteInterface and remoteInterface:FindFirstChild("inventory")
+	if inventory then
+		for _, name in ipairs({ "dropItem", "drop", "dropitem" }) do
+			local remote = inventory:FindFirstChild(name)
+			if remote then return remote end
+		end
+	end
+	if keyedRemotes then
+		for _, name in ipairs({ "dropItem", "drop", "dropitem" }) do
+			local remote = rawget(keyedRemotes, name)
+			if remote then return remote end
+		end
+	end
+	if remoteInterface then
+		local best
+		for _, descendant in ipairs(remoteInterface:GetDescendants()) do
+			if descendant:IsA("RemoteEvent") or descendant:IsA("RemoteFunction") then
+				local lower = descendant.Name:lower()
+				if lower == "dropitem" or lower == "drop" then
+					return descendant
+				end
+				if not best and lower:find("drop") then
+					best = descendant
+				end
+			end
+		end
+		if best then return best end
+	end
+	return nil
+end
+
 -- No Bear Trap DMG Remote Interception
 pcall(function()
 	local Event = resolvePath(ReplicatedStorage, "remoteInterface", "traps", "Run") or (ReplicatedStorage:FindFirstChild("remoteInterface") and ReplicatedStorage.remoteInterface:FindFirstChild("traps") and ReplicatedStorage.remoteInterface.traps:FindFirstChild("Run"))
@@ -1226,6 +1260,44 @@ AdvanceHealGroup:AddSlider("AutoEatCooldown", {
 	Max = 5.0,
 	Rounding = 1,
 	Compact = true,
+})
+
+AdvanceHealGroup:AddDivider()
+
+AdvanceHealGroup:AddInput("DropItemId", {
+	Text = "Drop Item ID",
+	Default = "",
+	Placeholder = "Item ID (e.g. 210)",
+	Numeric = true,
+})
+
+AdvanceHealGroup:AddButton({
+	Text = "Drop Item",
+	Func = function()
+		local itemId = tonumber(Options.DropItemId and Options.DropItemId.Value)
+		if not itemId then
+			Library:Notify({ Title = "Drop Item", Description = "Enter a valid numeric item ID", Time = 3 })
+			return
+		end
+		local dropRemote = findDropRemote()
+		if not dropRemote then
+			Library:Notify({ Title = "Drop Item", Description = "Drop remote not found", Time = 3 })
+			return
+		end
+		local ok = pcall(function()
+			if dropRemote:IsA("RemoteFunction") then
+				dropRemote:InvokeServer(itemId, 1)
+			else
+				dropRemote:FireServer(itemId, 1)
+			end
+		end)
+		if ok then
+			local itemName = (TSG.Items and TSG.Items.getItemNameById and TSG.Items.getItemNameById(itemId)) or tostring(itemId)
+			Library:Notify({ Title = "Drop Item", Description = "Dropped " .. tostring(itemName), Time = 2 })
+		else
+			Library:Notify({ Title = "Drop Item", Description = "Failed to drop item", Time = 3 })
+		end
+	end,
 })
 
 local MainRight = Tabs.Player:AddRightGroupbox("Settings", "settings")
@@ -3096,7 +3168,7 @@ CombatCamlockConfig:AddSlider("CamlockPullStrength", {
 	Compact = true,
 })
 
-CombatCamlockConfig:AddToggle("LookDownFloor", {
+CombatCamlockConfig:AddCheckbox("LookDownFloor", {
 	Text = "Look at Floor",
 	Default = false,
 })
