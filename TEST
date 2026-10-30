@@ -3034,6 +3034,11 @@ CombatCamlock:AddSlider("OutlineStuds", {
 	Compact = true,
 })
 
+CombatCamlock:AddCheckbox("AntiCamlock", {
+	Text = "Anti Camlock",
+	Default = false,
+})
+
 -- CONFIG TAB (RIGHT)
 CombatCamlockConfig:AddCheckbox("CamlockCameraLerp", {
 	Text = "Camera Lock",
@@ -4685,6 +4690,98 @@ if Toggles.CamlockPull then
 	Toggles.CamlockPull:OnChanged(function()
 		if updatePVPModulesVisibility then
 			updatePVPModulesVisibility()
+		end
+	end)
+end
+
+if Toggles.AntiCamlock then
+	Toggles.AntiCamlock:OnChanged(function()
+		disconnect("AntiCamlock")
+		if Toggles.AntiCamlock.Value then
+			local ANTI_RANGE = 60
+			local ANTI_ANGLE = math.rad(12)
+			local ANTI_HOLD = 0.35
+			local ANTI_SPEED = 38
+			local ANTI_FLIP = 0.22
+
+			local lockTimes = {}
+			local strafeSign = 1
+			local strafeTimer = 0
+
+			track("AntiCamlock", RunService.RenderStepped:Connect(function(dt)
+				local root = getRootPart()
+				local hum = getHumanoid()
+				if not root or not hum or hum.Health <= 0 then
+					lockTimes = {}
+					return
+				end
+
+				local myPos = root.Position
+				local now = os.clock()
+				local lockPos = nil
+
+				for _, other in ipairs(Players:GetPlayers()) do
+					if other ~= LocalPlayer and other.Character then
+						local otherRoot = other.Character:FindFirstChild("HumanoidRootPart")
+						local otherHum = other.Character:FindFirstChildOfClass("Humanoid")
+						if otherRoot and otherHum and otherHum.Health > 0 then
+							local ePos = otherRoot.Position
+							local toMe = Vector3.new(myPos.X - ePos.X, 0, myPos.Z - ePos.Z)
+							local dist = toMe.Magnitude
+							local look = otherRoot.CFrame.LookVector
+							local lookFlat = Vector3.new(look.X, 0, look.Z)
+
+							local isAiming = false
+							if dist > 0.5 and dist <= ANTI_RANGE and lookFlat.Magnitude > 0.001 then
+								local dot = lookFlat.Unit:Dot(toMe.Unit)
+								isAiming = math.acos(math.clamp(dot, -1, 1)) <= ANTI_ANGLE
+							end
+
+							if isAiming then
+								local rec = lockTimes[other]
+								if not rec then
+									rec = { since = now }
+									lockTimes[other] = rec
+								end
+								if (now - rec.since) >= ANTI_HOLD then
+									if not lockPos or dist < (myPos - lockPos).Magnitude then
+										lockPos = ePos
+									end
+								end
+							else
+								lockTimes[other] = nil
+							end
+						else
+							lockTimes[other] = nil
+						end
+					end
+				end
+
+				for plr in pairs(lockTimes) do
+					if not plr.Parent or not plr.Character then
+						lockTimes[plr] = nil
+					end
+				end
+
+				if lockPos then
+					local away = Vector3.new(myPos.X - lockPos.X, 0, myPos.Z - lockPos.Z)
+					if away.Magnitude > 0.001 then
+						strafeTimer = strafeTimer + dt
+						if strafeTimer >= ANTI_FLIP then
+							strafeTimer = 0
+							strafeSign = -strafeSign
+						end
+						local strafeDir = Vector3.new(-away.Z, 0, away.X).Unit * strafeSign
+						pcall(function()
+							local vel = root.AssemblyLinearVelocity or root.Velocity or Vector3.zero
+							local strafeVel = strafeDir * ANTI_SPEED
+							local newVel = Vector3.new(strafeVel.X, vel.Y, strafeVel.Z)
+							root.AssemblyLinearVelocity = newVel
+							root.Velocity = newVel
+						end)
+					end
+				end
+			end))
 		end
 	end)
 end
