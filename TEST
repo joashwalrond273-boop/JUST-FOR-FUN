@@ -1566,6 +1566,11 @@ MainLeft:AddCheckbox("AntiAFK", {
 	Default = false,
 })
 
+MainLeft:AddCheckbox("VisualAdminArmor", {
+	Text = "Wear Admin Armor (Visual)",
+	Default = false,
+})
+
 updateAutoPickupVisibility = function()
 	local isPickup = (Toggles.FastPickup and Toggles.FastPickup.Value) or false
 	if Options.AutoPickupRange then
@@ -2842,6 +2847,155 @@ Toggles.FastPickup:OnChanged(function()
 		Library:Notify({ Title = "Auto Pickup", Description = "Disabled", Time = 2 })
 	end
 end)
+
+-- ============================================================================
+-- VISUAL ADMIN ARMOR (client-side only, does not grant real armor)
+-- ============================================================================
+local adminArmorFolder = nil
+
+local function clearVisualAdminArmor()
+	if adminArmorFolder then
+		if adminArmorFolder.Parent then
+			adminArmorFolder:Destroy()
+		end
+		adminArmorFolder = nil
+	end
+end
+
+local function applyVisualAdminArmor()
+	clearVisualAdminArmor()
+	local char = LocalPlayer.Character
+	if not char then return end
+	local root = char:FindFirstChild("HumanoidRootPart")
+	local hum = char:FindFirstChildOfClass("Humanoid")
+	if not root or not hum then return end
+
+	local models = TSG.Items and TSG.Items.models
+	if not models then
+		pcall(function()
+			local rs = game:GetService("ReplicatedStorage")
+			local container = rs:FindFirstChild("game")
+			local items = container and container:FindFirstChild("Items")
+			if items then
+				if items:IsA("ModuleScript") then
+					local data = require(items)
+					models = data and data.models
+				else
+					models = items:FindFirstChild("models")
+				end
+			end
+		end)
+	end
+	if not models then
+		Library:Notify({ Title = "Admin Armor", Description = "Item models not found.", Time = 3 })
+		return
+	end
+
+	-- Maps each piece to the body part it should sit on when the model is a single accessory
+	local pieces = {
+		{ key = "Admin Helmet", bodies = {"Head"} },
+		{ key = "Admin Armor", bodies = {"UpperTorso", "Torso"} },
+		{ key = "Admin Pants", bodies = {"LowerTorso", "Torso"} },
+	}
+
+	local bodyParts = {}
+	for _, d in ipairs(char:GetDescendants()) do
+		if d:IsA("BasePart") then
+			table.insert(bodyParts, d)
+		end
+	end
+
+	local folder = Instance.new("Folder")
+	folder.Name = "XenoVisualAdminArmor"
+	local addedAny = false
+
+	local function weldPart(part, reference)
+		part.CanCollide = false
+		part.Massless = true
+		part.Anchored = false
+		pcall(function() part.CanTouch = false end)
+		pcall(function() part.CanQuery = false end)
+
+		local nearest, bestDist = reference, math.huge
+		for _, bp in ipairs(bodyParts) do
+			local dist = (bp.Position - part.Position).Magnitude
+			if dist < bestDist then
+				bestDist = dist
+				nearest = bp
+			end
+		end
+		if nearest then
+			local weld = Instance.new("Weld")
+			weld.Part0 = nearest
+			weld.Part1 = part
+			weld.C0 = nearest.CFrame:Inverse() * part.CFrame
+			weld.Parent = part
+		end
+	end
+
+	for _, piece in ipairs(pieces) do
+		local template = models[piece.key]
+		if template then
+			local clone = template:Clone()
+			addedAny = true
+
+			if clone:IsA("Accessory") then
+				clone.Parent = folder
+				pcall(function() hum:AddAccessory(clone) end)
+			else
+				clone.Parent = folder
+
+				-- Rig-style models carry a HumanoidRootPart; align the whole model to the character.
+				-- Single-accessory models get aligned to their mapped body part instead.
+				local isRig = clone:FindFirstChild("HumanoidRootPart", true) ~= nil
+				local reference = root
+				if not isRig then
+					for _, bodyName in ipairs(piece.bodies) do
+						local found = char:FindFirstChild(bodyName)
+						if found and found:IsA("BasePart") then
+							reference = found
+							break
+						end
+					end
+				end
+
+				pcall(function() clone:PivotTo(reference.CFrame) end)
+				for _, d in ipairs(clone:GetDescendants()) do
+					if d:IsA("BasePart") then
+						weldPart(d, reference)
+					end
+				end
+			end
+		end
+	end
+
+	folder.Parent = char
+
+	if not addedAny then
+		folder:Destroy()
+		adminArmorFolder = nil
+		Library:Notify({ Title = "Admin Armor", Description = "No armor models found.", Time = 3 })
+		return
+	end
+
+	adminArmorFolder = folder
+end
+
+if Toggles.VisualAdminArmor then
+	Toggles.VisualAdminArmor:OnChanged(function()
+		disconnect("VisualAdminArmor")
+		clearVisualAdminArmor()
+		if Toggles.VisualAdminArmor.Value then
+			applyVisualAdminArmor()
+			track("VisualAdminArmor", LocalPlayer.CharacterAdded:Connect(function()
+				task.wait(1)
+				if Toggles.VisualAdminArmor and Toggles.VisualAdminArmor.Value then
+					applyVisualAdminArmor()
+				end
+			end))
+		end
+	end)
+end
 
 local FoodIdMap = {
 	["Cabbage"] = 210,
