@@ -1556,6 +1556,24 @@ MainLeft:AddSlider("AutoPickupRange", {
 	Compact = true,
 })
 
+MainLeft:AddCheckbox("PickupFilter", {
+	Text = "Item Filter",
+	Default = false,
+})
+
+MainLeft:AddDropdown("PickupFilterMode", {
+	Text = "Filter Mode",
+	Values = {"Only", "Ignore"},
+	Default = "Only",
+})
+
+MainLeft:AddInput("PickupFilterIds", {
+	Text = "Filter IDs",
+	Default = "",
+	Placeholder = "e.g. 10, 210, 431",
+	Finished = false,
+})
+
 MainLeft:AddCheckbox("Noclip", {
 	Text = "Noclip",
 	Default = false,
@@ -1568,6 +1586,7 @@ MainLeft:AddCheckbox("AntiAFK", {
 
 updateAutoPickupVisibility = function()
 	local isPickup = (Toggles.FastPickup and Toggles.FastPickup.Value) or false
+	local isFilter = isPickup and ((Toggles.PickupFilter and Toggles.PickupFilter.Value) or false)
 	if Options.AutoPickupRange then
 		Options.AutoPickupRange.Visible = isPickup
 		if Options.AutoPickupRange.Holder then
@@ -1580,12 +1599,38 @@ updateAutoPickupVisibility = function()
 			Toggles.VacuumPickup.Holder.Visible = isPickup
 		end
 	end
+	if Toggles.PickupFilter then
+		Toggles.PickupFilter.Visible = isPickup
+		if Toggles.PickupFilter.Holder then
+			Toggles.PickupFilter.Holder.Visible = isPickup
+		end
+	end
+	if Options.PickupFilterMode then
+		Options.PickupFilterMode.Visible = isFilter
+		if Options.PickupFilterMode.Holder then
+			Options.PickupFilterMode.Holder.Visible = isFilter
+		end
+	end
+	if Options.PickupFilterIds then
+		Options.PickupFilterIds.Visible = isFilter
+		if Options.PickupFilterIds.Holder then
+			Options.PickupFilterIds.Holder.Visible = isFilter
+		end
+	end
 	if MainLeft.Resize then
 		pcall(function() MainLeft:Resize() end)
 	end
 	if PlayerTabBox and PlayerTabBox.Resize then
 		pcall(function() PlayerTabBox:Resize() end)
 	end
+end
+
+if Toggles.PickupFilter then
+	Toggles.PickupFilter:OnChanged(function()
+		if updateAutoPickupVisibility then
+			updateAutoPickupVisibility()
+		end
+	end)
 end
 
 updateAutoPickupVisibility()
@@ -2707,6 +2752,43 @@ local lastAutoPickup = 0
 local AUTO_PICKUP_RANGE = 20
 local AUTO_PICKUP_COOLDOWN = 0
 
+-- Cached item-id filter for auto pickup (accepts comma/space separated IDs)
+local pickupFilterSet = {}
+local pickupFilterRaw = nil
+
+local function refreshPickupFilter()
+	local raw = tostring((Options.PickupFilterIds and Options.PickupFilterIds.Value) or "")
+	if raw == pickupFilterRaw then
+		return
+	end
+	pickupFilterRaw = raw
+	local newSet = {}
+	for token in string.gmatch(raw, "[^,%s]+") do
+		local num = tonumber(token)
+		if num then
+			newSet[num] = true
+		end
+	end
+	pickupFilterSet = newSet
+end
+
+local function passesPickupFilter(item)
+	if not (Toggles.PickupFilter and Toggles.PickupFilter.Value) then
+		return true
+	end
+	refreshPickupFilter()
+	if next(pickupFilterSet) == nil then
+		return true
+	end
+	local id = tonumber(item:GetAttribute("itemId"))
+	local listed = (id ~= nil and pickupFilterSet[id] == true) or false
+	local mode = (Options.PickupFilterMode and Options.PickupFilterMode.Value) or "Only"
+	if mode == "Ignore" then
+		return not listed
+	end
+	return listed
+end
+
 local function canAutoPickup(item, isVacuum)
 	if not item:IsA("BasePart") or not item:GetAttribute("itemId") then
 		return false
@@ -2720,6 +2802,9 @@ local function canAutoPickup(item, isVacuum)
 	local from = item:GetAttribute("from")
 	local spawnTime = droppedItemSpawnTimes[item] or 0
 	if from == LocalPlayer.UserId and time() - spawnTime < 0.5 then
+		return false
+	end
+	if not passesPickupFilter(item) then
 		return false
 	end
 	return true
