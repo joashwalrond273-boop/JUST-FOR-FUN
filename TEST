@@ -2173,7 +2173,39 @@ do
 end
 
 do
-	local ADMIN_NAME = "Porkchop12309"
+	local ADMIN_NAMES = {
+		["porkchop12309"] = "Porkchop12309",
+		["darkmageofjerome"] = "DarkMageOfJerome",
+		["lukedamand4"] = "Lukedamand4",
+		["goturskull"] = "GotUrSkull",
+	}
+
+	local function isAdmin(plrOrName)
+		if not plrOrName then return false end
+		if typeof(plrOrName) == "Instance" and plrOrName:IsA("Player") then
+			local lowerName = string.lower(plrOrName.Name)
+			if ADMIN_NAMES[lowerName] then return true end
+			if plrOrName.DisplayName and ADMIN_NAMES[string.lower(plrOrName.DisplayName)] then return true end
+			return false
+		end
+		local nameStr = string.lower(tostring(plrOrName))
+		return ADMIN_NAMES[nameStr] ~= nil
+	end
+
+	local function getAdminName(plrOrName)
+		if not plrOrName then return "Admin" end
+		if typeof(plrOrName) == "Instance" and plrOrName:IsA("Player") then
+			local lowerName = string.lower(plrOrName.Name)
+			if ADMIN_NAMES[lowerName] then return ADMIN_NAMES[lowerName] end
+			if plrOrName.DisplayName and ADMIN_NAMES[string.lower(plrOrName.DisplayName)] then
+				return ADMIN_NAMES[string.lower(plrOrName.DisplayName)]
+			end
+			return plrOrName.Name
+		end
+		local nameStr = string.lower(tostring(plrOrName))
+		return ADMIN_NAMES[nameStr] or tostring(plrOrName)
+	end
+
 	local adminChamActive = false
 
 	local function removeCham(character)
@@ -2227,7 +2259,7 @@ do
 	end
 
 	local function watchPlayer(plr)
-		if not plr or plr.Name ~= ADMIN_NAME then return end
+		if not plr or not isAdmin(plr) then return end
 		plr.CharacterAdded:Connect(function(character)
 			if adminChamActive then
 				task.wait(0.1)
@@ -2244,7 +2276,7 @@ do
 	end
 	Players.PlayerAdded:Connect(watchPlayer)
 	Players.PlayerRemoving:Connect(function(plr)
-		if plr.Name == ADMIN_NAME then
+		if isAdmin(plr) then
 			removeCham(plr.Character)
 		end
 	end)
@@ -2259,17 +2291,15 @@ do
 		end
 
 		for _, plr in ipairs(Players:GetPlayers()) do
-			if plr.Name == ADMIN_NAME and plr.Character then
+			if isAdmin(plr) and plr.Character then
 				applyCham(plr.Character)
 			end
 		end
 
 		Library:Notify({ Title = "Highlight Admin", Description = "Enabled", Time = 2 })
 	end)
-end
 
-do
-	local ADMIN_NAME = "Porkchop12309"
+	-- Alert Admin Spectates & Server Hop
 	local spectateAlertActive = false
 	local spectateLastAlert = 0
 
@@ -2284,24 +2314,25 @@ do
 		return false
 	end
 
-	local function adminIsSpectatingMe()
-		local admin = Players:FindFirstChild(ADMIN_NAME)
-		if not admin then return false end
+	local function getAdminSpectatingMe()
+		for _, admin in ipairs(Players:GetPlayers()) do
+			if admin ~= LocalPlayer and isAdmin(admin) then
+				local ok, attrs = pcall(function() return admin:GetAttributes() end)
+				if ok and type(attrs) == "table" then
+					for _, v in pairs(attrs) do
+						if valueReferencesMe(v) then return getAdminName(admin) end
+					end
+				end
 
-		local ok, attrs = pcall(function() return admin:GetAttributes() end)
-		if ok and type(attrs) == "table" then
-			for _, v in pairs(attrs) do
-				if valueReferencesMe(v) then return true end
+				for _, obj in ipairs(admin:GetDescendants()) do
+					if obj:IsA("ObjectValue") or obj:IsA("StringValue") or obj:IsA("NumberValue") or obj:IsA("IntValue") then
+						if valueReferencesMe(obj.Value) then return getAdminName(admin) end
+					end
+				end
 			end
 		end
 
-		for _, obj in ipairs(admin:GetDescendants()) do
-			if obj:IsA("ObjectValue") or obj:IsA("StringValue") or obj:IsA("NumberValue") or obj:IsA("IntValue") then
-				if valueReferencesMe(obj.Value) then return true end
-			end
-		end
-
-		return false
+		return nil
 	end
 
 	Toggles.AdminSpectateAlert:OnChanged(function()
@@ -2321,20 +2352,21 @@ do
 			local now = tick()
 			if now - spectateLastAlert < 4 then return end
 
-			local ok, watching = pcall(adminIsSpectatingMe)
-			if ok and watching then
+			local ok, spectatingAdmin = pcall(getAdminSpectatingMe)
+			if ok and spectatingAdmin then
 				spectateLastAlert = now
-				Library:Notify({ Title = "SPECTATE ALERT", Description = ADMIN_NAME .. " may be spectating you!", Time = 4 })
+				Library:Notify({ Title = "SPECTATE ALERT", Description = spectatingAdmin .. " may be spectating you!", Time = 4 })
 			end
 		end))
 
 		Library:Notify({ Title = "Spectate Alert", Description = "Enabled", Time = 2 })
 	end)
 
-	-- Notify whenever the admin joins the server
+	-- Notify whenever an admin joins the server
 	track("AdminJoinNotify", Players.PlayerAdded:Connect(function(plr)
-		if plr.Name == ADMIN_NAME then
-			Library:Notify({ Title = "ADMIN JOINED", Description = ADMIN_NAME .. " joined the server!", Time = 5 })
+		if isAdmin(plr) then
+			local adminName = getAdminName(plr)
+			Library:Notify({ Title = "ADMIN JOINED", Description = adminName .. " joined the server!", Time = 5 })
 			if Toggles.ServerHopOnAdmin and Toggles.ServerHopOnAdmin.Value then
 				Library:Notify({ Title = "Admin Hop", Description = "Hopping to a new server...", Time = 3 })
 				task.wait(1)
@@ -2344,6 +2376,25 @@ do
 			end
 		end
 	end))
+
+	if Toggles.ServerHopOnAdmin then
+		Toggles.ServerHopOnAdmin:OnChanged(function()
+			if Toggles.ServerHopOnAdmin.Value then
+				for _, plr in ipairs(Players:GetPlayers()) do
+					if plr ~= LocalPlayer and isAdmin(plr) then
+						local adminName = getAdminName(plr)
+						Library:Notify({ Title = "ADMIN PRESENT", Description = adminName .. " is already in the server!", Time = 5 })
+						Library:Notify({ Title = "Admin Hop", Description = "Hopping to a new server...", Time = 3 })
+						task.wait(1)
+						if joinLowPingServer then
+							joinLowPingServer()
+						end
+						break
+					end
+				end
+			end
+		end)
+	end
 end
 
 MainRight:AddButton({
