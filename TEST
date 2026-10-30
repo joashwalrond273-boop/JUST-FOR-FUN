@@ -281,40 +281,6 @@ TSG.BuildRemote = (keyedRemotes and rawget(keyedRemotes, "build")) or (interacti
 TSG.CraftRemote = (keyedRemotes and rawget(keyedRemotes, "craft")) or (interactionsFolder and interactionsFolder:FindFirstChild("craft"))
 TSG.DeleteStructureRemote = (keyedRemotes and rawget(keyedRemotes, "deleteStructure")) or (interactionsFolder and interactionsFolder:FindFirstChild("deleteStructure"))
 
--- Resolve the inventory remote used to drop an item by its ID
-local function findDropRemote()
-	local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
-	local inventory = remoteInterface and remoteInterface:FindFirstChild("inventory")
-	if inventory then
-		for _, name in ipairs({ "dropItem", "drop", "dropitem" }) do
-			local remote = inventory:FindFirstChild(name)
-			if remote then return remote end
-		end
-	end
-	if keyedRemotes then
-		for _, name in ipairs({ "dropItem", "drop", "dropitem" }) do
-			local remote = rawget(keyedRemotes, name)
-			if remote then return remote end
-		end
-	end
-	if remoteInterface then
-		local best
-		for _, descendant in ipairs(remoteInterface:GetDescendants()) do
-			if descendant:IsA("RemoteEvent") or descendant:IsA("RemoteFunction") then
-				local lower = descendant.Name:lower()
-				if lower == "dropitem" or lower == "drop" then
-					return descendant
-				end
-				if not best and lower:find("drop") then
-					best = descendant
-				end
-			end
-		end
-		if best then return best end
-	end
-	return nil
-end
-
 -- No Bear Trap DMG Remote Interception
 pcall(function()
 	local Event = resolvePath(ReplicatedStorage, "remoteInterface", "traps", "Run") or (ReplicatedStorage:FindFirstChild("remoteInterface") and ReplicatedStorage.remoteInterface:FindFirstChild("traps") and ReplicatedStorage.remoteInterface.traps:FindFirstChild("Run"))
@@ -1260,44 +1226,6 @@ AdvanceHealGroup:AddSlider("AutoEatCooldown", {
 	Max = 5.0,
 	Rounding = 1,
 	Compact = true,
-})
-
-AdvanceHealGroup:AddDivider()
-
-AdvanceHealGroup:AddInput("DropItemId", {
-	Text = "Drop Item ID",
-	Default = "",
-	Placeholder = "Item ID (e.g. 210)",
-	Numeric = true,
-})
-
-AdvanceHealGroup:AddButton({
-	Text = "Drop Item",
-	Func = function()
-		local itemId = tonumber(Options.DropItemId and Options.DropItemId.Value)
-		if not itemId then
-			Library:Notify({ Title = "Drop Item", Description = "Enter a valid numeric item ID", Time = 3 })
-			return
-		end
-		local dropRemote = findDropRemote()
-		if not dropRemote then
-			Library:Notify({ Title = "Drop Item", Description = "Drop remote not found", Time = 3 })
-			return
-		end
-		local ok = pcall(function()
-			if dropRemote:IsA("RemoteFunction") then
-				dropRemote:InvokeServer(itemId, 1)
-			else
-				dropRemote:FireServer(itemId, 1)
-			end
-		end)
-		if ok then
-			local itemName = (TSG.Items and TSG.Items.getItemNameById and TSG.Items.getItemNameById(itemId)) or tostring(itemId)
-			Library:Notify({ Title = "Drop Item", Description = "Dropped " .. tostring(itemName), Time = 2 })
-		else
-			Library:Notify({ Title = "Drop Item", Description = "Failed to drop item", Time = 3 })
-		end
-	end,
 })
 
 local MainRight = Tabs.Player:AddRightGroupbox("Settings", "settings")
@@ -4974,6 +4902,10 @@ if Toggles.SpearSword then
 end
 
 local floorLookYaw = 0
+local FLOOR_CAM_TRANSITION = 0.18
+local floorCamBlend = 1
+local floorBlendFromCF = nil
+local floorReleasing = false
 
 local function getFloorLookTouchSens()
 	local multiplier = (Options.LookDownSens and Options.LookDownSens.Value) or 12
@@ -4990,6 +4922,19 @@ local function getFloorLookMouseSens()
 	end)
 	local multiplier = (Options.LookDownSens and (Options.LookDownSens.Value / 12)) or 1
 	return base * multiplier
+end
+
+-- Reconstruct a default-style third-person camera pose behind the character
+local function getFloorNormalCameraCF()
+	local r = getRootPart()
+	local camera = workspace.CurrentCamera
+	if not r or not camera then
+		return camera and camera.CFrame or CFrame.new()
+	end
+	local headPos = r.Position + Vector3.new(0, 1.5, 0)
+	local behind = Vector3.new(math.sin(floorLookYaw), 0, math.cos(floorLookYaw))
+	local camPos = headPos + behind * 12 + Vector3.new(0, 1.5, 0)
+	return CFrame.lookAt(camPos, headPos)
 end
 
 local function isLookDownSlotAllowed(slotOption)
@@ -5022,6 +4967,8 @@ if Toggles.LookDownFloor then
 		disconnect("LookDownFloor_Input")
 		disconnect("LookDownFloor_TouchMoved")
 		isLookDownEngaged = false
+		floorReleasing = false
+		floorCamBlend = 1
 
 		if updatePVPModulesVisibility then
 			updatePVPModulesVisibility()
@@ -5091,10 +5038,16 @@ if Toggles.LookDownFloor then
 				if not r or not h or not camera then return end
 
 				local isHolding = isLookDownSlotAllowed(Options.LookDownSlot)
+				local easeOut = function(alpha)
+					return 1 - (1 - alpha) * (1 - alpha) * (1 - alpha)
+				end
 
 				if isHolding then
 					if not isLookDownEngaged then
 						isLookDownEngaged = true
+						floorReleasing = false
+						floorCamBlend = 0
+						floorBlendFromCF = camera.CFrame
 						local look = r.CFrame.LookVector
 						local flatLook = Vector3.new(look.X, 0, look.Z)
 						if flatLook.Magnitude > 0.001 then
@@ -5117,8 +5070,13 @@ if Toggles.LookDownFloor then
 					local zoomDist = (Options.LookDownZoom and Options.LookDownZoom.Value) or 20
 					local rootPos = r.Position
 
-					local camRotation = CFrame.Angles(0, floorLookYaw, 0) * CFrame.Angles(-math.rad(89.5), 0, 0)
-					camera.CFrame = CFrame.new(rootPos + Vector3.new(0, zoomDist, 0)) * camRotation
+					local targetCF = CFrame.new(rootPos + Vector3.new(0, zoomDist, 0))
+						* CFrame.Angles(0, floorLookYaw, 0)
+						* CFrame.Angles(-math.rad(89.5), 0, 0)
+
+					-- Smoothly ease the camera into the top-down view
+					floorCamBlend = math.min(1, floorCamBlend + dt / FLOOR_CAM_TRANSITION)
+					camera.CFrame = floorBlendFromCF:Lerp(targetCF, easeOut(floorCamBlend))
 
 					-- Rotate character body to face the thumb aim direction
 					r.CFrame = CFrame.new(rootPos) * CFrame.Angles(0, floorLookYaw, 0)
@@ -5126,8 +5084,20 @@ if Toggles.LookDownFloor then
 					if isLookDownEngaged then
 						isLookDownEngaged = false
 						h.AutoRotate = true
-						camera.CameraSubject = h
-						camera.CameraType = Enum.CameraType.Custom
+						floorReleasing = true
+						floorCamBlend = 0
+						floorBlendFromCF = camera.CFrame
+					end
+
+					if floorReleasing then
+						-- Smoothly ease the camera back out of the top-down view
+						floorCamBlend = math.min(1, floorCamBlend + dt / FLOOR_CAM_TRANSITION)
+						camera.CFrame = floorBlendFromCF:Lerp(getFloorNormalCameraCF(), easeOut(floorCamBlend))
+						if floorCamBlend >= 1 then
+							floorReleasing = false
+							camera.CameraSubject = h
+							camera.CameraType = Enum.CameraType.Custom
+						end
 					end
 				end
 			end))
