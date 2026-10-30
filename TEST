@@ -1,9 +1,7 @@
 -- URIEL | Obsidian UI
 -- Docs: https://docs.mspaint.cc/obsidian
 
-if getgenv().TSG_OBSIDIAN_LOADED then
-	return warn("[TSG] Script already loaded - rejoin to re-execute.")
-end
+-- URIEL Re-execution support
 getgenv().TSG_OBSIDIAN_LOADED = true
 
 -- Services
@@ -7230,7 +7228,6 @@ local function filterLocations(prefix)
 end
 
 local function getMineableFolderItems()
-	local folder = workspace:FindFirstChild("worldResources") and workspace.worldResources:FindFirstChild("mineable")
 	local found = {}
 	local items = {}
 
@@ -7240,29 +7237,28 @@ local function getMineableFolderItems()
 		table.insert(items, name)
 	end
 
-	if folder then
-		for _, child in ipairs(folder:GetChildren()) do
-			if child:IsA("Folder") then
-				for _, obj in ipairs(child:GetChildren()) do
-					local name = obj.Name
-					if name and name ~= "" and not found[name] then
-						found[name] = true
-						table.insert(items, name)
+	pcall(function()
+		local folder = workspace:FindFirstChild("worldResources") and workspace.worldResources:FindFirstChild("mineable")
+		if folder then
+			for _, child in ipairs(folder:GetChildren()) do
+				if child:IsA("Folder") then
+					for _, obj in ipairs(child:GetChildren()) do
+						local n = obj.Name
+						if n and n ~= "" and not found[n] then
+							found[n] = true
+							table.insert(items, n)
+						end
 					end
-				end
-				if not child.Name:match("^%-?%d+[%s,_-]+%-?%d+$") and not found[child.Name] then
-					found[child.Name] = true
-					table.insert(items, child.Name)
-				end
-			else
-				local name = child.Name
-				if name and name ~= "" and not found[name] then
-					found[name] = true
-					table.insert(items, name)
+				else
+					local n = child.Name
+					if n and n ~= "" and not found[n] then
+						found[n] = true
+						table.insert(items, n)
+					end
 				end
 			end
 		end
-	end
+	end)
 
 	table.sort(items)
 	return items
@@ -7286,32 +7282,6 @@ OreFarm:AddDropdown("MineableFolderDropdown", {
 	Default = "Gold",
 })
 
-local function refreshMineableFolderDropdown()
-	if not Options or not Options.MineableFolderDropdown then return end
-	local items = getMineableFolderItems()
-	pcall(function()
-		Options.MineableFolderDropdown:SetValues(items)
-	end)
-end
-
-task.spawn(function()
-	local folder = workspace:FindFirstChild("worldResources") and workspace.worldResources:FindFirstChild("mineable")
-	if not folder then
-		local startWait = tick()
-		while not folder and tick() - startWait < 15 do
-			task.wait(1)
-			folder = workspace:FindFirstChild("worldResources") and workspace.worldResources:FindFirstChild("mineable")
-		end
-	end
-	if folder then
-		folder.ChildAdded:Connect(function()
-			task.wait(0.5)
-			refreshMineableFolderDropdown()
-		end)
-		refreshMineableFolderDropdown()
-	end
-end)
-
 Options.SelectOreDropdown:OnChanged(function()
 	local value = Options.SelectOreDropdown.Value
 	local filtered = filterLocations(value)
@@ -7326,24 +7296,24 @@ end)
 OreFarm:AddButton({
 	Text = "Teleport to Selected",
 	Func = function()
-           local selected = Options.GoldLocationsDropdown.Value
-           local targetPos = nil
-           for _, loc in ipairs(goldLocations) do
-                   if loc.name == selected then
-                           targetPos = loc.pos
-                           break
-                   end
-           end
-           if targetPos then
-                   local root = getRootPart()
-                   if root then
-                           root.CFrame = CFrame.new(targetPos)
-                           Library:Notify({ Title = "Teleport", Description = "Teleported to " .. selected, Time = 1.5 })
-                   else
-                           Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
-                   end
-           end
-   end,
+		local selected = Options.GoldLocationsDropdown.Value
+		local targetPos = nil
+		for _, loc in ipairs(goldLocations) do
+			if loc.name == selected then
+				targetPos = loc.pos
+				break
+			end
+		end
+		if targetPos then
+			local root = getRootPart()
+			if root then
+				root.CFrame = CFrame.new(targetPos)
+				Library:Notify({ Title = "Teleport", Description = "Teleported to " .. selected, Time = 1.5 })
+			else
+				Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
+			end
+		end
+	end,
 })
 
 OreFarm:AddButton({
@@ -7367,39 +7337,44 @@ OreFarm:AddButton({
 		end
 
 		local closestPart, closestDist = nil, math.huge
-		local function inspectTarget(obj)
-			if not obj then return end
-			if obj.Name == selected or obj.Name:lower() == selected:lower() then
-				local part = obj.PrimaryPart or obj:FindFirstChild("HumanoidRootPart") or obj:FindFirstChildWhichIsA("BasePart")
-				if part then
-					local dist = (root.Position - part.Position).Magnitude
-					if dist < closestDist then
-						closestDist = dist
-						closestPart = part
+		pcall(function()
+			for _, child in ipairs(folder:GetChildren()) do
+				if child:IsA("Folder") then
+					for _, obj in ipairs(child:GetChildren()) do
+						if obj.Name == selected or obj.Name:lower() == selected:lower() then
+							local part = obj.PrimaryPart or obj:FindFirstChild("HumanoidRootPart") or obj:FindFirstChildWhichIsA("BasePart")
+							if part then
+								local dist = (root.Position - part.Position).Magnitude
+								if dist < closestDist then
+									closestDist = dist
+									closestPart = part
+								end
+							end
+						end
+					end
+				else
+					if child.Name == selected or child.Name:lower() == selected:lower() then
+						local part = child.PrimaryPart or child:FindFirstChild("HumanoidRootPart") or child:FindFirstChildWhichIsA("BasePart")
+						if part then
+							local dist = (root.Position - part.Position).Magnitude
+							if dist < closestDist then
+								closestDist = dist
+								closestPart = part
+							end
+						end
 					end
 				end
 			end
-		end
-
-		for _, child in ipairs(folder:GetChildren()) do
-			if child:IsA("Folder") then
-				for _, obj in ipairs(child:GetChildren()) do
-					inspectTarget(obj)
-				end
-			else
-				inspectTarget(child)
-			end
-		end
+		end)
 
 		if closestPart then
 			root.CFrame = closestPart.CFrame + Vector3.new(0, 3, 0)
-			Library:Notify({ Title = "Teleport", Description = ("Teleported to nearest %s (%.0f studs)"):format(selected, closestDist), Time = 2 })
+			Library:Notify({ Title = "Teleport", Description = "Teleported to nearest " .. selected, Time = 2 })
 		else
 			Library:Notify({ Title = "Teleport", Description = "No " .. selected .. " found in mineable.", Time = 3 })
 		end
 	end,
 })
-
 OreFarm:AddDivider()
 
 OreFarm:AddToggle("OreESPToggle", {
