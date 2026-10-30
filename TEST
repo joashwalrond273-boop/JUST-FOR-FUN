@@ -3039,6 +3039,11 @@ CombatCamlock:AddCheckbox("AntiCamlock", {
 	Default = false,
 })
 
+CombatCamlock:AddCheckbox("CamlockDodgePrediction", {
+	Text = "Dodge Prediction",
+	Default = false,
+})
+
 -- CONFIG TAB (RIGHT)
 CombatCamlockConfig:AddSlider("CamlockStrength", {
 	Text = "Camlock Strength",
@@ -4738,8 +4743,10 @@ if Toggles.AntiCamlock then
 			local ANTI_HOLD = 0.35
 			local ANTI_SPEED = 38
 			local ANTI_FLIP = 0.22
+			local PREDICT_LEAD = 0.35
 
 			local lockTimes = {}
+			local aimTrack = {}
 			local strafeSign = 1
 			local strafeTimer = 0
 
@@ -4748,12 +4755,14 @@ if Toggles.AntiCamlock then
 				local hum = getHumanoid()
 				if not root or not hum or hum.Health <= 0 then
 					lockTimes = {}
+					aimTrack = {}
 					return
 				end
 
 				local myPos = root.Position
 				local now = os.clock()
 				local lockPos = nil
+				local lockRate = 0
 
 				for _, other in ipairs(Players:GetPlayers()) do
 					if other ~= LocalPlayer and other.Character then
@@ -4765,6 +4774,16 @@ if Toggles.AntiCamlock then
 							local dist = toMe.Magnitude
 							local look = otherRoot.CFrame.LookVector
 							local lookFlat = Vector3.new(look.X, 0, look.Z)
+
+							-- Track how fast this player is turning their aim so we can predict their tracking
+							local yawNow = math.atan2(lookFlat.X, lookFlat.Z)
+							local prev = aimTrack[other]
+							local rate = 0
+							if prev and dt > 0 then
+								local dyaw = ((yawNow - prev.yaw + math.pi) % (2 * math.pi)) - math.pi
+								rate = dyaw / dt
+							end
+							aimTrack[other] = { yaw = yawNow }
 
 							local isAiming = false
 							if dist > 0.5 and dist <= ANTI_RANGE and lookFlat.Magnitude > 0.001 then
@@ -4781,6 +4800,7 @@ if Toggles.AntiCamlock then
 								if (now - rec.since) >= ANTI_HOLD then
 									if not lockPos or dist < (myPos - lockPos).Magnitude then
 										lockPos = ePos
+										lockRate = rate
 									end
 								end
 							else
@@ -4788,6 +4808,7 @@ if Toggles.AntiCamlock then
 							end
 						else
 							lockTimes[other] = nil
+							aimTrack[other] = nil
 						end
 					end
 				end
@@ -4797,16 +4818,47 @@ if Toggles.AntiCamlock then
 						lockTimes[plr] = nil
 					end
 				end
+				for plr in pairs(aimTrack) do
+					if not plr.Parent or not plr.Character then
+						aimTrack[plr] = nil
+					end
+				end
 
 				if lockPos then
 					local away = Vector3.new(myPos.X - lockPos.X, 0, myPos.Z - lockPos.Z)
 					if away.Magnitude > 0.001 then
+						local perp = Vector3.new(-away.Z, 0, away.X).Unit
+						local predicting = (Toggles.CamlockDodgePrediction and Toggles.CamlockDodgePrediction.Value) or false
+
 						strafeTimer = strafeTimer + dt
-						if strafeTimer >= ANTI_FLIP then
+
+						if predicting and math.abs(lockRate) > 0.05 then
+							-- Predict where their aim will be, then strafe to the side that stays
+							-- furthest from that predicted aim line
+							local predAngle = lockRate * PREDICT_LEAD
+							local c, s = math.cos(predAngle), math.sin(predAngle)
+							local baseLook = away.Unit * -1
+							local lookPred = Vector3.new(baseLook.X * c + baseLook.Z * s, 0, baseLook.Z * c - baseLook.X * s)
+
+							local function sep(sign)
+								local cand = Vector3.new(away.X + perp.X * sign * 3, 0, away.Z + perp.Z * sign * 3)
+								if cand.Magnitude < 0.001 then
+									return 0
+								end
+								return math.acos(math.clamp(lookPred:Dot(cand.Unit), -1, 1))
+							end
+
+							local desired = (sep(1) >= sep(-1)) and 1 or -1
+							if desired ~= strafeSign and strafeTimer >= ANTI_FLIP then
+								strafeSign = desired
+								strafeTimer = 0
+							end
+						elseif strafeTimer >= ANTI_FLIP then
 							strafeTimer = 0
 							strafeSign = -strafeSign
 						end
-						local strafeDir = Vector3.new(-away.Z, 0, away.X).Unit * strafeSign
+
+						local strafeDir = perp * strafeSign
 						pcall(function()
 							local vel = root.AssemblyLinearVelocity or root.Velocity or Vector3.zero
 							local strafeVel = strafeDir * ANTI_SPEED
