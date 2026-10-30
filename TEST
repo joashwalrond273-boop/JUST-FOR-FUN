@@ -7229,6 +7229,45 @@ local function filterLocations(prefix)
 	return names
 end
 
+local function getMineableFolderItems()
+	local folder = workspace:FindFirstChild("worldResources") and workspace.worldResources:FindFirstChild("mineable")
+	local found = {}
+	local items = {}
+
+	local defaults = { "Bluesteel", "Coal", "Copper", "Coral", "Gold", "Ice", "Iron", "Stone" }
+	for _, name in ipairs(defaults) do
+		found[name] = true
+		table.insert(items, name)
+	end
+
+	if folder then
+		for _, child in ipairs(folder:GetChildren()) do
+			if child:IsA("Folder") then
+				for _, obj in ipairs(child:GetChildren()) do
+					local name = obj.Name
+					if name and name ~= "" and not found[name] then
+						found[name] = true
+						table.insert(items, name)
+					end
+				end
+				if not child.Name:match("^%-?%d+[%s,_-]+%-?%d+$") and not found[child.Name] then
+					found[child.Name] = true
+					table.insert(items, child.Name)
+				end
+			else
+				local name = child.Name
+				if name and name ~= "" and not found[name] then
+					found[name] = true
+					table.insert(items, name)
+				end
+			end
+		end
+	end
+
+	table.sort(items)
+	return items
+end
+
 OreFarm:AddDropdown("SelectOreDropdown", {
 	Text = "Select Ore",
 	Values = { "Gold", "Coal" },
@@ -7240,6 +7279,38 @@ OreFarm:AddDropdown("GoldLocationsDropdown", {
 	Values = filterLocations("Gold"),
 	Default = "Gold 1",
 })
+
+OreFarm:AddDropdown("MineableFolderDropdown", {
+	Text = "Mineable Folder",
+	Values = getMineableFolderItems(),
+	Default = "Gold",
+})
+
+local function refreshMineableFolderDropdown()
+	if not Options or not Options.MineableFolderDropdown then return end
+	local items = getMineableFolderItems()
+	pcall(function()
+		Options.MineableFolderDropdown:SetValues(items)
+	end)
+end
+
+task.spawn(function()
+	local folder = workspace:FindFirstChild("worldResources") and workspace.worldResources:FindFirstChild("mineable")
+	if not folder then
+		local startWait = tick()
+		while not folder and tick() - startWait < 15 do
+			task.wait(1)
+			folder = workspace:FindFirstChild("worldResources") and workspace.worldResources:FindFirstChild("mineable")
+		end
+	end
+	if folder then
+		folder.ChildAdded:Connect(function()
+			task.wait(0.5)
+			refreshMineableFolderDropdown()
+		end)
+		refreshMineableFolderDropdown()
+	end
+end)
 
 Options.SelectOreDropdown:OnChanged(function()
 	local value = Options.SelectOreDropdown.Value
@@ -7273,6 +7344,60 @@ OreFarm:AddButton({
                    end
            end
    end,
+})
+
+OreFarm:AddButton({
+	Text = "Teleport to Nearest Mineable",
+	Func = function()
+		local selected = Options.MineableFolderDropdown and Options.MineableFolderDropdown.Value
+		if not selected then
+			Library:Notify({ Title = "Teleport", Description = "No mineable item selected.", Time = 2 })
+			return
+		end
+		local root = getRootPart()
+		if not root then
+			Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
+			return
+		end
+
+		local folder = workspace:FindFirstChild("worldResources") and workspace.worldResources:FindFirstChild("mineable")
+		if not folder then
+			Library:Notify({ Title = "Teleport", Description = "Mineable folder not found.", Time = 3 })
+			return
+		end
+
+		local closestPart, closestDist = nil, math.huge
+		local function inspectTarget(obj)
+			if not obj then return end
+			if obj.Name == selected or obj.Name:lower() == selected:lower() then
+				local part = obj.PrimaryPart or obj:FindFirstChild("HumanoidRootPart") or obj:FindFirstChildWhichIsA("BasePart")
+				if part then
+					local dist = (root.Position - part.Position).Magnitude
+					if dist < closestDist then
+						closestDist = dist
+						closestPart = part
+					end
+				end
+			end
+		end
+
+		for _, child in ipairs(folder:GetChildren()) do
+			if child:IsA("Folder") then
+				for _, obj in ipairs(child:GetChildren()) do
+					inspectTarget(obj)
+				end
+			else
+				inspectTarget(child)
+			end
+		end
+
+		if closestPart then
+			root.CFrame = closestPart.CFrame + Vector3.new(0, 3, 0)
+			Library:Notify({ Title = "Teleport", Description = ("Teleported to nearest %s (%.0f studs)"):format(selected, closestDist), Time = 2 })
+		else
+			Library:Notify({ Title = "Teleport", Description = "No " .. selected .. " found in mineable.", Time = 3 })
+		end
+	end,
 })
 
 OreFarm:AddDivider()
