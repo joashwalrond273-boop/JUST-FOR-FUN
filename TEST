@@ -1,7 +1,9 @@
 -- URIEL | Obsidian UI
 -- Docs: https://docs.mspaint.cc/obsidian
 
--- URIEL Re-execution support
+if getgenv().TSG_OBSIDIAN_LOADED then
+	return warn("[TSG] Script already loaded - rejoin to re-execute.")
+end
 getgenv().TSG_OBSIDIAN_LOADED = true
 
 -- Services
@@ -7227,41 +7229,34 @@ local function filterLocations(prefix)
 	return names
 end
 
-local function getMineableFolderItems()
-	local found = {}
-	local items = {}
-
-	local defaults = { "Bluesteel", "Coal", "Copper", "Coral", "Gold", "Ice", "Iron", "Stone" }
-	for _, name in ipairs(defaults) do
-		found[name] = true
-		table.insert(items, name)
-	end
-
+local function getMineableOres()
+	local names = { "Bluesteel", "Coal", "Copper", "Coral", "Gold", "Ice", "Iron", "Stone" }
 	pcall(function()
 		local folder = workspace:FindFirstChild("worldResources") and workspace.worldResources:FindFirstChild("mineable")
 		if folder then
-			for _, child in ipairs(folder:GetChildren()) do
-				if child:IsA("Folder") then
-					for _, obj in ipairs(child:GetChildren()) do
+			local seen = {}
+			for _, n in ipairs(names) do seen[n] = true end
+			for _, chunkFolder in ipairs(folder:GetChildren()) do
+				if chunkFolder:IsA("Folder") then
+					for _, obj in ipairs(chunkFolder:GetChildren()) do
 						local n = obj.Name
-						if n and n ~= "" and not found[n] then
-							found[n] = true
-							table.insert(items, n)
+						if n and n ~= "" and not seen[n] then
+							seen[n] = true
+							table.insert(names, n)
 						end
 					end
 				else
-					local n = child.Name
-					if n and n ~= "" and not found[n] then
-						found[n] = true
-						table.insert(items, n)
+					local n = chunkFolder.Name
+					if n and n ~= "" and not seen[n] then
+						seen[n] = true
+						table.insert(names, n)
 					end
 				end
 			end
 		end
 	end)
-
-	table.sort(items)
-	return items
+	table.sort(names)
+	return names
 end
 
 OreFarm:AddDropdown("SelectOreDropdown", {
@@ -7276,9 +7271,9 @@ OreFarm:AddDropdown("GoldLocationsDropdown", {
 	Default = "Gold 1",
 })
 
-OreFarm:AddDropdown("MineableFolderDropdown", {
-	Text = "Mineable Folder",
-	Values = getMineableFolderItems(),
+OreFarm:AddDropdown("MineableOresDropdown", {
+	Text = "Mineable Ores",
+	Values = getMineableOres(),
 	Default = "Gold",
 })
 
@@ -7312,66 +7307,6 @@ OreFarm:AddButton({
 			else
 				Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
 			end
-		end
-	end,
-})
-
-OreFarm:AddButton({
-	Text = "Teleport to Nearest Mineable",
-	Func = function()
-		local selected = Options.MineableFolderDropdown and Options.MineableFolderDropdown.Value
-		if not selected then
-			Library:Notify({ Title = "Teleport", Description = "No mineable item selected.", Time = 2 })
-			return
-		end
-		local root = getRootPart()
-		if not root then
-			Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
-			return
-		end
-
-		local folder = workspace:FindFirstChild("worldResources") and workspace.worldResources:FindFirstChild("mineable")
-		if not folder then
-			Library:Notify({ Title = "Teleport", Description = "Mineable folder not found.", Time = 3 })
-			return
-		end
-
-		local closestPart, closestDist = nil, math.huge
-		pcall(function()
-			for _, child in ipairs(folder:GetChildren()) do
-				if child:IsA("Folder") then
-					for _, obj in ipairs(child:GetChildren()) do
-						if obj.Name == selected or obj.Name:lower() == selected:lower() then
-							local part = obj.PrimaryPart or obj:FindFirstChild("HumanoidRootPart") or obj:FindFirstChildWhichIsA("BasePart")
-							if part then
-								local dist = (root.Position - part.Position).Magnitude
-								if dist < closestDist then
-									closestDist = dist
-									closestPart = part
-								end
-							end
-						end
-					end
-				else
-					if child.Name == selected or child.Name:lower() == selected:lower() then
-						local part = child.PrimaryPart or child:FindFirstChild("HumanoidRootPart") or child:FindFirstChildWhichIsA("BasePart")
-						if part then
-							local dist = (root.Position - part.Position).Magnitude
-							if dist < closestDist then
-								closestDist = dist
-								closestPart = part
-							end
-						end
-					end
-				end
-			end
-		end)
-
-		if closestPart then
-			root.CFrame = closestPart.CFrame + Vector3.new(0, 3, 0)
-			Library:Notify({ Title = "Teleport", Description = "Teleported to nearest " .. selected, Time = 2 })
-		else
-			Library:Notify({ Title = "Teleport", Description = "No " .. selected .. " found in mineable.", Time = 3 })
 		end
 	end,
 })
