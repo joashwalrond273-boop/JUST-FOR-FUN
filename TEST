@@ -3040,6 +3040,15 @@ CombatCamlock:AddCheckbox("AntiCamlock", {
 })
 
 -- CONFIG TAB (RIGHT)
+CombatCamlockConfig:AddSlider("CamlockStrength", {
+	Text = "Camlock Strength",
+	Default = 100,
+	Min = 1,
+	Max = 100,
+	Rounding = 0,
+	Compact = true,
+})
+
 CombatCamlockConfig:AddCheckbox("CamlockCameraLerp", {
 	Text = "Camera Lock",
 	Default = true,
@@ -3051,6 +3060,15 @@ CombatCamlockConfig:AddSlider("CamlockSmoothness", {
 	Min = 0.01,
 	Max = 1,
 	Rounding = 2,
+	Compact = true,
+})
+
+CombatCamlockConfig:AddSlider("CamlockMaxTurn", {
+	Text = "Max Turn Rate",
+	Default = 180,
+	Min = 1,
+	Max = 180,
+	Rounding = 0,
 	Compact = true,
 })
 
@@ -3524,10 +3542,22 @@ updatePVPModulesVisibility = function()
 			Toggles.CamlockCameraLerp.Holder.Visible = true
 		end
 	end
+	if Options.CamlockStrength then
+		Options.CamlockStrength.Visible = isCamLerp
+		if Options.CamlockStrength.Holder then
+			Options.CamlockStrength.Holder.Visible = isCamLerp
+		end
+	end
 	if Options.CamlockSmoothness then
 		Options.CamlockSmoothness.Visible = isCamLerp
 		if Options.CamlockSmoothness.Holder then
 			Options.CamlockSmoothness.Holder.Visible = isCamLerp
+		end
+	end
+	if Options.CamlockMaxTurn then
+		Options.CamlockMaxTurn.Visible = isCamLerp
+		if Options.CamlockMaxTurn.Holder then
+			Options.CamlockMaxTurn.Holder.Visible = isCamLerp
 		end
 	end
 	if Options.CamlockAimPart then
@@ -4622,7 +4652,9 @@ Toggles.Camlock:OnChanged(function()
 									aimPos = aimPos + (targetVel * (pred * 0.1))
 								end
 								local smoothness = (Options.CamlockSmoothness and Options.CamlockSmoothness.Value) or 0.2
-								local lerpFactor = math.clamp(smoothness, 0.01, 1)
+								local strength = (Options.CamlockStrength and Options.CamlockStrength.Value) or 100
+								local lerpFactor = math.clamp(smoothness * (strength / 100), 0.01, 1)
+								local maxTurn = (Options.CamlockMaxTurn and Options.CamlockMaxTurn.Value) or 180
 
 								-- Interpolate only the yaw (horizontal aim) toward the target so the
 								-- player keeps full vertical (pitch) camera control
@@ -4636,7 +4668,10 @@ Toggles.Camlock:OnChanged(function()
 								if flatDir.Magnitude > 0.001 then
 									local targetYaw = math.atan2(-flatDir.X, -flatDir.Z)
 									local yawDelta = ((targetYaw - curYaw + math.pi) % (2 * math.pi)) - math.pi
-									local newYaw = curYaw + yawDelta * lerpFactor
+									local step = yawDelta * lerpFactor
+									local maxStep = math.rad(maxTurn)
+									step = math.clamp(step, -maxStep, maxStep)
+									local newYaw = curYaw + step
 									camera.CFrame = CFrame.new(curCF.Position) * CFrame.fromOrientation(curPitch, newYaw, 0)
 								end
 							end
