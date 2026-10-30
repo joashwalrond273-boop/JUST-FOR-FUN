@@ -6421,7 +6421,7 @@ MoveMountAura:AddSlider("MountSpeedValue", {
 	Text = "Mount Speed Value",
 	Default = 35,
 	Min = 16,
-	Max = 100,
+	Max = 300,
 	Rounding = 1,
 	Compact = true,
 })
