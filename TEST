@@ -7229,36 +7229,6 @@ local function filterLocations(prefix)
 	return names
 end
 
-local function getMineableOres()
-	local names = { "Bluesteel", "Coal", "Copper", "Coral", "Gold", "Ice", "Iron", "Stone" }
-	pcall(function()
-		local folder = workspace:FindFirstChild("worldResources") and workspace.worldResources:FindFirstChild("mineable")
-		if folder then
-			local seen = {}
-			for _, n in ipairs(names) do seen[n] = true end
-			for _, chunkFolder in ipairs(folder:GetChildren()) do
-				if chunkFolder:IsA("Folder") then
-					for _, obj in ipairs(chunkFolder:GetChildren()) do
-						local n = obj.Name
-						if n and n ~= "" and not seen[n] then
-							seen[n] = true
-							table.insert(names, n)
-						end
-					end
-				else
-					local n = chunkFolder.Name
-					if n and n ~= "" and not seen[n] then
-						seen[n] = true
-						table.insert(names, n)
-					end
-				end
-			end
-		end
-	end)
-	table.sort(names)
-	return names
-end
-
 OreFarm:AddDropdown("SelectOreDropdown", {
 	Text = "Select Ore",
 	Values = { "Gold", "Coal" },
@@ -7269,12 +7239,6 @@ OreFarm:AddDropdown("GoldLocationsDropdown", {
 	Text = "Select Ore Location",
 	Values = filterLocations("Gold"),
 	Default = "Gold 1",
-})
-
-OreFarm:AddDropdown("MineableOresDropdown", {
-	Text = "Mineable Ores",
-	Values = getMineableOres(),
-	Default = "Gold",
 })
 
 Options.SelectOreDropdown:OnChanged(function()
@@ -7291,25 +7255,26 @@ end)
 OreFarm:AddButton({
 	Text = "Teleport to Selected",
 	Func = function()
-		local selected = Options.GoldLocationsDropdown.Value
-		local targetPos = nil
-		for _, loc in ipairs(goldLocations) do
-			if loc.name == selected then
-				targetPos = loc.pos
-				break
-			end
-		end
-		if targetPos then
-			local root = getRootPart()
-			if root then
-				root.CFrame = CFrame.new(targetPos)
-				Library:Notify({ Title = "Teleport", Description = "Teleported to " .. selected, Time = 1.5 })
-			else
-				Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
-			end
-		end
-	end,
+           local selected = Options.GoldLocationsDropdown.Value
+           local targetPos = nil
+           for _, loc in ipairs(goldLocations) do
+                   if loc.name == selected then
+                           targetPos = loc.pos
+                           break
+                   end
+           end
+           if targetPos then
+                   local root = getRootPart()
+                   if root then
+                           root.CFrame = CFrame.new(targetPos)
+                           Library:Notify({ Title = "Teleport", Description = "Teleported to " .. selected, Time = 1.5 })
+                   else
+                           Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
+                   end
+           end
+   end,
 })
+
 OreFarm:AddDivider()
 
 OreFarm:AddToggle("OreESPToggle", {
