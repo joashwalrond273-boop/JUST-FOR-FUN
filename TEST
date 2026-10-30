@@ -3090,7 +3090,7 @@ CombatCamlockConfig:AddSlider("CamlockPullDist", {
 CombatCamlockConfig:AddSlider("CamlockPullStrength", {
 	Text = "Tug / Pull Strength",
 	Default = 5,
-	Min = 1,
+	Min = 0.1,
 	Max = 20,
 	Rounding = 1,
 	Compact = true,
