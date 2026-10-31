@@ -3182,20 +3182,6 @@ CombatCamlockConfig:AddSlider("LookDownSens", {
 	Compact = true,
 })
 
-CombatCamlockConfig:AddCheckbox("CamlockFloorLock", {
-	Text = "Camlock Floor Lock",
-	Default = false,
-})
-
-CombatCamlockConfig:AddSlider("CamlockFloorLockSmooth", {
-	Text = "Floor Lock Smoothness",
-	Default = 0.35,
-	Min = 0.05,
-	Max = 1,
-	Rounding = 2,
-	Compact = true,
-})
-
 CombatLeft:AddToggle("KillAura", {
 	Text = "Kill Aura",
 	Default = false,
@@ -3741,21 +3727,6 @@ updatePVPModulesVisibility = function()
 		Options.LookDownSens.Visible = isLookDown
 		if Options.LookDownSens.Holder then
 			Options.LookDownSens.Holder.Visible = isLookDown
-		end
-	end
-	if Toggles.CamlockFloorLock then
-		if Toggles.CamlockFloorLock.Visible ~= nil then
-			Toggles.CamlockFloorLock.Visible = isLookDown
-		end
-		if Toggles.CamlockFloorLock.Holder then
-			Toggles.CamlockFloorLock.Holder.Visible = isLookDown
-		end
-	end
-	local isFloorLock = isLookDown and ((Toggles.CamlockFloorLock and Toggles.CamlockFloorLock.Value) or false)
-	if Options.CamlockFloorLockSmooth then
-		Options.CamlockFloorLockSmooth.Visible = isFloorLock
-		if Options.CamlockFloorLockSmooth.Holder then
-			Options.CamlockFloorLockSmooth.Holder.Visible = isFloorLock
 		end
 	end
 	if Options.OutlineTarget then
@@ -4491,10 +4462,6 @@ do
 	end
 end
 
-local currentCamlockTarget = nil
-local isLookDownEngaged = false
-local floorLookYaw = 0
-
 Toggles.Camlock:OnChanged(function()
 	disconnect("Camlock")
 	if updatePVPModulesVisibility then
@@ -4685,99 +4652,87 @@ Toggles.Camlock:OnChanged(function()
 			end
 
 			if closestPlayer then
-				currentCamlockTarget = closestPlayer
-				if not isLookDownEngaged then
-					UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
-					UserInputService.MouseIconEnabled = false
-				end
+				UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
+				UserInputService.MouseIconEnabled = false
 
 				local targetRoot = closestPlayer.Character:FindFirstChild("HumanoidRootPart")
 				if targetRoot then
 					local targetPos = targetRoot.Position
 					local lookDir = Vector3.new(targetPos.X - myPos.X, 0, targetPos.Z - myPos.Z).Unit
+					if lookDir.Magnitude > 0 then
+						hum.AutoRotate = false
 
-					if not isLookDownEngaged then
-						if lookDir.Magnitude > 0 then
-							hum.AutoRotate = false
-
-							local angleOffset = 0
-							if isHoldingSelectedSlot(3) or isHoldingSelectedSlot("3") then
-								local deg = (Options.Slot3AngleOffset and Options.Slot3AngleOffset.Value) or 8
-								angleOffset = -math.rad(deg)
-							end
-
-							root.CFrame = CFrame.new(myPos, myPos + lookDir) * CFrame.Angles(0, angleOffset, 0)
-						else
-							root.CFrame = CFrame.new(myPos, myPos + root.CFrame.LookVector)
+						local angleOffset = 0
+						if isHoldingSelectedSlot(3) or isHoldingSelectedSlot("3") then
+							local deg = (Options.Slot3AngleOffset and Options.Slot3AngleOffset.Value) or 8
+							angleOffset = -math.rad(deg)
 						end
 
-						-- True Camera Interpolation (Smooth Lerp)
-						if Toggles.CamlockCameraLerp and Toggles.CamlockCameraLerp.Value then
-							local camera = workspace.CurrentCamera
-							if camera then
-								local aimPartName = (Options.CamlockAimPart and Options.CamlockAimPart.Value) or "Head"
-								local aimPart = closestPlayer.Character:FindFirstChild(aimPartName) or closestPlayer.Character:FindFirstChild("HumanoidRootPart") or targetRoot
-								if aimPart then
-									local aimPos = aimPart.Position
-									local yOff = (Options.CamlockYOffset and Options.CamlockYOffset.Value) or 0
-									if yOff ~= 0 then
-										aimPos = aimPos + Vector3.new(0, yOff, 0)
-									end
-									local pred = (Options.CamlockPrediction and Options.CamlockPrediction.Value) or 0
-									if pred > 0 then
-										local targetVel = targetRoot.AssemblyLinearVelocity or targetRoot.Velocity or Vector3.zero
-										aimPos = aimPos + (targetVel * (pred * 0.1))
-									end
-									local smoothness = (Options.CamlockSmoothness and Options.CamlockSmoothness.Value) or 0.2
-									local lerpFactor = math.clamp(smoothness, 0.01, 1)
+						root.CFrame = CFrame.new(myPos, myPos + lookDir) * CFrame.Angles(0, angleOffset, 0)
+					else
+						root.CFrame = CFrame.new(myPos, myPos + root.CFrame.LookVector)
+					end
 
-									if Toggles.CamlockFreePitch and Toggles.CamlockFreePitch.Value then
-										-- Allow Look Down: interpolate only the yaw (horizontal aim) toward
-										-- the target so the player keeps full vertical (pitch) control
-										local curCF = camera.CFrame
-										local look = curCF.LookVector
-										local curYaw = math.atan2(-look.X, -look.Z)
-										local curPitch = math.asin(math.clamp(look.Y, -1, 1))
+					-- True Camera Interpolation (Smooth Lerp)
+					if Toggles.CamlockCameraLerp and Toggles.CamlockCameraLerp.Value then
+						local camera = workspace.CurrentCamera
+						if camera then
+							local aimPartName = (Options.CamlockAimPart and Options.CamlockAimPart.Value) or "Head"
+							local aimPart = closestPlayer.Character:FindFirstChild(aimPartName) or closestPlayer.Character:FindFirstChild("HumanoidRootPart") or targetRoot
+							if aimPart then
+								local aimPos = aimPart.Position
+								local yOff = (Options.CamlockYOffset and Options.CamlockYOffset.Value) or 0
+								if yOff ~= 0 then
+									aimPos = aimPos + Vector3.new(0, yOff, 0)
+								end
+								local pred = (Options.CamlockPrediction and Options.CamlockPrediction.Value) or 0
+								if pred > 0 then
+									local targetVel = targetRoot.AssemblyLinearVelocity or targetRoot.Velocity or Vector3.zero
+									aimPos = aimPos + (targetVel * (pred * 0.1))
+								end
+								local smoothness = (Options.CamlockSmoothness and Options.CamlockSmoothness.Value) or 0.2
+								local lerpFactor = math.clamp(smoothness, 0.01, 1)
 
-										local toTarget = aimPos - curCF.Position
-										local flatDir = Vector3.new(toTarget.X, 0, toTarget.Z)
-										if flatDir.Magnitude > 0.001 then
-											local targetYaw = math.atan2(-flatDir.X, -flatDir.Z)
-											local yawDelta = ((targetYaw - curYaw + math.pi) % (2 * math.pi)) - math.pi
-											local newYaw = curYaw + (yawDelta * lerpFactor)
-											camera.CFrame = CFrame.new(curCF.Position) * CFrame.fromOrientation(curPitch, newYaw, 0)
-										end
-									else
-										-- Default lock: the camera fully follows the target (pitch included)
-										local desiredCF = CFrame.new(camera.CFrame.Position, aimPos)
-										camera.CFrame = camera.CFrame:Lerp(desiredCF, lerpFactor)
+								if Toggles.CamlockFreePitch and Toggles.CamlockFreePitch.Value then
+									-- Allow Look Down: interpolate only the yaw (horizontal aim) toward
+									-- the target so the player keeps full vertical (pitch) control
+									local curCF = camera.CFrame
+									local look = curCF.LookVector
+									local curYaw = math.atan2(-look.X, -look.Z)
+									local curPitch = math.asin(math.clamp(look.Y, -1, 1))
+
+									local toTarget = aimPos - curCF.Position
+									local flatDir = Vector3.new(toTarget.X, 0, toTarget.Z)
+									if flatDir.Magnitude > 0.001 then
+										local targetYaw = math.atan2(-flatDir.X, -flatDir.Z)
+										local yawDelta = ((targetYaw - curYaw + math.pi) % (2 * math.pi)) - math.pi
+										local newYaw = curYaw + (yawDelta * lerpFactor)
+										camera.CFrame = CFrame.new(curCF.Position) * CFrame.fromOrientation(curPitch, newYaw, 0)
 									end
+								else
+									-- Default lock: the camera fully follows the target (pitch included)
+									local desiredCF = CFrame.new(camera.CFrame.Position, aimPos)
+									camera.CFrame = camera.CFrame:Lerp(desiredCF, lerpFactor)
 								end
 							end
 						end
 					end
 				end
 			else
-				currentCamlockTarget = nil
-				if not isLookDownEngaged then
-					UserInputService.MouseBehavior = Enum.MouseBehavior.Default
-					UserInputService.MouseIconEnabled = true
-					hum.AutoRotate = true
-				end
+				UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+				UserInputService.MouseIconEnabled = true
+				hum.AutoRotate = true
 				if outlineActive and (root.Position - myPos).Magnitude > 0.01 then
 					root.CFrame = CFrame.new(myPos, myPos + root.CFrame.LookVector)
 				end
 			end
 		end))
 	else
-		currentCamlockTarget = nil
-		if not isLookDownEngaged then
-			UserInputService.MouseBehavior = Enum.MouseBehavior.Default
-			UserInputService.MouseIconEnabled = true
-			local hum = getHumanoid()
-			if hum then
-				hum.AutoRotate = true
-			end
+		UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+		UserInputService.MouseIconEnabled = true
+		local hum = getHumanoid()
+		if hum then
+			hum.AutoRotate = true
 		end
 	end
 end)
@@ -5165,7 +5120,7 @@ if Toggles.SpearSword then
 	end)
 end
 
-floorLookYaw = 0
+local floorLookYaw = 0
 
 local function getFloorLookTouchSens()
 	local multiplier = (Options.LookDownSens and Options.LookDownSens.Value) or 12
@@ -5206,72 +5161,7 @@ local function isLookDownSlotAllowed(slotOption)
 	return false
 end
 
-isLookDownEngaged = false
-
-local function getCamlockFloorTarget(myPos)
-	if currentCamlockTarget and currentCamlockTarget.Character then
-		local tHum = currentCamlockTarget.Character:FindFirstChildOfClass("Humanoid")
-		local tRoot = currentCamlockTarget.Character:FindFirstChild("HumanoidRootPart")
-		if tHum and tHum.Health > 0 and tRoot then
-			local maxDist = (Options.CamlockStuds and Options.CamlockStuds.Value) or 20
-			if (tRoot.Position - myPos).Magnitude <= maxDist then
-				return currentCamlockTarget
-			end
-		end
-	end
-
-	local maxDist = (Options.CamlockStuds and Options.CamlockStuds.Value) or 20
-	local closestPlayer = nil
-	local closestDist = math.huge
-	local targetSetting = (Options.CamlockTarget and Options.CamlockTarget.Value) or "All"
-	local ignoreTeam = Toggles.CamlockIgnoreTeam and Toggles.CamlockIgnoreTeam.Value
-	local ignoreAlly = Toggles.CamlockIgnoreAlly and Toggles.CamlockIgnoreAlly.Value
-	local excludedTeams = (Options.CamlockIgnoreTeams and Options.CamlockIgnoreTeams.Value) or {}
-
-	local function isExcludedTeam(p)
-		if not ignoreAlly or not p or not p.Team then return false end
-		local teamName = p.Team.Name
-		if not teamName then return false end
-		if typeof(excludedTeams) == "table" then
-			for name, selected in pairs(excludedTeams) do
-				if selected == true and name == teamName then
-					return true
-				end
-			end
-		end
-		return false
-	end
-
-	local function isSameTeamOnly(p)
-		if LocalPlayer.Team and p.Team and LocalPlayer.Team == p.Team then
-			return true
-		end
-		if LocalPlayer.TeamColor and p.TeamColor and LocalPlayer.TeamColor == p.TeamColor and LocalPlayer.TeamColor ~= BrickColor.new("White") then
-			return true
-		end
-		return false
-	end
-
-	for _, otherPlayer in ipairs(Players:GetPlayers()) do
-		if otherPlayer ~= LocalPlayer and otherPlayer.Character then
-			if (not ignoreTeam or not isSameTeamOnly(otherPlayer)) and not isExcludedTeam(otherPlayer) then
-				local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
-				local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
-				if otherRoot and otherHum and otherHum.Health > 0 then
-					if targetSetting == "All" or otherPlayer.Name == targetSetting then
-						local dist = (otherRoot.Position - myPos).Magnitude
-						if dist <= maxDist and dist < closestDist then
-							closestDist = dist
-							closestPlayer = otherPlayer
-						end
-					end
-				end
-			end
-		end
-	end
-
-	return closestPlayer
-end
+local isLookDownEngaged = false
 
 if Toggles.LookDownFloor then
 	Toggles.LookDownFloor:OnChanged(function()
@@ -5371,41 +5261,6 @@ if Toggles.LookDownFloor then
 						end
 					end)
 
-					-- Camlock Floor Lock: Auto-lock target in top-down view
-					if Toggles.CamlockFloorLock and Toggles.CamlockFloorLock.Value then
-						local lockTarget = getCamlockFloorTarget(r.Position)
-						if lockTarget and lockTarget.Character then
-							local targetRoot = lockTarget.Character:FindFirstChild("HumanoidRootPart")
-							if targetRoot then
-								local aimPos = targetRoot.Position
-								local pred = (Options.CamlockPrediction and Options.CamlockPrediction.Value) or 0
-								if pred > 0 then
-									local targetVel = targetRoot.AssemblyLinearVelocity or targetRoot.Velocity or Vector3.zero
-									aimPos = aimPos + (targetVel * (pred * 0.1))
-								end
-
-								local angleOffset = 0
-								if isHoldingSelectedSlot(3) or isHoldingSelectedSlot("3") then
-									local deg = (Options.Slot3AngleOffset and Options.Slot3AngleOffset.Value) or 8
-									angleOffset = -math.rad(deg)
-								end
-
-								local toTarget = aimPos - r.Position
-								local flatDir = Vector3.new(toTarget.X, 0, toTarget.Z)
-								if flatDir.Magnitude > 0.001 then
-									local targetYaw = math.atan2(-flatDir.X, -flatDir.Z) + angleOffset
-									local smoothness = (Options.CamlockFloorLockSmooth and Options.CamlockFloorLockSmooth.Value) or 0.35
-									if smoothness >= 1 then
-										floorLookYaw = targetYaw
-									else
-										local yawDelta = ((targetYaw - floorLookYaw + math.pi) % (2 * math.pi)) - math.pi
-										floorLookYaw = floorLookYaw + (yawDelta * math.clamp(smoothness, 0.01, 1))
-									end
-								end
-							end
-						end
-					end
-
 					local zoomDist = (Options.LookDownZoom and Options.LookDownZoom.Value) or 20
 					local rootPos = r.Position
 
@@ -5432,14 +5287,6 @@ if Toggles.LookDownFloor then
 				workspace.CurrentCamera.CameraSubject = hum
 			end
 			workspace.CurrentCamera.CameraType = Enum.CameraType.Custom
-		end
-	end)
-end
-
-if Toggles.CamlockFloorLock then
-	Toggles.CamlockFloorLock:OnChanged(function()
-		if updatePVPModulesVisibility then
-			updatePVPModulesVisibility()
 		end
 	end)
 end
@@ -10767,9 +10614,6 @@ Library:OnUnload(function()
 	end
 	if Toggles.LookDownFloor and Toggles.LookDownFloor.Value then
 		Toggles.LookDownFloor:SetValue(false)
-	end
-	if Toggles.CamlockFloorLock and Toggles.CamlockFloorLock.Value then
-		Toggles.CamlockFloorLock:SetValue(false)
 	end
 	if Toggles.AutoJump and Toggles.AutoJump.Value then
 		Toggles.AutoJump:SetValue(false)
