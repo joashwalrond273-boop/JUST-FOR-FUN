@@ -3563,6 +3563,64 @@ CombatAutoPVP:AddCheckbox("CamlockDodgePrediction", {
 	Default = false,
 })
 
+CombatAutoPVP:AddDivider()
+
+CombatAutoPVP:AddToggle("SmartWeaponRotation", {
+	Text = "Smart Weapon Rotation",
+	Default = false,
+})
+
+CombatAutoPVP:AddDropdown("RotationMode", {
+	Text = "Rotation Mode",
+	Values = { "Adaptive (Poke & Slash)", "Distance Only", "Combo Cycle" },
+	Default = "Adaptive (Poke & Slash)",
+})
+
+CombatAutoPVP:AddSlider("SpearDistanceThreshold", {
+	Text = "Spear Distance Threshold",
+	Default = 9,
+	Min = 5,
+	Max = 20,
+	Rounding = 1,
+	Compact = true,
+})
+
+CombatAutoPVP:AddSlider("RotationSwitchDelay", {
+	Text = "Switch Cooldown (s)",
+	Default = 0.25,
+	Min = 0.05,
+	Max = 1,
+	Rounding = 2,
+	Compact = true,
+})
+
+CombatAutoPVP:AddCheckbox("RotationAutoSwing", {
+	Text = "Auto Swing on Swap",
+	Default = true,
+})
+
+CombatAutoPVP:AddCheckbox("RotationSyncPresets", {
+	Text = "Sync Reach/Camlock (3/5)",
+	Default = true,
+})
+
+CombatAutoPVP:AddCheckbox("RotationIgnoreTeam", {
+	Text = "Ignore Team",
+	Default = true,
+})
+
+CombatAutoPVP:AddDropdown("RotationSpearSlot", {
+	Text = "Spear Slot",
+	Values = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" },
+	Default = "3",
+})
+
+CombatAutoPVP:AddDropdown("RotationSwordSlot", {
+	Text = "Sword Slot",
+	Values = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" },
+	Default = "5",
+})
+
 updatePVPModulesVisibility = function()
 	local isCam = (Toggles.Camlock and Toggles.Camlock.Value) or false
 	local isCamLerp = (Toggles.CamlockCameraLerp and Toggles.CamlockCameraLerp.Value) or false
@@ -3777,6 +3835,62 @@ updatePVPModulesVisibility = function()
 			Options.AutoJumpDelay.Holder.Visible = isAutoJump
 		end
 	end
+	local isRotation = (Toggles.SmartWeaponRotation and Toggles.SmartWeaponRotation.Value) or false
+	if Options.RotationMode then
+		Options.RotationMode.Visible = isRotation
+		if Options.RotationMode.Holder then
+			Options.RotationMode.Holder.Visible = isRotation
+		end
+	end
+	if Options.SpearDistanceThreshold then
+		Options.SpearDistanceThreshold.Visible = isRotation
+		if Options.SpearDistanceThreshold.Holder then
+			Options.SpearDistanceThreshold.Holder.Visible = isRotation
+		end
+	end
+	if Options.RotationSwitchDelay then
+		Options.RotationSwitchDelay.Visible = isRotation
+		if Options.RotationSwitchDelay.Holder then
+			Options.RotationSwitchDelay.Holder.Visible = isRotation
+		end
+	end
+	if Toggles.RotationAutoSwing then
+		if Toggles.RotationAutoSwing.Visible ~= nil then
+			Toggles.RotationAutoSwing.Visible = isRotation
+		end
+		if Toggles.RotationAutoSwing.Holder then
+			Toggles.RotationAutoSwing.Holder.Visible = isRotation
+		end
+	end
+	if Toggles.RotationSyncPresets then
+		if Toggles.RotationSyncPresets.Visible ~= nil then
+			Toggles.RotationSyncPresets.Visible = isRotation
+		end
+		if Toggles.RotationSyncPresets.Holder then
+			Toggles.RotationSyncPresets.Holder.Visible = isRotation
+		end
+	end
+	if Toggles.RotationIgnoreTeam then
+		if Toggles.RotationIgnoreTeam.Visible ~= nil then
+			Toggles.RotationIgnoreTeam.Visible = isRotation
+		end
+		if Toggles.RotationIgnoreTeam.Holder then
+			Toggles.RotationIgnoreTeam.Holder.Visible = isRotation
+		end
+	end
+	if Options.RotationSpearSlot then
+		Options.RotationSpearSlot.Visible = isRotation
+		if Options.RotationSpearSlot.Holder then
+			Options.RotationSpearSlot.Holder.Visible = isRotation
+		end
+	end
+	if Options.RotationSwordSlot then
+		Options.RotationSwordSlot.Visible = isRotation
+		if Options.RotationSwordSlot.Holder then
+			Options.RotationSwordSlot.Holder.Visible = isRotation
+		end
+	end
+
 	CombatAutoPVP:Resize()
 	if CombatCamlock and CombatCamlock.Resize then
 		pcall(function() CombatCamlock:Resize() end)
@@ -5118,6 +5232,258 @@ if Toggles.SpearSword then
 			track("SpearSword_CharAdded", LocalPlayer.CharacterAdded:Connect(hookChar))
 		end
 	end)
+end
+
+-- ============================================================================
+-- SMART WEAPON ROTATION (SPEAR SLOT 3 / SWORD SLOT 5)
+-- ============================================================================
+local function equipHotbarSlotTool(slotNum)
+	if not slotNum then return false end
+	local slotStr = tostring(slotNum)
+	local char = LocalPlayer.Character
+	local hum = char and char:FindFirstChildOfClass("Humanoid")
+	if not char or not hum then return false end
+
+	-- Check if already holding this slot
+	local held = char:FindFirstChildOfClass("Tool")
+	if held then
+		if held.Name == slotStr or tonumber(held.Name) == tonumber(slotNum) then
+			return true
+		end
+		local attr = held:GetAttribute("slot") or held:GetAttribute("Slot") or held:GetAttribute("HotbarSlot")
+		if attr and (attr == tonumber(slotNum) or tostring(attr) == slotStr) then
+			return true
+		end
+		if held:FindFirstChild("toolModel") then
+			local tmSlot = held.toolModel:GetAttribute("slot") or held.toolModel:GetAttribute("Slot") or held.toolModel:GetAttribute("HotbarSlot")
+			if tmSlot and (tmSlot == tonumber(slotNum) or tostring(tmSlot) == slotStr) then
+				return true
+			end
+		end
+	end
+
+	local backpack = LocalPlayer:FindFirstChild("Backpack")
+	if not backpack then return false end
+
+	local toolToEquip = backpack:FindFirstChild(slotStr) or backpack:FindFirstChild("Slot " .. slotStr) or backpack:FindFirstChild("slot " .. slotStr)
+	if not toolToEquip then
+		for _, item in ipairs(backpack:GetChildren()) do
+			if item:IsA("Tool") then
+				if item.Name == slotStr or tonumber(item.Name) == tonumber(slotNum) then
+					toolToEquip = item
+					break
+				end
+				local attr = item:GetAttribute("slot") or item:GetAttribute("Slot") or item:GetAttribute("HotbarSlot")
+				if attr and (attr == tonumber(slotNum) or tostring(attr) == slotStr) then
+					toolToEquip = item
+					break
+				end
+				if item:FindFirstChild("toolModel") then
+					local tmSlot = item.toolModel:GetAttribute("slot") or item.toolModel:GetAttribute("Slot") or item.toolModel:GetAttribute("HotbarSlot")
+					if tmSlot and (tmSlot == tonumber(slotNum) or tostring(tmSlot) == slotStr) then
+						toolToEquip = item
+						break
+					end
+				end
+			end
+		end
+	end
+
+	if toolToEquip then
+		hum:EquipTool(toolToEquip)
+		return true
+	end
+	return false
+end
+
+do
+	local lastRotationSwap = 0
+	local currentRotationSlot = nil
+	local comboState = "SPEAR"
+	local lastSpearPokeTime = 0
+	local lastSwordStartTime = 0
+
+	local function performWeaponRotation()
+		if not (Toggles.SmartWeaponRotation and Toggles.SmartWeaponRotation.Value) then return end
+		if not isAlive() then return end
+
+		local root = getRootPart()
+		local hum = getHumanoid()
+		if not root or not hum then return end
+
+		local now = os.clock()
+		local switchCooldown = (Options.RotationSwitchDelay and Options.RotationSwitchDelay.Value) or 0.25
+
+		local spearSlot = (Options.RotationSpearSlot and Options.RotationSpearSlot.Value) or "3"
+		local swordSlot = (Options.RotationSwordSlot and Options.RotationSwordSlot.Value) or "5"
+		local threshold = (Options.SpearDistanceThreshold and Options.SpearDistanceThreshold.Value) or 9
+		local mode = (Options.RotationMode and Options.RotationMode.Value) or "Adaptive (Poke & Slash)"
+		local ignoreTeam = (Toggles.RotationIgnoreTeam and Toggles.RotationIgnoreTeam.Value)
+		local myPos = root.Position
+
+		-- Find closest enemy
+		local closestDist = math.huge
+		local closestEnemy = nil
+
+		for _, p in ipairs(Players:GetPlayers()) do
+			if p ~= LocalPlayer and p.Character then
+				if not ignoreTeam or not isTeammate(p) then
+					local otherRoot = p.Character:FindFirstChild("HumanoidRootPart")
+					local otherHum = p.Character:FindFirstChildOfClass("Humanoid")
+					if otherRoot and otherHum and otherHum.Health > 0 then
+						local dist = getFlatDistance(myPos, otherRoot.Position)
+						if dist < closestDist and dist <= 35 then
+							closestDist = dist
+							closestEnemy = p
+						end
+					end
+				end
+			end
+		end
+
+		if not closestEnemy then
+			return
+		end
+
+		local desiredSlot = nil
+
+		if mode == "Distance Only" then
+			local hysteresis = 0.8
+			if currentRotationSlot == spearSlot then
+				if closestDist <= (threshold - hysteresis) then
+					desiredSlot = swordSlot
+				end
+			elseif currentRotationSlot == swordSlot then
+				if closestDist >= (threshold + hysteresis) then
+					desiredSlot = spearSlot
+				end
+			else
+				desiredSlot = (closestDist > threshold) and spearSlot or swordSlot
+			end
+		elseif mode == "Combo Cycle" then
+			if comboState == "SPEAR" then
+				desiredSlot = spearSlot
+				if (now - lastSpearPokeTime > 0.4) and (closestDist <= (threshold + 2)) then
+					comboState = "SWORD"
+					lastSwordStartTime = now
+					desiredSlot = swordSlot
+				end
+			else
+				desiredSlot = swordSlot
+				if (now - lastSwordStartTime > 1.2) or (closestDist > (threshold + 3)) then
+					comboState = "SPEAR"
+					lastSpearPokeTime = now
+					desiredSlot = spearSlot
+				end
+			end
+		else -- "Adaptive (Poke & Slash)"
+			if closestDist > (threshold + 1) then
+				desiredSlot = spearSlot
+				comboState = "SPEAR"
+				lastSpearPokeTime = now
+			elseif closestDist <= (threshold - 1) then
+				if comboState == "SPEAR" and (now - lastSpearPokeTime > 0.35) then
+					comboState = "SWORD"
+					lastSwordStartTime = now
+					desiredSlot = swordSlot
+				elseif comboState == "SWORD" then
+					if (now - lastSwordStartTime > 2.0) then
+						comboState = "SPEAR"
+						lastSpearPokeTime = now
+						desiredSlot = spearSlot
+					else
+						desiredSlot = swordSlot
+					end
+				else
+					desiredSlot = swordSlot
+				end
+			else
+				if not currentRotationSlot then
+					desiredSlot = (closestDist > threshold) and spearSlot or swordSlot
+				end
+			end
+		end
+
+		if desiredSlot and desiredSlot ~= currentRotationSlot then
+			if now - lastRotationSwap >= switchCooldown then
+				local success = equipHotbarSlotTool(desiredSlot)
+				if success then
+					currentRotationSlot = desiredSlot
+					lastRotationSwap = now
+
+					if Options.KillAuraSlot and Options.KillAuraSlot.Value ~= desiredSlot then
+						pcall(function() Options.KillAuraSlot:SetValue(desiredSlot) end)
+					end
+
+					if Toggles.RotationSyncPresets and Toggles.RotationSyncPresets.Value then
+						if typeof(applySpearSwordSlot) == "function" then
+							applySpearSwordSlot(desiredSlot)
+						end
+						if Options.ReachRange then
+							if desiredSlot == spearSlot or desiredSlot == "3" or tonumber(desiredSlot) == 3 then
+								Options.ReachRange:SetValue(7.0)
+								if Options.ReachAngle then Options.ReachAngle:SetValue(15) end
+							elseif desiredSlot == swordSlot or desiredSlot == "5" or tonumber(desiredSlot) == 5 then
+								Options.ReachRange:SetValue(5.0)
+								if Options.ReachAngle then Options.ReachAngle:SetValue(15) end
+							end
+						end
+					end
+
+					if Toggles.RotationAutoSwing and Toggles.RotationAutoSwing.Value then
+						local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
+						if tool then
+							tool:Activate()
+						end
+					end
+				end
+			end
+		else
+			if Toggles.RotationAutoSwing and Toggles.RotationAutoSwing.Value and closestDist <= 18 then
+				local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
+				if tool then
+					tool:Activate()
+				end
+			end
+		end
+	end
+
+	Toggles.SmartWeaponRotation:OnChanged(function()
+		disconnect("SmartWeaponRotation_Loop")
+		if updatePVPModulesVisibility then
+			updatePVPModulesVisibility()
+		end
+
+		if Toggles.SmartWeaponRotation.Value then
+			currentRotationSlot = nil
+			comboState = "SPEAR"
+			lastRotationSwap = 0
+			lastSpearPokeTime = os.clock()
+			lastSwordStartTime = os.clock()
+
+			track("SmartWeaponRotation_Loop", RunService.Heartbeat:Connect(performWeaponRotation))
+			Library:Notify({
+				Title = "Smart Rotation",
+				Description = string.format("Enabled (Spear: Slot %s, Sword: Slot %s)", tostring(Options.RotationSpearSlot and Options.RotationSpearSlot.Value or "3"), tostring(Options.RotationSwordSlot and Options.RotationSwordSlot.Value or "5")),
+				Time = 2.5,
+			})
+		else
+			currentRotationSlot = nil
+			Library:Notify({ Title = "Smart Rotation", Description = "Disabled", Time = 2 })
+		end
+	end)
+
+	if Options.RotationSpearSlot then
+		Options.RotationSpearSlot:OnChanged(function()
+			currentRotationSlot = nil
+		end)
+	end
+
+	if Options.RotationSwordSlot then
+		Options.RotationSwordSlot:OnChanged(function()
+			currentRotationSlot = nil
+		end)
+	end
 end
 
 local floorLookYaw = 0
@@ -10611,6 +10977,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.SpearSword and Toggles.SpearSword.Value then
 		Toggles.SpearSword:SetValue(false)
+	end
+	if Toggles.SmartWeaponRotation and Toggles.SmartWeaponRotation.Value then
+		Toggles.SmartWeaponRotation:SetValue(false)
 	end
 	if Toggles.LookDownFloor and Toggles.LookDownFloor.Value then
 		Toggles.LookDownFloor:SetValue(false)
