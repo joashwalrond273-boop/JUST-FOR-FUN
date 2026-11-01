@@ -1184,6 +1184,13 @@ AdvanceHealGroup:AddToggle("AutoEatCustom", {
 	Default = false,
 })
 
+AdvanceHealGroup:AddDropdown("AutoEatSlot", {
+	Text = "Tool Slot",
+	Values = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"},
+	Default = {"1"},
+	Multi = true,
+})
+
 AdvanceHealGroup:AddCheckbox("QuickSwap", {
 	Text = "Multi Consume",
 	Default = false,
@@ -2991,6 +2998,66 @@ Toggles.AutoEatCustom:OnChanged(function()
 		Library:Notify({ Title = "Auto Eat", Description = "Enabled", Time = 2 })
 	end
 end)
+
+do
+	local autoEatSlotSaved = nil
+
+	local function updateAutoEatSlotState()
+		if not isAlive() then return end
+
+		local holding = isAdvanceSlotAllowed(Options.AutoEatSlot)
+
+		if holding then
+			if autoEatSlotSaved == nil then
+				autoEatSlotSaved = Toggles.AutoEatCustom and Toggles.AutoEatCustom.Value or false
+			end
+
+			if Toggles.AutoEatCustom and not Toggles.AutoEatCustom.Value then
+				Toggles.AutoEatCustom:SetValue(true)
+			end
+		else
+			if autoEatSlotSaved ~= nil then
+				if Toggles.AutoEatCustom and Toggles.AutoEatCustom.Value ~= autoEatSlotSaved then
+					Toggles.AutoEatCustom:SetValue(autoEatSlotSaved)
+				end
+				autoEatSlotSaved = nil
+			end
+		end
+	end
+
+	local function hookAutoEatSlotChar(char)
+		if not char then return end
+		disconnect("AutoEatSlot_ChildAdded")
+		disconnect("AutoEatSlot_ChildRemoved")
+		track("AutoEatSlot_ChildAdded", char.ChildAdded:Connect(function(child)
+			if child:IsA("Tool") then
+				task.wait()
+				updateAutoEatSlotState()
+			end
+		end))
+		track("AutoEatSlot_ChildRemoved", char.ChildRemoved:Connect(function(child)
+			if child:IsA("Tool") then
+				task.wait()
+				updateAutoEatSlotState()
+			end
+		end))
+	end
+
+	if LocalPlayer.Character then
+		hookAutoEatSlotChar(LocalPlayer.Character)
+	end
+	track("AutoEatSlot_CharAdded", LocalPlayer.CharacterAdded:Connect(hookAutoEatSlotChar))
+
+	track("AutoEatSlot_Poll", RunService.Heartbeat:Connect(function()
+		updateAutoEatSlotState()
+	end))
+
+	if Options.AutoEatSlot then
+		Options.AutoEatSlot:OnChanged(function()
+			updateAutoEatSlotState()
+		end)
+	end
+end
 
 -- ==========================================
 -- COMBAT
