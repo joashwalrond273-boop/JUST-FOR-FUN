@@ -3153,7 +3153,7 @@ CombatCamlockConfig:AddSlider("CamlockPullStrength", {
 })
 
 CombatCamlockConfig:AddCheckbox("LookDownFloor", {
-	Text = "Look at Floor",
+	Text = "Floor Lock System",
 	Default = false,
 })
 
