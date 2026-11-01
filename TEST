@@ -4462,6 +4462,8 @@ do
 	end
 end
 
+local camlockHasTarget = false
+
 Toggles.Camlock:OnChanged(function()
 	disconnect("Camlock")
 	if updatePVPModulesVisibility then
@@ -4545,6 +4547,10 @@ Toggles.Camlock:OnChanged(function()
 					end
 				end
 			end
+
+			-- Let the Floor Lock module know if we are actually locked onto someone,
+			-- so it yields while camlock is actively tracking a target
+			camlockHasTarget = (closestPlayer ~= nil)
 
 			-- Outline: Stop player from getting closer than studs to players while using Camlock
 			local outlineActive = (Toggles.Outline and Toggles.Outline.Value) or (Toggles.Cutline and Toggles.Cutline.Value)
@@ -4676,7 +4682,7 @@ Toggles.Camlock:OnChanged(function()
 				UserInputService.MouseIconEnabled = false
 
 				local targetRoot = closestPlayer.Character:FindFirstChild("HumanoidRootPart")
-				if targetRoot and not floorEngaged then
+				if targetRoot then
 					local targetPos = targetRoot.Position
 					local lookDir = Vector3.new(targetPos.X - myPos.X, 0, targetPos.Z - myPos.Z).Unit
 					if lookDir.Magnitude > 0 then
@@ -4750,6 +4756,7 @@ Toggles.Camlock:OnChanged(function()
 			end
 		end))
 	else
+		camlockHasTarget = false
 		UserInputService.MouseBehavior = Enum.MouseBehavior.Default
 		UserInputService.MouseIconEnabled = true
 		local hum = getHumanoid()
@@ -5259,7 +5266,8 @@ if Toggles.LookDownFloor then
 				local camera = workspace.CurrentCamera
 				if not r or not h or not camera then return end
 
-				local isHolding = isLookDownSlotAllowed(Options.LookDownSlot)
+				-- Yield to Camlock while it is actively locked onto a target
+				local isHolding = isLookDownSlotAllowed(Options.LookDownSlot) and not camlockHasTarget
 
 				if isHolding then
 					if not isLookDownEngaged then
