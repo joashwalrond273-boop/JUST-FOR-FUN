@@ -1723,11 +1723,6 @@ do
 	local statsGui = nil
 	local statsLabel = nil
 	local sessionStart = 0
-	local sessionKills = 0
-	local sessionDeaths = 0
-	local aliveState = {}
-	local myAlive = true
-	local statsLastPoll = 0
 	local statsLastLabel = 0
 
 	local function formatSessionTime(seconds)
@@ -1743,34 +1738,7 @@ do
 
 	local function refreshStatsLabel()
 		if not statsLabel then return end
-		statsLabel.Text = string.format("SESSION %s   KILLS %d   DEATHS %d", formatSessionTime(tick() - sessionStart), sessionKills, sessionDeaths)
-	end
-
-	local function pollSessionStats()
-		local myChar = LocalPlayer.Character
-		local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
-		local nowAlive = myHum ~= nil and myHum.Health > 0
-		if myAlive and not nowAlive then
-			sessionDeaths = sessionDeaths + 1
-		end
-		myAlive = nowAlive
-
-		local myRoot = myChar and (myChar:FindFirstChild("HumanoidRootPart") or myChar.PrimaryPart)
-
-		for _, otherPlayer in ipairs(Players:GetPlayers()) do
-			if otherPlayer ~= LocalPlayer then
-				local char = otherPlayer.Character
-				local hum = char and char:FindFirstChildOfClass("Humanoid")
-				local isAlive = hum ~= nil and hum.Health > 0
-				if aliveState[otherPlayer] == true and not isAlive and myRoot then
-					local otherRoot = char and (char:FindFirstChild("HumanoidRootPart") or char.PrimaryPart)
-					if otherRoot and (otherRoot.Position - myRoot.Position).Magnitude <= 50 then
-						sessionKills = sessionKills + 1
-					end
-				end
-				aliveState[otherPlayer] = isAlive
-			end
-		end
+		statsLabel.Text = string.format("SESSION %s", formatSessionTime(tick() - sessionStart))
 	end
 
 	local function buildStatsHud()
@@ -1812,7 +1780,7 @@ do
 		statsLabel.TextSize = 11
 		statsLabel.TextColor3 = Color3.fromRGB(0, 244, 255)
 		statsLabel.TextXAlignment = Enum.TextXAlignment.Left
-		statsLabel.Text = "SESSION 00:00   KILLS 0   DEATHS 0"
+		statsLabel.Text = "SESSION 00:00"
 		statsLabel.Parent = frame
 
 		local dragging, dragStart, dragPos = false, nil, nil
@@ -1852,11 +1820,6 @@ do
 		end
 
 		sessionStart = tick()
-		sessionKills = 0
-		sessionDeaths = 0
-		aliveState = {}
-		myAlive = true
-		statsLastPoll = 0
 		statsLastLabel = 0
 
 		buildStatsHud()
@@ -1867,10 +1830,6 @@ do
 			if not statsRunning or not statsLabel then return end
 
 			local now = tick()
-			if now - statsLastPoll >= 0.5 then
-				statsLastPoll = now
-				pcall(pollSessionStats)
-			end
 			if now - statsLastLabel >= 0.25 then
 				statsLastLabel = now
 				refreshStatsLabel()
@@ -7166,67 +7125,6 @@ FarmChop:AddCheckbox("HighlightChop", {
 	Title = "Highlight Target Color",
 })
 
-FarmChop:AddDivider()
-
-FarmChop:AddCheckbox("CreateFarmland", {
-	Text = "Create Farmland",
-	Default = false,
-})
-
--- Fires when enabled, then keeps firing as you walk (10 = Shovel item ID)
-Toggles.CreateFarmland:OnChanged(function()
-	disconnect("CreateFarmland")
-	if not Toggles.CreateFarmland.Value then return end
-
-	local function placeFarmland()
-		local root = getRootPart()
-		if not root then return end
-
-		local interactions = ReplicatedStorage:FindFirstChild("remoteInterface")
-		interactions = interactions and interactions:FindFirstChild("interactions")
-		local createFarmlandRemote = interactions and interactions:FindFirstChild("createFarmland")
-		if not createFarmlandRemote then return end
-
-		-- Ground directly under the player
-		local character = getCharacter()
-		local rayParams = RaycastParams.new()
-		pcall(function()
-			rayParams.FilterType = Enum.RaycastFilterType.Exclude
-		end)
-		rayParams.FilterDescendantsInstances = character and { character } or {}
-
-		local position = root.Position - Vector3.new(0, 3, 0)
-		local ok, result = pcall(function()
-			return workspace:Raycast(root.Position - Vector3.new(0, 3, 0), Vector3.new(0, -100, 0), rayParams)
-		end)
-		if ok and result then
-			position = result.Position
-		end
-
-		pcall(function()
-			createFarmlandRemote:FireServer(10, position, 0)
-		end)
-	end
-
-	placeFarmland()
-
-	local root = getRootPart()
-	local lastPlacePosition = root and root.Position
-
-	track("CreateFarmland", RunService.Heartbeat:Connect(function()
-		if not Toggles.CreateFarmland.Value then return end
-		if not isAlive() then return end
-
-		local currentRoot = getRootPart()
-		if not currentRoot then return end
-
-		if lastPlacePosition and (currentRoot.Position - lastPlacePosition).Magnitude < 4 then return end
-		lastPlacePosition = currentRoot.Position
-
-		placeFarmland()
-	end))
-end)
-
 -- ==========================================
 local FarmAI = Tabs.OreFactory:AddRightGroupbox("AI Aura", "zap")
 
@@ -9075,51 +8973,6 @@ VisualFPS:AddToggle("DisableEffects", {
 	end,
 })
 
-VisualFPS:AddToggle("DebrisCleaner", {
-	Text = "Debris Cleaner",
-	Default = false,
-	Callback = function(state)
-		disconnect("DebrisCleaner")
-		if state then
-			local nextPass = 0
-			local function isCharacterPart(part)
-				for _, plr in ipairs(Players:GetPlayers()) do
-					local char = plr.Character
-					if char and part:IsDescendantOf(char) then
-						return true
-					end
-				end
-				return false
-			end
-			track("DebrisCleaner", RunService.Heartbeat:Connect(function()
-				if not (Toggles.DebrisCleaner and Toggles.DebrisCleaner.Value) then return end
-				if tick() < nextPass then return end
-				nextPass = tick() + 1
-				local removed = 0
-				for _, v in ipairs(workspace:GetChildren()) do
-					if not (Toggles.DebrisCleaner and Toggles.DebrisCleaner.Value) then break end
-					if v ~= workspace.Terrain and v:IsA("BasePart") and not v.Anchored then
-						if not isCharacterPart(v) then
-							pcall(function() v:Destroy() end)
-							removed = removed + 1
-						end
-					elseif v:IsA("Model") and v.PrimaryPart == nil and not v:FindFirstChildOfClass("Humanoid") and #v:GetChildren() == 0 then
-						pcall(function() v:Destroy() end)
-						removed = removed + 1
-					end
-					if removed >= 200 then
-						removed = 0
-						task.wait()
-					end
-				end
-			end))
-			Library:Notify({ Title = "Debris Cleaner", Description = "Enabled", Time = 2 })
-		else
-			Library:Notify({ Title = "Debris Cleaner", Description = "Disabled", Time = 2 })
-		end
-	end,
-})
-
 do
 	local PARTICLE_CLASSES = {
 		ParticleEmitter = true,
@@ -10630,9 +10483,6 @@ Library:OnUnload(function()
 	end)
 	if Toggles.RemoveParticles and Toggles.RemoveParticles.Value then
 		Toggles.RemoveParticles:SetValue(false)
-	end
-	if Toggles.DebrisCleaner and Toggles.DebrisCleaner.Value then
-		Toggles.DebrisCleaner:SetValue(false)
 	end
 	if Toggles.KillHeavyPostEffects and Toggles.KillHeavyPostEffects.Value then
 		Toggles.KillHeavyPostEffects:SetValue(false)
