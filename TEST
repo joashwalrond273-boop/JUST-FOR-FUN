@@ -1184,6 +1184,11 @@ AdvanceHealGroup:AddToggle("AutoEatCustom", {
 	Default = false,
 })
 
+AdvanceHealGroup:AddCheckbox("AutoEatSlotSystem", {
+	Text = "Slot System",
+	Default = false,
+})
+
 AdvanceHealGroup:AddDropdown("AutoEatSlot", {
 	Text = "Tool Slot",
 	Values = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"},
@@ -3003,6 +3008,7 @@ do
 	local autoEatSlotSaved = nil
 
 	local function updateAutoEatSlotState()
+		if not (Toggles.AutoEatSlotSystem and Toggles.AutoEatSlotSystem.Value) then return end
 		if not isAlive() then return end
 
 		local holding = isAdvanceSlotAllowed(Options.AutoEatSlot)
@@ -3055,6 +3061,23 @@ do
 	if Options.AutoEatSlot then
 		Options.AutoEatSlot:OnChanged(function()
 			updateAutoEatSlotState()
+		end)
+	end
+
+	if Toggles.AutoEatSlotSystem then
+		Toggles.AutoEatSlotSystem:OnChanged(function()
+			if Toggles.AutoEatSlotSystem.Value then
+				updateAutoEatSlotState()
+				Library:Notify({ Title = "Auto Eat Slot System", Description = "Enabled", Time = 2 })
+			else
+				if autoEatSlotSaved ~= nil then
+					if Toggles.AutoEatCustom and Toggles.AutoEatCustom.Value ~= autoEatSlotSaved then
+						Toggles.AutoEatCustom:SetValue(autoEatSlotSaved)
+					end
+					autoEatSlotSaved = nil
+				end
+				Library:Notify({ Title = "Auto Eat Slot System", Description = "Disabled", Time = 2 })
+			end
 		end)
 	end
 end
