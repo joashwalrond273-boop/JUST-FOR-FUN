@@ -1725,9 +1725,10 @@ do
 	local sessionStart = 0
 	local sessionKills = 0
 	local sessionDeaths = 0
+	local aliveState = {}
+	local myAlive = true
+	local statsLastPoll = 0
 	local statsLastLabel = 0
-	local deathConns = {}
-	local charConns = {}
 
 	local function formatSessionTime(seconds)
 		seconds = math.max(0, math.floor(seconds))
@@ -1745,53 +1746,31 @@ do
 		statsLabel.Text = string.format("SESSION %s   KILLS %d   DEATHS %d", formatSessionTime(tick() - sessionStart), sessionKills, sessionDeaths)
 	end
 
-	local function bindCharacter(player, char)
-		local hum = char:FindFirstChildOfClass("Humanoid")
-		if not hum then return end
-		if deathConns[player] then
-			deathConns[player]:Disconnect()
-			deathConns[player] = nil
+	local function pollSessionStats()
+		local myChar = LocalPlayer.Character
+		local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+		local nowAlive = myHum ~= nil and myHum.Health > 0
+		if myAlive and not nowAlive then
+			sessionDeaths = sessionDeaths + 1
 		end
-		deathConns[player] = hum.Died:Connect(function()
-			if player == LocalPlayer then
-				sessionDeaths = sessionDeaths + 1
-			else
-				local myChar = LocalPlayer.Character
-				local myRoot = myChar and (myChar:FindFirstChild("HumanoidRootPart") or myChar.PrimaryPart)
-				local otherRoot = char:FindFirstChild("HumanoidRootPart") or char.PrimaryPart
-				if myRoot and otherRoot and (otherRoot.Position - myRoot.Position).Magnitude <= 50 then
-					sessionKills = sessionKills + 1
+		myAlive = nowAlive
+
+		local myRoot = myChar and (myChar:FindFirstChild("HumanoidRootPart") or myChar.PrimaryPart)
+
+		for _, otherPlayer in ipairs(Players:GetPlayers()) do
+			if otherPlayer ~= LocalPlayer then
+				local char = otherPlayer.Character
+				local hum = char and char:FindFirstChildOfClass("Humanoid")
+				local isAlive = hum ~= nil and hum.Health > 0
+				if aliveState[otherPlayer] == true and not isAlive and myRoot then
+					local otherRoot = char and (char:FindFirstChild("HumanoidRootPart") or char.PrimaryPart)
+					if otherRoot and (otherRoot.Position - myRoot.Position).Magnitude <= 50 then
+						sessionKills = sessionKills + 1
+					end
 				end
+				aliveState[otherPlayer] = isAlive
 			end
-			refreshStatsLabel()
-		end)
-	end
-
-	local function bindPlayer(player)
-		if not player or not player.Parent then return end
-		if charConns[player] then
-			charConns[player]:Disconnect()
-			charConns[player] = nil
 		end
-		charConns[player] = player.CharacterAdded:Connect(function(char)
-			if statsRunning then
-				bindCharacter(player, char)
-			end
-		end)
-		if player.Character then
-			bindCharacter(player, player.Character)
-		end
-	end
-
-	local function unbindAll()
-		for _, conn in pairs(deathConns) do
-			conn:Disconnect()
-		end
-		for _, conn in pairs(charConns) do
-			conn:Disconnect()
-		end
-		table.clear(deathConns)
-		table.clear(charConns)
 	end
 
 	local function buildStatsHud()
@@ -1860,9 +1839,6 @@ do
 	Toggles.SessionStatsHud:OnChanged(function()
 		statsRunning = false
 		disconnect("SessionStats_Loop")
-		disconnect("SessionStats_PlayerAdded")
-		disconnect("SessionStats_PlayerRemoving")
-		unbindAll()
 
 		if statsGui then
 			statsGui:Destroy()
@@ -1878,33 +1854,23 @@ do
 		sessionStart = tick()
 		sessionKills = 0
 		sessionDeaths = 0
+		aliveState = {}
+		myAlive = true
+		statsLastPoll = 0
 		statsLastLabel = 0
 
 		buildStatsHud()
 		refreshStatsLabel()
 		statsRunning = true
 
-		for _, plr in ipairs(Players:GetPlayers()) do
-			bindPlayer(plr)
-		end
-
-		track("SessionStats_PlayerAdded", Players.PlayerAdded:Connect(bindPlayer))
-
-		track("SessionStats_PlayerRemoving", Players.PlayerRemoving:Connect(function(plr)
-			if deathConns[plr] then
-				deathConns[plr]:Disconnect()
-				deathConns[plr] = nil
-			end
-			if charConns[plr] then
-				charConns[plr]:Disconnect()
-				charConns[plr] = nil
-			end
-		end))
-
 		track("SessionStats_Loop", RunService.RenderStepped:Connect(function()
 			if not statsRunning or not statsLabel then return end
 
 			local now = tick()
+			if now - statsLastPoll >= 0.5 then
+				statsLastPoll = now
+				pcall(pollSessionStats)
+			end
 			if now - statsLastLabel >= 0.25 then
 				statsLastLabel = now
 				refreshStatsLabel()
@@ -3677,7 +3643,7 @@ CombatAutoPVP:AddSlider("AutoJumpDelay", {
 	Compact = true,
 })
 
-CombatAutoPVP:AddCheckbox("AntiCamlock", {
+CombatAutoPVP:AddToggle("AntiCamlock", {
 	Text = "Anti Camlock",
 	Default = false,
 })
@@ -4914,11 +4880,10 @@ if Toggles.AntiCamlock then
 	Toggles.AntiCamlock:OnChanged(function()
 		disconnect("AntiCamlock")
 		if Toggles.AntiCamlock.Value then
-			local ANTI_RANGE = 60
+			local ANTI_RANGE = 10
 			local ANTI_ANGLE = math.rad(12)
 			local ANTI_HOLD = 0.35
-			local ANTI_SPEED = 38
-			local ANTI_FLIP = 0.22
+			local ANTI_FLIP = 0.5
 			local PREDICT_LEAD = 0.35
 
 			local lockTimes = {}
@@ -5036,7 +5001,7 @@ if Toggles.AntiCamlock then
 						local strafeDir = perp * strafeSign
 						pcall(function()
 							local vel = root.AssemblyLinearVelocity or root.Velocity or Vector3.zero
-							local strafeVel = strafeDir * ANTI_SPEED
+							local strafeVel = strafeDir * hum.WalkSpeed
 							local newVel = Vector3.new(strafeVel.X, vel.Y, strafeVel.Z)
 							root.AssemblyLinearVelocity = newVel
 							root.Velocity = newVel
@@ -7998,11 +7963,6 @@ do
 	end
 
 	local function alertBoss(boss, instance)
-		if instance and instance:IsA("Model") then
-			local hum = instance:FindFirstChildOfClass("Humanoid")
-			if hum and hum.Health <= 0 then return end
-		end
-
 		local now = tick()
 		if bossNotifyAlerts[boss] and now - bossNotifyAlerts[boss] < 5 then return end
 		bossNotifyAlerts[boss] = now
@@ -8045,6 +8005,18 @@ do
 		if aiClient and not Connections["BossNotify_AI_Client"] then
 			track("BossNotify_AI_Client", aiClient.ChildAdded:Connect(onBossChildAdded))
 		end
+
+		local gameFolder = ReplicatedStorage:FindFirstChild("game")
+		local aiModels = gameFolder and gameFolder:FindFirstChild("AIModels")
+		if aiModels and not Connections["BossNotify_AIModels"] then
+			track("BossNotify_AIModels", aiModels.ChildRemoved:Connect(function(child)
+				if not bossNotifyRunning then return end
+				local boss = getBossName(child and child.Name)
+				if boss then
+					alertBoss(boss, child)
+				end
+			end))
+		end
 	end
 
 	Toggles.BossSpawnNotifier:OnChanged(function()
@@ -8052,6 +8024,7 @@ do
 		disconnect("BossNotify_Workspace")
 		disconnect("BossNotify_AI_Server")
 		disconnect("BossNotify_AI_Client")
+		disconnect("BossNotify_AIModels")
 		disconnect("BossNotify_Poll")
 		table.clear(bossNotifyAlerts)
 
@@ -8752,7 +8725,7 @@ for _, loc in ipairs(bossLocations) do
 		Func = function()
 			local root = getRootPart()
 			if root then
-				root.CFrame = CFrame.new(loc.pos)
+				root.CFrame = CFrame.new(loc.pos + Vector3.new(0, 10, 0))
 				Library:Notify({ Title = "Teleport", Description = "Teleported to " .. loc.name, Time = 1.5 })
 			else
 				Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
@@ -8783,7 +8756,7 @@ for _, loc in ipairs(extraLocations) do
 		Func = function()
 			local root = getRootPart()
 			if root then
-				root.CFrame = CFrame.new(loc.pos)
+				root.CFrame = CFrame.new(loc.pos + Vector3.new(0, 10, 0))
 				Library:Notify({ Title = "Teleport", Description = "Teleported to " .. loc.name, Time = 1.5 })
 			else
 				Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
@@ -8810,7 +8783,7 @@ for _, loc in ipairs(mountLocations) do
 		Func = function()
 			local root = getRootPart()
 			if root then
-				root.CFrame = CFrame.new(loc.pos)
+				root.CFrame = CFrame.new(loc.pos + Vector3.new(0, 10, 0))
 				Library:Notify({ Title = "Teleport", Description = "Teleported to " .. loc.name, Time = 1.5 })
 			else
 				Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
@@ -8837,7 +8810,7 @@ for _, loc in ipairs(merchantLocations) do
 		Func = function()
 			local root = getRootPart()
 			if root then
-				root.CFrame = CFrame.new(loc.pos)
+				root.CFrame = CFrame.new(loc.pos + Vector3.new(0, 10, 0))
 				Library:Notify({ Title = "Teleport", Description = "Teleported to " .. loc.name, Time = 1.5 })
 			else
 				Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
