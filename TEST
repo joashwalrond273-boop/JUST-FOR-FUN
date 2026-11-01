@@ -4676,7 +4676,7 @@ Toggles.Camlock:OnChanged(function()
 				UserInputService.MouseIconEnabled = false
 
 				local targetRoot = closestPlayer.Character:FindFirstChild("HumanoidRootPart")
-				if targetRoot then
+				if targetRoot and not floorEngaged then
 					local targetPos = targetRoot.Position
 					local lookDir = Vector3.new(targetPos.X - myPos.X, 0, targetPos.Z - myPos.Z).Unit
 					if lookDir.Magnitude > 0 then
@@ -4694,7 +4694,7 @@ Toggles.Camlock:OnChanged(function()
 					end
 
 					-- True Camera Interpolation (Smooth Lerp)
-					if not floorEngaged and Toggles.CamlockCameraLerp and Toggles.CamlockCameraLerp.Value then
+					if Toggles.CamlockCameraLerp and Toggles.CamlockCameraLerp.Value then
 						local camera = workspace.CurrentCamera
 						if camera then
 							local aimPartName = (Options.CamlockAimPart and Options.CamlockAimPart.Value) or "Head"
@@ -4739,9 +4739,9 @@ Toggles.Camlock:OnChanged(function()
 					end
 				end
 			else
-				UserInputService.MouseBehavior = Enum.MouseBehavior.Default
-				UserInputService.MouseIconEnabled = true
 				if not floorEngaged then
+					UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+					UserInputService.MouseIconEnabled = true
 					hum.AutoRotate = true
 					if outlineActive and (root.Position - myPos).Magnitude > 0.01 then
 						root.CFrame = CFrame.new(myPos, myPos + root.CFrame.LookVector)
@@ -5274,6 +5274,10 @@ if Toggles.LookDownFloor then
 					-- Disable AutoRotate so joystick only moves/strafes without twisting character facing direction
 					h.AutoRotate = false
 
+					-- Keep shift-lock so the mouse always turns the character
+					UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
+					UserInputService.MouseIconEnabled = false
+
 					-- Arrow key rotation support
 					pcall(function()
 						if UserInputService:IsKeyDown(Enum.KeyCode.Left) then
@@ -5290,18 +5294,16 @@ if Toggles.LookDownFloor then
 						* CFrame.Angles(0, floorLookYaw, 0)
 						* CFrame.Angles(-math.rad(89.5), 0, 0)
 
-					-- Rotate character body to face the thumb aim direction.
-					-- When Camlock is active, leave the body facing the locked target instead.
-					local camlockActive = (Toggles.Camlock and Toggles.Camlock.Value) or false
-					if not camlockActive then
-						r.CFrame = CFrame.new(rootPos) * CFrame.Angles(0, floorLookYaw, 0)
-					end
+					-- Rotate character body to face the aim direction (shift-lock style)
+					r.CFrame = CFrame.new(rootPos) * CFrame.Angles(0, floorLookYaw, 0)
 				else
 					if isLookDownEngaged then
 						isLookDownEngaged = false
 						h.AutoRotate = true
 						camera.CameraSubject = h
 						camera.CameraType = Enum.CameraType.Custom
+						UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+						UserInputService.MouseIconEnabled = true
 					end
 				end
 			end))
@@ -5313,6 +5315,8 @@ if Toggles.LookDownFloor then
 				workspace.CurrentCamera.CameraSubject = hum
 			end
 			workspace.CurrentCamera.CameraType = Enum.CameraType.Custom
+			UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+			UserInputService.MouseIconEnabled = true
 		end
 	end)
 end
