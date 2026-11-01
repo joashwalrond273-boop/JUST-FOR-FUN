@@ -4474,6 +4474,26 @@ Toggles.Camlock:OnChanged(function()
 			local hum = getHumanoid()
 			if not root or not hum then return end
 
+			-- Look at Floor integration: when the floor view is engaged, let the floor
+			-- module own the camera so both features can run together
+			local floorEngaged = false
+			if Toggles.LookDownFloor and Toggles.LookDownFloor.Value and Options.LookDownSlot then
+				local slotVal = Options.LookDownSlot.Value
+				if typeof(slotVal) == "table" then
+					for slotKey, isSelected in pairs(slotVal) do
+						if isSelected == true or (typeof(slotKey) == "number" and typeof(isSelected) == "string") then
+							local targetSlot = (isSelected == true) and slotKey or isSelected
+							if isHoldingSelectedSlot(targetSlot) then
+								floorEngaged = true
+								break
+							end
+						end
+					end
+				elseif slotVal ~= nil then
+					floorEngaged = isHoldingSelectedSlot(slotVal)
+				end
+			end
+
 			local maxDist = Options.CamlockStuds and Options.CamlockStuds.Value or 20
 			local myPos = root.Position
 			local closestPlayer = nil
@@ -4674,7 +4694,7 @@ Toggles.Camlock:OnChanged(function()
 					end
 
 					-- True Camera Interpolation (Smooth Lerp)
-					if Toggles.CamlockCameraLerp and Toggles.CamlockCameraLerp.Value then
+					if not floorEngaged and Toggles.CamlockCameraLerp and Toggles.CamlockCameraLerp.Value then
 						local camera = workspace.CurrentCamera
 						if camera then
 							local aimPartName = (Options.CamlockAimPart and Options.CamlockAimPart.Value) or "Head"
@@ -4721,9 +4741,11 @@ Toggles.Camlock:OnChanged(function()
 			else
 				UserInputService.MouseBehavior = Enum.MouseBehavior.Default
 				UserInputService.MouseIconEnabled = true
-				hum.AutoRotate = true
-				if outlineActive and (root.Position - myPos).Magnitude > 0.01 then
-					root.CFrame = CFrame.new(myPos, myPos + root.CFrame.LookVector)
+				if not floorEngaged then
+					hum.AutoRotate = true
+					if outlineActive and (root.Position - myPos).Magnitude > 0.01 then
+						root.CFrame = CFrame.new(myPos, myPos + root.CFrame.LookVector)
+					end
 				end
 			end
 		end))
@@ -5268,8 +5290,12 @@ if Toggles.LookDownFloor then
 						* CFrame.Angles(0, floorLookYaw, 0)
 						* CFrame.Angles(-math.rad(89.5), 0, 0)
 
-					-- Rotate character body to face the thumb aim direction
-					r.CFrame = CFrame.new(rootPos) * CFrame.Angles(0, floorLookYaw, 0)
+					-- Rotate character body to face the thumb aim direction.
+					-- When Camlock is active, leave the body facing the locked target instead.
+					local camlockActive = (Toggles.Camlock and Toggles.Camlock.Value) or false
+					if not camlockActive then
+						r.CFrame = CFrame.new(rootPos) * CFrame.Angles(0, floorLookYaw, 0)
+					end
 				else
 					if isLookDownEngaged then
 						isLookDownEngaged = false
