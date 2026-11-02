@@ -3341,6 +3341,11 @@ CombatAutoSwingGroup:AddToggle("AutoSwing", {
 	Default = false,
 })
 
+CombatAutoSwingGroup:AddToggle("SmartSwing", {
+	Text = "Smart Detection",
+	Default = false,
+})
+
 CombatAutoSwingGroup:AddDropdown("AutoSwingSlot", {
 	Text = "Tool Slot",
 	Values = { "Normal", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" },
@@ -3349,23 +3354,6 @@ CombatAutoSwingGroup:AddDropdown("AutoSwingSlot", {
 })
 
 CombatAutoSwingGroup:AddDivider()
-
-CombatAutoSwingGroup:AddToggle("SmartSwing", {
-	Text = "Smart Swing",
-	Default = false,
-})
-
-CombatAutoSwingGroup:AddCheckbox("SmartSwingSlotSystem", {
-	Text = "Slot System",
-	Default = false,
-})
-
-CombatAutoSwingGroup:AddDropdown("SmartSwingSlot", {
-	Text = "Tool Slot",
-	Values = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" },
-	Default = { "1" },
-	Multi = true,
-})
 
 CombatAutoSwingGroup:AddSlider("AutoSwingSpeed", {
 	Text = "Auto Swing Speed",
@@ -3393,27 +3381,12 @@ CombatAutoSwingGroup:AddToggle("SmartSwingIgnoreTeam", {
 updateAutoSwingSliderVisibility = function()
 	local isAutoSwingToggled = (Toggles.AutoSwing and Toggles.AutoSwing.Value) or false
 	local isSmartSwingToggled = (Toggles.SmartSwing and Toggles.SmartSwing.Value) or false
-	local isSSSlot = (Toggles.SmartSwingSlotSystem and Toggles.SmartSwingSlotSystem.Value) or false
 	local isAnyToggled = isAutoSwingToggled or isSmartSwingToggled
 
 	if Options.AutoSwingSlot then
 		Options.AutoSwingSlot.Visible = true
 		if Options.AutoSwingSlot.Holder then
 			Options.AutoSwingSlot.Holder.Visible = true
-		end
-	end
-	if Toggles.SmartSwingSlotSystem then
-		if Toggles.SmartSwingSlotSystem.Visible ~= nil then
-			Toggles.SmartSwingSlotSystem.Visible = true
-		end
-		if Toggles.SmartSwingSlotSystem.Holder then
-			Toggles.SmartSwingSlotSystem.Holder.Visible = true
-		end
-	end
-	if Options.SmartSwingSlot then
-		Options.SmartSwingSlot.Visible = isSSSlot
-		if Options.SmartSwingSlot.Holder then
-			Options.SmartSwingSlot.Holder.Visible = isSSSlot
 		end
 	end
 	if Options.AutoSwingSpeed then
@@ -4035,48 +4008,70 @@ do
 		return (Options.ShieldDamageRefire and Options.ShieldDamageRefire.Value) or 1
 	end
 
-	local shieldAnimLoad = nil
-	local shieldAnimStop = nil
 	local shieldAnimActive = false
+	local shieldAnimNode = nil
 
-	pcall(function()
-		local node = ReplicatedStorage:FindFirstChild("remoteInterface")
-		node = node and node:FindFirstChild("character")
-		node = node and node:FindFirstChild("shieldReload")
-		node = node and node:FindFirstChild("shield")
-		node = node and node:FindFirstChild("HoldShield")
-		node = node and node:FindFirstChild("HoldKatanaShield")
-		if not node then return end
+	local function findShieldAnimNode()
+		local characterFolder = ReplicatedStorage:FindFirstChild("remoteInterface")
+		characterFolder = characterFolder and characterFolder:FindFirstChild("character")
+		if not characterFolder then return nil end
 
-		for _, child in ipairs(node:GetChildren()) do
-			local lower = string.lower(child.Name)
-			if lower:find("load", 1, true) then
-				shieldAnimLoad = child
-			elseif lower:find("stop", 1, true) then
-				shieldAnimStop = child
+		local node = characterFolder:FindFirstChild("shieldReload")
+		for _, name in ipairs({ "shield", "HoldShield", "HoldKatanaShield" }) do
+			node = node and node:FindFirstChild(name)
+		end
+		if node then return node end
+
+		for _, desc in ipairs(characterFolder:GetDescendants()) do
+			if desc.Name == "HoldKatanaShield" then
+				return desc
 			end
 		end
-	end)
+		return nil
+	end
+
+	local function getShieldAnimNode()
+		if shieldAnimNode and shieldAnimNode.Parent then
+			return shieldAnimNode
+		end
+		shieldAnimNode = findShieldAnimNode()
+		return shieldAnimNode
+	end
 
 	local function triggerShieldAnim(obj)
 		if not obj then return end
-		pcall(function()
-			if obj:IsA("RemoteEvent") then
-				obj:FireServer()
-			elseif obj:IsA("RemoteFunction") then
-				obj:InvokeServer()
-			elseif obj:IsA("BindableEvent") then
-				obj:Fire()
-			elseif obj:IsA("BindableFunction") then
-				obj:Invoke()
-			end
+		if not (obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") or obj:IsA("BindableEvent") or obj:IsA("BindableFunction")) then
+			return
+		end
+		task.spawn(function()
+			pcall(function()
+				if obj:IsA("RemoteEvent") then
+					obj:FireServer()
+				elseif obj:IsA("RemoteFunction") then
+					obj:InvokeServer()
+				elseif obj:IsA("BindableEvent") then
+					obj:Fire()
+				elseif obj:IsA("BindableFunction") then
+					obj:Invoke()
+				end
+			end)
 		end)
 	end
 
 	local function setShieldAnim(active)
 		if active == shieldAnimActive then return end
 		shieldAnimActive = active
-		triggerShieldAnim(active and shieldAnimLoad or shieldAnimStop)
+
+		local node = getShieldAnimNode()
+		if not node then return end
+
+		local keyword = active and "load" or "stop"
+		for _, child in ipairs(node:GetChildren()) do
+			if string.lower(child.Name):find(keyword, 1, true) then
+				triggerShieldAnim(child)
+				break
+			end
+		end
 	end
 
 	local function fireShieldOnDamage(state)
@@ -4615,10 +4610,8 @@ Toggles.SmartSwing:OnChanged(function()
 			local root = getRootPart()
 			if not root then return end
 
-			if Toggles.SmartSwingSlotSystem and Toggles.SmartSwingSlotSystem.Value then
-				if not isAdvanceSlotAllowed(Options.SmartSwingSlot) then
-					return
-				end
+			if not isAutoSwingSlotAllowed(Options.AutoSwingSlot) then
+				return
 			end
 
 			local speedVal = Options.AutoSwingSpeed and Options.AutoSwingSpeed.Value or 10
@@ -4656,101 +4649,6 @@ Toggles.SmartSwing:OnChanged(function()
 		end))
 	end
 end)
-
-do
-	local ssSlotSaved = {
-		SmartSwing = nil,
-	}
-	local fromSSSlotSystem = false
-
-	local function updateSmartSwingSlotState()
-		if not (Toggles.SmartSwingSlotSystem and Toggles.SmartSwingSlotSystem.Value) then return end
-		if not isAlive() then return end
-
-		local holding = isAdvanceSlotAllowed(Options.SmartSwingSlot)
-
-		if holding then
-			if ssSlotSaved.SmartSwing == nil then
-				ssSlotSaved.SmartSwing = Toggles.SmartSwing and Toggles.SmartSwing.Value or false
-			end
-
-			if Toggles.SmartSwing and not Toggles.SmartSwing.Value then
-				fromSSSlotSystem = true
-				Toggles.SmartSwing:SetValue(true)
-				fromSSSlotSystem = false
-			end
-		else
-			if ssSlotSaved.SmartSwing ~= nil then
-				if Toggles.SmartSwing and Toggles.SmartSwing.Value ~= ssSlotSaved.SmartSwing then
-					fromSSSlotSystem = true
-					Toggles.SmartSwing:SetValue(ssSlotSaved.SmartSwing)
-					fromSSSlotSystem = false
-				end
-				ssSlotSaved.SmartSwing = nil
-			end
-		end
-	end
-
-	if Toggles.SmartSwingSlotSystem then
-		Toggles.SmartSwingSlotSystem:OnChanged(function()
-			disconnect("SmartSwingSlotSystem_Poll")
-			disconnect("SmartSwingSlotSystem_ChildAdded")
-			disconnect("SmartSwingSlotSystem_ChildRemoved")
-			disconnect("SmartSwingSlotSystem_CharAdded")
-
-			if updateAutoSwingSliderVisibility then
-				updateAutoSwingSliderVisibility()
-			end
-
-			if Toggles.SmartSwingSlotSystem.Value then
-				local function hookSmartSwingSlotChar(char)
-					if not char then return end
-					disconnect("SmartSwingSlotSystem_ChildAdded")
-					disconnect("SmartSwingSlotSystem_ChildRemoved")
-					track("SmartSwingSlotSystem_ChildAdded", char.ChildAdded:Connect(function(child)
-						if child:IsA("Tool") then
-							task.wait()
-							updateSmartSwingSlotState()
-						end
-					end))
-					track("SmartSwingSlotSystem_ChildRemoved", char.ChildRemoved:Connect(function(child)
-						if child:IsA("Tool") then
-							task.wait()
-							updateSmartSwingSlotState()
-						end
-					end))
-				end
-
-				if LocalPlayer.Character then
-					hookSmartSwingSlotChar(LocalPlayer.Character)
-				end
-				track("SmartSwingSlotSystem_CharAdded", LocalPlayer.CharacterAdded:Connect(hookSmartSwingSlotChar))
-
-				track("SmartSwingSlotSystem_Poll", RunService.Heartbeat:Connect(function()
-					updateSmartSwingSlotState()
-				end))
-
-				updateSmartSwingSlotState()
-			else
-				if ssSlotSaved.SmartSwing ~= nil then
-					if Toggles.SmartSwing and Toggles.SmartSwing.Value ~= ssSlotSaved.SmartSwing then
-						fromSSSlotSystem = true
-						Toggles.SmartSwing:SetValue(ssSlotSaved.SmartSwing)
-						fromSSSlotSystem = false
-					end
-					ssSlotSaved.SmartSwing = nil
-				end
-				table.clear(ssSlotSaved)
-			end
-		end)
-	end
-
-	if Options.SmartSwingSlot then
-		Options.SmartSwingSlot:OnChanged(function()
-			updateSmartSwingSlotState()
-		end)
-	end
-end
 
 Toggles.Camlock:OnChanged(function()
 	disconnect("Camlock")
@@ -10675,9 +10573,6 @@ Library:OnUnload(function()
 	end
 	if Toggles.SmartSwing and Toggles.SmartSwing.Value then
 		Toggles.SmartSwing:SetValue(false)
-	end
-	if Toggles.SmartSwingSlotSystem and Toggles.SmartSwingSlotSystem.Value then
-		Toggles.SmartSwingSlotSystem:SetValue(false)
 	end
 	if Toggles.SpearSword and Toggles.SpearSword.Value then
 		Toggles.SpearSword:SetValue(false)
