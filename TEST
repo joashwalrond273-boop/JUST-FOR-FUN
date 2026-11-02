@@ -3355,6 +3355,24 @@ CombatAutoSwingGroup:AddCheckbox("ShieldOnDamage", {
 	Default = false,
 })
 
+CombatAutoSwingGroup:AddSlider("ShieldDamageHold", {
+	Text = "Shield Hold",
+	Default = 1,
+	Min = 0.05,
+	Max = 5,
+	Rounding = 2,
+	Compact = true,
+})
+
+CombatAutoSwingGroup:AddSlider("ShieldDamageRefire", {
+	Text = "Shield Refire",
+	Default = 1,
+	Min = 0.05,
+	Max = 5,
+	Rounding = 2,
+	Compact = true,
+})
+
 CombatAutoSwingGroup:AddCheckbox("ShieldHud", {
 	Text = "Shield HUD Indicator",
 	Default = false,
@@ -4017,13 +4035,18 @@ Toggles.ImmortalMode:OnChanged(function()
 end)
 
 do
-	local SHIELD_ON_DAMAGE_HOLD = 1
-	local SHIELD_ON_DAMAGE_REFIRE = 1
-
 	local shieldOnDamageHolding = false
 	local shieldOnDamageUntil = 0
 	local lastShieldDamageRefire = 0
 	local lastShieldDamageHealth = nil
+
+	local function getShieldHold()
+		return (Options.ShieldDamageHold and Options.ShieldDamageHold.Value) or 1
+	end
+
+	local function getShieldRefire()
+		return (Options.ShieldDamageRefire and Options.ShieldDamageRefire.Value) or 1
+	end
 
 	local function fireShieldOnDamage(state)
 		pcall(function()
@@ -4053,7 +4076,7 @@ do
 					fireShieldOnDamage(true)
 				end
 				shieldOnDamageHolding = true
-				shieldOnDamageUntil = tick() + SHIELD_ON_DAMAGE_HOLD
+				shieldOnDamageUntil = tick() + getShieldHold()
 			end
 
 			lastShieldDamageHealth = newHealth
@@ -4065,7 +4088,7 @@ do
 
 		local now = tick()
 		if (Toggles.ShieldOnDamage and Toggles.ShieldOnDamage.Value) and isAlive() and now < shieldOnDamageUntil then
-			if now - lastShieldDamageRefire >= SHIELD_ON_DAMAGE_REFIRE then
+			if now - lastShieldDamageRefire >= getShieldRefire() then
 				lastShieldDamageRefire = now
 				fireShieldOnDamage(true)
 			end
@@ -6757,8 +6780,6 @@ Toggles.Noclip:OnChanged(function()
 		restoreCharacterCollisions(getCharacter())
 	end
 end)
-
-
 
 
 Toggles.SpeedHack:OnChanged(function()
