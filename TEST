@@ -3231,11 +3231,6 @@ CombatCamlockConfig:AddSlider("LookDownSens", {
 	Compact = true,
 })
 
-CombatCamlockConfig:AddCheckbox("ShieldOnDamage", {
-	Text = "Shield on Damage",
-	Default = false,
-})
-
 CombatLeft:AddToggle("KillAura", {
 	Text = "Kill Aura",
 	Default = false,
@@ -3355,6 +3350,18 @@ CombatAutoSwingGroup:AddDropdown("AutoSwingSlot", {
 
 CombatAutoSwingGroup:AddDivider()
 
+CombatAutoSwingGroup:AddCheckbox("ShieldOnDamage", {
+	Text = "Shield on Damage",
+	Default = false,
+})
+
+CombatAutoSwingGroup:AddCheckbox("ShieldHud", {
+	Text = "Shield HUD Indicator",
+	Default = false,
+})
+
+CombatAutoSwingGroup:AddDivider()
+
 CombatAutoSwingGroup:AddToggle("SmartSwing", {
 	Text = "Smart Swing",
 	Default = false,
@@ -3393,11 +3400,6 @@ CombatAutoSwingGroup:AddSlider("PlayerStuds", {
 CombatAutoSwingGroup:AddToggle("SmartSwingIgnoreTeam", {
 	Text = "Ignore Team",
 	Default = true,
-})
-
-CombatAutoSwingGroup:AddToggle("SmartSwingIgnoreAlly", {
-	Text = "Ignore Ally",
-	Default = false,
 })
 
 updateAutoSwingSliderVisibility = function()
@@ -3444,14 +3446,6 @@ updateAutoSwingSliderVisibility = function()
 		end
 		if Toggles.SmartSwingIgnoreTeam.Holder then
 			Toggles.SmartSwingIgnoreTeam.Holder.Visible = isSmartSwingToggled
-		end
-	end
-	if Toggles.SmartSwingIgnoreAlly then
-		if Toggles.SmartSwingIgnoreAlly.Visible ~= nil then
-			Toggles.SmartSwingIgnoreAlly.Visible = isSmartSwingToggled
-		end
-		if Toggles.SmartSwingIgnoreAlly.Holder then
-			Toggles.SmartSwingIgnoreAlly.Holder.Visible = isSmartSwingToggled
 		end
 	end
 	CombatAutoSwingGroup:Resize()
@@ -4023,8 +4017,8 @@ Toggles.ImmortalMode:OnChanged(function()
 end)
 
 do
-	local SHIELD_ON_DAMAGE_HOLD = 2
-	local SHIELD_ON_DAMAGE_REFIRE = 0.15
+	local SHIELD_ON_DAMAGE_HOLD = 1
+	local SHIELD_ON_DAMAGE_REFIRE = 1
 
 	local shieldOnDamageHolding = false
 	local shieldOnDamageUntil = 0
@@ -4102,6 +4096,114 @@ do
 			end
 		end))
 		track("ShieldOnDamage_Loop", RunService.Heartbeat:Connect(updateShieldOnDamage))
+	end)
+
+	local shieldHudGui = nil
+	local shieldHudLabel = nil
+	local shieldHudRunning = false
+	local shieldHudLastText = ""
+
+	local function refreshShieldHud()
+		if not shieldHudLabel then return end
+
+		local shielded = shieldOnDamageHolding or isShielding
+		local text = shielded and "SHIELD ON" or "SHIELD OFF"
+		if text == shieldHudLastText then return end
+
+		shieldHudLastText = text
+		shieldHudLabel.Text = text
+		shieldHudLabel.TextColor3 = shielded and Color3.fromRGB(0, 244, 255) or Color3.fromRGB(150, 150, 150)
+	end
+
+	local function buildShieldHud()
+		local playerGui = LocalPlayer:FindFirstChildOfClass("PlayerGui")
+		if not playerGui then return end
+
+		shieldHudGui = Instance.new("ScreenGui")
+		shieldHudGui.Name = "XenoShieldHud"
+		shieldHudGui.ResetOnSpawn = false
+		shieldHudGui.IgnoreGuiInset = true
+		shieldHudGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+		shieldHudGui.Parent = playerGui
+
+		local frame = Instance.new("Frame")
+		frame.Name = "Panel"
+		frame.Position = UDim2.new(0, 16, 0, 230)
+		frame.Size = UDim2.new(0, 130, 0, 20)
+		frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+		frame.BackgroundTransparency = 0.25
+		frame.BorderSizePixel = 0
+		frame.Active = true
+		frame.Parent = shieldHudGui
+
+		local corner = Instance.new("UICorner")
+		corner.CornerRadius = UDim.new(0, 5)
+		corner.Parent = frame
+
+		local stroke = Instance.new("UIStroke")
+		stroke.Color = Color3.fromRGB(0, 244, 255)
+		stroke.Transparency = 0.4
+		stroke.Thickness = 1
+		stroke.Parent = frame
+
+		shieldHudLabel = Instance.new("TextLabel")
+		shieldHudLabel.Size = UDim2.new(1, -12, 1, 0)
+		shieldHudLabel.Position = UDim2.new(0, 6, 0, 0)
+		shieldHudLabel.BackgroundTransparency = 1
+		shieldHudLabel.Font = Enum.Font.Code
+		shieldHudLabel.TextSize = 11
+		shieldHudLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+		shieldHudLabel.TextXAlignment = Enum.TextXAlignment.Left
+		shieldHudLabel.Text = "SHIELD OFF"
+		shieldHudLabel.Parent = frame
+
+		local dragging, dragStart, dragPos = false, nil, nil
+		frame.InputBegan:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+				dragging = true
+				dragStart = input.Position
+				dragPos = frame.Position
+				input.Changed:Connect(function()
+					if input.UserInputState == Enum.UserInputState.End then
+						dragging = false
+					end
+				end)
+			end
+		end)
+		frame.InputChanged:Connect(function(input)
+			if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+				local delta = input.Position - dragStart
+				frame.Position = UDim2.new(dragPos.X.Scale, dragPos.X.Offset + delta.X, dragPos.Y.Scale, dragPos.Y.Offset + delta.Y)
+			end
+		end)
+	end
+
+	Toggles.ShieldHud:OnChanged(function()
+		shieldHudRunning = false
+		disconnect("ShieldHud_Loop")
+
+		if shieldHudGui then
+			shieldHudGui:Destroy()
+			shieldHudGui = nil
+			shieldHudLabel = nil
+		end
+		shieldHudLastText = ""
+
+		if not Toggles.ShieldHud.Value then
+			Library:Notify({ Title = "Shield HUD", Description = "Disabled", Time = 2 })
+			return
+		end
+
+		buildShieldHud()
+		refreshShieldHud()
+		shieldHudRunning = true
+
+		track("ShieldHud_Loop", RunService.RenderStepped:Connect(function()
+			if not shieldHudRunning or not shieldHudLabel then return end
+			refreshShieldHud()
+		end))
+
+		Library:Notify({ Title = "Shield HUD", Description = "Enabled", Time = 2 })
 	end)
 end
 
@@ -4468,13 +4570,12 @@ Toggles.SmartSwing:OnChanged(function()
 
 			local maxDist = Options.PlayerStuds and Options.PlayerStuds.Value or 20
 			local ignoreTeam = Toggles.SmartSwingIgnoreTeam and Toggles.SmartSwingIgnoreTeam.Value
-			local ignoreAlly = Toggles.SmartSwingIgnoreAlly and Toggles.SmartSwingIgnoreAlly.Value
 			local pos = root.Position
 			local playerNearby = false
 
 			for _, otherPlayer in ipairs(Players:GetPlayers()) do
 				if otherPlayer ~= LocalPlayer and otherPlayer.Character then
-					if (not ignoreTeam and not ignoreAlly) or not isTeammate(otherPlayer) then
+					if not ignoreTeam or not isTeammate(otherPlayer) then
 						local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart") or otherPlayer.Character.PrimaryPart
 						local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
 						if otherRoot and otherHum and otherHum.Health > 0 then
