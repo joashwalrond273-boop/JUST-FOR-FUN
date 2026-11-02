@@ -4035,6 +4035,50 @@ do
 		return (Options.ShieldDamageRefire and Options.ShieldDamageRefire.Value) or 1
 	end
 
+	local shieldAnimLoad = nil
+	local shieldAnimStop = nil
+	local shieldAnimActive = false
+
+	pcall(function()
+		local node = ReplicatedStorage:FindFirstChild("remoteInterface")
+		node = node and node:FindFirstChild("character")
+		node = node and node:FindFirstChild("shieldReload")
+		node = node and node:FindFirstChild("shield")
+		node = node and node:FindFirstChild("HoldShield")
+		node = node and node:FindFirstChild("HoldKatanaShield")
+		if not node then return end
+
+		for _, child in ipairs(node:GetChildren()) do
+			local lower = string.lower(child.Name)
+			if lower:find("load", 1, true) then
+				shieldAnimLoad = child
+			elseif lower:find("stop", 1, true) then
+				shieldAnimStop = child
+			end
+		end
+	end)
+
+	local function triggerShieldAnim(obj)
+		if not obj then return end
+		pcall(function()
+			if obj:IsA("RemoteEvent") then
+				obj:FireServer()
+			elseif obj:IsA("RemoteFunction") then
+				obj:InvokeServer()
+			elseif obj:IsA("BindableEvent") then
+				obj:Fire()
+			elseif obj:IsA("BindableFunction") then
+				obj:Invoke()
+			end
+		end)
+	end
+
+	local function setShieldAnim(active)
+		if active == shieldAnimActive then return end
+		shieldAnimActive = active
+		triggerShieldAnim(active and shieldAnimLoad or shieldAnimStop)
+	end
+
 	local function fireShieldOnDamage(state)
 		pcall(function()
 			game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(state)
@@ -4061,6 +4105,7 @@ do
 			if lastShieldDamageHealth and newHealth < lastShieldDamageHealth then
 				if not shieldOnDamageHolding then
 					fireShieldOnDamage(true)
+					setShieldAnim(true)
 				end
 				shieldOnDamageHolding = true
 				shieldOnDamageUntil = tick() + getShieldHold()
@@ -4084,6 +4129,7 @@ do
 
 		shieldOnDamageHolding = false
 		fireShieldOnDamage(false)
+		setShieldAnim(false)
 	end
 
 	Toggles.ShieldOnDamage:OnChanged(function()
@@ -4095,6 +4141,7 @@ do
 			shieldOnDamageHolding = false
 			fireShieldOnDamage(false)
 		end
+		setShieldAnim(false)
 
 		if not Toggles.ShieldOnDamage.Value then return end
 
