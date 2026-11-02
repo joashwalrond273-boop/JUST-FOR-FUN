@@ -3231,6 +3231,11 @@ CombatCamlockConfig:AddSlider("LookDownSens", {
 	Compact = true,
 })
 
+CombatCamlockConfig:AddCheckbox("ShieldOnDamage", {
+	Text = "Shield on Damage",
+	Default = false,
+})
+
 CombatLeft:AddToggle("KillAura", {
 	Text = "Kill Aura",
 	Default = false,
@@ -4016,6 +4021,89 @@ Toggles.ImmortalMode:OnChanged(function()
 		end
 	end
 end)
+
+do
+	local SHIELD_ON_DAMAGE_HOLD = 2
+	local SHIELD_ON_DAMAGE_REFIRE = 0.15
+
+	local shieldOnDamageHolding = false
+	local shieldOnDamageUntil = 0
+	local lastShieldDamageRefire = 0
+	local lastShieldDamageHealth = nil
+
+	local function fireShieldOnDamage(state)
+		pcall(function()
+			game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(state)
+		end)
+	end
+
+	local function bindShieldOnDamage()
+		disconnect("ShieldOnDamage_Health")
+
+		local character = getCharacter()
+		local hum = character and character:FindFirstChildOfClass("Humanoid")
+		if not hum then
+			lastShieldDamageHealth = nil
+			return
+		end
+
+		lastShieldDamageHealth = hum.Health
+		track("ShieldOnDamage_Health", hum.HealthChanged:Connect(function(newHealth)
+			if not (Toggles.ShieldOnDamage and Toggles.ShieldOnDamage.Value) then
+				lastShieldDamageHealth = newHealth
+				return
+			end
+
+			if lastShieldDamageHealth and newHealth < lastShieldDamageHealth then
+				if not shieldOnDamageHolding then
+					fireShieldOnDamage(true)
+				end
+				shieldOnDamageHolding = true
+				shieldOnDamageUntil = tick() + SHIELD_ON_DAMAGE_HOLD
+			end
+
+			lastShieldDamageHealth = newHealth
+		end))
+	end
+
+	local function updateShieldOnDamage()
+		if not shieldOnDamageHolding then return end
+
+		local now = tick()
+		if (Toggles.ShieldOnDamage and Toggles.ShieldOnDamage.Value) and isAlive() and now < shieldOnDamageUntil then
+			if now - lastShieldDamageRefire >= SHIELD_ON_DAMAGE_REFIRE then
+				lastShieldDamageRefire = now
+				fireShieldOnDamage(true)
+			end
+			return
+		end
+
+		shieldOnDamageHolding = false
+		fireShieldOnDamage(false)
+	end
+
+	Toggles.ShieldOnDamage:OnChanged(function()
+		disconnect("ShieldOnDamage_Loop")
+		disconnect("ShieldOnDamage_CharacterAdded")
+		disconnect("ShieldOnDamage_Health")
+
+		if shieldOnDamageHolding then
+			shieldOnDamageHolding = false
+			fireShieldOnDamage(false)
+		end
+
+		if not Toggles.ShieldOnDamage.Value then return end
+
+		bindShieldOnDamage()
+		track("ShieldOnDamage_CharacterAdded", LocalPlayer.CharacterAdded:Connect(function()
+			task.wait(0.1)
+			if Toggles.ShieldOnDamage and Toggles.ShieldOnDamage.Value then
+				bindShieldOnDamage()
+			end
+		end))
+		track("ShieldOnDamage_Loop", RunService.Heartbeat:Connect(updateShieldOnDamage))
+	end)
+end
 
 local function updateAdvanceState()
 	if not (Toggles.Advance and Toggles.Advance.Value) then return end
