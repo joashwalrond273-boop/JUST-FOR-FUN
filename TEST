@@ -334,13 +334,11 @@ local Tabs = {
 	Combat = Window:AddTab("COMBAT", "swords"),
 	Movement = Window:AddTab("MOVEMENT", "wind"),
 	OreFactory = Window:AddTab("AURAS", "drill"),
-	Cosmetics = Window:AddTab("COSMETICS", "sparkles"),
 	Teleport = Window:AddTab("TELEPORT", "signpost"),
 	Visuals = Window:AddTab("ESP", "binoculars"),
 	["UI Settings"] = Window:AddTab("UI MODULES", "sliders-horizontal"),
 }
 Tabs["UI MODULES"] = Tabs["UI Settings"]
-Tabs["COSMETICS"] = Tabs.Cosmetics
 
 -- Connections (clean up on unload)
 local Connections = {}
@@ -9103,12 +9101,6 @@ Toggles.OreESPToggle:OnChanged(function()
 
 	Library:Notify({ Title = "Ore ESP", Description = "Enabled", Time = 2 })
 end)
-
--- ==========================================
--- COSMETICS
--- ==========================================
-local CosmeticsLeft = Tabs.Cosmetics:AddLeftGroupbox("Cosmetics", "sparkles")
-local CosmeticsRight = Tabs.Cosmetics:AddRightGroupbox("Customization", "palette")
 
 -- ==========================================
 -- TELEPORT
