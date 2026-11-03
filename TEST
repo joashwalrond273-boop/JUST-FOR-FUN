@@ -1690,6 +1690,32 @@ ImmuneTab:AddCheckbox("VillainousCrown", {
 do
 	local CROWN_NAME = "XenoVillainousCrown"
 
+	local function getCrownParts(clone)
+		local parts = {}
+		if clone:IsA("BasePart") then
+			table.insert(parts, clone)
+		end
+		for _, desc in ipairs(clone:GetDescendants()) do
+			if desc:IsA("BasePart") then
+				table.insert(parts, desc)
+			end
+		end
+		return parts
+	end
+
+	local function getCrownRoot()
+		local character = getCharacter()
+		if not character then return nil end
+		local crown = character:FindFirstChild(CROWN_NAME)
+		if crown then return crown end
+		for _, obj in ipairs(character:GetChildren()) do
+			if obj:GetAttribute("XenoCrown") then
+				return obj
+			end
+		end
+		return nil
+	end
+
 	local function clearCrown()
 		local character = getCharacter()
 		if not character then return end
@@ -1700,44 +1726,27 @@ do
 		end
 	end
 
-	local function weldToHead(character, head, clone)
-		local handle = clone:IsA("BasePart") and clone
-			or clone:FindFirstChild("Handle")
-			or clone:FindFirstChildWhichIsA("BasePart")
-		if not handle then
-			for _, desc in ipairs(clone:GetDescendants()) do
-				if desc:IsA("BasePart") then
-					handle = desc
-					break
-				end
-			end
+	local function getHandle(clone, parts)
+		local handle = clone:FindFirstChild("Handle")
+		if handle and handle:IsA("BasePart") then
+			return handle
 		end
-		if not handle then
-			clone:Destroy()
-			return
+		return parts[1]
+	end
+
+	local function weldHandleToHead(head, handle)
+		local existing = head:FindFirstChild("XenoCrownWeld")
+		if existing then
+			existing:Destroy()
 		end
 
-		local headTop = head.CFrame * CFrame.new(0, head.Size.Y * 0.5, 0)
-
-		if clone:IsA("BasePart") then
-			handle.CFrame = headTop
-		else
-			clone.PrimaryPart = handle
-			clone:PivotTo(headTop)
-		end
-
-		handle.Anchored = false
-		handle.CanCollide = false
-		handle.Massless = true
-		clone.Parent = character
-
-		local weld = Instance.new("Weld")
+		local weld = Instance.new("Motor6D")
 		weld.Name = "XenoCrownWeld"
 		weld.Part0 = head
 		weld.Part1 = handle
 		weld.C0 = head.CFrame:ToObjectSpace(handle.CFrame)
 		weld.C1 = CFrame.new()
-		weld.Parent = handle
+		weld.Parent = head
 	end
 
 	local function wearCrown()
@@ -1758,19 +1767,59 @@ do
 		clone.Name = CROWN_NAME
 		clone:SetAttribute("XenoCrown", true)
 
-		if clone:IsA("Accessory") then
-			clone.Parent = character
-			pcall(function()
-				hum:AddAccessory(clone)
-			end)
+		local parts = getCrownParts(clone)
+		if #parts == 0 then
+			clone:Destroy()
 			return
 		end
 
-		weldToHead(character, head, clone)
+		-- Strip the template's own joints and make every part a normal unanchored, massless piece
+		for _, desc in ipairs(clone:GetDescendants()) do
+			if desc:IsA("JointInstance") or desc:IsA("WeldConstraint") then
+				desc:Destroy()
+			end
+		end
+		for _, part in ipairs(parts) do
+			part.Anchored = false
+			part.CanCollide = false
+			part.Massless = true
+		end
+
+		local handle = getHandle(clone, parts)
+		local headTop = head.CFrame * CFrame.new(0, head.Size.Y * 0.5, 0)
+
+		if clone:IsA("BasePart") then
+			clone.CFrame = headTop
+		else
+			local ok = pcall(function()
+				clone.PrimaryPart = handle
+				clone:PivotTo(headTop)
+			end)
+			if not ok then
+				handle.CFrame = headTop
+			end
+		end
+
+		clone.Parent = character
+
+		-- Weld every part to the handle so the whole model moves as one
+		for _, part in ipairs(parts) do
+			if part ~= handle then
+				local weld = Instance.new("Weld")
+				weld.Part0 = handle
+				weld.Part1 = part
+				weld.C0 = handle.CFrame:ToObjectSpace(part.CFrame)
+				weld.C1 = CFrame.new()
+				weld.Parent = handle
+			end
+		end
+
+		weldHandleToHead(head, handle)
 	end
 
 	Toggles.VillainousCrown:OnChanged(function()
 		disconnect("VillainousCrown_CharacterAdded")
+		disconnect("VillainousCrown_Loop")
 
 		if not Toggles.VillainousCrown.Value then
 			clearCrown()
@@ -1783,6 +1832,40 @@ do
 			task.wait(0.5)
 			if Toggles.VillainousCrown and Toggles.VillainousCrown.Value then
 				wearCrown()
+			end
+		end))
+
+		-- Keep the crown attached if the game strips or unwelds it
+		local lastCheck = 0
+		track("VillainousCrown_Loop", RunService.Heartbeat:Connect(function()
+			local now = os.clock()
+			if now - lastCheck < 0.5 then return end
+			lastCheck = now
+
+			if not Toggles.VillainousCrown.Value then return end
+
+			local character = getCharacter()
+			local head = character and character:FindFirstChild("Head")
+			if not (character and head) then return end
+
+			local crown = getCrownRoot()
+			local handle
+			if crown then
+				if crown:IsA("BasePart") then
+					handle = crown
+				else
+					handle = crown:FindFirstChild("Handle") or crown:FindFirstChildWhichIsA("BasePart")
+				end
+			end
+
+			if not handle or crown.Parent ~= character then
+				wearCrown()
+				return
+			end
+
+			local weld = head:FindFirstChild("XenoCrownWeld")
+			if not weld or weld.Part1 ~= handle then
+				weldHandleToHead(head, handle)
 			end
 		end))
 	end)
