@@ -3529,6 +3529,66 @@ CombatShieldSystem:AddSlider("ShieldButtonSize", {
 	Compact = true,
 })
 
+CombatShieldSystem:AddCheckbox("JumpButtonMove", {
+	Text = "Move Jump",
+	Default = false,
+})
+
+CombatShieldSystem:AddSlider("JumpButtonX", {
+	Text = "Jump Button Horizontal",
+	Default = 0,
+	Min = -1000,
+	Max = 1000,
+	Rounding = 0,
+	Compact = true,
+})
+
+CombatShieldSystem:AddSlider("JumpButtonY", {
+	Text = "Jump Button Vertical",
+	Default = 0,
+	Min = -1000,
+	Max = 1000,
+	Rounding = 0,
+	Compact = true,
+})
+
+CombatShieldSystem:AddSlider("JumpButtonSize", {
+	Text = "Jump Button Size",
+	Default = 1,
+	Min = 0.5,
+	Max = 3,
+	Rounding = 2,
+	Compact = true,
+})
+
+local function updateShieldButtonVisibility()
+	local moveShield = (Toggles.ShieldButtonMove and Toggles.ShieldButtonMove.Value) or false
+	local moveJump = (Toggles.JumpButtonMove and Toggles.JumpButtonMove.Value) or false
+
+	local function setVisible(option, visible)
+		if not option then return end
+		option.Visible = visible
+		if option.Holder then
+			option.Holder.Visible = visible
+		end
+	end
+
+	setVisible(Options.ShieldButtonX, moveShield)
+	setVisible(Options.ShieldButtonY, moveShield)
+	setVisible(Options.ShieldButtonSize, moveShield)
+	setVisible(Options.JumpButtonX, moveJump)
+	setVisible(Options.JumpButtonY, moveJump)
+	setVisible(Options.JumpButtonSize, moveJump)
+
+	CombatShieldSystem:Resize()
+end
+
+updateShieldButtonVisibility()
+task.spawn(function()
+	task.wait(0.05)
+	updateShieldButtonVisibility()
+end)
+
 local CombatAutoPVP = Tabs.Combat:AddRightGroupbox("PVP Modules", "swords")
 
 HotbarPresets = {}
@@ -4401,16 +4461,163 @@ do
 	end)
 
 	-- ==========================================
-	-- SHIELD BUTTON MOVABLE
+	-- MOVABLE TOUCH BUTTONS
 	-- ==========================================
-	local shieldButtonOffsetX = 0
-	local shieldButtonOffsetY = 0
-	local shieldButtonOrigPos = nil
-	local shieldButtonOrigSize = nil
-	local shieldButtonScale = 1
-	local shieldButtonSyncing = false
-	local shieldButtonDragBeganConn = nil
-	local shieldButtonDragMoveConn = nil
+	local function createButtonController(cfg)
+		local offsetX = 0
+		local offsetY = 0
+		local origPos = nil
+		local origSize = nil
+		local scale = 1
+		local syncing = false
+		local beganConn = nil
+		local moveConn = nil
+
+		local function apply()
+			local btn = cfg.getButton and cfg.getButton()
+			if not btn then return end
+			if origPos == nil then origPos = btn.Position end
+			if origSize == nil then origSize = btn.Size end
+			btn.Position = UDim2.new(
+				origPos.X.Scale,
+				origPos.X.Offset + offsetX,
+				origPos.Y.Scale,
+				origPos.Y.Offset + offsetY
+			)
+			btn.Size = UDim2.new(
+				origSize.X.Scale * scale,
+				origSize.X.Offset * scale,
+				origSize.Y.Scale * scale,
+				origSize.Y.Offset * scale
+			)
+		end
+
+		local function unbind()
+			if beganConn then
+				beganConn:Disconnect()
+				beganConn = nil
+			end
+			if moveConn then
+				moveConn:Disconnect()
+				moveConn = nil
+			end
+		end
+
+		local function bind()
+			unbind()
+
+			local btn = cfg.getButton and cfg.getButton()
+			if not btn then return false end
+			if origPos == nil then origPos = btn.Position end
+			if origSize == nil then origSize = btn.Size end
+
+			beganConn = btn.InputBegan:Connect(function(input)
+				if not (cfg.toggle and cfg.toggle.Value) then return end
+				if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
+
+				local dragStart = input.Position
+				local startOffX, startOffY = offsetX, offsetY
+
+				if moveConn then
+					moveConn:Disconnect()
+					moveConn = nil
+				end
+
+				moveConn = input.Changed:Connect(function()
+					if input.UserInputState == Enum.UserInputState.End then
+						if moveConn then
+							moveConn:Disconnect()
+							moveConn = nil
+						end
+						return
+					end
+					if input.UserInputType ~= Enum.UserInputType.MouseMovement and input.UserInputType ~= Enum.UserInputType.Touch then return end
+
+					local delta = input.Position - dragStart
+					offsetX = startOffX + delta.X
+					offsetY = startOffY + delta.Y
+					apply()
+
+					syncing = true
+					if cfg.x then
+						cfg.x:SetValue(math.clamp(math.floor(offsetX + 0.5), -1000, 1000))
+					end
+					if cfg.y then
+						cfg.y:SetValue(math.clamp(math.floor(offsetY + 0.5), -1000, 1000))
+					end
+					syncing = false
+				end)
+			end)
+
+			return true
+		end
+
+		local function refresh()
+			if cfg.getButton and cfg.getButton() then
+				bind()
+				apply()
+				return
+			end
+			task.spawn(function()
+				for _ = 1, 120 do
+					if cfg.getButton and cfg.getButton() then break end
+					task.wait(0.25)
+				end
+				if cfg.toggle and cfg.toggle.Value then
+					bind()
+					apply()
+				end
+			end)
+		end
+
+		if cfg.toggle then
+			cfg.toggle:OnChanged(function()
+				unbind()
+				updateShieldButtonVisibility()
+
+				if not cfg.toggle.Value then
+					Library:Notify({ Title = cfg.title, Description = cfg.label .. " Disabled", Time = 2 })
+					return
+				end
+
+				offsetX = (cfg.x and cfg.x.Value) or 0
+				offsetY = (cfg.y and cfg.y.Value) or 0
+				scale = (cfg.size and cfg.size.Value) or 1
+				refresh()
+
+				Library:Notify({ Title = cfg.title, Description = cfg.label .. " Enabled", Time = 2 })
+			end)
+		end
+
+		if cfg.x then
+			cfg.x:OnChanged(function(value)
+				if syncing then return end
+				offsetX = value
+				if cfg.toggle and cfg.toggle.Value then
+					apply()
+				end
+			end)
+		end
+
+		if cfg.y then
+			cfg.y:OnChanged(function(value)
+				if syncing then return end
+				offsetY = value
+				if cfg.toggle and cfg.toggle.Value then
+					apply()
+				end
+			end)
+		end
+
+		if cfg.size then
+			cfg.size:OnChanged(function(value)
+				scale = value
+				if cfg.toggle and cfg.toggle.Value then
+					apply()
+				end
+			end)
+		end
+	end
 
 	local function getShieldButton()
 		local pg = LocalPlayer and LocalPlayer:FindFirstChild("PlayerGui")
@@ -4421,151 +4628,32 @@ do
 		return sbf and sbf:FindFirstChild("ShieldButton") or nil
 	end
 
-	local function applyShieldButtonPos()
-		local btn = getShieldButton()
-		if not btn then return end
-		if shieldButtonOrigPos == nil then
-			shieldButtonOrigPos = btn.Position
-		end
-		if shieldButtonOrigSize == nil then
-			shieldButtonOrigSize = btn.Size
-		end
-		btn.Position = UDim2.new(
-			shieldButtonOrigPos.X.Scale,
-			shieldButtonOrigPos.X.Offset + shieldButtonOffsetX,
-			shieldButtonOrigPos.Y.Scale,
-			shieldButtonOrigPos.Y.Offset + shieldButtonOffsetY
-		)
-		btn.Size = UDim2.new(
-			shieldButtonOrigSize.X.Scale * shieldButtonScale,
-			shieldButtonOrigSize.X.Offset * shieldButtonScale,
-			shieldButtonOrigSize.Y.Scale * shieldButtonScale,
-			shieldButtonOrigSize.Y.Offset * shieldButtonScale
-		)
+	local function getJumpButton()
+		local pg = LocalPlayer and LocalPlayer:FindFirstChild("PlayerGui")
+		local gui = pg and pg:FindFirstChild("TouchGui")
+		local tcf = gui and gui:FindFirstChild("TouchControlFrame")
+		return tcf and tcf:FindFirstChild("JumpButton") or nil
 	end
 
-	local function unbindShieldButtonDrag()
-		if shieldButtonDragBeganConn then
-			shieldButtonDragBeganConn:Disconnect()
-			shieldButtonDragBeganConn = nil
-		end
-		if shieldButtonDragMoveConn then
-			shieldButtonDragMoveConn:Disconnect()
-			shieldButtonDragMoveConn = nil
-		end
-	end
+	createButtonController({
+		getButton = getShieldButton,
+		toggle = Toggles.ShieldButtonMove,
+		x = Options.ShieldButtonX,
+		y = Options.ShieldButtonY,
+		size = Options.ShieldButtonSize,
+		title = "Shield Button",
+		label = "Move Shield",
+	})
 
-	local function bindShieldButtonDrag()
-		unbindShieldButtonDrag()
-
-		local btn = getShieldButton()
-		if not btn then return false end
-		if shieldButtonOrigPos == nil then
-			shieldButtonOrigPos = btn.Position
-		end
-
-		shieldButtonDragBeganConn = btn.InputBegan:Connect(function(input)
-			if not (Toggles.ShieldButtonMove and Toggles.ShieldButtonMove.Value) then return end
-			if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
-
-			local dragStart = input.Position
-			local startOffX, startOffY = shieldButtonOffsetX, shieldButtonOffsetY
-
-			if shieldButtonDragMoveConn then
-				shieldButtonDragMoveConn:Disconnect()
-				shieldButtonDragMoveConn = nil
-			end
-
-			shieldButtonDragMoveConn = input.Changed:Connect(function()
-				if input.UserInputState == Enum.UserInputState.End then
-					if shieldButtonDragMoveConn then
-						shieldButtonDragMoveConn:Disconnect()
-						shieldButtonDragMoveConn = nil
-					end
-					return
-				end
-				if input.UserInputType ~= Enum.UserInputType.MouseMovement and input.UserInputType ~= Enum.UserInputType.Touch then return end
-
-				local delta = input.Position - dragStart
-				shieldButtonOffsetX = startOffX + delta.X
-				shieldButtonOffsetY = startOffY + delta.Y
-				applyShieldButtonPos()
-
-				shieldButtonSyncing = true
-				if Options.ShieldButtonX then
-					Options.ShieldButtonX:SetValue(math.clamp(math.floor(shieldButtonOffsetX + 0.5), -1000, 1000))
-				end
-				if Options.ShieldButtonY then
-					Options.ShieldButtonY:SetValue(math.clamp(math.floor(shieldButtonOffsetY + 0.5), -1000, 1000))
-				end
-				shieldButtonSyncing = false
-			end)
-		end)
-
-		return true
-	end
-
-	local function refreshShieldButton()
-		if getShieldButton() then
-			bindShieldButtonDrag()
-			applyShieldButtonPos()
-			return
-		end
-		task.spawn(function()
-			for _ = 1, 120 do
-				if getShieldButton() then break end
-				task.wait(0.25)
-			end
-			if Toggles.ShieldButtonMove and Toggles.ShieldButtonMove.Value then
-				bindShieldButtonDrag()
-				applyShieldButtonPos()
-			end
-		end)
-	end
-
-	Toggles.ShieldButtonMove:OnChanged(function()
-		unbindShieldButtonDrag()
-
-		if not Toggles.ShieldButtonMove.Value then
-			Library:Notify({ Title = "Shield Button", Description = "Movable Disabled", Time = 2 })
-			return
-		end
-
-		shieldButtonOffsetX = (Options.ShieldButtonX and Options.ShieldButtonX.Value) or 0
-		shieldButtonOffsetY = (Options.ShieldButtonY and Options.ShieldButtonY.Value) or 0
-		shieldButtonScale = (Options.ShieldButtonSize and Options.ShieldButtonSize.Value) or 1
-		refreshShieldButton()
-		Library:Notify({ Title = "Shield Button", Description = "Movable Enabled", Time = 2 })
-	end)
-
-	if Options.ShieldButtonX then
-		Options.ShieldButtonX:OnChanged(function(value)
-			if shieldButtonSyncing then return end
-			shieldButtonOffsetX = value
-			if Toggles.ShieldButtonMove and Toggles.ShieldButtonMove.Value then
-				applyShieldButtonPos()
-			end
-		end)
-	end
-
-	if Options.ShieldButtonY then
-		Options.ShieldButtonY:OnChanged(function(value)
-			if shieldButtonSyncing then return end
-			shieldButtonOffsetY = value
-			if Toggles.ShieldButtonMove and Toggles.ShieldButtonMove.Value then
-				applyShieldButtonPos()
-			end
-		end)
-	end
-
-	if Options.ShieldButtonSize then
-		Options.ShieldButtonSize:OnChanged(function(value)
-			shieldButtonScale = value
-			if Toggles.ShieldButtonMove and Toggles.ShieldButtonMove.Value then
-				applyShieldButtonPos()
-			end
-		end)
-	end
+	createButtonController({
+		getButton = getJumpButton,
+		toggle = Toggles.JumpButtonMove,
+		x = Options.JumpButtonX,
+		y = Options.JumpButtonY,
+		size = Options.JumpButtonSize,
+		title = "Jump Button",
+		label = "Move Jump",
+	})
 end
 
 local function updateAdvanceState()
@@ -10885,6 +10973,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.ShieldButtonMove and Toggles.ShieldButtonMove.Value then
 		Toggles.ShieldButtonMove:SetValue(false)
+	end
+	if Toggles.JumpButtonMove and Toggles.JumpButtonMove.Value then
+		Toggles.JumpButtonMove:SetValue(false)
 	end
 	if Toggles.ShieldOnDamage and Toggles.ShieldOnDamage.Value then
 		Toggles.ShieldOnDamage:SetValue(false)
