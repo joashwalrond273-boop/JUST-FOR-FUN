@@ -9141,43 +9141,6 @@ local function setPlayerShadows(castShadow)
 	end
 end
 
-local function applyUncapFps()
-	if setfpscap then
-		setfpscap(120)
-	end
-
-	pcall(function()
-		setfflag("TaskSchedulerTargetFps", 120)
-	end)
-
-	local lighting = game:GetService("Lighting")
-	local terrain = workspace.Terrain
-
-	lighting.GlobalShadows = false
-	lighting.FogEnd = 9e9
-	lighting.Brightness = 1
-	pcall(function()
-		sethiddenproperty(lighting, "Technology", 2)
-	end)
-
-	terrain.WaterWaveSize = 0
-	terrain.WaterWaveSpeed = 0
-	terrain.WaterReflectance = 0
-	terrain.WaterTransparency = 0
-	pcall(function()
-		sethiddenproperty(terrain, "Decoration", false)
-	end)
-
-	for _, v in pairs(workspace:GetDescendants()) do
-		if v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Smoke") or v:IsA("Fire") or v:IsA("Sparkles") then
-			v.Enabled = false
-		elseif v:IsA("BasePart") and not v:IsA("MeshPart") then
-			v.Material = Enum.Material.Plastic
-			v.Reflectance = 0
-		end
-	end
-end
-
 VisualFPS:AddToggle("UncapFPS", {
 	Text = "Uncap FPS",
 	Default = false,
@@ -9189,33 +9152,42 @@ VisualFPS:AddToggle("UncapFPS", {
 			return
 		end
 
-		applyUncapFps()
+		if setfpscap then
+			setfpscap(120)
+		end
+
+		pcall(function()
+			setfflag("TaskSchedulerTargetFps", 120)
+		end)
+
+		local lighting = game:GetService("Lighting")
+		local terrain = workspace.Terrain
+
+		lighting.GlobalShadows = false
+		lighting.FogEnd = 9e9
+		lighting.Brightness = 1
+		pcall(function()
+			sethiddenproperty(lighting, "Technology", 2)
+		end)
+
+		terrain.WaterWaveSize = 0
+		terrain.WaterWaveSpeed = 0
+		terrain.WaterReflectance = 0
+		terrain.WaterTransparency = 0
+		pcall(function()
+			sethiddenproperty(terrain, "Decoration", false)
+		end)
+
+		for _, v in pairs(workspace:GetDescendants()) do
+			if v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Smoke") or v:IsA("Fire") or v:IsA("Sparkles") then
+				v.Enabled = false
+			elseif v:IsA("BasePart") and not v:IsA("MeshPart") then
+				v.Material = Enum.Material.Plastic
+				v.Reflectance = 0
+			end
+		end
 	end,
 })
-
-task.spawn(function()
-	local frames = 0
-	local lastClock = os.clock()
-	local lastReapply = 0
-
-	RunService.RenderStepped:Connect(function()
-		frames = frames + 1
-		local now = os.clock()
-		local elapsed = now - lastClock
-		if elapsed < 1 then return end
-
-		local fps = frames / elapsed
-		frames = 0
-		lastClock = now
-
-		if not (Toggles.UncapFPS and Toggles.UncapFPS.Value) then return end
-		if fps > 62 then return end
-		if now - lastReapply < 3 then return end
-
-		lastReapply = now
-		applyUncapFps()
-	end)
-end)
 
 VisualFPS:AddToggle("DisableRenderFog", {
 	Text = "Disable Render Fog",
@@ -9411,7 +9383,7 @@ do
 	end
 
 	VisualFPS:AddToggle("LowTextures", {
-		Text = "Low Texture",
+		Text = "Low Textures PBR",
 		Default = false,
 		Callback = function(state)
 			disconnect("LowTextures")
@@ -10956,9 +10928,6 @@ Library:OnUnload(function()
 	end
 	if Toggles.DisableRenderFog and Toggles.DisableRenderFog.Value then
 		Toggles.DisableRenderFog:SetValue(false)
-	end
-	if Toggles.UncapFPS and Toggles.UncapFPS.Value then
-		Toggles.UncapFPS:SetValue(false)
 	end
 	if Toggles.NoGrass and Toggles.NoGrass.Value then
 		Toggles.NoGrass:SetValue(false)
