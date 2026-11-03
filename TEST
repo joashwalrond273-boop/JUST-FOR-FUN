@@ -9141,6 +9141,54 @@ local function setPlayerShadows(castShadow)
 	end
 end
 
+VisualFPS:AddToggle("UncapFPS", {
+	Text = "Uncap FPS",
+	Default = false,
+	Callback = function(state)
+		if not state then
+			pcall(function()
+				setfpscap(60)
+			end)
+			return
+		end
+
+		if setfpscap then
+			setfpscap(120)
+		end
+
+		pcall(function()
+			setfflag("TaskSchedulerTargetFps", 120)
+		end)
+
+		local lighting = game:GetService("Lighting")
+		local terrain = workspace.Terrain
+
+		lighting.GlobalShadows = false
+		lighting.FogEnd = 9e9
+		lighting.Brightness = 1
+		pcall(function()
+			sethiddenproperty(lighting, "Technology", 2)
+		end)
+
+		terrain.WaterWaveSize = 0
+		terrain.WaterWaveSpeed = 0
+		terrain.WaterReflectance = 0
+		terrain.WaterTransparency = 0
+		pcall(function()
+			sethiddenproperty(terrain, "Decoration", false)
+		end)
+
+		for _, v in pairs(workspace:GetDescendants()) do
+			if v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Smoke") or v:IsA("Fire") or v:IsA("Sparkles") then
+				v.Enabled = false
+			elseif v:IsA("BasePart") and not v:IsA("MeshPart") then
+				v.Material = Enum.Material.Plastic
+				v.Reflectance = 0
+			end
+		end
+	end,
+})
+
 VisualFPS:AddToggle("DisableRenderFog", {
 	Text = "Disable Render Fog",
 	Default = false,
@@ -9468,20 +9516,6 @@ do
 		end,
 	})
 end
-
-VisualFPS:AddToggle("UncapFPS", {
-	Text = "Uncap FPS",
-	Default = false,
-	Callback = function(state)
-		pcall(function()
-			if state then
-				setfpscap(999)
-			else
-				setfpscap(60)
-			end
-		end)
-	end,
-})
 
 do
 	local HEAVY_POST_CLASSES = {
