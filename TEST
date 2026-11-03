@@ -1243,102 +1243,198 @@ AdvanceHealGroup:AddSlider("AutoEatCooldown", {
 local MainRight = Tabs.Player:AddRightGroupbox("Settings", "settings")
 
 -- ============================================================================
--- MAIN TAB (IMMORTAL AURA / SPECTATE)
+-- MAIN TAB (COSMETICS / SPECTATE)
 -- ============================================================================
-local CombatAutoBlock = Tabs.Main:AddLeftGroupbox("Immortal Aura", "shield")
+local CosmeticsGroup = Tabs.Main:AddLeftGroupbox("Cosmetics", "crown")
 
-CombatAutoBlock:AddToggle("ImmortalMode", {
-	Text = "Immortal Aura",
+CosmeticsGroup:AddCheckbox("VillainousCrown", {
+	Text = "Villainous Crown",
 	Default = false,
 })
 
-CombatAutoBlock:AddCheckbox("Advance", {
-	Text = "Slot System",
-	Default = false,
-})
+do
+	local CROWN_NAME = "XenoVillainousCrown"
 
-CombatAutoBlock:AddCheckbox("BypassShield", {
-	Text = "Bypass Shield",
-	Default = false,
-})
-
-CombatAutoBlock:AddCheckbox("ImmortalIgnoreTeam", {
-	Text = "Ignore Team",
-	Default = true,
-})
-
-CombatAutoBlock:AddDropdown("AdvanceSlot", {
-	Text = "ADV Slot System",
-	Values = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"},
-	Default = {"1"},
-	Multi = true,
-})
-
-CombatAutoBlock:AddSlider("ImmortalModeStuds", {
-	Text = "Block Distance",
-	Default = 18,
-	Min = 5,
-	Max = 50,
-	Rounding = 0,
-	Compact = true,
-})
-
-CombatAutoBlock:AddSlider("ImmortalShieldSpeed", {
-	Text = "SetShield Speed",
-	Default = 0.1,
-	Min = 0.01,
-	Max = 1,
-	Rounding = 2,
-	Compact = true,
-})
-
-updateImmortalModeVisibility = function()
-	local isImmortal = (Toggles.ImmortalMode and Toggles.ImmortalMode.Value) or false
-	if Options.ImmortalModeStuds then
-		if Options.ImmortalModeStuds.Visible ~= nil then
-			Options.ImmortalModeStuds.Visible = isImmortal
+	local function getCrownParts(clone)
+		local parts = {}
+		if clone:IsA("BasePart") then
+			table.insert(parts, clone)
 		end
-		if Options.ImmortalModeStuds.Holder then
-			Options.ImmortalModeStuds.Holder.Visible = isImmortal
+		for _, desc in ipairs(clone:GetDescendants()) do
+			if desc:IsA("BasePart") then
+				table.insert(parts, desc)
+			end
+		end
+		return parts
+	end
+
+	local function getCrownRoot()
+		local character = getCharacter()
+		if not character then return nil end
+		local crown = character:FindFirstChild(CROWN_NAME)
+		if crown then return crown end
+		for _, obj in ipairs(character:GetChildren()) do
+			if obj:GetAttribute("XenoCrown") then
+				return obj
+			end
+		end
+		return nil
+	end
+
+	local function clearCrown()
+		local character = getCharacter()
+		if not character then return end
+		for _, obj in ipairs(character:GetDescendants()) do
+			if obj:GetAttribute("XenoCrown") then
+				obj:Destroy()
+			end
 		end
 	end
-	if Options.ImmortalShieldSpeed then
-		if Options.ImmortalShieldSpeed.Visible ~= nil then
-			Options.ImmortalShieldSpeed.Visible = isImmortal
+
+	local function getHandle(clone, parts)
+		local handle = clone:FindFirstChild("Handle")
+		if handle and handle:IsA("BasePart") then
+			return handle
 		end
-		if Options.ImmortalShieldSpeed.Holder then
-			Options.ImmortalShieldSpeed.Holder.Visible = isImmortal
-		end
+		return parts[1]
 	end
-	if Toggles.BypassShield then
-		if Toggles.BypassShield.Visible ~= nil then
-			Toggles.BypassShield.Visible = isImmortal
+
+	local function weldHandleToHead(head, handle)
+		local existing = head:FindFirstChild("XenoCrownWeld")
+		if existing then
+			existing:Destroy()
 		end
-		if Toggles.BypassShield.Holder then
-			Toggles.BypassShield.Holder.Visible = isImmortal
-		end
+
+		local weld = Instance.new("Motor6D")
+		weld.Name = "XenoCrownWeld"
+		weld.Part0 = head
+		weld.Part1 = handle
+		weld.C0 = head.CFrame:ToObjectSpace(handle.CFrame)
+		weld.C1 = CFrame.new()
+		weld.Parent = head
 	end
-	if Toggles.ImmortalIgnoreTeam then
-		if Toggles.ImmortalIgnoreTeam.Visible ~= nil then
-			Toggles.ImmortalIgnoreTeam.Visible = isImmortal
+
+	local function wearCrown()
+		local character = getCharacter()
+		local head = character and character:FindFirstChild("Head")
+		local hum = getHumanoid()
+		if not (character and head and hum) then return end
+
+		clearCrown()
+
+		local template = resolvePath(ReplicatedStorage, "game", "Cosmetics", "cosmetics", "Villainous Crown")
+		if not template then
+			Library:Notify({ Title = "Cosmetics", Description = "Villainous Crown not found", Time = 3 })
+			return
 		end
-		if Toggles.ImmortalIgnoreTeam.Holder then
-			Toggles.ImmortalIgnoreTeam.Holder.Visible = isImmortal
+
+		local clone = template:Clone()
+		clone.Name = CROWN_NAME
+		clone:SetAttribute("XenoCrown", true)
+
+		local parts = getCrownParts(clone)
+		if #parts == 0 then
+			clone:Destroy()
+			return
 		end
+
+		-- Strip the template's own joints and make every part a normal unanchored, massless piece
+		for _, desc in ipairs(clone:GetDescendants()) do
+			if desc:IsA("JointInstance") or desc:IsA("WeldConstraint") then
+				desc:Destroy()
+			end
+		end
+		for _, part in ipairs(parts) do
+			part.Anchored = false
+			part.CanCollide = false
+			part.Massless = true
+		end
+
+		local handle = getHandle(clone, parts)
+		local headTop = head.CFrame * CFrame.new(0, head.Size.Y * 0.5, 0)
+
+		if clone:IsA("BasePart") then
+			clone.CFrame = headTop
+		else
+			local ok = pcall(function()
+				clone.PrimaryPart = handle
+				clone:PivotTo(headTop)
+			end)
+			if not ok then
+				handle.CFrame = headTop
+			end
+		end
+
+		clone.Parent = character
+
+		-- Weld every part to the handle so the whole model moves as one
+		for _, part in ipairs(parts) do
+			if part ~= handle then
+				local weld = Instance.new("Weld")
+				weld.Part0 = handle
+				weld.Part1 = part
+				weld.C0 = handle.CFrame:ToObjectSpace(part.CFrame)
+				weld.C1 = CFrame.new()
+				weld.Parent = handle
+			end
+		end
+
+		weldHandleToHead(head, handle)
 	end
-	if not isImmortal and Toggles.BypassShield and Toggles.BypassShield.Value then
-		Toggles.BypassShield:SetValue(false)
-	end
-	CombatAutoBlock:Resize()
+
+	Toggles.VillainousCrown:OnChanged(function()
+		disconnect("VillainousCrown_CharacterAdded")
+		disconnect("VillainousCrown_Loop")
+
+		if not Toggles.VillainousCrown.Value then
+			clearCrown()
+			return
+		end
+
+		wearCrown()
+
+		track("VillainousCrown_CharacterAdded", LocalPlayer.CharacterAdded:Connect(function()
+			task.wait(0.5)
+			if Toggles.VillainousCrown and Toggles.VillainousCrown.Value then
+				wearCrown()
+			end
+		end))
+
+		-- Keep the crown attached if the game strips or unwelds it
+		local lastCheck = 0
+		track("VillainousCrown_Loop", RunService.Heartbeat:Connect(function()
+			local now = os.clock()
+			if now - lastCheck < 0.5 then return end
+			lastCheck = now
+
+			if not Toggles.VillainousCrown.Value then return end
+
+			local character = getCharacter()
+			local head = character and character:FindFirstChild("Head")
+			if not (character and head) then return end
+
+			local crown = getCrownRoot()
+			local handle
+			if crown then
+				if crown:IsA("BasePart") then
+					handle = crown
+				else
+					handle = crown:FindFirstChild("Handle") or crown:FindFirstChildWhichIsA("BasePart")
+				end
+			end
+
+			if not handle or crown.Parent ~= character then
+				wearCrown()
+				return
+			end
+
+			local weld = head:FindFirstChild("XenoCrownWeld")
+			if not weld or weld.Part1 ~= handle then
+				weldHandleToHead(head, handle)
+			end
+		end))
+	end)
 end
-
-updateImmortalModeVisibility()
-task.spawn(function()
-	task.wait(0.05)
-	if updateImmortalModeVisibility then
-		updateImmortalModeVisibility()
-	end
-end)
 
 local FunAttach = Tabs.Main:AddLeftGroupbox("ATTACH", "link")
 
@@ -1681,195 +1777,6 @@ invisOutlineLabel:AddColorPicker("InvisibleFlyOutlineColor", {
 	Default = Color3.fromRGB(255, 255, 255),
 	Title = "Invisible Fly Highlight Outline Color",
 })
-
-ImmuneTab:AddCheckbox("VillainousCrown", {
-	Text = "Villainous Crown",
-	Default = false,
-})
-
-do
-	local CROWN_NAME = "XenoVillainousCrown"
-
-	local function getCrownParts(clone)
-		local parts = {}
-		if clone:IsA("BasePart") then
-			table.insert(parts, clone)
-		end
-		for _, desc in ipairs(clone:GetDescendants()) do
-			if desc:IsA("BasePart") then
-				table.insert(parts, desc)
-			end
-		end
-		return parts
-	end
-
-	local function getCrownRoot()
-		local character = getCharacter()
-		if not character then return nil end
-		local crown = character:FindFirstChild(CROWN_NAME)
-		if crown then return crown end
-		for _, obj in ipairs(character:GetChildren()) do
-			if obj:GetAttribute("XenoCrown") then
-				return obj
-			end
-		end
-		return nil
-	end
-
-	local function clearCrown()
-		local character = getCharacter()
-		if not character then return end
-		for _, obj in ipairs(character:GetDescendants()) do
-			if obj:GetAttribute("XenoCrown") then
-				obj:Destroy()
-			end
-		end
-	end
-
-	local function getHandle(clone, parts)
-		local handle = clone:FindFirstChild("Handle")
-		if handle and handle:IsA("BasePart") then
-			return handle
-		end
-		return parts[1]
-	end
-
-	local function weldHandleToHead(head, handle)
-		local existing = head:FindFirstChild("XenoCrownWeld")
-		if existing then
-			existing:Destroy()
-		end
-
-		local weld = Instance.new("Motor6D")
-		weld.Name = "XenoCrownWeld"
-		weld.Part0 = head
-		weld.Part1 = handle
-		weld.C0 = head.CFrame:ToObjectSpace(handle.CFrame)
-		weld.C1 = CFrame.new()
-		weld.Parent = head
-	end
-
-	local function wearCrown()
-		local character = getCharacter()
-		local head = character and character:FindFirstChild("Head")
-		local hum = getHumanoid()
-		if not (character and head and hum) then return end
-
-		clearCrown()
-
-		local template = resolvePath(ReplicatedStorage, "game", "Cosmetics", "cosmetics", "Villainous Crown")
-		if not template then
-			Library:Notify({ Title = "Cosmetics", Description = "Villainous Crown not found", Time = 3 })
-			return
-		end
-
-		local clone = template:Clone()
-		clone.Name = CROWN_NAME
-		clone:SetAttribute("XenoCrown", true)
-
-		local parts = getCrownParts(clone)
-		if #parts == 0 then
-			clone:Destroy()
-			return
-		end
-
-		-- Strip the template's own joints and make every part a normal unanchored, massless piece
-		for _, desc in ipairs(clone:GetDescendants()) do
-			if desc:IsA("JointInstance") or desc:IsA("WeldConstraint") then
-				desc:Destroy()
-			end
-		end
-		for _, part in ipairs(parts) do
-			part.Anchored = false
-			part.CanCollide = false
-			part.Massless = true
-		end
-
-		local handle = getHandle(clone, parts)
-		local headTop = head.CFrame * CFrame.new(0, head.Size.Y * 0.5, 0)
-
-		if clone:IsA("BasePart") then
-			clone.CFrame = headTop
-		else
-			local ok = pcall(function()
-				clone.PrimaryPart = handle
-				clone:PivotTo(headTop)
-			end)
-			if not ok then
-				handle.CFrame = headTop
-			end
-		end
-
-		clone.Parent = character
-
-		-- Weld every part to the handle so the whole model moves as one
-		for _, part in ipairs(parts) do
-			if part ~= handle then
-				local weld = Instance.new("Weld")
-				weld.Part0 = handle
-				weld.Part1 = part
-				weld.C0 = handle.CFrame:ToObjectSpace(part.CFrame)
-				weld.C1 = CFrame.new()
-				weld.Parent = handle
-			end
-		end
-
-		weldHandleToHead(head, handle)
-	end
-
-	Toggles.VillainousCrown:OnChanged(function()
-		disconnect("VillainousCrown_CharacterAdded")
-		disconnect("VillainousCrown_Loop")
-
-		if not Toggles.VillainousCrown.Value then
-			clearCrown()
-			return
-		end
-
-		wearCrown()
-
-		track("VillainousCrown_CharacterAdded", LocalPlayer.CharacterAdded:Connect(function()
-			task.wait(0.5)
-			if Toggles.VillainousCrown and Toggles.VillainousCrown.Value then
-				wearCrown()
-			end
-		end))
-
-		-- Keep the crown attached if the game strips or unwelds it
-		local lastCheck = 0
-		track("VillainousCrown_Loop", RunService.Heartbeat:Connect(function()
-			local now = os.clock()
-			if now - lastCheck < 0.5 then return end
-			lastCheck = now
-
-			if not Toggles.VillainousCrown.Value then return end
-
-			local character = getCharacter()
-			local head = character and character:FindFirstChild("Head")
-			if not (character and head) then return end
-
-			local crown = getCrownRoot()
-			local handle
-			if crown then
-				if crown:IsA("BasePart") then
-					handle = crown
-				else
-					handle = crown:FindFirstChild("Handle") or crown:FindFirstChildWhichIsA("BasePart")
-				end
-			end
-
-			if not handle or crown.Parent ~= character then
-				wearCrown()
-				return
-			end
-
-			local weld = head:FindFirstChild("XenoCrownWeld")
-			if not weld or weld.Part1 ~= handle then
-				weldHandleToHead(head, handle)
-			end
-		end))
-	end)
-end
 
 MainRight:AddCheckbox("SessionStatsHud", {
 	Text = "Session Stats HUD",
@@ -3731,6 +3638,101 @@ CombatShieldSystem:AddSlider("JumpButtonSize", {
 	Rounding = 2,
 	Compact = true,
 })
+
+CombatShieldSystem:AddDivider()
+
+CombatShieldSystem:AddToggle("ImmortalMode", {
+	Text = "Immortal Aura",
+	Default = false,
+})
+
+CombatShieldSystem:AddCheckbox("Advance", {
+	Text = "Slot System",
+	Default = false,
+})
+
+CombatShieldSystem:AddCheckbox("BypassShield", {
+	Text = "Bypass Shield",
+	Default = false,
+})
+
+CombatShieldSystem:AddCheckbox("ImmortalIgnoreTeam", {
+	Text = "Ignore Team",
+	Default = true,
+})
+
+CombatShieldSystem:AddDropdown("AdvanceSlot", {
+	Text = "ADV Slot System",
+	Values = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"},
+	Default = {"1"},
+	Multi = true,
+})
+
+CombatShieldSystem:AddSlider("ImmortalModeStuds", {
+	Text = "Block Distance",
+	Default = 18,
+	Min = 5,
+	Max = 50,
+	Rounding = 0,
+	Compact = true,
+})
+
+CombatShieldSystem:AddSlider("ImmortalShieldSpeed", {
+	Text = "SetShield Speed",
+	Default = 0.1,
+	Min = 0.01,
+	Max = 1,
+	Rounding = 2,
+	Compact = true,
+})
+
+updateImmortalModeVisibility = function()
+	local isImmortal = (Toggles.ImmortalMode and Toggles.ImmortalMode.Value) or false
+	if Options.ImmortalModeStuds then
+		if Options.ImmortalModeStuds.Visible ~= nil then
+			Options.ImmortalModeStuds.Visible = isImmortal
+		end
+		if Options.ImmortalModeStuds.Holder then
+			Options.ImmortalModeStuds.Holder.Visible = isImmortal
+		end
+	end
+	if Options.ImmortalShieldSpeed then
+		if Options.ImmortalShieldSpeed.Visible ~= nil then
+			Options.ImmortalShieldSpeed.Visible = isImmortal
+		end
+		if Options.ImmortalShieldSpeed.Holder then
+			Options.ImmortalShieldSpeed.Holder.Visible = isImmortal
+		end
+	end
+	if Toggles.BypassShield then
+		if Toggles.BypassShield.Visible ~= nil then
+			Toggles.BypassShield.Visible = isImmortal
+		end
+		if Toggles.BypassShield.Holder then
+			Toggles.BypassShield.Holder.Visible = isImmortal
+		end
+	end
+	if Toggles.ImmortalIgnoreTeam then
+		if Toggles.ImmortalIgnoreTeam.Visible ~= nil then
+			Toggles.ImmortalIgnoreTeam.Visible = isImmortal
+		end
+		if Toggles.ImmortalIgnoreTeam.Holder then
+			Toggles.ImmortalIgnoreTeam.Holder.Visible = isImmortal
+		end
+	end
+	if not isImmortal and Toggles.BypassShield and Toggles.BypassShield.Value then
+		Toggles.BypassShield:SetValue(false)
+	end
+	CombatShieldSystem:Resize()
+end
+
+updateImmortalModeVisibility()
+task.spawn(function()
+	task.wait(0.05)
+	if updateImmortalModeVisibility then
+		updateImmortalModeVisibility()
+	end
+end)
 
 local function updateShieldButtonVisibility()
 	local moveShield = (Toggles.ShieldButtonMove and Toggles.ShieldButtonMove.Value) or false
