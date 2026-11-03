@@ -3451,6 +3451,11 @@ end)
 
 local CombatShieldSystem = Tabs.Combat:AddLeftGroupbox("SHIELD SYSTEM", "swords")
 
+CombatShieldSystem:AddCheckbox("ShieldHud", {
+	Text = "Shield Indicator",
+	Default = false,
+})
+
 CombatShieldSystem:AddToggle("ShieldOnDamage", {
 	Text = "Shield on Damage",
 	Default = false,
@@ -3490,15 +3495,10 @@ CombatShieldSystem:AddSlider("ShieldLowHpThreshold", {
 	Compact = true,
 })
 
-CombatShieldSystem:AddCheckbox("ShieldHud", {
-	Text = "Shield HUD Indicator",
-	Default = false,
-})
-
 CombatShieldSystem:AddDivider()
 
-CombatShieldSystem:AddToggle("ShieldButtonMove", {
-	Text = "Movable Shield Button",
+CombatShieldSystem:AddCheckbox("ShieldButtonMove", {
+	Text = "Move Shield",
 	Default = false,
 })
 
@@ -3517,6 +3517,15 @@ CombatShieldSystem:AddSlider("ShieldButtonY", {
 	Min = -1000,
 	Max = 1000,
 	Rounding = 0,
+	Compact = true,
+})
+
+CombatShieldSystem:AddSlider("ShieldButtonSize", {
+	Text = "Shield Button Size",
+	Default = 1,
+	Min = 0.5,
+	Max = 3,
+	Rounding = 2,
 	Compact = true,
 })
 
@@ -4397,6 +4406,8 @@ do
 	local shieldButtonOffsetX = 0
 	local shieldButtonOffsetY = 0
 	local shieldButtonOrigPos = nil
+	local shieldButtonOrigSize = nil
+	local shieldButtonScale = 1
 	local shieldButtonSyncing = false
 	local shieldButtonDragBeganConn = nil
 	local shieldButtonDragMoveConn = nil
@@ -4416,11 +4427,20 @@ do
 		if shieldButtonOrigPos == nil then
 			shieldButtonOrigPos = btn.Position
 		end
+		if shieldButtonOrigSize == nil then
+			shieldButtonOrigSize = btn.Size
+		end
 		btn.Position = UDim2.new(
 			shieldButtonOrigPos.X.Scale,
 			shieldButtonOrigPos.X.Offset + shieldButtonOffsetX,
 			shieldButtonOrigPos.Y.Scale,
 			shieldButtonOrigPos.Y.Offset + shieldButtonOffsetY
+		)
+		btn.Size = UDim2.new(
+			shieldButtonOrigSize.X.Scale * shieldButtonScale,
+			shieldButtonOrigSize.X.Offset * shieldButtonScale,
+			shieldButtonOrigSize.Y.Scale * shieldButtonScale,
+			shieldButtonOrigSize.Y.Offset * shieldButtonScale
 		)
 	end
 
@@ -4513,6 +4533,7 @@ do
 
 		shieldButtonOffsetX = (Options.ShieldButtonX and Options.ShieldButtonX.Value) or 0
 		shieldButtonOffsetY = (Options.ShieldButtonY and Options.ShieldButtonY.Value) or 0
+		shieldButtonScale = (Options.ShieldButtonSize and Options.ShieldButtonSize.Value) or 1
 		refreshShieldButton()
 		Library:Notify({ Title = "Shield Button", Description = "Movable Enabled", Time = 2 })
 	end)
@@ -4531,6 +4552,15 @@ do
 		Options.ShieldButtonY:OnChanged(function(value)
 			if shieldButtonSyncing then return end
 			shieldButtonOffsetY = value
+			if Toggles.ShieldButtonMove and Toggles.ShieldButtonMove.Value then
+				applyShieldButtonPos()
+			end
+		end)
+	end
+
+	if Options.ShieldButtonSize then
+		Options.ShieldButtonSize:OnChanged(function(value)
+			shieldButtonScale = value
 			if Toggles.ShieldButtonMove and Toggles.ShieldButtonMove.Value then
 				applyShieldButtonPos()
 			end
