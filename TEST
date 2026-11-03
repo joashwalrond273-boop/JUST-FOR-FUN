@@ -1252,10 +1252,55 @@ CosmeticsGroup:AddCheckbox("VillainousCrown", {
 	Default = false,
 })
 
-do
-	local CROWN_NAME = "XenoVillainousCrown"
+CosmeticsGroup:AddCheckbox("SaviorsCrown", {
+	Text = "Saviors Crown",
+	Default = false,
+})
 
-	local function getCrownParts(clone)
+CosmeticsGroup:AddCheckbox("TyrantsCrown", {
+	Text = "Tyrants Crown",
+	Default = false,
+})
+
+CosmeticsGroup:AddCheckbox("CrownOfTheSkyDragon", {
+	Text = "Crown Of The Sky Dragon",
+	Default = false,
+})
+
+CosmeticsGroup:AddCheckbox("FlowerCrown", {
+	Text = "Flower Crown",
+	Default = false,
+})
+
+do
+	-- Every cosmetic currently wears on the head slot
+	local COSMETICS = {
+		{ Toggle = "VillainousCrown", Name = "Villainous Crown" },
+		{ Toggle = "SaviorsCrown", Name = "Saviors Crown" },
+		{ Toggle = "TyrantsCrown", Name = "Tyrants Crown" },
+		{ Toggle = "CrownOfTheSkyDragon", Name = "Crown Of The Sky Dragon" },
+		{ Toggle = "FlowerCrown", Name = "Flower Crown" },
+	}
+
+	local activeCosmetic = nil
+
+	local function getCosmeticRoot()
+		local character = getCharacter()
+		if not character then return nil end
+		return character:FindFirstChild("XenoCosmetic")
+	end
+
+	local function clearCosmetic()
+		local character = getCharacter()
+		if not character then return end
+		for _, obj in ipairs(character:GetDescendants()) do
+			if obj:GetAttribute("XenoCosmetic") then
+				obj:Destroy()
+			end
+		end
+	end
+
+	local function collectParts(clone)
 		local parts = {}
 		if clone:IsA("BasePart") then
 			table.insert(parts, clone)
@@ -1268,45 +1313,14 @@ do
 		return parts
 	end
 
-	local function getCrownRoot()
-		local character = getCharacter()
-		if not character then return nil end
-		local crown = character:FindFirstChild(CROWN_NAME)
-		if crown then return crown end
-		for _, obj in ipairs(character:GetChildren()) do
-			if obj:GetAttribute("XenoCrown") then
-				return obj
-			end
-		end
-		return nil
-	end
-
-	local function clearCrown()
-		local character = getCharacter()
-		if not character then return end
-		for _, obj in ipairs(character:GetDescendants()) do
-			if obj:GetAttribute("XenoCrown") then
-				obj:Destroy()
-			end
-		end
-	end
-
-	local function getHandle(clone, parts)
-		local handle = clone:FindFirstChild("Handle")
-		if handle and handle:IsA("BasePart") then
-			return handle
-		end
-		return parts[1]
-	end
-
 	local function weldHandleToHead(head, handle)
-		local existing = head:FindFirstChild("XenoCrownWeld")
+		local existing = head:FindFirstChild("XenoCosmeticWeld")
 		if existing then
 			existing:Destroy()
 		end
 
 		local weld = Instance.new("Motor6D")
-		weld.Name = "XenoCrownWeld"
+		weld.Name = "XenoCosmeticWeld"
 		weld.Part0 = head
 		weld.Part1 = handle
 		weld.C0 = head.CFrame:ToObjectSpace(handle.CFrame)
@@ -1314,25 +1328,25 @@ do
 		weld.Parent = head
 	end
 
-	local function wearCrown()
+	local function wearCosmetic(name)
 		local character = getCharacter()
 		local head = character and character:FindFirstChild("Head")
 		local hum = getHumanoid()
 		if not (character and head and hum) then return end
 
-		clearCrown()
+		clearCosmetic()
 
-		local template = resolvePath(ReplicatedStorage, "game", "Cosmetics", "cosmetics", "Villainous Crown")
+		local template = resolvePath(ReplicatedStorage, "game", "Cosmetics", "cosmetics", name)
 		if not template then
-			Library:Notify({ Title = "Cosmetics", Description = "Villainous Crown not found", Time = 3 })
+			Library:Notify({ Title = "Cosmetics", Description = name .. " not found", Time = 3 })
 			return
 		end
 
 		local clone = template:Clone()
-		clone.Name = CROWN_NAME
-		clone:SetAttribute("XenoCrown", true)
+		clone.Name = "XenoCosmetic"
+		clone:SetAttribute("XenoCosmetic", true)
 
-		local parts = getCrownParts(clone)
+		local parts = collectParts(clone)
 		if #parts == 0 then
 			clone:Destroy()
 			return
@@ -1350,7 +1364,11 @@ do
 			part.Massless = true
 		end
 
-		local handle = getHandle(clone, parts)
+		local handle = clone:FindFirstChild("Handle")
+		if not (handle and handle:IsA("BasePart")) then
+			handle = parts[1]
+		end
+
 		local headTop = head.CFrame * CFrame.new(0, head.Size.Y * 0.5, 0)
 
 		if clone:IsA("BasePart") then
@@ -1382,58 +1400,74 @@ do
 		weldHandleToHead(head, handle)
 	end
 
-	Toggles.VillainousCrown:OnChanged(function()
-		disconnect("VillainousCrown_CharacterAdded")
-		disconnect("VillainousCrown_Loop")
+	local function refreshCosmetic()
+		if not activeCosmetic then return end
 
-		if not Toggles.VillainousCrown.Value then
-			clearCrown()
+		local character = getCharacter()
+		local head = character and character:FindFirstChild("Head")
+		if not (character and head) then return end
+
+		local root = getCosmeticRoot()
+		local handle
+		if root then
+			if root:IsA("BasePart") then
+				handle = root
+			else
+				handle = root:FindFirstChild("Handle") or root:FindFirstChildWhichIsA("BasePart")
+			end
+		end
+
+		if not handle or root.Parent ~= character then
+			wearCosmetic(activeCosmetic)
 			return
 		end
 
-		wearCrown()
+		local weld = head:FindFirstChild("XenoCosmeticWeld")
+		if not weld or weld.Part1 ~= handle then
+			weldHandleToHead(head, handle)
+		end
+	end
 
-		track("VillainousCrown_CharacterAdded", LocalPlayer.CharacterAdded:Connect(function()
-			task.wait(0.5)
-			if Toggles.VillainousCrown and Toggles.VillainousCrown.Value then
-				wearCrown()
-			end
-		end))
+	for _, entry in ipairs(COSMETICS) do
+		Toggles[entry.Toggle]:OnChanged(function()
+			disconnect("XenoCosmetic_CharacterAdded")
+			disconnect("XenoCosmetic_Loop")
 
-		-- Keep the crown attached if the game strips or unwelds it
-		local lastCheck = 0
-		track("VillainousCrown_Loop", RunService.Heartbeat:Connect(function()
-			local now = os.clock()
-			if now - lastCheck < 0.5 then return end
-			lastCheck = now
-
-			if not Toggles.VillainousCrown.Value then return end
-
-			local character = getCharacter()
-			local head = character and character:FindFirstChild("Head")
-			if not (character and head) then return end
-
-			local crown = getCrownRoot()
-			local handle
-			if crown then
-				if crown:IsA("BasePart") then
-					handle = crown
-				else
-					handle = crown:FindFirstChild("Handle") or crown:FindFirstChildWhichIsA("BasePart")
+			if not Toggles[entry.Toggle].Value then
+				if activeCosmetic == entry.Name then
+					activeCosmetic = nil
+					clearCosmetic()
 				end
-			end
-
-			if not handle or crown.Parent ~= character then
-				wearCrown()
 				return
 			end
 
-			local weld = head:FindFirstChild("XenoCrownWeld")
-			if not weld or weld.Part1 ~= handle then
-				weldHandleToHead(head, handle)
+			-- Head slot is exclusive: only one cosmetic worn at a time
+			for _, other in ipairs(COSMETICS) do
+				if other.Toggle ~= entry.Toggle and Toggles[other.Toggle].Value then
+					Toggles[other.Toggle]:SetValue(false)
+				end
 			end
-		end))
-	end)
+
+			activeCosmetic = entry.Name
+			wearCosmetic(entry.Name)
+
+			track("XenoCosmetic_CharacterAdded", LocalPlayer.CharacterAdded:Connect(function()
+				task.wait(0.5)
+				if activeCosmetic then
+					wearCosmetic(activeCosmetic)
+				end
+			end))
+
+			-- Keep the cosmetic attached if the game strips or unwelds it
+			local lastCheck = 0
+			track("XenoCosmetic_Loop", RunService.Heartbeat:Connect(function()
+				local now = os.clock()
+				if now - lastCheck < 0.5 then return end
+				lastCheck = now
+				refreshCosmetic()
+			end))
+		end)
+	end
 end
 
 local FunAttach = Tabs.Main:AddLeftGroupbox("ATTACH", "link")
@@ -11116,6 +11150,18 @@ Library:OnUnload(function()
 	end
 	if Toggles.VillainousCrown and Toggles.VillainousCrown.Value then
 		Toggles.VillainousCrown:SetValue(false)
+	end
+	if Toggles.SaviorsCrown and Toggles.SaviorsCrown.Value then
+		Toggles.SaviorsCrown:SetValue(false)
+	end
+	if Toggles.TyrantsCrown and Toggles.TyrantsCrown.Value then
+		Toggles.TyrantsCrown:SetValue(false)
+	end
+	if Toggles.CrownOfTheSkyDragon and Toggles.CrownOfTheSkyDragon.Value then
+		Toggles.CrownOfTheSkyDragon:SetValue(false)
+	end
+	if Toggles.FlowerCrown and Toggles.FlowerCrown.Value then
+		Toggles.FlowerCrown:SetValue(false)
 	end
 	if Toggles.SpearSword and Toggles.SpearSword.Value then
 		Toggles.SpearSword:SetValue(false)
