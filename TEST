@@ -9141,10 +9141,14 @@ local function setPlayerShadows(castShadow)
 	end
 end
 
+local uncapFpsLoop = false
+
 VisualFPS:AddToggle("UncapFPS", {
 	Text = "Uncap FPS",
 	Default = false,
 	Callback = function(state)
+		uncapFpsLoop = false
+
 		if not state then
 			pcall(function()
 				setfpscap(60)
@@ -9152,40 +9156,53 @@ VisualFPS:AddToggle("UncapFPS", {
 			return
 		end
 
-		if setfpscap then
-			setfpscap(120)
-		end
+		local function applyUncapFps()
+			if setfpscap then
+				setfpscap(120)
+			end
 
-		pcall(function()
-			setfflag("TaskSchedulerTargetFps", 120)
-		end)
+			pcall(function()
+				setfflag("TaskSchedulerTargetFps", 120)
+			end)
 
-		local lighting = game:GetService("Lighting")
-		local terrain = workspace.Terrain
+			local lighting = game:GetService("Lighting")
+			local terrain = workspace.Terrain
 
-		lighting.GlobalShadows = false
-		lighting.FogEnd = 9e9
-		lighting.Brightness = 1
-		pcall(function()
-			sethiddenproperty(lighting, "Technology", 2)
-		end)
+			lighting.GlobalShadows = false
+			lighting.FogEnd = 9e9
+			lighting.Brightness = 1
+			pcall(function()
+				sethiddenproperty(lighting, "Technology", 2)
+			end)
 
-		terrain.WaterWaveSize = 0
-		terrain.WaterWaveSpeed = 0
-		terrain.WaterReflectance = 0
-		terrain.WaterTransparency = 0
-		pcall(function()
-			sethiddenproperty(terrain, "Decoration", false)
-		end)
+			terrain.WaterWaveSize = 0
+			terrain.WaterWaveSpeed = 0
+			terrain.WaterReflectance = 0
+			terrain.WaterTransparency = 0
+			pcall(function()
+				sethiddenproperty(terrain, "Decoration", false)
+			end)
 
-		for _, v in pairs(workspace:GetDescendants()) do
-			if v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Smoke") or v:IsA("Fire") or v:IsA("Sparkles") then
-				v.Enabled = false
-			elseif v:IsA("BasePart") and not v:IsA("MeshPart") then
-				v.Material = Enum.Material.Plastic
-				v.Reflectance = 0
+			for _, v in pairs(workspace:GetDescendants()) do
+				if v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Smoke") or v:IsA("Fire") or v:IsA("Sparkles") then
+					v.Enabled = false
+				elseif v:IsA("BasePart") and not v:IsA("MeshPart") then
+					v.Material = Enum.Material.Plastic
+					v.Reflectance = 0
+				end
 			end
 		end
+
+		applyUncapFps()
+
+		uncapFpsLoop = true
+		task.spawn(function()
+			while uncapFpsLoop do
+				task.wait(10)
+				if not uncapFpsLoop then break end
+				applyUncapFps()
+			end
+		end)
 	end,
 })
 
@@ -10928,6 +10945,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.DisableRenderFog and Toggles.DisableRenderFog.Value then
 		Toggles.DisableRenderFog:SetValue(false)
+	end
+	if Toggles.UncapFPS and Toggles.UncapFPS.Value then
+		Toggles.UncapFPS:SetValue(false)
 	end
 	if Toggles.NoGrass and Toggles.NoGrass.Value then
 		Toggles.NoGrass:SetValue(false)
