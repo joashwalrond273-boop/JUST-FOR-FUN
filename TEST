@@ -9141,16 +9141,10 @@ local function setPlayerShadows(castShadow)
 	end
 end
 
-local uncapFpsConnection
 VisualFPS:AddToggle("UncapFPS", {
 	Text = "Uncap FPS",
 	Default = false,
 	Callback = function(state)
-		if uncapFpsConnection then
-			uncapFpsConnection:Disconnect()
-			uncapFpsConnection = nil
-		end
-
 		if not state then
 			pcall(function()
 				setfpscap(120)
@@ -9158,22 +9152,12 @@ VisualFPS:AddToggle("UncapFPS", {
 			return
 		end
 
-		local function applyUncap()
-			pcall(function()
-				setfpscap(9999)
-			end)
+		if setfpscap then
+			setfpscap(120)
 		end
 
 		pcall(function()
-			setfflag("TaskSchedulerTargetFps", 9999)
-		end)
-
-		applyUncap()
-
-		uncapFpsConnection = game:GetService("RunService").Heartbeat:Connect(function(dt)
-			if dt > 1 / 70 then
-				applyUncap()
-			end
+			setfflag("TaskSchedulerTargetFps", 120)
 		end)
 
 		local lighting = game:GetService("Lighting")
