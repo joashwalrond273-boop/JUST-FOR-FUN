@@ -3474,6 +3474,8 @@ CombatShieldSystem:AddSlider("ShieldDamageRefire", {
 	Compact = true,
 })
 
+CombatShieldSystem:AddDivider()
+
 CombatShieldSystem:AddToggle("ShieldOnLowHp", {
 	Text = "Shield on Low HP",
 	Default = false,
@@ -3491,6 +3493,31 @@ CombatShieldSystem:AddSlider("ShieldLowHpThreshold", {
 CombatShieldSystem:AddCheckbox("ShieldHud", {
 	Text = "Shield HUD Indicator",
 	Default = false,
+})
+
+CombatShieldSystem:AddDivider()
+
+CombatShieldSystem:AddToggle("ShieldButtonMove", {
+	Text = "Movable Shield Button",
+	Default = false,
+})
+
+CombatShieldSystem:AddSlider("ShieldButtonX", {
+	Text = "Shield Button Horizontal",
+	Default = 0,
+	Min = -1000,
+	Max = 1000,
+	Rounding = 0,
+	Compact = true,
+})
+
+CombatShieldSystem:AddSlider("ShieldButtonY", {
+	Text = "Shield Button Vertical",
+	Default = 0,
+	Min = -1000,
+	Max = 1000,
+	Rounding = 0,
+	Compact = true,
 })
 
 local CombatAutoPVP = Tabs.Combat:AddRightGroupbox("PVP Modules", "swords")
@@ -4363,6 +4390,152 @@ do
 
 		Library:Notify({ Title = "Shield HUD", Description = "Enabled", Time = 2 })
 	end)
+
+	-- ==========================================
+	-- SHIELD BUTTON MOVABLE
+	-- ==========================================
+	local shieldButtonOffsetX = 0
+	local shieldButtonOffsetY = 0
+	local shieldButtonOrigPos = nil
+	local shieldButtonSyncing = false
+	local shieldButtonDragBeganConn = nil
+	local shieldButtonDragMoveConn = nil
+
+	local function getShieldButton()
+		local pg = LocalPlayer and LocalPlayer:FindFirstChild("PlayerGui")
+		local gui = pg and pg:FindFirstChild("ShieldButton")
+		if not gui then return nil end
+		local tcf = gui:FindFirstChild("TouchControlFrame")
+		local sbf = tcf and tcf:FindFirstChild("ShieldButtonFrame")
+		return sbf and sbf:FindFirstChild("ShieldButton") or nil
+	end
+
+	local function applyShieldButtonPos()
+		local btn = getShieldButton()
+		if not btn then return end
+		if shieldButtonOrigPos == nil then
+			shieldButtonOrigPos = btn.Position
+		end
+		btn.Position = UDim2.new(
+			shieldButtonOrigPos.X.Scale,
+			shieldButtonOrigPos.X.Offset + shieldButtonOffsetX,
+			shieldButtonOrigPos.Y.Scale,
+			shieldButtonOrigPos.Y.Offset + shieldButtonOffsetY
+		)
+	end
+
+	local function unbindShieldButtonDrag()
+		if shieldButtonDragBeganConn then
+			shieldButtonDragBeganConn:Disconnect()
+			shieldButtonDragBeganConn = nil
+		end
+		if shieldButtonDragMoveConn then
+			shieldButtonDragMoveConn:Disconnect()
+			shieldButtonDragMoveConn = nil
+		end
+	end
+
+	local function bindShieldButtonDrag()
+		unbindShieldButtonDrag()
+
+		local btn = getShieldButton()
+		if not btn then return false end
+		if shieldButtonOrigPos == nil then
+			shieldButtonOrigPos = btn.Position
+		end
+
+		shieldButtonDragBeganConn = btn.InputBegan:Connect(function(input)
+			if not (Toggles.ShieldButtonMove and Toggles.ShieldButtonMove.Value) then return end
+			if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
+
+			local dragStart = input.Position
+			local startOffX, startOffY = shieldButtonOffsetX, shieldButtonOffsetY
+
+			if shieldButtonDragMoveConn then
+				shieldButtonDragMoveConn:Disconnect()
+				shieldButtonDragMoveConn = nil
+			end
+
+			shieldButtonDragMoveConn = input.Changed:Connect(function()
+				if input.UserInputState == Enum.UserInputState.End then
+					if shieldButtonDragMoveConn then
+						shieldButtonDragMoveConn:Disconnect()
+						shieldButtonDragMoveConn = nil
+					end
+					return
+				end
+				if input.UserInputType ~= Enum.UserInputType.MouseMovement and input.UserInputType ~= Enum.UserInputType.Touch then return end
+
+				local delta = input.Position - dragStart
+				shieldButtonOffsetX = startOffX + delta.X
+				shieldButtonOffsetY = startOffY + delta.Y
+				applyShieldButtonPos()
+
+				shieldButtonSyncing = true
+				if Options.ShieldButtonX then
+					Options.ShieldButtonX:SetValue(math.clamp(math.floor(shieldButtonOffsetX + 0.5), -1000, 1000))
+				end
+				if Options.ShieldButtonY then
+					Options.ShieldButtonY:SetValue(math.clamp(math.floor(shieldButtonOffsetY + 0.5), -1000, 1000))
+				end
+				shieldButtonSyncing = false
+			end)
+		end)
+
+		return true
+	end
+
+	local function refreshShieldButton()
+		if getShieldButton() then
+			bindShieldButtonDrag()
+			applyShieldButtonPos()
+			return
+		end
+		task.spawn(function()
+			for _ = 1, 120 do
+				if getShieldButton() then break end
+				task.wait(0.25)
+			end
+			if Toggles.ShieldButtonMove and Toggles.ShieldButtonMove.Value then
+				bindShieldButtonDrag()
+				applyShieldButtonPos()
+			end
+		end)
+	end
+
+	Toggles.ShieldButtonMove:OnChanged(function()
+		unbindShieldButtonDrag()
+
+		if not Toggles.ShieldButtonMove.Value then
+			Library:Notify({ Title = "Shield Button", Description = "Movable Disabled", Time = 2 })
+			return
+		end
+
+		shieldButtonOffsetX = (Options.ShieldButtonX and Options.ShieldButtonX.Value) or 0
+		shieldButtonOffsetY = (Options.ShieldButtonY and Options.ShieldButtonY.Value) or 0
+		refreshShieldButton()
+		Library:Notify({ Title = "Shield Button", Description = "Movable Enabled", Time = 2 })
+	end)
+
+	if Options.ShieldButtonX then
+		Options.ShieldButtonX:OnChanged(function(value)
+			if shieldButtonSyncing then return end
+			shieldButtonOffsetX = value
+			if Toggles.ShieldButtonMove and Toggles.ShieldButtonMove.Value then
+				applyShieldButtonPos()
+			end
+		end)
+	end
+
+	if Options.ShieldButtonY then
+		Options.ShieldButtonY:OnChanged(function(value)
+			if shieldButtonSyncing then return end
+			shieldButtonOffsetY = value
+			if Toggles.ShieldButtonMove and Toggles.ShieldButtonMove.Value then
+				applyShieldButtonPos()
+			end
+		end)
+	end
 end
 
 local function updateAdvanceState()
@@ -10679,6 +10852,18 @@ Library:OnUnload(function()
 	end
 	if Toggles.SmartSwing and Toggles.SmartSwing.Value then
 		Toggles.SmartSwing:SetValue(false)
+	end
+	if Toggles.ShieldButtonMove and Toggles.ShieldButtonMove.Value then
+		Toggles.ShieldButtonMove:SetValue(false)
+	end
+	if Toggles.ShieldOnDamage and Toggles.ShieldOnDamage.Value then
+		Toggles.ShieldOnDamage:SetValue(false)
+	end
+	if Toggles.ShieldOnLowHp and Toggles.ShieldOnLowHp.Value then
+		Toggles.ShieldOnLowHp:SetValue(false)
+	end
+	if Toggles.ShieldHud and Toggles.ShieldHud.Value then
+		Toggles.ShieldHud:SetValue(false)
 	end
 	if Toggles.SpearSword and Toggles.SpearSword.Value then
 		Toggles.SpearSword:SetValue(false)
