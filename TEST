@@ -3341,7 +3341,7 @@ CombatAutoSwingGroup:AddToggle("AutoSwing", {
 	Default = false,
 })
 
-CombatAutoSwingGroup:AddToggle("SmartSwing", {
+CombatAutoSwingGroup:AddCheckbox("SmartSwing", {
 	Text = "Smart Detection",
 	Default = false,
 })
@@ -3354,6 +3354,20 @@ CombatAutoSwingGroup:AddDropdown("AutoSwingSlot", {
 })
 
 CombatAutoSwingGroup:AddDivider()
+
+CombatAutoSwingGroup:AddCheckbox("SwingSpeedToggle", {
+	Text = "Swing Speed",
+	Default = false,
+})
+
+CombatAutoSwingGroup:AddSlider("SwingSpeedVal", {
+	Text = "Swing Speed Value",
+	Default = 1,
+	Min = 1,
+	Max = 15,
+	Rounding = 1,
+	Compact = true,
+})
 
 CombatAutoSwingGroup:AddSlider("AutoSwingSpeed", {
 	Text = "Auto Swing Speed",
@@ -3381,12 +3395,27 @@ CombatAutoSwingGroup:AddToggle("SmartSwingIgnoreTeam", {
 updateAutoSwingSliderVisibility = function()
 	local isAutoSwingToggled = (Toggles.AutoSwing and Toggles.AutoSwing.Value) or false
 	local isSmartSwingToggled = (Toggles.SmartSwing and Toggles.SmartSwing.Value) or false
+	local isSwingSpeed = (Toggles.SwingSpeedToggle and Toggles.SwingSpeedToggle.Value) or false
 	local isAnyToggled = isAutoSwingToggled or isSmartSwingToggled
 
 	if Options.AutoSwingSlot then
 		Options.AutoSwingSlot.Visible = true
 		if Options.AutoSwingSlot.Holder then
 			Options.AutoSwingSlot.Holder.Visible = true
+		end
+	end
+	if Toggles.SwingSpeedToggle then
+		if Toggles.SwingSpeedToggle.Visible ~= nil then
+			Toggles.SwingSpeedToggle.Visible = true
+		end
+		if Toggles.SwingSpeedToggle.Holder then
+			Toggles.SwingSpeedToggle.Holder.Visible = true
+		end
+	end
+	if Options.SwingSpeedVal then
+		Options.SwingSpeedVal.Visible = isSwingSpeed
+		if Options.SwingSpeedVal.Holder then
+			Options.SwingSpeedVal.Holder.Visible = isSwingSpeed
 		end
 	end
 	if Options.AutoSwingSpeed then
@@ -3525,20 +3554,6 @@ CombatAutoPVP:AddButton({
 
 CombatAutoPVP:AddDivider()
 
-CombatAutoPVP:AddToggle("SwingSpeedToggle", {
-	Text = "Swing Speed",
-	Default = false,
-})
-
-CombatAutoPVP:AddSlider("SwingSpeedVal", {
-	Text = "Swing Speed Value",
-	Default = 1,
-	Min = 1,
-	Max = 15,
-	Rounding = 1,
-	Compact = true,
-})
-
 CombatAutoPVP:AddToggle("AutoJump", {
 	Text = "Auto Jump",
 	Default = false,
@@ -3584,20 +3599,22 @@ CombatAutoPVP:AddToggle("AntiCamlock", {
 	Default = false,
 })
 
+CombatAutoPVP:AddSlider("AntiCamlockStrafe", {
+	Text = "Strafe Width",
+	Default = 0.5,
+	Min = 0.1,
+	Max = 3,
+	Rounding = 2,
+	Compact = true,
+})
+
 updatePVPModulesVisibility = function()
 	local isCam = (Toggles.Camlock and Toggles.Camlock.Value) or false
 	local isCamLerp = (Toggles.CamlockCameraLerp and Toggles.CamlockCameraLerp.Value) or false
-	local isSwingSpeed = (Toggles.SwingSpeedToggle and Toggles.SwingSpeedToggle.Value) or false
 	local isCLSlot = (Toggles.CamlockSlotSystem and Toggles.CamlockSlotSystem.Value) or false
 
 	local isOutline = isCam and ((Toggles.Outline and Toggles.Outline.Value) or (Toggles.Cutline and Toggles.Cutline.Value) or false)
 
-	if Options.SwingSpeedVal then
-		Options.SwingSpeedVal.Visible = isSwingSpeed
-		if Options.SwingSpeedVal.Holder then
-			Options.SwingSpeedVal.Holder.Visible = isSwingSpeed
-		end
-	end
 	if Toggles.CamlockCameraLerp then
 		if Toggles.CamlockCameraLerp.Visible ~= nil then
 			Toggles.CamlockCameraLerp.Visible = true
@@ -4986,7 +5003,6 @@ if Toggles.AntiCamlock then
 			local ANTI_RANGE = 10
 			local ANTI_ANGLE = math.rad(12)
 			local ANTI_HOLD = 0.35
-			local ANTI_FLIP = 0.5
 			local PREDICT_LEAD = 0.35
 
 			local lockTimes = {}
@@ -5005,6 +5021,7 @@ if Toggles.AntiCamlock then
 
 				local myPos = root.Position
 				local now = os.clock()
+				local antiFlip = (Options.AntiCamlockStrafe and Options.AntiCamlockStrafe.Value) or 0.5
 				local lockPos = nil
 				local lockRate = 0
 
@@ -5092,11 +5109,11 @@ if Toggles.AntiCamlock then
 							end
 
 							local desired = (sep(1) >= sep(-1)) and 1 or -1
-							if desired ~= strafeSign and strafeTimer >= ANTI_FLIP then
+							if desired ~= strafeSign and strafeTimer >= antiFlip then
 								strafeSign = desired
 								strafeTimer = 0
 							end
-						elseif strafeTimer >= ANTI_FLIP then
+						elseif strafeTimer >= antiFlip then
 							strafeTimer = 0
 							strafeSign = -strafeSign
 						end
@@ -6945,8 +6962,8 @@ Toggles.AntiAFK:OnChanged(function()
 end)
 
 Toggles.SwingSpeedToggle:OnChanged(function()
-	if updatePVPModulesVisibility then
-		updatePVPModulesVisibility()
+	if updateAutoSwingSliderVisibility then
+		updateAutoSwingSliderVisibility()
 	end
 	if Toggles.SwingSpeedToggle.Value then
 		Library:Notify({ Title = "Swing Speed", Description = "Enabled", Time = 2 })
