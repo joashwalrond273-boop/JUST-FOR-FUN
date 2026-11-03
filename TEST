@@ -9145,47 +9145,75 @@ VisualFPS:AddToggle("UncapFPS", {
 	Text = "Uncap FPS",
 	Default = false,
 	Callback = function(state)
+		disconnect("UncapFPS_Timer")
+
 		if not state then
 			pcall(function()
-				setfpscap(120)
+				if typeof(setfpscap) == "function" then
+					setfpscap(60)
+				elseif typeof(set_fps_cap) == "function" then
+					set_fps_cap(60)
+				end
 			end)
 			return
 		end
 
-		if setfpscap then
-			setfpscap(120)
+		local function triggerUncap()
+			pcall(function()
+				if typeof(setfpscap) == "function" then
+					setfpscap(120)
+				elseif typeof(set_fps_cap) == "function" then
+					set_fps_cap(120)
+				elseif typeof(setfps) == "function" then
+					setfps(120)
+				end
+			end)
+
+			pcall(function()
+				setfflag("TaskSchedulerTargetFps", 120)
+			end)
+
+			local lighting = game:GetService("Lighting")
+			local terrain = workspace.Terrain
+
+			pcall(function()
+				lighting.GlobalShadows = false
+				lighting.FogEnd = 9e9
+				lighting.Brightness = 1
+				sethiddenproperty(lighting, "Technology", 2)
+			end)
+
+			pcall(function()
+				terrain.WaterWaveSize = 0
+				terrain.WaterWaveSpeed = 0
+				terrain.WaterReflectance = 0
+				terrain.WaterTransparency = 0
+				sethiddenproperty(terrain, "Decoration", false)
+			end)
+
+			pcall(function()
+				for _, v in pairs(workspace:GetDescendants()) do
+					if v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Smoke") or v:IsA("Fire") or v:IsA("Sparkles") then
+						v.Enabled = false
+					elseif v:IsA("BasePart") and not v:IsA("MeshPart") then
+						v.Material = Enum.Material.Plastic
+						v.Reflectance = 0
+					end
+				end
+			end)
 		end
 
-		pcall(function()
-			setfflag("TaskSchedulerTargetFps", 120)
-		end)
+		-- Trigger immediately on toggle enable
+		task.spawn(triggerUncap)
 
-		local lighting = game:GetService("Lighting")
-		local terrain = workspace.Terrain
-
-		lighting.GlobalShadows = false
-		lighting.FogEnd = 9e9
-		lighting.Brightness = 1
-		pcall(function()
-			sethiddenproperty(lighting, "Technology", 2)
-		end)
-
-		terrain.WaterWaveSize = 0
-		terrain.WaterWaveSpeed = 0
-		terrain.WaterReflectance = 0
-		terrain.WaterTransparency = 0
-		pcall(function()
-			sethiddenproperty(terrain, "Decoration", false)
-		end)
-
-		for _, v in pairs(workspace:GetDescendants()) do
-			if v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Smoke") or v:IsA("Fire") or v:IsA("Sparkles") then
-				v.Enabled = false
-			elseif v:IsA("BasePart") and not v:IsA("MeshPart") then
-				v.Material = Enum.Material.Plastic
-				v.Reflectance = 0
+		-- Re-trigger every 10 seconds to stop the game from resetting back to 60 FPS
+		local lastTrigger = os.clock()
+		track("UncapFPS_Timer", RunService.Heartbeat:Connect(function()
+			if os.clock() - lastTrigger >= 10 then
+				lastTrigger = os.clock()
+				task.spawn(triggerUncap)
 			end
-		end
+		end))
 	end,
 })
 
@@ -11056,6 +11084,9 @@ Library:OnUnload(function()
 
 	if Toggles.FastPickup and Toggles.FastPickup.Value then
 		Toggles.FastPickup:SetValue(false)
+	end
+	if Toggles.UncapFPS and Toggles.UncapFPS.Value then
+		Toggles.UncapFPS:SetValue(false)
 	end
 
 	pcall(function()
