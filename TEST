@@ -3474,6 +3474,20 @@ CombatShieldSystem:AddSlider("ShieldDamageRefire", {
 	Compact = true,
 })
 
+CombatShieldSystem:AddToggle("ShieldOnLowHp", {
+	Text = "Shield on Low HP",
+	Default = false,
+})
+
+CombatShieldSystem:AddSlider("ShieldLowHpThreshold", {
+	Text = "Low HP Threshold",
+	Default = 35,
+	Min = 5,
+	Max = 95,
+	Rounding = 0,
+	Compact = true,
+})
+
 CombatShieldSystem:AddCheckbox("ShieldHud", {
 	Text = "Shield HUD Indicator",
 	Default = false,
@@ -4026,6 +4040,7 @@ do
 	end
 
 	local shieldAnimActive = false
+	local shieldLowHpHolding = false
 	local shieldAnimNode = nil
 
 	local function findShieldAnimNode()
@@ -4091,7 +4106,7 @@ do
 		end
 	end
 
-	local function fireShieldOnDamage(state)
+	local function fireShieldRemote(state)
 		pcall(function()
 			game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(state)
 		end)
@@ -4116,7 +4131,7 @@ do
 
 			if lastShieldDamageHealth and newHealth < lastShieldDamageHealth then
 				if not shieldOnDamageHolding then
-					fireShieldOnDamage(true)
+					fireShieldRemote(true)
 					setShieldAnim(true)
 				end
 				shieldOnDamageHolding = true
@@ -4134,14 +4149,16 @@ do
 		if (Toggles.ShieldOnDamage and Toggles.ShieldOnDamage.Value) and isAlive() and now < shieldOnDamageUntil then
 			if now - lastShieldDamageRefire >= getShieldRefire() then
 				lastShieldDamageRefire = now
-				fireShieldOnDamage(true)
+				fireShieldRemote(true)
 			end
 			return
 		end
 
 		shieldOnDamageHolding = false
-		fireShieldOnDamage(false)
-		setShieldAnim(false)
+		if not shieldLowHpHolding then
+			fireShieldRemote(false)
+			setShieldAnim(false)
+		end
 	end
 
 	Toggles.ShieldOnDamage:OnChanged(function()
@@ -4151,9 +4168,13 @@ do
 
 		if shieldOnDamageHolding then
 			shieldOnDamageHolding = false
-			fireShieldOnDamage(false)
+			if not shieldLowHpHolding then
+				fireShieldRemote(false)
+			end
 		end
-		setShieldAnim(false)
+		if not shieldLowHpHolding then
+			setShieldAnim(false)
+		end
 
 		if not Toggles.ShieldOnDamage.Value then return end
 
@@ -4167,6 +4188,74 @@ do
 		track("ShieldOnDamage_Loop", RunService.Heartbeat:Connect(updateShieldOnDamage))
 	end)
 
+	local function getLowHpThreshold()
+		local percent = Options.ShieldLowHpThreshold and Options.ShieldLowHpThreshold.Value
+		return (percent or 35) / 100
+	end
+
+	local function setLowHpShield(active)
+		shieldLowHpHolding = active
+		if active then
+			fireShieldRemote(true)
+			setShieldAnim(true)
+		elseif not shieldOnDamageHolding then
+			fireShieldRemote(false)
+			setShieldAnim(false)
+		end
+	end
+
+	local function evaluateLowHpShield()
+		local character = getCharacter()
+		local hum = character and character:FindFirstChildOfClass("Humanoid")
+
+		local shouldShield = false
+		if (Toggles.ShieldOnLowHp and Toggles.ShieldOnLowHp.Value) and hum and hum.Health > 0 then
+			shouldShield = hum.Health <= hum.MaxHealth * getLowHpThreshold()
+		end
+
+		if shouldShield == shieldLowHpHolding then return end
+		setLowHpShield(shouldShield)
+	end
+
+	local function bindLowHpShield()
+		disconnect("ShieldLowHp_Health")
+
+		local character = getCharacter()
+		local hum = character and character:FindFirstChildOfClass("Humanoid")
+		if not hum then return end
+
+		track("ShieldLowHp_Health", hum.HealthChanged:Connect(evaluateLowHpShield))
+	end
+
+	Toggles.ShieldOnLowHp:OnChanged(function()
+		disconnect("ShieldLowHp_Health")
+		disconnect("ShieldLowHp_CharacterAdded")
+
+		if not Toggles.ShieldOnLowHp.Value then
+			if shieldLowHpHolding then
+				setLowHpShield(false)
+			end
+			return
+		end
+
+		bindLowHpShield()
+		evaluateLowHpShield()
+
+		track("ShieldLowHp_CharacterAdded", LocalPlayer.CharacterAdded:Connect(function()
+			task.wait(0.1)
+			if Toggles.ShieldOnLowHp and Toggles.ShieldOnLowHp.Value then
+				bindLowHpShield()
+				evaluateLowHpShield()
+			end
+		end))
+
+		Library:Notify({ Title = "Shield on Low HP", Description = "Enabled", Time = 2 })
+	end)
+
+	if Options.ShieldLowHpThreshold then
+		Options.ShieldLowHpThreshold:OnChanged(evaluateLowHpShield)
+	end
+
 	local shieldHudGui = nil
 	local shieldHudLabel = nil
 	local shieldHudRunning = false
@@ -4175,7 +4264,7 @@ do
 	local function refreshShieldHud()
 		if not shieldHudLabel then return end
 
-		local shielded = shieldOnDamageHolding or isShielding
+		local shielded = shieldOnDamageHolding or shieldLowHpHolding or isShielding
 		local text = shielded and "SHIELD ON" or "SHIELD OFF"
 		if text == shieldHudLastText then return end
 
