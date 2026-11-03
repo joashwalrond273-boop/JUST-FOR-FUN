@@ -9141,10 +9141,18 @@ local function setPlayerShadows(castShadow)
 	end
 end
 
+local uncapFpsThread
 VisualFPS:AddToggle("UncapFPS", {
 	Text = "Uncap FPS",
 	Default = false,
 	Callback = function(state)
+		if uncapFpsThread then
+			pcall(function()
+				task.cancel(uncapFpsThread)
+			end)
+			uncapFpsThread = nil
+		end
+
 		if not state then
 			pcall(function()
 				setfpscap(120)
@@ -9152,12 +9160,16 @@ VisualFPS:AddToggle("UncapFPS", {
 			return
 		end
 
-		if setfpscap then
-			setfpscap(120)
-		end
-
-		pcall(function()
-			setfflag("TaskSchedulerTargetFps", 120)
+		uncapFpsThread = task.spawn(function()
+			while true do
+				pcall(function()
+					setfpscap(120)
+				end)
+				pcall(function()
+					setfflag("TaskSchedulerTargetFps", 120)
+				end)
+				task.wait(5)
+			end
 		end)
 
 		local lighting = game:GetService("Lighting")
