@@ -1501,12 +1501,10 @@ FunLeft:AddCheckbox("AntiFling", {
 })
 
 updateTouchFlingVisibility = function()
-	local isFling = (Toggles.TouchFling and Toggles.TouchFling.Value) or false
-
 	if Options.TouchFlingPower then
-		Options.TouchFlingPower.Visible = isFling
+		Options.TouchFlingPower.Visible = true
 		if Options.TouchFlingPower.Holder then
-			Options.TouchFlingPower.Holder.Visible = isFling
+			Options.TouchFlingPower.Holder.Visible = true
 		end
 	end
 
@@ -3481,22 +3479,6 @@ CombatShieldSystem:AddSlider("ShieldDamageRefire", {
 
 CombatShieldSystem:AddDivider()
 
-CombatShieldSystem:AddToggle("ShieldOnLowHp", {
-	Text = "Shield on Low HP",
-	Default = false,
-})
-
-CombatShieldSystem:AddSlider("ShieldLowHpThreshold", {
-	Text = "Low HP Threshold",
-	Default = 35,
-	Min = 5,
-	Max = 95,
-	Rounding = 0,
-	Compact = true,
-})
-
-CombatShieldSystem:AddDivider()
-
 CombatShieldSystem:AddCheckbox("ShieldButtonMove", {
 	Text = "Move Shield",
 	Default = false,
@@ -4136,7 +4118,6 @@ do
 	end
 
 	local shieldAnimActive = false
-	local shieldLowHpHolding = false
 	local shieldAnimNode = nil
 
 	local function findShieldAnimNode()
@@ -4251,10 +4232,8 @@ do
 		end
 
 		shieldOnDamageHolding = false
-		if not shieldLowHpHolding then
-			fireShieldRemote(false)
-			setShieldAnim(false)
-		end
+		fireShieldRemote(false)
+		setShieldAnim(false)
 	end
 
 	Toggles.ShieldOnDamage:OnChanged(function()
@@ -4264,13 +4243,9 @@ do
 
 		if shieldOnDamageHolding then
 			shieldOnDamageHolding = false
-			if not shieldLowHpHolding then
-				fireShieldRemote(false)
-			end
+			fireShieldRemote(false)
 		end
-		if not shieldLowHpHolding then
-			setShieldAnim(false)
-		end
+		setShieldAnim(false)
 
 		if not Toggles.ShieldOnDamage.Value then return end
 
@@ -4284,74 +4259,6 @@ do
 		track("ShieldOnDamage_Loop", RunService.Heartbeat:Connect(updateShieldOnDamage))
 	end)
 
-	local function getLowHpThreshold()
-		local percent = Options.ShieldLowHpThreshold and Options.ShieldLowHpThreshold.Value
-		return (percent or 35) / 100
-	end
-
-	local function setLowHpShield(active)
-		shieldLowHpHolding = active
-		if active then
-			fireShieldRemote(true)
-			setShieldAnim(true)
-		elseif not shieldOnDamageHolding then
-			fireShieldRemote(false)
-			setShieldAnim(false)
-		end
-	end
-
-	local function evaluateLowHpShield()
-		local character = getCharacter()
-		local hum = character and character:FindFirstChildOfClass("Humanoid")
-
-		local shouldShield = false
-		if (Toggles.ShieldOnLowHp and Toggles.ShieldOnLowHp.Value) and hum and hum.Health > 0 then
-			shouldShield = hum.Health <= hum.MaxHealth * getLowHpThreshold()
-		end
-
-		if shouldShield == shieldLowHpHolding then return end
-		setLowHpShield(shouldShield)
-	end
-
-	local function bindLowHpShield()
-		disconnect("ShieldLowHp_Health")
-
-		local character = getCharacter()
-		local hum = character and character:FindFirstChildOfClass("Humanoid")
-		if not hum then return end
-
-		track("ShieldLowHp_Health", hum.HealthChanged:Connect(evaluateLowHpShield))
-	end
-
-	Toggles.ShieldOnLowHp:OnChanged(function()
-		disconnect("ShieldLowHp_Health")
-		disconnect("ShieldLowHp_CharacterAdded")
-
-		if not Toggles.ShieldOnLowHp.Value then
-			if shieldLowHpHolding then
-				setLowHpShield(false)
-			end
-			return
-		end
-
-		bindLowHpShield()
-		evaluateLowHpShield()
-
-		track("ShieldLowHp_CharacterAdded", LocalPlayer.CharacterAdded:Connect(function()
-			task.wait(0.1)
-			if Toggles.ShieldOnLowHp and Toggles.ShieldOnLowHp.Value then
-				bindLowHpShield()
-				evaluateLowHpShield()
-			end
-		end))
-
-		Library:Notify({ Title = "Shield on Low HP", Description = "Enabled", Time = 2 })
-	end)
-
-	if Options.ShieldLowHpThreshold then
-		Options.ShieldLowHpThreshold:OnChanged(evaluateLowHpShield)
-	end
-
 	local shieldHudGui = nil
 	local shieldHudLabel = nil
 	local shieldHudRunning = false
@@ -4360,7 +4267,7 @@ do
 	local function refreshShieldHud()
 		if not shieldHudLabel then return end
 
-		local shielded = shieldOnDamageHolding or shieldLowHpHolding or isShielding
+		local shielded = shieldOnDamageHolding or isShielding
 		local text = shielded and "SHIELD ON" or "SHIELD OFF"
 		if text == shieldHudLastText then return end
 
@@ -9172,46 +9079,17 @@ VisualFPS:AddToggle("UncapFPS", {
 			pcall(function()
 				setfflag("TaskSchedulerTargetFps", 120)
 			end)
-
-			local lighting = game:GetService("Lighting")
-			local terrain = workspace.Terrain
-
-			pcall(function()
-				lighting.GlobalShadows = false
-				lighting.FogEnd = 9e9
-				lighting.Brightness = 1
-				sethiddenproperty(lighting, "Technology", 2)
-			end)
-
-			pcall(function()
-				terrain.WaterWaveSize = 0
-				terrain.WaterWaveSpeed = 0
-				terrain.WaterReflectance = 0
-				terrain.WaterTransparency = 0
-				sethiddenproperty(terrain, "Decoration", false)
-			end)
-
-			pcall(function()
-				for _, v in pairs(workspace:GetDescendants()) do
-					if v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Smoke") or v:IsA("Fire") or v:IsA("Sparkles") then
-						v.Enabled = false
-					elseif v:IsA("BasePart") and not v:IsA("MeshPart") then
-						v.Material = Enum.Material.Plastic
-						v.Reflectance = 0
-					end
-				end
-			end)
 		end
 
 		-- Trigger immediately on toggle enable
-		task.spawn(triggerUncap)
+		triggerUncap()
 
-		-- Re-trigger every 10 seconds to stop the game from resetting back to 60 FPS
+		-- Re-trigger every 3 seconds to stop the game from resetting back to 60 FPS
 		local lastTrigger = os.clock()
 		track("UncapFPS_Timer", RunService.Heartbeat:Connect(function()
-			if os.clock() - lastTrigger >= 10 then
+			if os.clock() - lastTrigger >= 3 then
 				lastTrigger = os.clock()
-				task.spawn(triggerUncap)
+				triggerUncap()
 			end
 		end))
 	end,
@@ -11041,9 +10919,6 @@ Library:OnUnload(function()
 	end
 	if Toggles.ShieldOnDamage and Toggles.ShieldOnDamage.Value then
 		Toggles.ShieldOnDamage:SetValue(false)
-	end
-	if Toggles.ShieldOnLowHp and Toggles.ShieldOnLowHp.Value then
-		Toggles.ShieldOnLowHp:SetValue(false)
 	end
 	if Toggles.ShieldHud and Toggles.ShieldHud.Value then
 		Toggles.ShieldHud:SetValue(false)
