@@ -389,7 +389,7 @@ AutoArmorDeluxeGroup:AddButton({
 		task.wait(delay)
 		local backDir = root.CFrame.LookVector
 		local rightDir = root.CFrame.RightVector
-		local bedPos = playerPosition - Vector3.new(backDir.X, 0, backDir.Z) * 5 - Vector3.new(rightDir.X, 0, rightDir.Z) * 1
+		local bedPos = playerPosition - Vector3.new(backDir.X, 0, backDir.Z) * 5.5 - Vector3.new(rightDir.X, 0, rightDir.Z) * 1
 		pcall(function()
 			buildRemote:InvokeServer(
 				85,
@@ -1197,32 +1197,6 @@ AdvanceHealGroup:AddDropdown("AutoEatSlot", {
 	Values = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"},
 	Default = {"1"},
 	Multi = true,
-})
-
-AdvanceHealGroup:AddButton({
-	Text = "Quick Buff",
-	Func = function()
-		local eatRemote = TSG.EatRemote
-		if not eatRemote then
-			local rf = ReplicatedStorage:FindFirstChild("remoteInterface")
-			local interactions = rf and rf:FindFirstChild("interactions")
-			eatRemote = interactions and interactions:FindFirstChild("eat")
-		end
-		if not eatRemote then
-			Library:Notify({ Title = "Quick Buff", Description = "Eat remote not found", Time = 3 })
-			return
-		end
-		local function eatId(id)
-			pcall(function()
-				eatRemote:FireServer(id)
-			end)
-		end
-		for _, id in ipairs({ 214, 217, 437 }) do
-			eatId(id)
-			task.wait(0.35)
-		end
-		Library:Notify({ Title = "Quick Buff", Description = "Consumed Spicy Meal, Hearty Stew & Yellow Mushroom", Time = 2 })
-	end,
 })
 
 AdvanceHealGroup:AddCheckbox("QuickSwap", {
