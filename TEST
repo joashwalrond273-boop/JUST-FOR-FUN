@@ -1249,7 +1249,7 @@ local CosmeticsGroup = Tabs.Main:AddLeftGroupbox("Cosmetics", "crown")
 
 CosmeticsGroup:AddDropdown("CosmeticSelect", {
 	Text = "Head Wear",
-	Values = {"None", "Villainous Crown", "Saviors Crown", "Tyrants Crown", "Crown Of The Sky Dragon", "Flower Crown", "Golden Laurel", "Golden Horns Of Victory", "Royal Vizier Mask", "Admin Helmet", "Raider", "Spikes Of Chaos"},
+	Values = {"None", "Villainous Crown", "Saviors Crown", "Tyrants Crown", "Crown Of The Sky Dragon", "Flower Crown", "Golden Laurel", "Golden Horns Of Victory", "Royal Vizier Mask", "Admin Helmet", "Raider", "Spikes Of Chaos", "Skeleton Crown"},
 	Default = "None",
 })
 
@@ -1283,6 +1283,8 @@ do
 		["Golden Horns Of Victory"] = CFrame.new(0, 0.4, 0) * CFrame.Angles(0, math.rad(90), 0),
 		["Royal Vizier Mask"] = CFrame.new(0, 0.8, -0.6) * CFrame.Angles(0, math.rad(90), 0),
 		["Admin Helmet"] = CFrame.new(0, -0.3, 0),
+		["Spikes Of Chaos"] = CFrame.new(0, -0.5, 0),
+		["Raider"] = CFrame.new(0, 0.3, 0) * CFrame.Angles(0, math.rad(-90), 0),
 	}
 
 	-- Cosmetics that don't live under ReplicatedStorage.game.Cosmetics.cosmetics
@@ -1318,10 +1320,6 @@ do
 			end
 		end
 		return parts
-	end
-
-	local function normalizeName(n)
-		return (n:gsub("[%s_%-]", ""):lower())
 	end
 
 	local function weldToPart(target, handle, weldName)
@@ -1584,37 +1582,11 @@ do
 				end
 			end
 
-			-- Snapshot the character's real body parts (clone isn't parented yet)
-			local charParts = {}
-			for _, obj in ipairs(character:GetDescendants()) do
-				if obj:IsA("BasePart") then
-					charParts[normalizeName(obj.Name)] = obj
-				end
-			end
-
 			clone.Parent = character
 
-			-- If a part is named after a real body part (e.g. a leg piece),
-			-- weld it straight to that body part so the item deforms with the
-			-- limbs and follows the walk/run animation instead of staying rigid.
-			local matched = {}
+			-- Weld every part to the anchor so the whole model moves as one
 			for _, part in ipairs(parts) do
-				local bodyPart = charParts[normalizeName(part.Name)]
-				if bodyPart and bodyPart ~= anchor then
-					matched[part] = true
-					local weld = Instance.new("Motor6D")
-					weld.Name = cfg.weldName .. "_" .. part.Name
-					weld.Part0 = bodyPart
-					weld.Part1 = part
-					weld.C0 = bodyPart.CFrame:ToObjectSpace(part.CFrame)
-					weld.C1 = CFrame.new()
-					weld.Parent = bodyPart
-				end
-			end
-
-			-- Weld the remaining parts to the anchor so they move as one
-			for _, part in ipairs(parts) do
-				if part ~= anchor and not matched[part] then
+				if part ~= anchor then
 					local weld = Instance.new("Weld")
 					weld.Part0 = anchor
 					weld.Part1 = part
@@ -1624,9 +1596,7 @@ do
 				end
 			end
 
-			if not matched[anchor] then
-				weldToPart(target, anchor, cfg.weldName)
-			end
+			weldToPart(target, anchor, cfg.weldName)
 		end
 
 		local function refresh()
@@ -1661,32 +1631,9 @@ do
 				return
 			end
 
-			-- Re-apply a missing weld for the anchor. If the anchor is named
-			-- after a body part it's welded to that part, otherwise to target.
-			local bodyPart
-			for _, obj in ipairs(character:GetDescendants()) do
-				if obj:IsA("BasePart") and obj ~= anchor and normalizeName(obj.Name) == normalizeName(anchor.Name) then
-					bodyPart = obj
-					break
-				end
-			end
-
-			if bodyPart then
-				local weld = bodyPart:FindFirstChild(cfg.weldName .. "_" .. anchor.Name)
-				if not weld then
-					local w = Instance.new("Motor6D")
-					w.Name = cfg.weldName .. "_" .. anchor.Name
-					w.Part0 = bodyPart
-					w.Part1 = anchor
-					w.C0 = bodyPart.CFrame:ToObjectSpace(anchor.CFrame)
-					w.C1 = CFrame.new()
-					w.Parent = bodyPart
-				end
-			else
-				local weld = target:FindFirstChild(cfg.weldName)
-				if not weld or weld.Part1 ~= anchor then
-					weldToPart(target, anchor, cfg.weldName)
-				end
+			local weld = target:FindFirstChild(cfg.weldName)
+			if not weld or weld.Part1 ~= anchor then
+				weldToPart(target, anchor, cfg.weldName)
 			end
 		end
 
@@ -1748,7 +1695,7 @@ do
 			local character = getCharacter()
 			if not character then return nil end
 			local torso = character:FindFirstChild("UpperTorso") or character:FindFirstChild("Torso")
-			if torso then return torso, CFrame.new(0, 0.3, 0) end
+			if torso then return torso, CFrame.new() end
 			return character:FindFirstChild("HumanoidRootPart"), CFrame.new()
 		end,
 	})
@@ -1769,10 +1716,10 @@ do
 			if not character then return nil end
 			-- R15: drop the pants below the lower torso so they cover the thighs
 			local lower = character:FindFirstChild("LowerTorso") or character:FindFirstChild("Hips")
-			if lower then return lower, CFrame.new(0.5, -lower.Size.Y * 0.5 - 2.5, 0) end
+			if lower then return lower, CFrame.new(0.5, -lower.Size.Y * 0.5 - 1.5, 0) end
 			-- R6: the hips sit at the bottom of the torso
 			local torso = character:FindFirstChild("Torso") or character:FindFirstChild("UpperTorso")
-			if torso then return torso, CFrame.new(0, -torso.Size.Y * 0.5 - 1, 0) end
+			if torso then return torso, CFrame.new(0, -torso.Size.Y * 0.5, 0) end
 			return character:FindFirstChild("HumanoidRootPart"), CFrame.new()
 		end,
 	})
@@ -1785,7 +1732,9 @@ do
 		paths = {
 			["Admin Bag"] = {"game", "Items", "models", "Admin Bag"},
 		},
-		adjust = {},
+		adjust = {
+			["Admin Bag"] = CFrame.new(0, 0.5, -0.5) * CFrame.Angles(0, math.rad(90), 0),
+		},
 		getTarget = function()
 			local character = getCharacter()
 			if not character then return nil end
