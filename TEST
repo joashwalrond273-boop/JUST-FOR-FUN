@@ -55,6 +55,7 @@ local updateImmortalModeVisibility
 local updatePhantomModeVisibility
 local updateSwimBoostVisibility
 local isTeammate
+local Xeno_PlayHitSound
 
 Library.ShowToggleFrameInKeybinds = true
 
@@ -1327,7 +1328,7 @@ CosmeticsGroup:AddDivider()
 
 CosmeticsGroup:AddDropdown("CosmeticSelect", {
 	Text = "Head Wear",
-	Values = {"None", "Villainous Crown", "Saviors Crown", "Tyrants Crown", "Crown Of The Sky Dragon", "Flower Crown", "Golden Laurel", "Golden Horns Of Victory", "Royal Vizier Mask", "Admin Helmet", "Raider", "Spikes Of Chaos", "Skeleton Crown", "Imperial Hat", "Classic Crown", "Royal Knight Hat", "Golden Spartan", "Golden Valkyrie", "Plague Mask", "Magma Horned Helm"},
+	Values = {"None", "Villainous Crown", "Saviors Crown", "Tyrants Crown", "Crown Of The Sky Dragon", "Flower Crown", "Golden Laurel", "Golden Horns Of Victory", "Royal Vizier Mask", "Admin Helmet", "Raider", "Spikes Of Chaos", "Skeleton Crown", "Imperial Hat", "Classic Crown", "Royal Knight Hat", "Golden Spartan", "Golden Valkyrie", "Plague Mask", "Magma Horned Helm", "Ancient Skull", "Shaded Warrior"},
 	Default = {},
 	Multi = true,
 })
@@ -1392,6 +1393,56 @@ CosmeticsGroup:AddLabel("Back Wear Color"):AddColorPicker("BackWearSelectColor",
 	Default = Color3.fromRGB(255, 255, 255),
 	Title = "Back Wear Color",
 })
+
+CosmeticsGroup:AddDivider()
+
+-- Hit Sounds
+local gameSoundsFolder = ReplicatedStorage:FindFirstChild("modules")
+if gameSoundsFolder then gameSoundsFolder = gameSoundsFolder:FindFirstChild("misc") end
+if gameSoundsFolder then gameSoundsFolder = gameSoundsFolder:FindFirstChild("Sounds") end
+if gameSoundsFolder then gameSoundsFolder = gameSoundsFolder:FindFirstChild("GameSounds") end
+local hitSoundNames = {"None"}
+if gameSoundsFolder then
+	for _, sound in ipairs(gameSoundsFolder:GetChildren()) do
+		if sound:IsA("Sound") then
+			table.insert(hitSoundNames, sound.Name)
+		end
+	end
+end
+
+CosmeticsGroup:AddCheckbox("HitSound", {
+	Text = "Hit Sounds",
+	Default = false,
+})
+
+CosmeticsGroup:AddDropdown("HitSoundSelect", {
+	Text = "Hit Sound",
+	Values = hitSoundNames,
+	Default = "None",
+})
+
+Xeno_PlayHitSound = function()
+	if not (Toggles.HitSound and Toggles.HitSound.Value) then return end
+	if not gameSoundsFolder then return end
+	local selected = Options.HitSoundSelect and Options.HitSoundSelect.Value
+	if not selected or selected == "None" then return end
+	local template = gameSoundsFolder:FindFirstChild(selected)
+	if not (template and template:IsA("Sound")) then return end
+	local character = getCharacter()
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if not root then return end
+
+	local sound = template:Clone()
+	sound.Name = "XenoHitSound"
+	sound.Parent = root
+	sound:Play()
+
+	local function cleanup()
+		if sound and sound.Parent then sound:Destroy() end
+	end
+	sound.Ended:Once(cleanup)
+	task.delay(6, cleanup)
+end
 
 do
 	-- Several head pieces can be worn at the same time
@@ -3503,15 +3554,18 @@ end))
 -- No Boss Damage Hook Setup
 local BossDamageEvent = resolvePath(ReplicatedStorage, "remoteInterface", "character", "hurtByAIAttack")
 local originalNamecall
-if BossDamageEvent then
+if hookmetamethod then
 	originalNamecall = hookmetamethod(game, "__namecall", function(...)
 		local self = ...
 		local method = getnamecallmethod()
 
-		if rawequal(self, BossDamageEvent) and method == "FireServer" then
+		if method == "FireServer" and BossDamageEvent and rawequal(self, BossDamageEvent) then
 			if Toggles.NoBossDamage and Toggles.NoBossDamage.Value then
 				return -- Block the attack to prevent damage
 			end
+		elseif (method == "FireServer" or method == "InvokeServer")
+			and TSG.MeleePlayerRemote and rawequal(self, TSG.MeleePlayerRemote) then
+			if Xeno_PlayHitSound then Xeno_PlayHitSound() end
 		end
 
 		return originalNamecall(...)
@@ -4323,7 +4377,7 @@ CombatShieldSystem:AddSlider("JumpButtonSize", {
 CombatShieldSystem:AddDivider()
 
 CombatShieldSystem:AddToggle("ImmortalMode", {
-	Text = "Immortal Aura",
+	Text = "Infinite Shield",
 	Default = false,
 })
 
