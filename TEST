@@ -1249,8 +1249,9 @@ local CosmeticsGroup = Tabs.Main:AddLeftGroupbox("Cosmetics", "crown")
 
 CosmeticsGroup:AddDropdown("CosmeticSelect", {
 	Text = "Head Wear",
-	Values = {"None", "Villainous Crown", "Saviors Crown", "Tyrants Crown", "Crown Of The Sky Dragon", "Flower Crown", "Golden Laurel", "Golden Horns Of Victory", "Royal Vizier Mask", "Admin Helmet", "Raider", "Spikes Of Chaos", "Skeleton Crown", "Imperial Hat", "Classic Crown", "Royal Knight Hat", "Golden Lion", "Golden Spartan", "Golden Valkyrie"},
-	Default = "None",
+	Values = {"Villainous Crown", "Saviors Crown", "Tyrants Crown", "Crown Of The Sky Dragon", "Flower Crown", "Golden Laurel", "Golden Horns Of Victory", "Royal Vizier Mask", "Admin Helmet", "Raider", "Spikes Of Chaos", "Skeleton Crown", "Imperial Hat", "Classic Crown", "Royal Knight Hat", "Golden Spartan", "Golden Valkyrie"},
+	Default = {},
+	Multi = true,
 })
 
 CosmeticsGroup:AddDropdown("BodyWearSelect", {
@@ -1267,12 +1268,13 @@ CosmeticsGroup:AddDropdown("PantsWearSelect", {
 
 CosmeticsGroup:AddDropdown("BackWearSelect", {
 	Text = "Back Wear",
-	Values = {"None", "Admin Bag"},
+	Values = {"None", "Admin Bag", "Xpie101gamers Cape", "Wolf Pelt Cape", "Cape", "Grey Wolf Pelt Cape", "Royal Embroidered Cape"},
 	Default = "None",
 })
 
 do
-	local activeCosmetic = nil
+	-- Several head pieces can be worn at the same time
+	local activeCosmetics = {}
 
 	-- Per-cosmetic tweaks so each piece sits correctly on the head
 	local COSMETIC_ADJUST = {
@@ -1289,6 +1291,8 @@ do
 		["Classic Crown"] = CFrame.new(0, 0.5, 0),
 		["Imperial Hat"] = CFrame.new(0, 0, -0.5) * CFrame.Angles(0, math.rad(90), 0),
 		["Royal Knight Hat"] = CFrame.Angles(0, math.rad(90), 0),
+		["Golden Spartan"] = CFrame.Angles(0, math.rad(90), 0),
+		["Golden Valkyrie"] = CFrame.new(0, 0.5, 0) * CFrame.Angles(0, math.rad(90), 0),
 	}
 
 	-- Cosmetics that don't live under ReplicatedStorage.game.Cosmetics.cosmetics
@@ -1298,20 +1302,25 @@ do
 		["Imperial Hat"] = {"game", "AIModels", "Arena Imperial 1", "Head", "Meshes/Cosmetics_Hats.026"},
 		["Classic Crown"] = {"game", "Cosmetics", "cosmetics", "Classic Crown", "Meshes/Cosmetics_Hats.023"},
 		["Royal Knight Hat"] = {"game", "AIModels", "Arena Royal Knight 1", "Head", "Meshes/Cosmetics_Hats.058"},
-		["Golden Lion"] = {"game", "Cosmetics", "cosmetics", "Golden Horns Of Victory", "Golden Lion"},
 	}
 
-	local function getCosmeticRoot()
+	local function getCosmeticRoot(name)
 		local character = getCharacter()
 		if not character then return nil end
-		return character:FindFirstChild("XenoCosmetic")
+		for _, obj in ipairs(character:GetDescendants()) do
+			if obj:GetAttribute("XenoCosmetic") == name then
+				return obj
+			end
+		end
+		return nil
 	end
 
-	local function clearCosmetic()
+	local function clearCosmetic(name)
 		local character = getCharacter()
 		if not character then return end
 		for _, obj in ipairs(character:GetDescendants()) do
-			if obj:GetAttribute("XenoCosmetic") then
+			local tag = obj:GetAttribute("XenoCosmetic")
+			if tag and (name == nil or tag == name) then
 				obj:Destroy()
 			end
 		end
@@ -1355,7 +1364,7 @@ do
 		local hum = getHumanoid()
 		if not (character and head and hum) then return end
 
-		clearCosmetic()
+		clearCosmetic(name)
 
 		local path = COSMETIC_PATHS[name] or {"game", "Cosmetics", "cosmetics", name}
 		local template = resolvePath(ReplicatedStorage, table.unpack(path))
@@ -1366,7 +1375,7 @@ do
 
 		local clone = template:Clone()
 		clone.Name = "XenoCosmetic"
-		clone:SetAttribute("XenoCosmetic", true)
+		clone:SetAttribute("XenoCosmetic", name)
 
 		local parts = collectParts(clone)
 		if #parts == 0 then
@@ -1422,43 +1431,45 @@ do
 		end
 
 		clone.Parent = character
-		weldToPart(head, anchor, "XenoCosmeticWeld")
+		weldToPart(head, anchor, "XenoHeadWeld_" .. name)
 	end
 
-	local function refreshCosmetic()
-		if not activeCosmetic then return end
-
+	local function refreshCosmetic(name)
 		local character = getCharacter()
 		local head = character and character:FindFirstChild("Head")
 		if not (character and head) then return end
 
-		local root = getCosmeticRoot()
+		local root = getCosmeticRoot(name)
+		if not root then return end
+
 		local anchor
-		if root then
-			if root:IsA("BasePart") then
-				anchor = root
-			else
-				anchor = root:FindFirstChild("Handle") or root:FindFirstChildWhichIsA("BasePart")
-			end
+		if root:IsA("BasePart") then
+			anchor = root
+		else
+			anchor = root:FindFirstChild("Handle") or root:FindFirstChildWhichIsA("BasePart")
 		end
 
 		if not anchor or root.Parent ~= character then
-			wearCosmetic(activeCosmetic)
+			wearCosmetic(name)
 			return
 		end
 
 		-- Keep every part unanchored/massless so it follows the head instead
 		-- of being frozen in the world or drifting
-		local function fixPart(part)
-			if part:IsA("BasePart") then
-				part.Anchored = false
-				part.CanCollide = false
-				part.Massless = true
-			end
+		local ownParts = {}
+		ownParts[anchor] = true
+		if root:IsA("BasePart") then
+			root.Anchored = false
+			root.CanCollide = false
+			root.Massless = true
 		end
-		fixPart(root)
 		for _, obj in ipairs(root:GetDescendants()) do
-			fixPart(obj)
+			ownParts[obj] = true
+			if obj:IsA("BasePart") then
+				obj.Anchored = false
+				obj.CanCollide = false
+				obj.Massless = true
+			end
 			-- Remove any joint the engine adds on its own (e.g. AccessoryWeld).
 			-- Two joints fighting over the same part is what makes it slide
 			-- around on the head; only our welds should hold it.
@@ -1467,9 +1478,20 @@ do
 			end
 		end
 
-		local weld = head:FindFirstChild("XenoCosmeticWeld")
+		local weldName = "XenoHeadWeld_" .. name
+		-- The engine also welds accessories straight to the Head; those extra
+		-- joints fight ours and make the piece slide, so drop them too
+		for _, obj in ipairs(head:GetChildren()) do
+			if (obj:IsA("JointInstance") or obj:IsA("WeldConstraint")) and obj.Name ~= weldName then
+				if ownParts[obj.Part1] or ownParts[obj.Part0] then
+					obj:Destroy()
+				end
+			end
+		end
+
+		local weld = head:FindFirstChild(weldName)
 		if not weld or weld.Part1 ~= anchor then
-			weldToPart(head, anchor, "XenoCosmeticWeld")
+			weldToPart(head, anchor, weldName)
 		end
 	end
 
@@ -1477,31 +1499,52 @@ do
 		disconnect("XenoCosmetic_CharacterAdded")
 		disconnect("XenoCosmetic_Loop")
 
-		clearCosmetic()
+		local selected = Options.CosmeticSelect.Value
+		local wanted = {}
+		if typeof(selected) == "table" then
+			for name, on in pairs(selected) do
+				if on == true and name ~= "None" then
+					wanted[name] = true
+				end
+			end
+		end
 
-		local name = Options.CosmeticSelect.Value
-		if not name or name == "None" then
-			activeCosmetic = nil
+		-- Drop the pieces that are no longer selected
+		for name in pairs(activeCosmetics) do
+			if not wanted[name] then
+				clearCosmetic(name)
+				activeCosmetics[name] = nil
+			end
+		end
+
+		-- Put on the newly selected pieces
+		for name in pairs(wanted) do
+			if not activeCosmetics[name] then
+				activeCosmetics[name] = true
+				wearCosmetic(name)
+			end
+		end
+
+		if next(activeCosmetics) == nil then
 			return
 		end
 
-		activeCosmetic = name
-		wearCosmetic(name)
-
 		track("XenoCosmetic_CharacterAdded", LocalPlayer.CharacterAdded:Connect(function()
 			task.wait(0.5)
-			if activeCosmetic then
-				wearCosmetic(activeCosmetic)
+			for name in pairs(activeCosmetics) do
+				wearCosmetic(name)
 			end
 		end))
 
-		-- Keep the cosmetic attached if the game strips or unwelds it
+		-- Keep every piece attached if the game strips or unwelds it
 		local lastCheck = 0
 		track("XenoCosmetic_Loop", RunService.Heartbeat:Connect(function()
 			local now = os.clock()
 			if now - lastCheck < 0.5 then return end
 			lastCheck = now
-			refreshCosmetic()
+			for name in pairs(activeCosmetics) do
+				refreshCosmetic(name)
+			end
 		end))
 	end)
 
@@ -1835,6 +1878,11 @@ do
 		clothingClass = "Backpack",
 		paths = {
 			["Admin Bag"] = {"game", "Items", "models", "Admin Bag"},
+			["Xpie101gamers Cape"] = {"game", "Cosmetics", "cosmetics", "Xpie101gamers Cape"},
+			["Wolf Pelt Cape"] = {"game", "Cosmetics", "cosmetics", "Wolf Pelt Cape"},
+			["Cape"] = {"game", "Cosmetics", "cosmetics", "Cape"},
+			["Grey Wolf Pelt Cape"] = {"game", "Cosmetics", "cosmetics", "Grey Wolf Pelt Cape"},
+			["Royal Embroidered Cape"] = {"game", "Cosmetics", "cosmetics", "Royal Embroidered Cape"},
 		},
 		adjust = {
 			["Admin Bag"] = CFrame.new(0, 0.5, 0.5) * CFrame.Angles(0, math.rad(90), 0),
@@ -11528,8 +11576,8 @@ Library:OnUnload(function()
 	if Toggles.ShieldHud and Toggles.ShieldHud.Value then
 		Toggles.ShieldHud:SetValue(false)
 	end
-	if Options.CosmeticSelect and Options.CosmeticSelect.Value ~= "None" then
-		Options.CosmeticSelect:SetValue("None")
+	if Options.CosmeticSelect and typeof(Options.CosmeticSelect.Value) == "table" and next(Options.CosmeticSelect.Value) ~= nil then
+		Options.CosmeticSelect:SetValue({})
 	end
 	if Options.BodyWearSelect and Options.BodyWearSelect.Value ~= "None" then
 		Options.BodyWearSelect:SetValue("None")
