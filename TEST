@@ -1257,6 +1257,27 @@ CosmeticsGroup:AddDropdown("CosmeticSelect", {
 	Multi = true,
 })
 
+CosmeticsGroup:AddDropdown("BodyWearSelect", {
+	Text = "Body Wear",
+	Values = {"None", "Admin Armor"},
+	Default = "None",
+})
+
+CosmeticsGroup:AddDropdown("PantsWearSelect", {
+	Text = "Pants Wear",
+	Values = {"None", "Admin Pants"},
+	Default = "None",
+})
+
+CosmeticsGroup:AddDropdown("BackWearSelect", {
+	Text = "Back Wear",
+	Values = {"None", "Admin Bag", "Xpie101gamers Cape", "Wolf Pelt Cape", "Grey Wolf Pelt Cape", "Royal Embroidered Cape", "Angelic Wings", "Demonic Wings"},
+	Default = {},
+	Multi = true,
+})
+
+CosmeticsGroup:AddDivider()
+
 CosmeticsGroup:AddCheckbox("HeadWearColorToggle", {
 	Text = "Use Head Wear Color",
 	Default = false,
@@ -1267,12 +1288,13 @@ CosmeticsGroup:AddLabel("Head Wear Color"):AddColorPicker("CosmeticSelectColor",
 	Title = "Head Wear Color",
 })
 
-CosmeticsGroup:AddDivider()
-
-CosmeticsGroup:AddDropdown("BodyWearSelect", {
-	Text = "Body Wear",
-	Values = {"None", "Admin Armor"},
-	Default = "None",
+CosmeticsGroup:AddSlider("HeadWearColorTransparency", {
+	Text = "Head Wear Transparency",
+	Default = 0,
+	Min = 0,
+	Max = 1,
+	Rounding = 2,
+	Compact = true,
 })
 
 CosmeticsGroup:AddCheckbox("BodyWearColorToggle", {
@@ -1285,12 +1307,13 @@ CosmeticsGroup:AddLabel("Body Wear Color"):AddColorPicker("BodyWearSelectColor",
 	Title = "Body Wear Color",
 })
 
-CosmeticsGroup:AddDivider()
-
-CosmeticsGroup:AddDropdown("PantsWearSelect", {
-	Text = "Pants Wear",
-	Values = {"None", "Admin Pants"},
-	Default = "None",
+CosmeticsGroup:AddSlider("BodyWearColorTransparency", {
+	Text = "Body Wear Transparency",
+	Default = 0,
+	Min = 0,
+	Max = 1,
+	Rounding = 2,
+	Compact = true,
 })
 
 CosmeticsGroup:AddCheckbox("PantsWearColorToggle", {
@@ -1303,13 +1326,13 @@ CosmeticsGroup:AddLabel("Pants Wear Color"):AddColorPicker("PantsWearSelectColor
 	Title = "Pants Wear Color",
 })
 
-CosmeticsGroup:AddDivider()
-
-CosmeticsGroup:AddDropdown("BackWearSelect", {
-	Text = "Back Wear",
-	Values = {"None", "Admin Bag", "Xpie101gamers Cape", "Wolf Pelt Cape", "Grey Wolf Pelt Cape", "Royal Embroidered Cape", "Angelic Wings", "Demonic Wings"},
-	Default = {},
-	Multi = true,
+CosmeticsGroup:AddSlider("PantsWearColorTransparency", {
+	Text = "Pants Wear Transparency",
+	Default = 0,
+	Min = 0,
+	Max = 1,
+	Rounding = 2,
+	Compact = true,
 })
 
 CosmeticsGroup:AddCheckbox("BackWearColorToggle", {
@@ -1322,7 +1345,14 @@ CosmeticsGroup:AddLabel("Back Wear Color"):AddColorPicker("BackWearSelectColor",
 	Title = "Back Wear Color",
 })
 
-CosmeticsGroup:AddDivider()
+CosmeticsGroup:AddSlider("BackWearColorTransparency", {
+	Text = "Back Wear Transparency",
+	Default = 0,
+	Min = 0,
+	Max = 1,
+	Rounding = 2,
+	Compact = true,
+})
 
 do
 	-- Several head pieces can be worn at the same time
@@ -1467,11 +1497,15 @@ do
 		local frames = {}
 		local useColor = Toggles.HeadWearColorToggle and Toggles.HeadWearColorToggle.Value
 		local headColor = Options.CosmeticSelectColor and Options.CosmeticSelectColor.Value or Color3.fromRGB(255, 255, 255)
+		local headTrans = Options.HeadWearColorTransparency and Options.HeadWearColorTransparency.Value or 0
 		for i, part in ipairs(parts) do
 			part.Anchored = true
 			part.CanCollide = false
 			part.Massless = true
-			if useColor then part.Color = headColor end
+			if useColor then
+				part.Color = headColor
+				part.Transparency = headTrans
+			end
 			frames[i] = { part = part, offset = head.CFrame:Inverse() * part.CFrame }
 		end
 		activeCosmetics[name] = frames
@@ -1480,10 +1514,12 @@ do
 	-- Recolour every head piece that is currently worn
 	local function applyHeadColor()
 		local color = Options.CosmeticSelectColor and Options.CosmeticSelectColor.Value or Color3.fromRGB(255, 255, 255)
+		local trans = Options.HeadWearColorTransparency and Options.HeadWearColorTransparency.Value or 0
 		for _, frames in pairs(activeCosmetics) do
 			for _, entry in ipairs(frames) do
 				if entry.part:IsA("BasePart") then
 					entry.part.Color = color
+					entry.part.Transparency = trans
 				end
 			end
 		end
@@ -1604,6 +1640,14 @@ do
 		end)
 	end
 
+	if Options.HeadWearColorTransparency then
+		Options.HeadWearColorTransparency:OnChanged(function()
+			if Toggles.HeadWearColorToggle and Toggles.HeadWearColorToggle.Value then
+				applyHeadColor()
+			end
+		end)
+	end
+
 	if Toggles.HeadWearColorToggle then
 		Toggles.HeadWearColorToggle:OnChanged(function()
 			if Toggles.HeadWearColorToggle.Value then
@@ -1633,16 +1677,28 @@ do
 			return opt and opt.Value == true
 		end
 
+		local function getWearTransparency()
+			local opt = Options[cfg.transKey]
+			return (opt and opt.Value) or 0
+		end
+
 		-- Recolour every piece of this wear type that is currently on the body
 		local function applyWearColor()
 			local character = getCharacter()
 			if not character then return end
 			local color = getWearColor()
+			local trans = getWearTransparency()
 			for _, obj in ipairs(character:GetChildren()) do
 				if obj:GetAttribute(cfg.attribute) then
-					if obj:IsA("BasePart") then obj.Color = color end
+					if obj:IsA("BasePart") then
+						obj.Color = color
+						obj.Transparency = trans
+					end
 					for _, desc in ipairs(obj:GetDescendants()) do
-						if desc:IsA("BasePart") then desc.Color = color end
+						if desc:IsA("BasePart") then
+							desc.Color = color
+							desc.Transparency = trans
+						end
 					end
 				end
 			end
@@ -1808,8 +1864,10 @@ do
 			end
 			if wearColorEnabled() then
 				local wearColor = getWearColor()
+				local wearTrans = getWearTransparency()
 				for _, part in ipairs(parts) do
 					part.Color = wearColor
+					part.Transparency = wearTrans
 				end
 			end
 			worn[name] = true
@@ -1995,12 +2053,21 @@ do
 				end
 			end)
 		end
+
+		if Options[cfg.transKey] then
+			Options[cfg.transKey]:OnChanged(function()
+				if wearColorEnabled() then
+					applyWearColor()
+				end
+			end)
+		end
 	end
 
 	buildWearSystem({
 		dropdown = "BodyWearSelect",
 		colorKey = "BodyWearSelectColor",
 		enableKey = "BodyWearColorToggle",
+		transKey = "BodyWearColorTransparency",
 		attribute = "XenoBodyWear",
 		weldName = "XenoBodyWeld",
 		clothingClass = "Shirt",
@@ -2021,6 +2088,7 @@ do
 		dropdown = "PantsWearSelect",
 		colorKey = "PantsWearSelectColor",
 		enableKey = "PantsWearColorToggle",
+		transKey = "PantsWearColorTransparency",
 		attribute = "XenoPantsWear",
 		weldName = "XenoPantsWeld",
 		clothingClass = "Pants",
@@ -2048,6 +2116,7 @@ do
 		dropdown = "BackWearSelect",
 		colorKey = "BackWearSelectColor",
 		enableKey = "BackWearColorToggle",
+		transKey = "BackWearColorTransparency",
 		attribute = "XenoBackWear",
 		weldName = "XenoBackWeld",
 		clothingClass = "Backpack",
