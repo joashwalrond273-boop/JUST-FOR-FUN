@@ -387,10 +387,12 @@ AutoArmorDeluxeGroup:AddButton({
 			)
 		end)
 		task.wait(delay)
+		local backDir = root.CFrame.LookVector
+		local bedPos = playerPosition - Vector3.new(backDir.X, 0, backDir.Z) * 3
 		pcall(function()
 			buildRemote:InvokeServer(
 				85,
-				CFrame.new(playerPosition.X, playerPosition.Y - 3, playerPosition.Z),
+				CFrame.new(bedPos.X, bedPos.Y - 3, bedPos.Z),
 				0,
 				nil
 			)
@@ -1196,6 +1198,32 @@ AdvanceHealGroup:AddDropdown("AutoEatSlot", {
 	Multi = true,
 })
 
+AdvanceHealGroup:AddButton({
+	Text = "Quick Buff",
+	Func = function()
+		local eatRemote = TSG.EatRemote
+		if not eatRemote then
+			local rf = ReplicatedStorage:FindFirstChild("remoteInterface")
+			local interactions = rf and rf:FindFirstChild("interactions")
+			eatRemote = interactions and interactions:FindFirstChild("eat")
+		end
+		if not eatRemote then
+			Library:Notify({ Title = "Quick Buff", Description = "Eat remote not found", Time = 3 })
+			return
+		end
+		local function eatId(id)
+			pcall(function()
+				eatRemote:FireServer(id)
+			end)
+		end
+		for _, id in ipairs({ 214, 217, 437 }) do
+			eatId(id)
+			task.wait(0.35)
+		end
+		Library:Notify({ Title = "Quick Buff", Description = "Consumed Spicy Meal, Hearty Stew & Yellow Mushroom", Time = 2 })
+	end,
+})
+
 AdvanceHealGroup:AddCheckbox("QuickSwap", {
 	Text = "Multi Consume",
 	Default = false,
@@ -1295,7 +1323,7 @@ do
 		["Golden Spartan"] = CFrame.new(0, 0.3, 0) * CFrame.Angles(0, math.rad(90), 0),
 		["Golden Valkyrie"] = CFrame.new(0, 0.5, 0) * CFrame.Angles(0, math.rad(90), 0),
 		["Plague Mask"] = CFrame.new(0, -0.5, -0.9) * CFrame.Angles(0, math.rad(90), 0),
-		["Magma Horned Helm"] = CFrame.new(0.4, 0.4, -0.8) * CFrame.Angles(0, math.rad(90), 0),
+		["Magma Horned Helm"] = CFrame.new(0.0, 0.4, -0.8) * CFrame.Angles(0, math.rad(90), 0),
 	}
 
 	-- Cosmetics that don't live under ReplicatedStorage.game.Cosmetics.cosmetics
