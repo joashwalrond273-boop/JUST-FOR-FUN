@@ -5573,6 +5573,182 @@ function isTeammate(otherPlayer)
 	return false
 end
 
+-- ============================================================
+-- Kingdom relations (alliances): merged into "Ignore Team"
+-- ============================================================
+local KINGDOM_ATTRS = {"Kingdom", "Clan", "Tribe", "Team"}
+
+local function getMyKingdom()
+	local ok, k = pcall(function()
+		if TSG.ClientData and TSG.ClientData.getKingdom then
+			return TSG.ClientData.getKingdom()
+		end
+		return nil
+	end)
+	if ok and typeof(k) == "string" and k ~= "" then return k end
+
+	local char = getCharacter()
+	if char then
+		for _, attr in ipairs(KINGDOM_ATTRS) do
+			local v = char:GetAttribute(attr)
+			if typeof(v) == "string" and v ~= "" then return v end
+		end
+	end
+	for _, attr in ipairs(KINGDOM_ATTRS) do
+		local v = LocalPlayer:GetAttribute(attr)
+		if typeof(v) == "string" and v ~= "" then return v end
+	end
+	if LocalPlayer.Team then return LocalPlayer.Team.Name end
+	return nil
+end
+
+local function getPlayerKingdom(player)
+	if not player then return nil end
+	if player == LocalPlayer then return getMyKingdom() end
+
+	for _, attr in ipairs(KINGDOM_ATTRS) do
+		local v = player:GetAttribute(attr)
+		if typeof(v) == "string" and v ~= "" then return v end
+	end
+	if player.Character then
+		for _, attr in ipairs(KINGDOM_ATTRS) do
+			local v = player.Character:GetAttribute(attr)
+			if typeof(v) == "string" and v ~= "" then return v end
+		end
+	end
+	if player.Team then return player.Team.Name end
+	return nil
+end
+
+-- Turn whatever "relationships" holds into a set of allied kingdom names
+local RELATION_ALLY = { ally = true, allies = true, allied = true, alliance = true, friendly = true, pact = true, truce = true }
+local RELATION_OTHER = { enemy = true, enemies = true, war = true, hostile = true, neutral = true, none = true }
+
+local function collectRelationNames(rel)
+	local names = {}
+	if rel == nil then return names end
+	local t = typeof(rel)
+
+	if t == "string" then
+		for token in string.gmatch(rel, "[^,%s;|]+") do
+			names[token:lower()] = true
+		end
+	elseif t == "table" then
+		for k, v in pairs(rel) do
+			local kl = (typeof(k) == "string") and k:lower() or nil
+			local vl = (typeof(v) == "string") and v:lower() or nil
+
+			if not kl then
+				-- array entry: the value is a kingdom name
+				if vl and not RELATION_ALLY[vl] and not RELATION_OTHER[vl] then
+					names[vl] = true
+				end
+			elseif RELATION_ALLY[kl] or RELATION_OTHER[kl] then
+				-- key is a status ("Ally"/"Enemy"): value(s) are kingdom names
+				if RELATION_ALLY[kl] and vl and not RELATION_ALLY[vl] and not RELATION_OTHER[vl] then
+					names[vl] = true
+				end
+			else
+				-- key is a kingdom name, value (if any) is its status
+				if vl then
+					if RELATION_ALLY[vl] then
+						names[kl] = true
+					elseif not RELATION_OTHER[vl] then
+						names[vl] = true
+					end
+				else
+					names[kl] = true
+				end
+			end
+		end
+	elseif t == "Instance" then
+		if rel:IsA("ValueBase") then
+			local v = rel.Value
+			if typeof(v) == "string" then
+				for token in string.gmatch(v, "[^,%s;|]+") do
+					names[token:lower()] = true
+				end
+			elseif typeof(v) == "Instance" then
+				names[v.Name:lower()] = true
+			end
+		else
+			for _, child in ipairs(rel:GetChildren()) do
+				names[child.Name:lower()] = true
+				if child:IsA("ValueBase") and typeof(child.Value) == "string" then
+					names[child.Value:lower()] = true
+				end
+			end
+		end
+	end
+	return names
+end
+
+-- Pull the "relationships" member off a kingdom node (attribute or child)
+local function getNodeRelationships(node)
+	if node == nil then return nil end
+	local t = typeof(node)
+	if t == "table" then
+		return node.relationships or node.Relationships
+	elseif t == "Instance" then
+		return node:FindFirstChild("relationships")
+			or node:FindFirstChild("Relationships")
+			or node:GetAttribute("relationships")
+	end
+	return nil
+end
+
+-- Fetch the kingdom node for a given name, handling folders and modules
+local function getKingdomNode(kingdomName)
+	if not kingdomName then return nil end
+	local container = ReplicatedStorage:FindFirstChild("kingdoms")
+	if not container then return nil end
+	if container:IsA("ModuleScript") then
+		local ok, res = pcall(require, container)
+		container = ok and res or nil
+	end
+	if container == nil then return nil end
+	local t = typeof(container)
+	if t == "Instance" then
+		return container:FindFirstChild(kingdomName)
+	elseif t == "table" then
+		return container[kingdomName]
+	end
+	return nil
+end
+
+local alliedKingdomCache = { set = {}, time = 0, kingdom = nil }
+
+local function getMyAlliedKingdoms()
+	local now = os.clock()
+	local myKingdom = getMyKingdom()
+
+	if alliedKingdomCache.kingdom == myKingdom and (now - alliedKingdomCache.time) < 2 then
+		return alliedKingdomCache.set
+	end
+
+	local set = {}
+	pcall(function()
+		local node = getKingdomNode(myKingdom)
+		local names = collectRelationNames(getNodeRelationships(node))
+		for name in pairs(names) do
+			set[name] = true
+		end
+	end)
+
+	alliedKingdomCache = { set = set, time = now, kingdom = myKingdom }
+	return set
+end
+
+local function isAlliedKingdomPlayer(player, alliedSet, myKingdom)
+	if not alliedSet then return false end
+	local k = getPlayerKingdom(player)
+	if not k then return false end
+	local key = k:lower()
+	if alliedSet[key] then return true end
+	if myKingdom and key == myKingdom:lower() then return true end
+	return false
+end
+
 local lastSmartSwing = 0
 Toggles.SmartSwing:OnChanged(function()
 	disconnect("SmartSwing")
@@ -5665,6 +5841,8 @@ Toggles.Camlock:OnChanged(function()
 			local ignoreTeam = Toggles.CamlockIgnoreTeam and Toggles.CamlockIgnoreTeam.Value
 			local ignoreAlly = Toggles.CamlockIgnoreAlly and Toggles.CamlockIgnoreAlly.Value
 			local excludedTeams = Options.CamlockIgnoreTeams and Options.CamlockIgnoreTeams.Value or {}
+			local alliedKingdoms = ignoreTeam and getMyAlliedKingdoms() or nil
+			local myKingdomName = ignoreTeam and getMyKingdom() or nil
 
 			local function isExcludedTeam(p)
 				if not ignoreAlly then return false end
@@ -5688,7 +5866,7 @@ Toggles.Camlock:OnChanged(function()
 				if LocalPlayer.TeamColor and p.TeamColor and LocalPlayer.TeamColor == p.TeamColor and LocalPlayer.TeamColor ~= BrickColor.new("White") then
 					return true
 				end
-				return false
+				return isAlliedKingdomPlayer(p, alliedKingdoms, myKingdomName)
 			end
 
 			for _, otherPlayer in ipairs(Players:GetPlayers()) do
