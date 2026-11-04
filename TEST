@@ -1249,7 +1249,7 @@ local CosmeticsGroup = Tabs.Main:AddLeftGroupbox("Cosmetics", "crown")
 
 CosmeticsGroup:AddDropdown("CosmeticSelect", {
 	Text = "Head Wear",
-	Values = {"None", "Villainous Crown", "Saviors Crown", "Tyrants Crown", "Crown Of The Sky Dragon", "Flower Crown", "Golden Laurel", "Golden Horns Of Victory", "Royal Vizier Mask", "Admin Helmet", "Raider", "Spikes Of Chaos", "Skeleton Crown", "Skeleton Captain", "Imperial Hat", "Classic Crown", "Royal Knight Hat"},
+	Values = {"None", "Villainous Crown", "Saviors Crown", "Tyrants Crown", "Crown Of The Sky Dragon", "Flower Crown", "Golden Laurel", "Golden Horns Of Victory", "Royal Vizier Mask", "Admin Helmet", "Raider", "Spikes Of Chaos", "Skeleton Crown", "Imperial Hat", "Classic Crown", "Royal Knight Hat", "Golden Lion", "Golden Spartan", "Golden Valkyrie"},
 	Default = "None",
 })
 
@@ -1286,16 +1286,19 @@ do
 		["Spikes Of Chaos"] = CFrame.new(0, -0.5, 0),
 		["Raider"] = CFrame.new(0, 0.3, 0) * CFrame.Angles(0, math.rad(-90), 0),
 		["Skeleton Crown"] = CFrame.new(0, -0.5, 0),
+		["Classic Crown"] = CFrame.new(0, 0.5, 0),
+		["Imperial Hat"] = CFrame.new(0, 0, -0.5) * CFrame.Angles(0, math.rad(90), 0),
+		["Royal Knight Hat"] = CFrame.Angles(0, math.rad(90), 0),
 	}
 
 	-- Cosmetics that don't live under ReplicatedStorage.game.Cosmetics.cosmetics
 	local COSMETIC_PATHS = {
 		["Admin Helmet"] = {"game", "Items", "models", "Admin Helmet"},
 		["Raider"] = {"game", "AIModels", "Arena Barbarian 1", "RaiderCosmetics"},
-		["Skeleton Captain"] = {"game", "AIModels", "SkeletonCaptain", "Head"},
 		["Imperial Hat"] = {"game", "AIModels", "Arena Imperial 1", "Head", "Meshes/Cosmetics_Hats.026"},
 		["Classic Crown"] = {"game", "Cosmetics", "cosmetics", "Classic Crown", "Meshes/Cosmetics_Hats.023"},
 		["Royal Knight Hat"] = {"game", "AIModels", "Arena Royal Knight 1", "Head", "Meshes/Cosmetics_Hats.058"},
+		["Golden Lion"] = {"game", "Cosmetics", "cosmetics", "Golden Horns Of Victory", "Golden Lion"},
 	}
 
 	local function getCosmeticRoot()
@@ -1325,6 +1328,10 @@ do
 			end
 		end
 		return parts
+	end
+
+	local function normalizeName(n)
+		return (n:gsub("[%s_%-]", ""):lower())
 	end
 
 	local function weldToPart(target, handle, weldName)
@@ -1405,6 +1412,7 @@ do
 		for _, part in ipairs(parts) do
 			if part ~= anchor then
 				local weld = Instance.new("Weld")
+				weld.Name = "XenoPartWeld"
 				weld.Part0 = anchor
 				weld.Part1 = part
 				weld.C0 = anchor.CFrame:ToObjectSpace(part.CFrame)
@@ -1451,6 +1459,12 @@ do
 		fixPart(root)
 		for _, obj in ipairs(root:GetDescendants()) do
 			fixPart(obj)
+			-- Remove any joint the engine adds on its own (e.g. AccessoryWeld).
+			-- Two joints fighting over the same part is what makes it slide
+			-- around on the head; only our welds should hold it.
+			if (obj:IsA("JointInstance") or obj:IsA("WeldConstraint")) and obj.Name ~= "XenoPartWeld" then
+				obj:Destroy()
+			end
 		end
 
 		local weld = head:FindFirstChild("XenoCosmeticWeld")
@@ -1605,11 +1619,38 @@ do
 				end
 			end
 
-			-- Weld every part to the anchor BEFORE parenting, otherwise gravity
-			-- nudges the unanchored parts for a frame and they drift
+			-- Deform mode (pants): if a part is named after a real body part
+			-- (e.g. a leg piece), weld it straight to that body part so the
+			-- item bends with the limbs instead of staying rigid.
+			local matched = {}
+			if cfg.deform then
+				local charParts = {}
+				for _, obj in ipairs(character:GetDescendants()) do
+					if obj:IsA("BasePart") then
+						charParts[normalizeName(obj.Name)] = obj
+					end
+				end
+				for _, part in ipairs(parts) do
+					local bodyPart = charParts[normalizeName(part.Name)]
+					if bodyPart and bodyPart ~= anchor then
+						matched[part] = true
+						local weld = Instance.new("Motor6D")
+						weld.Name = cfg.weldName .. "_" .. part.Name
+						weld.Part0 = bodyPart
+						weld.Part1 = part
+						weld.C0 = bodyPart.CFrame:ToObjectSpace(part.CFrame)
+						weld.C1 = CFrame.new()
+						weld.Parent = bodyPart
+					end
+				end
+			end
+
+			-- Weld the remaining parts to the anchor BEFORE parenting,
+			-- otherwise gravity nudges the unanchored parts for a frame
 			for _, part in ipairs(parts) do
-				if part ~= anchor then
+				if part ~= anchor and not matched[part] then
 					local weld = Instance.new("Weld")
+					weld.Name = "XenoPartWeld"
 					weld.Part0 = anchor
 					weld.Part1 = part
 					weld.C0 = anchor.CFrame:ToObjectSpace(part.CFrame)
@@ -1619,7 +1660,9 @@ do
 			end
 
 			clone.Parent = character
-			weldToPart(target, anchor, cfg.weldName)
+			if not matched[anchor] then
+				weldToPart(target, anchor, cfg.weldName)
+			end
 		end
 
 		local function refresh()
@@ -1669,7 +1712,30 @@ do
 			end
 
 			local weld = target:FindFirstChild(cfg.weldName)
-			if not weld or weld.Part1 ~= anchor then
+			if cfg.deform then
+				-- In deform mode the anchor may be welded to a matching body
+				-- part instead of the target, so re-apply whichever applies
+				local bodyPart
+				for _, obj in ipairs(character:GetDescendants()) do
+					if obj:IsA("BasePart") and not obj:IsDescendantOf(root) and normalizeName(obj.Name) == normalizeName(anchor.Name) then
+						bodyPart = obj
+						break
+					end
+				end
+				if bodyPart then
+					if not bodyPart:FindFirstChild(cfg.weldName .. "_" .. anchor.Name) then
+						local w = Instance.new("Motor6D")
+						w.Name = cfg.weldName .. "_" .. anchor.Name
+						w.Part0 = bodyPart
+						w.Part1 = anchor
+						w.C0 = bodyPart.CFrame:ToObjectSpace(anchor.CFrame)
+						w.C1 = CFrame.new()
+						w.Parent = bodyPart
+					end
+				elseif not weld or weld.Part1 ~= anchor then
+					weldToPart(target, anchor, cfg.weldName)
+				end
+			elseif not weld or weld.Part1 ~= anchor then
 				weldToPart(target, anchor, cfg.weldName)
 			end
 		end
@@ -1742,11 +1808,12 @@ do
 		attribute = "XenoPantsWear",
 		weldName = "XenoPantsWeld",
 		clothingClass = "Pants",
+		deform = true,
 		paths = {
 			["Admin Pants"] = {"game", "Items", "models", "Admin Pants"},
 		},
 		adjust = {
-			["Admin Pants"] = CFrame.new(0, -0.5, -0.5) * CFrame.Angles(0, math.rad(90), 0),
+			["Admin Pants"] = CFrame.new(0, -0.5, 0) * CFrame.Angles(0, math.rad(90), 0),
 		},
 		getTarget = function()
 			local character = getCharacter()
@@ -1770,7 +1837,7 @@ do
 			["Admin Bag"] = {"game", "Items", "models", "Admin Bag"},
 		},
 		adjust = {
-			["Admin Bag"] = CFrame.new(0, 0.5, 0) * CFrame.Angles(0, math.rad(90), 0),
+			["Admin Bag"] = CFrame.new(0, 0.5, 0.5) * CFrame.Angles(0, math.rad(90), 0),
 		},
 		getTarget = function()
 			local character = getCharacter()
