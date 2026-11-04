@@ -1249,7 +1249,7 @@ local CosmeticsGroup = Tabs.Main:AddLeftGroupbox("Cosmetics", "crown")
 
 CosmeticsGroup:AddDropdown("CosmeticSelect", {
 	Text = "Head Wear",
-	Values = {"Villainous Crown", "Saviors Crown", "Tyrants Crown", "Crown Of The Sky Dragon", "Flower Crown", "Golden Laurel", "Golden Horns Of Victory", "Royal Vizier Mask", "Admin Helmet", "Raider", "Spikes Of Chaos", "Skeleton Crown", "Imperial Hat", "Classic Crown", "Royal Knight Hat", "Golden Spartan", "Golden Valkyrie"},
+	Values = {"None", "Villainous Crown", "Saviors Crown", "Tyrants Crown", "Crown Of The Sky Dragon", "Flower Crown", "Golden Laurel", "Golden Horns Of Victory", "Royal Vizier Mask", "Admin Helmet", "Raider", "Spikes Of Chaos", "Skeleton Crown", "Imperial Hat", "Classic Crown", "Royal Knight Hat", "Golden Spartan", "Golden Valkyrie"},
 	Default = {},
 	Multi = true,
 })
@@ -1303,17 +1303,6 @@ do
 		["Classic Crown"] = {"game", "Cosmetics", "cosmetics", "Classic Crown", "Meshes/Cosmetics_Hats.023"},
 		["Royal Knight Hat"] = {"game", "AIModels", "Arena Royal Knight 1", "Head", "Meshes/Cosmetics_Hats.058"},
 	}
-
-	local function getCosmeticRoot(name)
-		local character = getCharacter()
-		if not character then return nil end
-		for _, obj in ipairs(character:GetDescendants()) do
-			if obj:GetAttribute("XenoCosmetic") == name then
-				return obj
-			end
-		end
-		return nil
-	end
 
 	local function clearCosmetic(name)
 		local character = getCharacter()
@@ -1392,7 +1381,6 @@ do
 			end
 		end
 		for _, part in ipairs(parts) do
-			part.Anchored = false
 			part.CanCollide = false
 			part.Massless = true
 		end
@@ -1416,82 +1404,54 @@ do
 			end
 		end
 
-		-- Weld every part to the anchor BEFORE parenting, otherwise gravity
-		-- nudges the unanchored parts for a frame and they drift on the head
-		for _, part in ipairs(parts) do
-			if part ~= anchor then
-				local weld = Instance.new("Weld")
-				weld.Name = "XenoPartWeld"
-				weld.Part0 = anchor
-				weld.Part1 = part
-				weld.C0 = anchor.CFrame:ToObjectSpace(part.CFrame)
-				weld.C1 = CFrame.new()
-				weld.Parent = anchor
-			end
-		end
-
 		clone.Parent = character
-		weldToPart(head, anchor, "XenoHeadWeld_" .. name)
+
+		-- Anchor every part and remember how each one sits relative to the
+		-- head. Anchored parts never wobble or get knocked around, and the
+		-- piece is re-glued onto the head each frame so it stays perfectly
+		-- stuck while walking.
+		local frames = {}
+		for i, part in ipairs(parts) do
+			part.Anchored = true
+			part.CanCollide = false
+			part.Massless = true
+			frames[i] = { part = part, offset = head.CFrame:Inverse() * part.CFrame }
+		end
+		activeCosmetics[name] = frames
 	end
 
-	local function refreshCosmetic(name)
+	-- Glue every worn piece back onto the head
+	local function followHead()
 		local character = getCharacter()
 		local head = character and character:FindFirstChild("Head")
-		if not (character and head) then return end
-
-		local root = getCosmeticRoot(name)
-		if not root then return end
-
-		local anchor
-		if root:IsA("BasePart") then
-			anchor = root
-		else
-			anchor = root:FindFirstChild("Handle") or root:FindFirstChildWhichIsA("BasePart")
-		end
-
-		if not anchor or root.Parent ~= character then
-			wearCosmetic(name)
-			return
-		end
-
-		-- Keep every part unanchored/massless so it follows the head instead
-		-- of being frozen in the world or drifting
-		local ownParts = {}
-		ownParts[anchor] = true
-		if root:IsA("BasePart") then
-			root.Anchored = false
-			root.CanCollide = false
-			root.Massless = true
-		end
-		for _, obj in ipairs(root:GetDescendants()) do
-			ownParts[obj] = true
-			if obj:IsA("BasePart") then
-				obj.Anchored = false
-				obj.CanCollide = false
-				obj.Massless = true
-			end
-			-- Remove any joint the engine adds on its own (e.g. AccessoryWeld).
-			-- Two joints fighting over the same part is what makes it slide
-			-- around on the head; only our welds should hold it.
-			if (obj:IsA("JointInstance") or obj:IsA("WeldConstraint")) and obj.Name ~= "XenoPartWeld" then
-				obj:Destroy()
-			end
-		end
-
-		local weldName = "XenoHeadWeld_" .. name
-		-- The engine also welds accessories straight to the Head; those extra
-		-- joints fight ours and make the piece slide, so drop them too
-		for _, obj in ipairs(head:GetChildren()) do
-			if (obj:IsA("JointInstance") or obj:IsA("WeldConstraint")) and obj.Name ~= weldName then
-				if ownParts[obj.Part1] or ownParts[obj.Part0] then
-					obj:Destroy()
+		if not head then return end
+		for _, frames in pairs(activeCosmetics) do
+			for _, entry in ipairs(frames) do
+				if entry.part.Parent then
+					entry.part.CFrame = head.CFrame * entry.offset
 				end
 			end
 		end
+	end
 
-		local weld = head:FindFirstChild(weldName)
-		if not weld or weld.Part1 ~= anchor then
-			weldToPart(head, anchor, weldName)
+	-- The game can try to weld our pieces to the head itself; that would fight
+	-- our anchoring, so drop any joint that touches one of our parts
+	local function cleanStrayJoints()
+		local character = getCharacter()
+		if not character then return end
+		local ours = {}
+		for _, frames in pairs(activeCosmetics) do
+			for _, entry in ipairs(frames) do
+				ours[entry.part] = true
+			end
+		end
+		if next(ours) == nil then return end
+		for _, obj in ipairs(character:GetDescendants()) do
+			if obj:IsA("JointInstance") or obj:IsA("WeldConstraint") then
+				if ours[obj.Part0] or ours[obj.Part1] then
+					obj:Destroy()
+				end
+			end
 		end
 	end
 
@@ -1520,7 +1480,6 @@ do
 		-- Put on the newly selected pieces
 		for name in pairs(wanted) do
 			if not activeCosmetics[name] then
-				activeCosmetics[name] = true
 				wearCosmetic(name)
 			end
 		end
@@ -1536,15 +1495,25 @@ do
 			end
 		end))
 
-		-- Keep every piece attached if the game strips or unwelds it
+		-- Glue the pieces back onto the head every frame, and make sure the
+		-- game doesn't weld them to the head itself
 		local lastCheck = 0
-		track("XenoCosmetic_Loop", RunService.Heartbeat:Connect(function()
+		track("XenoCosmetic_Loop", RunService.RenderStepped:Connect(function()
+			followHead()
+
 			local now = os.clock()
 			if now - lastCheck < 0.5 then return end
 			lastCheck = now
-			for name in pairs(activeCosmetics) do
-				refreshCosmetic(name)
+
+			for _, frames in pairs(activeCosmetics) do
+				for _, entry in ipairs(frames) do
+					if entry.part.Parent then
+						entry.part.Anchored = true
+						entry.part.CanCollide = false
+					end
+				end
 			end
+			cleanStrayJoints()
 		end))
 	end)
 
@@ -1886,6 +1855,9 @@ do
 		},
 		adjust = {
 			["Admin Bag"] = CFrame.new(0, 0.5, 0.5) * CFrame.Angles(0, math.rad(90), 0),
+			["Xpie101gamers Cape"] = CFrame.new(0, -0.5, 0.3) * CFrame.Angles(0, math.rad(90), 0),
+			["Cape"] = CFrame.new(0, -0.5, 0.3) * CFrame.Angles(0, math.rad(90), 0),
+			["Royal Embroidered Cape"] = CFrame.new(0, -0.5, 0.3) * CFrame.Angles(0, math.rad(90), 0),
 		},
 		getTarget = function()
 			local character = getCharacter()
