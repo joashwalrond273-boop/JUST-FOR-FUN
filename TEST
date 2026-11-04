@@ -1295,7 +1295,7 @@ do
 		["Golden Spartan"] = CFrame.new(0, 0.3, 0) * CFrame.Angles(0, math.rad(90), 0),
 		["Golden Valkyrie"] = CFrame.new(0, 0.5, 0) * CFrame.Angles(0, math.rad(90), 0),
 		["Plague Mask"] = CFrame.new(0, -0.5, -0.9) * CFrame.Angles(0, math.rad(90), 0),
-		["Magma Horned Helm"] = CFrame.new(-0.5, 0.4, -0.9) * CFrame.Angles(0, math.rad(90), 0),
+		["Magma Horned Helm"] = CFrame.new(-0.2, 0.4, -0.9) * CFrame.Angles(0, math.rad(90), 0),
 	}
 
 	-- Cosmetics that don't live under ReplicatedStorage.game.Cosmetics.cosmetics
