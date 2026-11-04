@@ -1255,18 +1255,27 @@ CosmeticsGroup:AddDropdown("CosmeticSelect", {
 	Values = {"None", "Villainous Crown", "Saviors Crown", "Tyrants Crown", "Crown Of The Sky Dragon", "Flower Crown", "Golden Laurel", "Golden Horns Of Victory", "Royal Vizier Mask", "Admin Helmet", "Raider", "Spikes Of Chaos", "Skeleton Crown", "Imperial Hat", "Classic Crown", "Royal Knight Hat", "Golden Spartan", "Golden Valkyrie", "Plague Mask", "Magma Horned Helm"},
 	Default = {},
 	Multi = true,
+}):AddColorPicker("CosmeticSelectColor", {
+	Default = Color3.fromRGB(255, 255, 255),
+	Title = "Head Wear Color",
 })
 
 CosmeticsGroup:AddDropdown("BodyWearSelect", {
 	Text = "Body Wear",
 	Values = {"None", "Admin Armor"},
 	Default = "None",
+}):AddColorPicker("BodyWearSelectColor", {
+	Default = Color3.fromRGB(255, 255, 255),
+	Title = "Body Wear Color",
 })
 
 CosmeticsGroup:AddDropdown("PantsWearSelect", {
 	Text = "Pants Wear",
 	Values = {"None", "Admin Pants"},
 	Default = "None",
+}):AddColorPicker("PantsWearSelectColor", {
+	Default = Color3.fromRGB(255, 255, 255),
+	Title = "Pants Wear Color",
 })
 
 CosmeticsGroup:AddDropdown("BackWearSelect", {
@@ -1274,6 +1283,9 @@ CosmeticsGroup:AddDropdown("BackWearSelect", {
 	Values = {"None", "Admin Bag", "Xpie101gamers Cape", "Wolf Pelt Cape", "Grey Wolf Pelt Cape", "Royal Embroidered Cape", "Angelic Wings", "Demonic Wings"},
 	Default = {},
 	Multi = true,
+}):AddColorPicker("BackWearSelectColor", {
+	Default = Color3.fromRGB(255, 255, 255),
+	Title = "Back Wear Color",
 })
 
 do
@@ -1417,13 +1429,27 @@ do
 		-- piece is re-glued onto the head each frame so it stays perfectly
 		-- stuck while walking.
 		local frames = {}
+		local headColor = Options.CosmeticSelectColor and Options.CosmeticSelectColor.Value or Color3.fromRGB(255, 255, 255)
 		for i, part in ipairs(parts) do
 			part.Anchored = true
 			part.CanCollide = false
 			part.Massless = true
+			part.Color = headColor
 			frames[i] = { part = part, offset = head.CFrame:Inverse() * part.CFrame }
 		end
 		activeCosmetics[name] = frames
+	end
+
+	-- Recolour every head piece that is currently worn
+	local function applyHeadColor()
+		local color = Options.CosmeticSelectColor and Options.CosmeticSelectColor.Value or Color3.fromRGB(255, 255, 255)
+		for _, frames in pairs(activeCosmetics) do
+			for _, entry in ipairs(frames) do
+				if entry.part:IsA("BasePart") then
+					entry.part.Color = color
+				end
+			end
+		end
 	end
 
 	-- Glue every worn piece back onto the head
@@ -1526,6 +1552,12 @@ do
 		end))
 	end)
 
+	if Options.CosmeticSelectColor then
+		Options.CosmeticSelectColor:OnChanged(function()
+			applyHeadColor()
+		end)
+	end
+
 	-- ============================================================
 	-- Body wear / Pants wear (welded to a body part, hides native clothing)
 	-- ============================================================
@@ -1534,6 +1566,26 @@ do
 		local worn = {}
 		local activeIsClothing = false
 		local clothingStore = nil
+
+		local function getWearColor()
+			local opt = Options[cfg.colorKey]
+			return (opt and opt.Value) or Color3.fromRGB(255, 255, 255)
+		end
+
+		-- Recolour every piece of this wear type that is currently on the body
+		local function applyWearColor()
+			local character = getCharacter()
+			if not character then return end
+			local color = getWearColor()
+			for _, obj in ipairs(character:GetChildren()) do
+				if obj:GetAttribute(cfg.attribute) then
+					if obj:IsA("BasePart") then obj.Color = color end
+					for _, desc in ipairs(obj:GetDescendants()) do
+						if desc:IsA("BasePart") then desc.Color = color end
+					end
+				end
+			end
+		end
 
 		local function rootFor(name)
 			local character = getCharacter()
@@ -1693,6 +1745,10 @@ do
 			if not matched[anchor] then
 				weldToPart(target, anchor, cfg.weldName .. "_" .. name)
 			end
+			local wearColor = getWearColor()
+			for _, part in ipairs(parts) do
+				part.Color = wearColor
+			end
 			worn[name] = true
 		end
 
@@ -1847,10 +1903,17 @@ do
 				end
 			end))
 		end)
+
+		if Options[cfg.colorKey] then
+			Options[cfg.colorKey]:OnChanged(function()
+				applyWearColor()
+			end)
+		end
 	end
 
 	buildWearSystem({
 		dropdown = "BodyWearSelect",
+		colorKey = "BodyWearSelectColor",
 		attribute = "XenoBodyWear",
 		weldName = "XenoBodyWeld",
 		clothingClass = "Shirt",
@@ -1869,6 +1932,7 @@ do
 
 	buildWearSystem({
 		dropdown = "PantsWearSelect",
+		colorKey = "PantsWearSelectColor",
 		attribute = "XenoPantsWear",
 		weldName = "XenoPantsWeld",
 		clothingClass = "Pants",
@@ -1894,6 +1958,7 @@ do
 
 	buildWearSystem({
 		dropdown = "BackWearSelect",
+		colorKey = "BackWearSelectColor",
 		attribute = "XenoBackWear",
 		weldName = "XenoBackWeld",
 		clothingClass = "Backpack",
