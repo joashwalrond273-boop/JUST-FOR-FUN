@@ -1249,7 +1249,7 @@ local CosmeticsGroup = Tabs.Main:AddLeftGroupbox("Cosmetics", "crown")
 
 CosmeticsGroup:AddDropdown("CosmeticSelect", {
 	Text = "Head Wear",
-	Values = {"None", "Villainous Crown", "Saviors Crown", "Tyrants Crown", "Crown Of The Sky Dragon", "Flower Crown", "Golden Laurel", "Golden Horns Of Victory", "Royal Vizier Mask", "Admin Helmet", "Raider", "Spikes Of Chaos", "Skeleton Crown"},
+	Values = {"None", "Villainous Crown", "Saviors Crown", "Tyrants Crown", "Crown Of The Sky Dragon", "Flower Crown", "Golden Laurel", "Golden Horns Of Victory", "Royal Vizier Mask", "Admin Helmet", "Raider", "Spikes Of Chaos", "Skeleton Crown", "Skeleton Captain", "Imperial Hat", "Classic Crown", "Royal Knight Hat"},
 	Default = "None",
 })
 
@@ -1292,6 +1292,10 @@ do
 	local COSMETIC_PATHS = {
 		["Admin Helmet"] = {"game", "Items", "models", "Admin Helmet"},
 		["Raider"] = {"game", "AIModels", "Arena Barbarian 1", "RaiderCosmetics"},
+		["Skeleton Captain"] = {"game", "AIModels", "SkeletonCaptain", "Head"},
+		["Imperial Hat"] = {"game", "AIModels", "Arena Imperial 1", "Head", "Meshes/Cosmetics_Hats.026"},
+		["Classic Crown"] = {"game", "Cosmetics", "cosmetics", "Classic Crown", "Meshes/Cosmetics_Hats.023"},
+		["Royal Knight Hat"] = {"game", "AIModels", "Arena Royal Knight 1", "Head", "Meshes/Cosmetics_Hats.058"},
 	}
 
 	local function getCosmeticRoot()
@@ -1363,9 +1367,11 @@ do
 			return
 		end
 
-		-- Strip the template's own joints and make every part a normal unanchored, massless piece
+		-- Strip the template's own joints/animation so the piece stays put
 		for _, desc in ipairs(clone:GetDescendants()) do
-			if desc:IsA("JointInstance") or desc:IsA("WeldConstraint") then
+			if desc:IsA("JointInstance") or desc:IsA("WeldConstraint")
+				or desc:IsA("Humanoid") or desc:IsA("Animator") or desc:IsA("AnimationController")
+				or desc:IsA("Script") or desc:IsA("LocalScript") then
 				desc:Destroy()
 			end
 		end
@@ -1394,9 +1400,8 @@ do
 			end
 		end
 
-		clone.Parent = character
-
-		-- Weld every part to the anchor so the whole model moves as one
+		-- Weld every part to the anchor BEFORE parenting, otherwise gravity
+		-- nudges the unanchored parts for a frame and they drift on the head
 		for _, part in ipairs(parts) do
 			if part ~= anchor then
 				local weld = Instance.new("Weld")
@@ -1408,6 +1413,7 @@ do
 			end
 		end
 
+		clone.Parent = character
 		weldToPart(head, anchor, "XenoCosmeticWeld")
 	end
 
@@ -1431,6 +1437,20 @@ do
 		if not anchor or root.Parent ~= character then
 			wearCosmetic(activeCosmetic)
 			return
+		end
+
+		-- Keep every part unanchored/massless so it follows the head instead
+		-- of being frozen in the world or drifting
+		local function fixPart(part)
+			if part:IsA("BasePart") then
+				part.Anchored = false
+				part.CanCollide = false
+				part.Massless = true
+			end
+		end
+		fixPart(root)
+		for _, obj in ipairs(root:GetDescendants()) do
+			fixPart(obj)
 		end
 
 		local weld = head:FindFirstChild("XenoCosmeticWeld")
@@ -1554,7 +1574,9 @@ do
 			end
 
 			for _, desc in ipairs(clone:GetDescendants()) do
-				if desc:IsA("JointInstance") or desc:IsA("WeldConstraint") then
+				if desc:IsA("JointInstance") or desc:IsA("WeldConstraint")
+					or desc:IsA("Humanoid") or desc:IsA("Animator") or desc:IsA("AnimationController")
+					or desc:IsA("Script") or desc:IsA("LocalScript") then
 					desc:Destroy()
 				end
 			end
@@ -1583,9 +1605,8 @@ do
 				end
 			end
 
-			clone.Parent = character
-
-			-- Weld every part to the anchor so the whole model moves as one
+			-- Weld every part to the anchor BEFORE parenting, otherwise gravity
+			-- nudges the unanchored parts for a frame and they drift
 			for _, part in ipairs(parts) do
 				if part ~= anchor then
 					local weld = Instance.new("Weld")
@@ -1597,6 +1618,7 @@ do
 				end
 			end
 
+			clone.Parent = character
 			weldToPart(target, anchor, cfg.weldName)
 		end
 
@@ -1630,6 +1652,20 @@ do
 			if not anchor or root.Parent ~= character then
 				wear(active)
 				return
+			end
+
+			-- Keep every part unanchored/massless so the item follows the body
+			-- instead of being frozen in the world or drifting
+			local function fixPart(part)
+				if part:IsA("BasePart") then
+					part.Anchored = false
+					part.CanCollide = false
+					part.Massless = true
+				end
+			end
+			fixPart(root)
+			for _, obj in ipairs(root:GetDescendants()) do
+				fixPart(obj)
 			end
 
 			local weld = target:FindFirstChild(cfg.weldName)
@@ -1734,7 +1770,7 @@ do
 			["Admin Bag"] = {"game", "Items", "models", "Admin Bag"},
 		},
 		adjust = {
-			["Admin Bag"] = CFrame.new(0, 0.5, -1) * CFrame.Angles(0, math.rad(90), 0),
+			["Admin Bag"] = CFrame.new(0, 0.5, 0) * CFrame.Angles(0, math.rad(90), 0),
 		},
 		getTarget = function()
 			local character = getCharacter()
