@@ -1247,41 +1247,13 @@ local MainRight = Tabs.Player:AddRightGroupbox("Settings", "settings")
 -- ============================================================================
 local CosmeticsGroup = Tabs.Main:AddLeftGroupbox("Cosmetics", "crown")
 
-CosmeticsGroup:AddCheckbox("VillainousCrown", {
-	Text = "Villainous Crown",
-	Default = false,
-})
-
-CosmeticsGroup:AddCheckbox("SaviorsCrown", {
-	Text = "Saviors Crown",
-	Default = false,
-})
-
-CosmeticsGroup:AddCheckbox("TyrantsCrown", {
-	Text = "Tyrants Crown",
-	Default = false,
-})
-
-CosmeticsGroup:AddCheckbox("CrownOfTheSkyDragon", {
-	Text = "Crown Of The Sky Dragon",
-	Default = false,
-})
-
-CosmeticsGroup:AddCheckbox("FlowerCrown", {
-	Text = "Flower Crown",
-	Default = false,
+CosmeticsGroup:AddDropdown("CosmeticSelect", {
+	Text = "Cosmetic",
+	Values = {"None", "Villainous Crown", "Saviors Crown", "Tyrants Crown", "Crown Of The Sky Dragon", "Flower Crown"},
+	Default = "None",
 })
 
 do
-	-- Every cosmetic currently wears on the head slot
-	local COSMETICS = {
-		{ Toggle = "VillainousCrown", Name = "Villainous Crown" },
-		{ Toggle = "SaviorsCrown", Name = "Saviors Crown" },
-		{ Toggle = "TyrantsCrown", Name = "Tyrants Crown" },
-		{ Toggle = "CrownOfTheSkyDragon", Name = "Crown Of The Sky Dragon" },
-		{ Toggle = "FlowerCrown", Name = "Flower Crown" },
-	}
-
 	local activeCosmetic = nil
 
 	local function getCosmeticRoot()
@@ -1428,46 +1400,37 @@ do
 		end
 	end
 
-	for _, entry in ipairs(COSMETICS) do
-		Toggles[entry.Toggle]:OnChanged(function()
-			disconnect("XenoCosmetic_CharacterAdded")
-			disconnect("XenoCosmetic_Loop")
+	Options.CosmeticSelect:OnChanged(function()
+		disconnect("XenoCosmetic_CharacterAdded")
+		disconnect("XenoCosmetic_Loop")
 
-			if not Toggles[entry.Toggle].Value then
-				if activeCosmetic == entry.Name then
-					activeCosmetic = nil
-					clearCosmetic()
-				end
-				return
+		clearCosmetic()
+
+		local name = Options.CosmeticSelect.Value
+		if not name or name == "None" then
+			activeCosmetic = nil
+			return
+		end
+
+		activeCosmetic = name
+		wearCosmetic(name)
+
+		track("XenoCosmetic_CharacterAdded", LocalPlayer.CharacterAdded:Connect(function()
+			task.wait(0.5)
+			if activeCosmetic then
+				wearCosmetic(activeCosmetic)
 			end
+		end))
 
-			-- Head slot is exclusive: only one cosmetic worn at a time
-			for _, other in ipairs(COSMETICS) do
-				if other.Toggle ~= entry.Toggle and Toggles[other.Toggle].Value then
-					Toggles[other.Toggle]:SetValue(false)
-				end
-			end
-
-			activeCosmetic = entry.Name
-			wearCosmetic(entry.Name)
-
-			track("XenoCosmetic_CharacterAdded", LocalPlayer.CharacterAdded:Connect(function()
-				task.wait(0.5)
-				if activeCosmetic then
-					wearCosmetic(activeCosmetic)
-				end
-			end))
-
-			-- Keep the cosmetic attached if the game strips or unwelds it
-			local lastCheck = 0
-			track("XenoCosmetic_Loop", RunService.Heartbeat:Connect(function()
-				local now = os.clock()
-				if now - lastCheck < 0.5 then return end
-				lastCheck = now
-				refreshCosmetic()
-			end))
-		end)
-	end
+		-- Keep the cosmetic attached if the game strips or unwelds it
+		local lastCheck = 0
+		track("XenoCosmetic_Loop", RunService.Heartbeat:Connect(function()
+			local now = os.clock()
+			if now - lastCheck < 0.5 then return end
+			lastCheck = now
+			refreshCosmetic()
+		end))
+	end)
 end
 
 local FunAttach = Tabs.Main:AddLeftGroupbox("ATTACH", "link")
@@ -11148,20 +11111,8 @@ Library:OnUnload(function()
 	if Toggles.ShieldHud and Toggles.ShieldHud.Value then
 		Toggles.ShieldHud:SetValue(false)
 	end
-	if Toggles.VillainousCrown and Toggles.VillainousCrown.Value then
-		Toggles.VillainousCrown:SetValue(false)
-	end
-	if Toggles.SaviorsCrown and Toggles.SaviorsCrown.Value then
-		Toggles.SaviorsCrown:SetValue(false)
-	end
-	if Toggles.TyrantsCrown and Toggles.TyrantsCrown.Value then
-		Toggles.TyrantsCrown:SetValue(false)
-	end
-	if Toggles.CrownOfTheSkyDragon and Toggles.CrownOfTheSkyDragon.Value then
-		Toggles.CrownOfTheSkyDragon:SetValue(false)
-	end
-	if Toggles.FlowerCrown and Toggles.FlowerCrown.Value then
-		Toggles.FlowerCrown:SetValue(false)
+	if Options.CosmeticSelect and Options.CosmeticSelect.Value ~= "None" then
+		Options.CosmeticSelect:SetValue("None")
 	end
 	if Toggles.SpearSword and Toggles.SpearSword.Value then
 		Toggles.SpearSword:SetValue(false)
