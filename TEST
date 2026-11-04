@@ -1250,6 +1250,81 @@ local MainRight = Tabs.Player:AddRightGroupbox("Settings", "settings")
 -- ============================================================================
 local CosmeticsGroup = Tabs.Main:AddLeftGroupbox("Cosmetics", "crown")
 
+CosmeticPresets = {}
+
+CosmeticsGroup:AddSlider("CosmeticPresetSlot", {
+	Text = "Cosmetic Preset Slot",
+	Default = 1,
+	Min = 1,
+	Max = 5,
+	Rounding = 0,
+	Compact = true,
+})
+
+CosmeticsGroup:AddButton({
+	Text = "Save Cosmetics",
+	Func = function()
+		local presetSlot = math.floor((Options.CosmeticPresetSlot and Options.CosmeticPresetSlot.Value) or 1)
+		local function copySet(list)
+			local out = {}
+			if typeof(list) == "table" then
+				for name, on in pairs(list) do
+					out[name] = on
+				end
+			end
+			return out
+		end
+		CosmeticPresets[presetSlot] = {
+			head = copySet(Options.CosmeticSelect and Options.CosmeticSelect.Value),
+			body = Options.BodyWearSelect and Options.BodyWearSelect.Value,
+			pants = Options.PantsWearSelect and Options.PantsWearSelect.Value,
+			back = copySet(Options.BackWearSelect and Options.BackWearSelect.Value),
+			headColor = Options.CosmeticSelectColor and Options.CosmeticSelectColor.Value,
+			bodyColor = Options.BodyWearSelectColor and Options.BodyWearSelectColor.Value,
+			pantsColor = Options.PantsWearSelectColor and Options.PantsWearSelectColor.Value,
+			backColor = Options.BackWearSelectColor and Options.BackWearSelectColor.Value,
+			useHeadColor = Toggles.HeadWearColorToggle and Toggles.HeadWearColorToggle.Value or false,
+			useBodyColor = Toggles.BodyWearColorToggle and Toggles.BodyWearColorToggle.Value or false,
+			usePantsColor = Toggles.PantsWearColorToggle and Toggles.PantsWearColorToggle.Value or false,
+			useBackColor = Toggles.BackWearColorToggle and Toggles.BackWearColorToggle.Value or false,
+		}
+		Library:Notify({ Title = "Cosmetic Presets", Description = string.format("Saved your look to slot %d", presetSlot), Time = 2 })
+	end,
+})
+
+CosmeticsGroup:AddButton({
+	Text = "Load Cosmetics",
+	Func = function()
+		local presetSlot = math.floor((Options.CosmeticPresetSlot and Options.CosmeticPresetSlot.Value) or 1)
+		local preset = CosmeticPresets[presetSlot]
+		if not preset then
+			Library:Notify({ Title = "Cosmetic Presets", Description = string.format("Cosmetic slot %d is empty", presetSlot), Time = 2 })
+			return
+		end
+
+		-- Colours and their toggles first so the outfit is worn already tinted
+		if Options.CosmeticSelectColor and preset.headColor then Options.CosmeticSelectColor:SetValue(preset.headColor) end
+		if Options.BodyWearSelectColor and preset.bodyColor then Options.BodyWearSelectColor:SetValue(preset.bodyColor) end
+		if Options.PantsWearSelectColor and preset.pantsColor then Options.PantsWearSelectColor:SetValue(preset.pantsColor) end
+		if Options.BackWearSelectColor and preset.backColor then Options.BackWearSelectColor:SetValue(preset.backColor) end
+
+		if Toggles.HeadWearColorToggle then Toggles.HeadWearColorToggle:SetValue(preset.useHeadColor) end
+		if Toggles.BodyWearColorToggle then Toggles.BodyWearColorToggle:SetValue(preset.useBodyColor) end
+		if Toggles.PantsWearColorToggle then Toggles.PantsWearColorToggle:SetValue(preset.usePantsColor) end
+		if Toggles.BackWearColorToggle then Toggles.BackWearColorToggle:SetValue(preset.useBackColor) end
+
+		-- Then the outfits themselves
+		if Options.CosmeticSelect then Options.CosmeticSelect:SetValue(preset.head or {}) end
+		if Options.BodyWearSelect then Options.BodyWearSelect:SetValue(preset.body) end
+		if Options.PantsWearSelect then Options.PantsWearSelect:SetValue(preset.pants) end
+		if Options.BackWearSelect then Options.BackWearSelect:SetValue(preset.back or {}) end
+
+		Library:Notify({ Title = "Cosmetic Presets", Description = string.format("Loaded your look from slot %d", presetSlot), Time = 2 })
+	end,
+})
+
+CosmeticsGroup:AddDivider()
+
 CosmeticsGroup:AddDropdown("CosmeticSelect", {
 	Text = "Head Wear",
 	Values = {"None", "Villainous Crown", "Saviors Crown", "Tyrants Crown", "Crown Of The Sky Dragon", "Flower Crown", "Golden Laurel", "Golden Horns Of Victory", "Royal Vizier Mask", "Admin Helmet", "Raider", "Spikes Of Chaos", "Skeleton Crown", "Imperial Hat", "Classic Crown", "Royal Knight Hat", "Golden Spartan", "Golden Valkyrie", "Plague Mask", "Magma Horned Helm"},
