@@ -1249,7 +1249,7 @@ local CosmeticsGroup = Tabs.Main:AddLeftGroupbox("Cosmetics", "crown")
 
 CosmeticsGroup:AddDropdown("CosmeticSelect", {
 	Text = "Head Wear",
-	Values = {"None", "Villainous Crown", "Saviors Crown", "Tyrants Crown", "Crown Of The Sky Dragon", "Flower Crown", "Golden Laurel", "Golden Horns Of Victory", "Royal Vizier Mask", "Admin Helmet", "Raider", "Spikes Of Chaos", "Skeleton Crown", "Imperial Hat", "Classic Crown", "Royal Knight Hat", "Golden Spartan", "Golden Valkyrie"},
+	Values = {"None", "Villainous Crown", "Saviors Crown", "Tyrants Crown", "Crown Of The Sky Dragon", "Flower Crown", "Golden Laurel", "Golden Horns Of Victory", "Royal Vizier Mask", "Admin Helmet", "Raider", "Spikes Of Chaos", "Skeleton Crown", "Imperial Hat", "Classic Crown", "Royal Knight Hat", "Golden Spartan", "Golden Valkyrie", "Plague Mask", "Magma Horned Helm"},
 	Default = {},
 	Multi = true,
 })
@@ -7490,6 +7490,14 @@ MoveMountAura:AddSlider("MountFlySpeed", {
 	Compact = true,
 })
 
+MoveMountAura:AddCheckbox("MountColor", {
+	Text = "Mount Color",
+	Default = false,
+}):AddColorPicker("MountColorPicker", {
+	Default = Color3.fromRGB(255, 0, 0),
+	Title = "Mount Color",
+})
+
 
 local noclipCorePartNames = {
 	["HumanoidRootPart"] = true,
@@ -7682,6 +7690,38 @@ Toggles.MountSpeedBoost:OnChanged(function()
 		end
 		table.clear(originalMountSpeeds)
 		Library:Notify({ Title = "Mount Speed", Description = "Disabled", Time = 2 })
+	end
+end)
+
+local originalMountColors = {}
+
+Toggles.MountColor:OnChanged(function()
+	disconnect("MountColor")
+	if Toggles.MountColor.Value then
+		Library:Notify({ Title = "Mount Color", Description = "Enabled", Time = 2 })
+		track("MountColor", RunService.Heartbeat:Connect(function()
+			local mountModel = getCurrentMount()
+			if not mountModel then return end
+			local chosen = (Options.MountColorPicker and Options.MountColorPicker.Value) or Color3.fromRGB(255, 0, 0)
+			for _, part in ipairs(mountModel:GetDescendants()) do
+				if part:IsA("BasePart") then
+					if not originalMountColors[part] then
+						originalMountColors[part] = part.Color
+					end
+					if part.Color ~= chosen then
+						part.Color = chosen
+					end
+				end
+			end
+		end))
+	else
+		for part, origColor in pairs(originalMountColors) do
+			if part and part.Parent then
+				pcall(function() part.Color = origColor end)
+			end
+		end
+		table.clear(originalMountColors)
+		Library:Notify({ Title = "Mount Color", Description = "Disabled", Time = 2 })
 	end
 end)
 
@@ -11561,6 +11601,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.MountSpeedBoost and Toggles.MountSpeedBoost.Value then
 		Toggles.MountSpeedBoost:SetValue(false)
+	end
+	if Toggles.MountColor and Toggles.MountColor.Value then
+		Toggles.MountColor:SetValue(false)
 	end
 	if Toggles.SwimSlotBoost and Toggles.SwimSlotBoost.Value then
 		Toggles.SwimSlotBoost:SetValue(false)
