@@ -1268,7 +1268,7 @@ CosmeticsGroup:AddDropdown("PantsWearSelect", {
 
 CosmeticsGroup:AddDropdown("BackWearSelect", {
 	Text = "Back Wear",
-	Values = {"None", "Admin Bag", "Xpie101gamers Cape", "Wolf Pelt Cape", "Cape", "Grey Wolf Pelt Cape", "Royal Embroidered Cape", "Angelic Wings", "Demonic Wings"},
+	Values = {"None", "Admin Bag", "Xpie101gamers Cape", "Wolf Pelt Cape", "Grey Wolf Pelt Cape", "Royal Embroidered Cape", "Angelic Wings", "Demonic Wings"},
 	Default = {},
 	Multi = true,
 })
@@ -1891,7 +1891,6 @@ do
 			["Admin Bag"] = {"game", "Items", "models", "Admin Bag"},
 			["Xpie101gamers Cape"] = {"game", "Cosmetics", "cosmetics", "Xpie101gamers Cape"},
 			["Wolf Pelt Cape"] = {"game", "Cosmetics", "cosmetics", "Wolf Pelt Cape"},
-			["Cape"] = {"game", "Cosmetics", "cosmetics", "Cape"},
 			["Grey Wolf Pelt Cape"] = {"game", "Cosmetics", "cosmetics", "Grey Wolf Pelt Cape"},
 			["Royal Embroidered Cape"] = {"game", "Cosmetics", "cosmetics", "Royal Embroidered Cape"},
 			["Angelic Wings"] = {"game", "Cosmetics", "cosmetics", "Angelic Wings"},
@@ -1900,8 +1899,7 @@ do
 		adjust = {
 			["Admin Bag"] = CFrame.new(0, 0.5, 0.5) * CFrame.Angles(0, math.rad(90), 0),
 			["Xpie101gamers Cape"] = CFrame.new(0, -1.0, 2.4) * CFrame.Angles(0, math.rad(90), 0),
-			["Cape"] = CFrame.new(0, -0.8, 4.0) * CFrame.Angles(0, math.rad(90), 0),
-			["Royal Embroidered Cape"] = CFrame.new(0, -1.0, 2.4) * CFrame.Angles(0, math.rad(90), 0),
+			["Royal Embroidered Cape"] = CFrame.new(0, -1.1, 2.0) * CFrame.Angles(0, math.rad(90), 0),
 			["Angelic Wings"] = CFrame.new(0, 0, 1.1) * CFrame.Angles(0, math.rad(90), 0),
 			["Demonic Wings"] = CFrame.new(0, 0, 1.1) * CFrame.Angles(0, math.rad(90), 0),
 		},
