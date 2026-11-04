@@ -1275,7 +1275,7 @@ do
 		["Tyrants Crown"] = CFrame.new(0, -0.5, 0),
 		["Golden Laurel"] = CFrame.Angles(0, math.rad(90), 0),
 		["Golden Horns Of Victory"] = CFrame.new(0, 0.4, 0) * CFrame.Angles(0, math.rad(90), 0),
-		["Royal Vizier Mask"] = CFrame.new(0, 0.3, -0.4) * CFrame.Angles(0, math.rad(90), 0),
+		["Royal Vizier Mask"] = CFrame.new(0, 0.5, -0.6) * CFrame.Angles(0, math.rad(90), 0),
 		["Admin Helmet"] = CFrame.new(0, -0.3, 0),
 	}
 
@@ -1656,14 +1656,14 @@ do
 			["Admin Pants"] = {"game", "Items", "models", "Admin Pants"},
 		},
 		adjust = {
-			["Admin Pants"] = CFrame.Angles(0, math.rad(180), 0),
+			["Admin Pants"] = CFrame.Angles(0, math.rad(90), 0),
 		},
 		getTarget = function()
 			local character = getCharacter()
 			if not character then return nil end
-			-- R15: the hips sit at the lower torso
+			-- R15: fit the pants below the lower torso (hip line)
 			local lower = character:FindFirstChild("LowerTorso") or character:FindFirstChild("Hips")
-			if lower then return lower, CFrame.new() end
+			if lower then return lower, CFrame.new(0, -lower.Size.Y * 0.5, 0) end
 			-- R6: the hips sit at the bottom of the torso
 			local torso = character:FindFirstChild("Torso") or character:FindFirstChild("UpperTorso")
 			if torso then return torso, CFrame.new(0, -torso.Size.Y * 0.5, 0) end
