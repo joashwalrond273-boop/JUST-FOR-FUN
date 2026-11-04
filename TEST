@@ -1295,7 +1295,7 @@ do
 		["Golden Spartan"] = CFrame.new(0, 0.3, 0) * CFrame.Angles(0, math.rad(90), 0),
 		["Golden Valkyrie"] = CFrame.new(0, 0.5, 0) * CFrame.Angles(0, math.rad(90), 0),
 		["Plague Mask"] = CFrame.new(0, -0.5, -0.9) * CFrame.Angles(0, math.rad(90), 0),
-		["Magma Horned Helm"] = CFrame.new(0.3, 0.4, -0.8) * CFrame.Angles(0, math.rad(90), 0),
+		["Magma Horned Helm"] = CFrame.new(0.5, 0.4, -0.8) * CFrame.Angles(0, math.rad(90), 0),
 	}
 
 	-- Cosmetics that don't live under ReplicatedStorage.game.Cosmetics.cosmetics
@@ -3719,6 +3719,11 @@ CombatCamlockConfig:AddCheckbox("CamlockFreePitch", {
 	Default = false,
 })
 
+CombatCamlockConfig:AddCheckbox("CamlockStickyTarget", {
+	Text = "Sticky Target",
+	Default = false,
+})
+
 CombatCamlockConfig:AddSlider("CamlockSmoothness", {
 	Text = "Camera Smoothness",
 	Default = 0.2,
@@ -5625,6 +5630,8 @@ Toggles.SmartSwing:OnChanged(function()
 	end
 end)
 
+local camlockStickyTarget = nil
+
 Toggles.Camlock:OnChanged(function()
 	disconnect("Camlock")
 	if updatePVPModulesVisibility then
@@ -5707,6 +5714,29 @@ Toggles.Camlock:OnChanged(function()
 						end
 					end
 				end
+			end
+
+			-- Sticky Target: keep attacking the same player until they die
+			local stickyEnabled = Toggles.CamlockStickyTarget and Toggles.CamlockStickyTarget.Value
+			if stickyEnabled then
+				local keepTarget = false
+				if camlockStickyTarget and camlockStickyTarget.Character then
+					local sRoot = camlockStickyTarget.Character:FindFirstChild("HumanoidRootPart")
+					local sHum = camlockStickyTarget.Character:FindFirstChildOfClass("Humanoid")
+					if sRoot and sHum and sHum.Health > 0
+						and (targetSetting == "All" or camlockStickyTarget.Name == targetSetting)
+						and (not ignoreTeam or not isSameTeamOnly(camlockStickyTarget))
+						and not isExcludedTeam(camlockStickyTarget) then
+						keepTarget = true
+					end
+				end
+				if keepTarget then
+					closestPlayer = camlockStickyTarget
+				else
+					camlockStickyTarget = closestPlayer
+				end
+			else
+				camlockStickyTarget = nil
 			end
 
 			-- Outline: Stop player from getting closer than studs to players while using Camlock
@@ -5913,6 +5943,7 @@ Toggles.Camlock:OnChanged(function()
 			end
 		end))
 	else
+		camlockStickyTarget = nil
 		UserInputService.MouseBehavior = Enum.MouseBehavior.Default
 		UserInputService.MouseIconEnabled = true
 		local hum = getHumanoid()
