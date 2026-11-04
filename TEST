@@ -388,7 +388,8 @@ AutoArmorDeluxeGroup:AddButton({
 		end)
 		task.wait(delay)
 		local backDir = root.CFrame.LookVector
-		local bedPos = playerPosition - Vector3.new(backDir.X, 0, backDir.Z) * 3
+		local rightDir = root.CFrame.RightVector
+		local bedPos = playerPosition - Vector3.new(backDir.X, 0, backDir.Z) * 5 - Vector3.new(rightDir.X, 0, rightDir.Z) * 1
 		pcall(function()
 			buildRemote:InvokeServer(
 				85,
@@ -1323,7 +1324,7 @@ do
 		["Golden Spartan"] = CFrame.new(0, 0.3, 0) * CFrame.Angles(0, math.rad(90), 0),
 		["Golden Valkyrie"] = CFrame.new(0, 0.5, 0) * CFrame.Angles(0, math.rad(90), 0),
 		["Plague Mask"] = CFrame.new(0, -0.5, -0.9) * CFrame.Angles(0, math.rad(90), 0),
-		["Magma Horned Helm"] = CFrame.new(0.0, 0.4, -0.8) * CFrame.Angles(0, math.rad(90), 0),
+		["Magma Horned Helm"] = CFrame.new(0.0, 0.4, -0.7) * CFrame.Angles(0, math.rad(90), 0),
 	}
 
 	-- Cosmetics that don't live under ReplicatedStorage.game.Cosmetics.cosmetics
