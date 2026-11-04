@@ -1746,10 +1746,12 @@ do
 			local weld = target:FindFirstChild(cfg.weldName .. "_" .. name)
 			if cfg.deform then
 				-- In deform mode the anchor may be welded to a matching body
-				-- part instead of the target, so re-apply whichever applies
+				-- part instead of the target, so re-apply whichever applies.
+				-- Body parts are direct children of the character, so scanning
+				-- children is enough and avoids a full descendant walk.
 				local bodyPart
-				for _, obj in ipairs(character:GetDescendants()) do
-					if obj:IsA("BasePart") and not obj:IsDescendantOf(root) and normalizeName(obj.Name) == normalizeName(anchor.Name) then
+				for _, obj in ipairs(character:GetChildren()) do
+					if obj:IsA("BasePart") and normalizeName(obj.Name) == normalizeName(anchor.Name) then
 						bodyPart = obj
 						break
 					end
@@ -3781,36 +3783,6 @@ CombatCamlockConfig:AddSlider("CamlockPullStrength", {
 	Compact = true,
 })
 
-CombatCamlockConfig:AddCheckbox("LookDownFloor", {
-	Text = "Floor Lock System",
-	Default = false,
-})
-
-CombatCamlockConfig:AddDropdown("LookDownSlot", {
-	Text = "Tool Slot",
-	Values = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"},
-	Default = {"1"},
-	Multi = true,
-})
-
-CombatCamlockConfig:AddSlider("LookDownZoom", {
-	Text = "Floor Zoom Distance",
-	Default = 20,
-	Min = 5,
-	Max = 60,
-	Rounding = 0,
-	Compact = true,
-})
-
-CombatCamlockConfig:AddSlider("LookDownSens", {
-	Text = "Floor Turn Sensitivity",
-	Default = 12,
-	Min = 1,
-	Max = 30,
-	Rounding = 0,
-	Compact = true,
-})
-
 CombatLeft:AddToggle("KillAura", {
 	Text = "Kill Aura",
 	Default = false,
@@ -4501,25 +4473,6 @@ updatePVPModulesVisibility = function()
 		Options.CamlockPullStrength.Visible = isPull
 		if Options.CamlockPullStrength.Holder then
 			Options.CamlockPullStrength.Holder.Visible = isPull
-		end
-	end
-	local isLookDown = (Toggles.LookDownFloor and Toggles.LookDownFloor.Value) or false
-	if Options.LookDownSlot then
-		Options.LookDownSlot.Visible = isLookDown
-		if Options.LookDownSlot.Holder then
-			Options.LookDownSlot.Holder.Visible = isLookDown
-		end
-	end
-	if Options.LookDownZoom then
-		Options.LookDownZoom.Visible = isLookDown
-		if Options.LookDownZoom.Holder then
-			Options.LookDownZoom.Holder.Visible = isLookDown
-		end
-	end
-	if Options.LookDownSens then
-		Options.LookDownSens.Visible = isLookDown
-		if Options.LookDownSens.Holder then
-			Options.LookDownSens.Holder.Visible = isLookDown
 		end
 	end
 	if Options.OutlineTarget then
@@ -5652,26 +5605,6 @@ Toggles.Camlock:OnChanged(function()
 			local hum = getHumanoid()
 			if not root or not hum then return end
 
-			-- Look at Floor integration: when the floor view is engaged, let the floor
-			-- module own the camera so both features can run together
-			local floorEngaged = false
-			if Toggles.LookDownFloor and Toggles.LookDownFloor.Value and Options.LookDownSlot then
-				local slotVal = Options.LookDownSlot.Value
-				if typeof(slotVal) == "table" then
-					for slotKey, isSelected in pairs(slotVal) do
-						if isSelected == true or (typeof(slotKey) == "number" and typeof(isSelected) == "string") then
-							local targetSlot = (isSelected == true) and slotKey or isSelected
-							if isHoldingSelectedSlot(targetSlot) then
-								floorEngaged = true
-								break
-							end
-						end
-					end
-				elseif slotVal ~= nil then
-					floorEngaged = isHoldingSelectedSlot(slotVal)
-				end
-			end
-
 			local maxDist = Options.CamlockStuds and Options.CamlockStuds.Value or 20
 			local myPos = root.Position
 			local targetSetting = Options.CamlockTarget and Options.CamlockTarget.Value or "All"
@@ -5876,7 +5809,7 @@ Toggles.Camlock:OnChanged(function()
 				UserInputService.MouseIconEnabled = false
 
 				local targetRoot = closestPlayer.Character:FindFirstChild("HumanoidRootPart")
-				if targetRoot and not floorEngaged then
+				if targetRoot then
 					local targetPos = targetRoot.Position
 					local lookDir = Vector3.new(targetPos.X - myPos.X, 0, targetPos.Z - myPos.Z).Unit
 					if lookDir.Magnitude > 0 then
@@ -5939,13 +5872,11 @@ Toggles.Camlock:OnChanged(function()
 					end
 				end
 			else
-				if not floorEngaged then
-					UserInputService.MouseBehavior = Enum.MouseBehavior.Default
-					UserInputService.MouseIconEnabled = true
-					hum.AutoRotate = true
-					if outlineActive and (root.Position - myPos).Magnitude > 0.01 then
-						root.CFrame = CFrame.new(myPos, myPos + root.CFrame.LookVector)
-					end
+				UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+				UserInputService.MouseIconEnabled = true
+				hum.AutoRotate = true
+				if outlineActive and (root.Position - myPos).Magnitude > 0.01 then
+					root.CFrame = CFrame.new(myPos, myPos + root.CFrame.LookVector)
 				end
 			end
 		end))
@@ -6199,185 +6130,6 @@ if Toggles.SpearSword then
 				hookChar(LocalPlayer.Character)
 			end
 			track("SpearSword_CharAdded", LocalPlayer.CharacterAdded:Connect(hookChar))
-		end
-	end)
-end
-
-local floorLookYaw = 0
-
-local function getFloorLookTouchSens()
-	local multiplier = (Options.LookDownSens and Options.LookDownSens.Value) or 12
-	return multiplier * 0.0014
-end
-
-local function getFloorLookMouseSens()
-	local base = 0.008
-	pcall(function()
-		local userSens = UserSettings():GetService("UserGameSettings").MouseSensitivity
-		if typeof(userSens) == "number" and userSens > 0 then
-			base = userSens * 0.006
-		end
-	end)
-	local multiplier = (Options.LookDownSens and (Options.LookDownSens.Value / 12)) or 1
-	return base * multiplier
-end
-
-local function isLookDownSlotAllowed(slotOption)
-	if not slotOption then return false end
-	local val = slotOption.Value
-	if val == nil then return false end
-
-	if typeof(val) == "table" then
-		for slotKey, isSelected in pairs(val) do
-			if isSelected == true or (typeof(slotKey) == "number" and typeof(isSelected) == "string") then
-				local targetSlot = (isSelected == true) and slotKey or isSelected
-				if isHoldingSelectedSlot(targetSlot) then
-					return true
-				end
-			end
-		end
-		return false
-	elseif typeof(val) == "string" or typeof(val) == "number" then
-		return isHoldingSelectedSlot(val)
-	end
-
-	return false
-end
-
-local isLookDownEngaged = false
-
-if Toggles.LookDownFloor then
-	Toggles.LookDownFloor:OnChanged(function()
-		disconnect("LookDownFloor")
-		disconnect("LookDownFloor_Input")
-		disconnect("LookDownFloor_TouchMoved")
-		isLookDownEngaged = false
-
-		if updatePVPModulesVisibility then
-			updatePVPModulesVisibility()
-		end
-
-		if Toggles.LookDownFloor.Value then
-			local root = getRootPart()
-			if root then
-				local look = root.CFrame.LookVector
-				local flatLook = Vector3.new(look.X, 0, look.Z)
-				if flatLook.Magnitude > 0.001 then
-					floorLookYaw = math.atan2(-flatLook.X, -flatLook.Z)
-				else
-					floorLookYaw = 0
-				end
-			else
-				floorLookYaw = 0
-			end
-
-			-- Helper to apply horizontal turn delta from thumb or mouse
-			local function applyTurnDelta(deltaX, posX, isTouch)
-				if not deltaX or math.abs(deltaX) < 0.0001 then return end
-				if isTouch then
-					local viewportWidth = (workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize.X) or 1000
-					-- Ignore touch on the virtual joystick area (left 35% of the screen)
-					if posX and posX < viewportWidth * 0.35 then
-						return
-					end
-					local sens = getFloorLookTouchSens()
-					floorLookYaw = floorLookYaw - deltaX * sens
-				else
-					local sens = getFloorLookMouseSens()
-					floorLookYaw = floorLookYaw - deltaX * sens
-				end
-			end
-
-			-- Touch turning for mobile / tablet
-			track("LookDownFloor_TouchMoved", UserInputService.TouchMoved:Connect(function(touch, gameProcessed)
-				if not (Toggles.LookDownFloor and Toggles.LookDownFloor.Value) then return end
-				if not isLookDownSlotAllowed(Options.LookDownSlot) then return end
-				applyTurnDelta(touch.Delta.X, touch.Position.X, true)
-			end))
-
-			-- Mouse & general input changed
-			track("LookDownFloor_Input", UserInputService.InputChanged:Connect(function(input, gameProcessed)
-				if not (Toggles.LookDownFloor and Toggles.LookDownFloor.Value) then return end
-				if not isLookDownSlotAllowed(Options.LookDownSlot) then return end
-				if input.UserInputType == Enum.UserInputType.Touch then
-					applyTurnDelta(input.Delta.X, input.Position.X, true)
-				elseif input.UserInputType == Enum.UserInputType.MouseMovement then
-					local isLocked = UserInputService.MouseBehavior ~= Enum.MouseBehavior.Default
-					local isRightDown = false
-					pcall(function()
-						isRightDown = UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2)
-					end)
-					if isLocked or isRightDown then
-						applyTurnDelta(input.Delta.X, input.Position.X, false)
-					end
-				end
-			end))
-
-			track("LookDownFloor", RunService.RenderStepped:Connect(function(dt)
-				if not isAlive() then return end
-				local r = getRootPart()
-				local h = getHumanoid()
-				local camera = workspace.CurrentCamera
-				if not r or not h or not camera then return end
-
-				local isHolding = isLookDownSlotAllowed(Options.LookDownSlot)
-
-				if isHolding then
-					if not isLookDownEngaged then
-						isLookDownEngaged = true
-						local look = r.CFrame.LookVector
-						local flatLook = Vector3.new(look.X, 0, look.Z)
-						if flatLook.Magnitude > 0.001 then
-							floorLookYaw = math.atan2(-flatLook.X, -flatLook.Z)
-						end
-					end
-
-					-- Disable AutoRotate so joystick only moves/strafes without twisting character facing direction
-					h.AutoRotate = false
-
-					-- Keep shift-lock so the mouse always turns the character
-					UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
-					UserInputService.MouseIconEnabled = false
-
-					-- Arrow key rotation support
-					pcall(function()
-						if UserInputService:IsKeyDown(Enum.KeyCode.Left) then
-							floorLookYaw = floorLookYaw + 4.5 * dt
-						elseif UserInputService:IsKeyDown(Enum.KeyCode.Right) then
-							floorLookYaw = floorLookYaw - 4.5 * dt
-						end
-					end)
-
-					local zoomDist = (Options.LookDownZoom and Options.LookDownZoom.Value) or 20
-					local rootPos = r.Position
-
-					camera.CFrame = CFrame.new(rootPos + Vector3.new(0, zoomDist, 0))
-						* CFrame.Angles(0, floorLookYaw, 0)
-						* CFrame.Angles(-math.rad(89.5), 0, 0)
-
-					-- Rotate character body to face the aim direction (shift-lock style)
-					r.CFrame = CFrame.new(rootPos) * CFrame.Angles(0, floorLookYaw, 0)
-				else
-					if isLookDownEngaged then
-						isLookDownEngaged = false
-						h.AutoRotate = true
-						camera.CameraSubject = h
-						camera.CameraType = Enum.CameraType.Custom
-						UserInputService.MouseBehavior = Enum.MouseBehavior.Default
-						UserInputService.MouseIconEnabled = true
-					end
-				end
-			end))
-		else
-			isLookDownEngaged = false
-			local hum = getHumanoid()
-			if hum then
-				hum.AutoRotate = true
-				workspace.CurrentCamera.CameraSubject = hum
-			end
-			workspace.CurrentCamera.CameraType = Enum.CameraType.Custom
-			UserInputService.MouseBehavior = Enum.MouseBehavior.Default
-			UserInputService.MouseIconEnabled = true
 		end
 	end)
 end
@@ -11508,9 +11260,6 @@ Library:OnUnload(function()
 	end
 	if Toggles.SpearSword and Toggles.SpearSword.Value then
 		Toggles.SpearSword:SetValue(false)
-	end
-	if Toggles.LookDownFloor and Toggles.LookDownFloor.Value then
-		Toggles.LookDownFloor:SetValue(false)
 	end
 	if Toggles.AutoJump and Toggles.AutoJump.Value then
 		Toggles.AutoJump:SetValue(false)
