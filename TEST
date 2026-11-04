@@ -1270,11 +1270,12 @@ do
 
 	-- Per-cosmetic tweaks so each piece sits correctly on the head
 	local COSMETIC_ADJUST = {
-		["Crown Of The Sky Dragon"] = CFrame.new(0, 0.2, -0.3) * CFrame.Angles(0, math.rad(90), 0),
-		["Flower Crown"] = CFrame.new(0, -0.3, 0),
+		["Crown Of The Sky Dragon"] = CFrame.new(0, 0.0, -0.3) * CFrame.Angles(0, math.rad(90), 0),
+		["Flower Crown"] = CFrame.new(0, -0.5, 0),
+		["Tyrants Crown"] = CFrame.new(0, -0.5, 0),
 		["Golden Laurel"] = CFrame.Angles(0, math.rad(90), 0),
-		["Golden Horns Of Victory"] = CFrame.Angles(0, math.rad(90), 0),
-		["Royal Vizier Mask"] = CFrame.Angles(0, math.rad(90), 0),
+		["Golden Horns Of Victory"] = CFrame.new(0, 0.4, 0) * CFrame.Angles(0, math.rad(90), 0),
+		["Royal Vizier Mask"] = CFrame.new(0, 0.3, -0.4) * CFrame.Angles(0, math.rad(90), 0),
 		["Admin Helmet"] = CFrame.new(0, -0.3, 0),
 	}
 
@@ -1465,7 +1466,6 @@ do
 	-- ============================================================
 	local function buildWearSystem(cfg)
 		local active = nil
-		local clothingStore = nil
 
 		local function container()
 			local character = getCharacter()
@@ -1483,27 +1483,20 @@ do
 			end
 		end
 
-		-- Blank the native Shirt/Pants texture while this wear is active
-		local function setClothingHidden(hidden)
+		-- Remove the native Shirt/Pants entirely so only the added model shows
+		local function hideNativeClothing()
 			local character = getCharacter()
 			if not character then return end
-			local item = character:FindFirstChildOfClass(cfg.clothingClass)
-			if not item then return end
-			local prop = cfg.clothingClass .. "Template"
-			if hidden then
-				if clothingStore == nil then
-					clothingStore = item[prop]
+			for _, obj in ipairs(character:GetChildren()) do
+				if obj:IsA(cfg.clothingClass) or obj.Name == cfg.clothingClass then
+					obj:Destroy()
 				end
-				item[prop] = ""
-			elseif clothingStore ~= nil then
-				item[prop] = clothingStore
-				clothingStore = nil
 			end
 		end
 
 		local function wear(name)
 			local character = getCharacter()
-			local target = cfg.getTarget()
+			local target, targetOffset = cfg.getTarget()
 			if not (character and target and getHumanoid()) then return end
 
 			clear()
@@ -1541,7 +1534,7 @@ do
 				anchor = parts[1]
 			end
 
-			local dest = target.CFrame * (cfg.adjust[name] or CFrame.new())
+			local dest = target.CFrame * (targetOffset or CFrame.new()) * (cfg.adjust[name] or CFrame.new())
 
 			if clone:IsA("BasePart") then
 				clone.CFrame = dest
@@ -1609,30 +1602,28 @@ do
 			local name = Options[cfg.dropdown].Value
 			if not name or name == "None" then
 				active = nil
-				setClothingHidden(false)
 				return
 			end
 
 			active = name
-			setClothingHidden(true)
+			hideNativeClothing()
 			wear(name)
 
 			track(cfg.attribute .. "_CharacterAdded", LocalPlayer.CharacterAdded:Connect(function()
 				task.wait(0.5)
 				if active then
-					clothingStore = nil
-					setClothingHidden(true)
+					hideNativeClothing()
 					wear(active)
 				end
 			end))
 
-			-- Keep the item attached if the game strips or unwelds it
+			-- Keep the item attached and the native clothing removed
 			local lastCheck = 0
 			track(cfg.attribute .. "_Loop", RunService.Heartbeat:Connect(function()
 				local now = os.clock()
 				if now - lastCheck < 0.5 then return end
 				lastCheck = now
-				setClothingHidden(true)
+				hideNativeClothing()
 				refresh()
 			end))
 		end)
@@ -1650,7 +1641,9 @@ do
 		getTarget = function()
 			local character = getCharacter()
 			if not character then return nil end
-			return character:FindFirstChild("UpperTorso") or character:FindFirstChild("Torso") or character:FindFirstChild("HumanoidRootPart")
+			local torso = character:FindFirstChild("UpperTorso") or character:FindFirstChild("Torso")
+			if torso then return torso, CFrame.new() end
+			return character:FindFirstChild("HumanoidRootPart"), CFrame.new()
 		end,
 	})
 
@@ -1662,11 +1655,19 @@ do
 		paths = {
 			["Admin Pants"] = {"game", "Items", "models", "Admin Pants"},
 		},
-		adjust = {},
+		adjust = {
+			["Admin Pants"] = CFrame.Angles(0, math.rad(180), 0),
+		},
 		getTarget = function()
 			local character = getCharacter()
 			if not character then return nil end
-			return character:FindFirstChild("LowerTorso") or character:FindFirstChild("Hips") or character:FindFirstChild("Torso") or character:FindFirstChild("HumanoidRootPart")
+			-- R15: the hips sit at the lower torso
+			local lower = character:FindFirstChild("LowerTorso") or character:FindFirstChild("Hips")
+			if lower then return lower, CFrame.new() end
+			-- R6: the hips sit at the bottom of the torso
+			local torso = character:FindFirstChild("Torso") or character:FindFirstChild("UpperTorso")
+			if torso then return torso, CFrame.new(0, -torso.Size.Y * 0.5, 0) end
+			return character:FindFirstChild("HumanoidRootPart"), CFrame.new()
 		end,
 	})
 end
