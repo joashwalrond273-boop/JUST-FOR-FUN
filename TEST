@@ -1257,6 +1257,11 @@ CosmeticsGroup:AddDropdown("CosmeticSelect", {
 	Multi = true,
 })
 
+CosmeticsGroup:AddCheckbox("HeadWearColorToggle", {
+	Text = "Use Head Wear Color",
+	Default = false,
+})
+
 CosmeticsGroup:AddLabel("Head Wear Color"):AddColorPicker("CosmeticSelectColor", {
 	Default = Color3.fromRGB(255, 255, 255),
 	Title = "Head Wear Color",
@@ -1266,6 +1271,11 @@ CosmeticsGroup:AddDropdown("BodyWearSelect", {
 	Text = "Body Wear",
 	Values = {"None", "Admin Armor"},
 	Default = "None",
+})
+
+CosmeticsGroup:AddCheckbox("BodyWearColorToggle", {
+	Text = "Use Body Wear Color",
+	Default = false,
 })
 
 CosmeticsGroup:AddLabel("Body Wear Color"):AddColorPicker("BodyWearSelectColor", {
@@ -1279,6 +1289,11 @@ CosmeticsGroup:AddDropdown("PantsWearSelect", {
 	Default = "None",
 })
 
+CosmeticsGroup:AddCheckbox("PantsWearColorToggle", {
+	Text = "Use Pants Wear Color",
+	Default = false,
+})
+
 CosmeticsGroup:AddLabel("Pants Wear Color"):AddColorPicker("PantsWearSelectColor", {
 	Default = Color3.fromRGB(255, 255, 255),
 	Title = "Pants Wear Color",
@@ -1289,6 +1304,11 @@ CosmeticsGroup:AddDropdown("BackWearSelect", {
 	Values = {"None", "Admin Bag", "Xpie101gamers Cape", "Wolf Pelt Cape", "Grey Wolf Pelt Cape", "Royal Embroidered Cape", "Angelic Wings", "Demonic Wings"},
 	Default = {},
 	Multi = true,
+})
+
+CosmeticsGroup:AddCheckbox("BackWearColorToggle", {
+	Text = "Use Back Wear Color",
+	Default = false,
 })
 
 CosmeticsGroup:AddLabel("Back Wear Color"):AddColorPicker("BackWearSelectColor", {
@@ -1437,12 +1457,13 @@ do
 		-- piece is re-glued onto the head each frame so it stays perfectly
 		-- stuck while walking.
 		local frames = {}
+		local useColor = Toggles.HeadWearColorToggle and Toggles.HeadWearColorToggle.Value
 		local headColor = Options.CosmeticSelectColor and Options.CosmeticSelectColor.Value or Color3.fromRGB(255, 255, 255)
 		for i, part in ipairs(parts) do
 			part.Anchored = true
 			part.CanCollide = false
 			part.Massless = true
-			part.Color = headColor
+			if useColor then part.Color = headColor end
 			frames[i] = { part = part, offset = head.CFrame:Inverse() * part.CFrame }
 		end
 		activeCosmetics[name] = frames
@@ -1457,6 +1478,13 @@ do
 					entry.part.Color = color
 				end
 			end
+		end
+	end
+
+	-- Put the original colours back by rebuilding each worn piece
+	local function restoreHeadColors()
+		for name in pairs(activeCosmetics) do
+			wearCosmetic(name)
 		end
 	end
 
@@ -1562,7 +1590,19 @@ do
 
 	if Options.CosmeticSelectColor then
 		Options.CosmeticSelectColor:OnChanged(function()
-			applyHeadColor()
+			if Toggles.HeadWearColorToggle and Toggles.HeadWearColorToggle.Value then
+				applyHeadColor()
+			end
+		end)
+	end
+
+	if Toggles.HeadWearColorToggle then
+		Toggles.HeadWearColorToggle:OnChanged(function()
+			if Toggles.HeadWearColorToggle.Value then
+				applyHeadColor()
+			else
+				restoreHeadColors()
+			end
 		end)
 	end
 
@@ -1578,6 +1618,11 @@ do
 		local function getWearColor()
 			local opt = Options[cfg.colorKey]
 			return (opt and opt.Value) or Color3.fromRGB(255, 255, 255)
+		end
+
+		local function wearColorEnabled()
+			local opt = Toggles[cfg.enableKey]
+			return opt and opt.Value == true
 		end
 
 		-- Recolour every piece of this wear type that is currently on the body
@@ -1753,11 +1798,24 @@ do
 			if not matched[anchor] then
 				weldToPart(target, anchor, cfg.weldName .. "_" .. name)
 			end
-			local wearColor = getWearColor()
-			for _, part in ipairs(parts) do
-				part.Color = wearColor
+			if wearColorEnabled() then
+				local wearColor = getWearColor()
+				for _, part in ipairs(parts) do
+					part.Color = wearColor
+				end
 			end
 			worn[name] = true
+		end
+
+		-- Put the original colours back by rebuilding each worn piece
+		local function restoreWearColors()
+			local names = {}
+			for name in pairs(worn) do
+				table.insert(names, name)
+			end
+			for _, name in ipairs(names) do
+				wear(name)
+			end
 		end
 
 		local function refresh(name)
@@ -1914,7 +1972,19 @@ do
 
 		if Options[cfg.colorKey] then
 			Options[cfg.colorKey]:OnChanged(function()
-				applyWearColor()
+				if wearColorEnabled() then
+					applyWearColor()
+				end
+			end)
+		end
+
+		if Toggles[cfg.enableKey] then
+			Toggles[cfg.enableKey]:OnChanged(function()
+				if wearColorEnabled() then
+					applyWearColor()
+				else
+					restoreWearColors()
+				end
 			end)
 		end
 	end
@@ -1922,6 +1992,7 @@ do
 	buildWearSystem({
 		dropdown = "BodyWearSelect",
 		colorKey = "BodyWearSelectColor",
+		enableKey = "BodyWearColorToggle",
 		attribute = "XenoBodyWear",
 		weldName = "XenoBodyWeld",
 		clothingClass = "Shirt",
@@ -1941,6 +2012,7 @@ do
 	buildWearSystem({
 		dropdown = "PantsWearSelect",
 		colorKey = "PantsWearSelectColor",
+		enableKey = "PantsWearColorToggle",
 		attribute = "XenoPantsWear",
 		weldName = "XenoPantsWeld",
 		clothingClass = "Pants",
@@ -1967,6 +2039,7 @@ do
 	buildWearSystem({
 		dropdown = "BackWearSelect",
 		colorKey = "BackWearSelectColor",
+		enableKey = "BackWearColorToggle",
 		attribute = "XenoBackWear",
 		weldName = "XenoBackWeld",
 		clothingClass = "Backpack",
