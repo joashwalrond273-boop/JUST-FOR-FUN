@@ -1249,7 +1249,7 @@ local CosmeticsGroup = Tabs.Main:AddLeftGroupbox("Cosmetics", "crown")
 
 CosmeticsGroup:AddDropdown("CosmeticSelect", {
 	Text = "Head Wear",
-	Values = {"None", "Villainous Crown", "Saviors Crown", "Tyrants Crown", "Crown Of The Sky Dragon", "Flower Crown", "Golden Laurel", "Golden Horns Of Victory", "Royal Vizier Mask", "Admin Helmet"},
+	Values = {"None", "Villainous Crown", "Saviors Crown", "Tyrants Crown", "Crown Of The Sky Dragon", "Flower Crown", "Golden Laurel", "Golden Horns Of Victory", "Royal Vizier Mask", "Admin Helmet", "Raider", "Spikes Of Chaos"},
 	Default = "None",
 })
 
@@ -1262,6 +1262,12 @@ CosmeticsGroup:AddDropdown("BodyWearSelect", {
 CosmeticsGroup:AddDropdown("PantsWearSelect", {
 	Text = "Pants Wear",
 	Values = {"None", "Admin Pants"},
+	Default = "None",
+})
+
+CosmeticsGroup:AddDropdown("BackWearSelect", {
+	Text = "Back Wear",
+	Values = {"None", "Admin Bag"},
 	Default = "None",
 })
 
@@ -1282,6 +1288,7 @@ do
 	-- Cosmetics that don't live under ReplicatedStorage.game.Cosmetics.cosmetics
 	local COSMETIC_PATHS = {
 		["Admin Helmet"] = {"game", "Items", "models", "Admin Helmet"},
+		["Raider"] = {"game", "AIModels", "Arena Barbarian 1", "RaiderCosmetics"},
 	}
 
 	local function getCosmeticRoot()
@@ -1311,6 +1318,10 @@ do
 			end
 		end
 		return parts
+	end
+
+	local function normalizeName(n)
+		return (n:gsub("[%s_%-]", ""):lower())
 	end
 
 	local function weldToPart(target, handle, weldName)
@@ -1573,11 +1584,37 @@ do
 				end
 			end
 
+			-- Snapshot the character's real body parts (clone isn't parented yet)
+			local charParts = {}
+			for _, obj in ipairs(character:GetDescendants()) do
+				if obj:IsA("BasePart") then
+					charParts[normalizeName(obj.Name)] = obj
+				end
+			end
+
 			clone.Parent = character
 
-			-- Weld every part to the anchor so the whole model moves as one
+			-- If a part is named after a real body part (e.g. a leg piece),
+			-- weld it straight to that body part so the item deforms with the
+			-- limbs and follows the walk/run animation instead of staying rigid.
+			local matched = {}
 			for _, part in ipairs(parts) do
-				if part ~= anchor then
+				local bodyPart = charParts[normalizeName(part.Name)]
+				if bodyPart and bodyPart ~= anchor then
+					matched[part] = true
+					local weld = Instance.new("Motor6D")
+					weld.Name = cfg.weldName .. "_" .. part.Name
+					weld.Part0 = bodyPart
+					weld.Part1 = part
+					weld.C0 = bodyPart.CFrame:ToObjectSpace(part.CFrame)
+					weld.C1 = CFrame.new()
+					weld.Parent = bodyPart
+				end
+			end
+
+			-- Weld the remaining parts to the anchor so they move as one
+			for _, part in ipairs(parts) do
+				if part ~= anchor and not matched[part] then
 					local weld = Instance.new("Weld")
 					weld.Part0 = anchor
 					weld.Part1 = part
@@ -1587,7 +1624,9 @@ do
 				end
 			end
 
-			weldToPart(target, anchor, cfg.weldName)
+			if not matched[anchor] then
+				weldToPart(target, anchor, cfg.weldName)
+			end
 		end
 
 		local function refresh()
@@ -1622,9 +1661,32 @@ do
 				return
 			end
 
-			local weld = target:FindFirstChild(cfg.weldName)
-			if not weld or weld.Part1 ~= anchor then
-				weldToPart(target, anchor, cfg.weldName)
+			-- Re-apply a missing weld for the anchor. If the anchor is named
+			-- after a body part it's welded to that part, otherwise to target.
+			local bodyPart
+			for _, obj in ipairs(character:GetDescendants()) do
+				if obj:IsA("BasePart") and obj ~= anchor and normalizeName(obj.Name) == normalizeName(anchor.Name) then
+					bodyPart = obj
+					break
+				end
+			end
+
+			if bodyPart then
+				local weld = bodyPart:FindFirstChild(cfg.weldName .. "_" .. anchor.Name)
+				if not weld then
+					local w = Instance.new("Motor6D")
+					w.Name = cfg.weldName .. "_" .. anchor.Name
+					w.Part0 = bodyPart
+					w.Part1 = anchor
+					w.C0 = bodyPart.CFrame:ToObjectSpace(anchor.CFrame)
+					w.C1 = CFrame.new()
+					w.Parent = bodyPart
+				end
+			else
+				local weld = target:FindFirstChild(cfg.weldName)
+				if not weld or weld.Part1 ~= anchor then
+					weldToPart(target, anchor, cfg.weldName)
+				end
 			end
 		end
 
@@ -1686,7 +1748,7 @@ do
 			local character = getCharacter()
 			if not character then return nil end
 			local torso = character:FindFirstChild("UpperTorso") or character:FindFirstChild("Torso")
-			if torso then return torso, CFrame.new() end
+			if torso then return torso, CFrame.new(0, 0.3, 0) end
 			return character:FindFirstChild("HumanoidRootPart"), CFrame.new()
 		end,
 	})
@@ -1707,10 +1769,29 @@ do
 			if not character then return nil end
 			-- R15: drop the pants below the lower torso so they cover the thighs
 			local lower = character:FindFirstChild("LowerTorso") or character:FindFirstChild("Hips")
-			if lower then return lower, CFrame.new(0.5, -lower.Size.Y * 0.5 - 1.5, 0) end
+			if lower then return lower, CFrame.new(0.5, -lower.Size.Y * 0.5 - 2.5, 0) end
 			-- R6: the hips sit at the bottom of the torso
 			local torso = character:FindFirstChild("Torso") or character:FindFirstChild("UpperTorso")
-			if torso then return torso, CFrame.new(0, -torso.Size.Y * 0.5, 0) end
+			if torso then return torso, CFrame.new(0, -torso.Size.Y * 0.5 - 1, 0) end
+			return character:FindFirstChild("HumanoidRootPart"), CFrame.new()
+		end,
+	})
+
+	buildWearSystem({
+		dropdown = "BackWearSelect",
+		attribute = "XenoBackWear",
+		weldName = "XenoBackWeld",
+		clothingClass = "Backpack",
+		paths = {
+			["Admin Bag"] = {"game", "Items", "models", "Admin Bag"},
+		},
+		adjust = {},
+		getTarget = function()
+			local character = getCharacter()
+			if not character then return nil end
+			-- Wear it on the back (behind the upper torso) like the default backpack
+			local torso = character:FindFirstChild("UpperTorso") or character:FindFirstChild("Torso")
+			if torso then return torso, CFrame.new(0, 0, torso.Size.Z * 0.5) end
 			return character:FindFirstChild("HumanoidRootPart"), CFrame.new()
 		end,
 	})
@@ -11402,6 +11483,9 @@ Library:OnUnload(function()
 	end
 	if Options.PantsWearSelect and Options.PantsWearSelect.Value ~= "None" then
 		Options.PantsWearSelect:SetValue("None")
+	end
+	if Options.BackWearSelect and Options.BackWearSelect.Value ~= "None" then
+		Options.BackWearSelect:SetValue("None")
 	end
 	if Toggles.SpearSword and Toggles.SpearSword.Value then
 		Toggles.SpearSword:SetValue(false)
