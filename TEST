@@ -1249,7 +1249,7 @@ local CosmeticsGroup = Tabs.Main:AddLeftGroupbox("Cosmetics", "crown")
 
 CosmeticsGroup:AddDropdown("CosmeticSelect", {
 	Text = "Head Wear",
-	Values = {"None", "Villainous Crown", "Saviors Crown", "Tyrants Crown", "Crown Of The Sky Dragon", "Flower Crown"},
+	Values = {"None", "Villainous Crown", "Saviors Crown", "Tyrants Crown", "Crown Of The Sky Dragon", "Flower Crown", "Golden Laurel", "Golden Horns Of Victory", "Royal Vizier Mask", "Admin Helmet"},
 	Default = "None",
 })
 
@@ -1258,8 +1258,13 @@ do
 
 	-- Per-cosmetic tweaks so each piece sits correctly on the head
 	local COSMETIC_ADJUST = {
-		["Crown Of The Sky Dragon"] = CFrame.Angles(0, math.rad(90), 0),
+		["Crown Of The Sky Dragon"] = CFrame.new(0, 0.2, -0.3) * CFrame.Angles(0, math.rad(90), 0),
 		["Flower Crown"] = CFrame.new(0, -0.3, 0),
+	}
+
+	-- Cosmetics that don't live under ReplicatedStorage.game.Cosmetics.cosmetics
+	local COSMETIC_PATHS = {
+		["Admin Helmet"] = {"game", "Items", "models", "Admin Helmet"},
 	}
 
 	local function getCosmeticRoot()
@@ -1314,7 +1319,8 @@ do
 
 		clearCosmetic()
 
-		local template = resolvePath(ReplicatedStorage, "game", "Cosmetics", "cosmetics", name)
+		local path = COSMETIC_PATHS[name] or {"game", "Cosmetics", "cosmetics", name}
+		local template = resolvePath(ReplicatedStorage, table.unpack(path))
 		if not template then
 			Library:Notify({ Title = "Cosmetics", Description = name .. " not found", Time = 3 })
 			return
@@ -1342,9 +1348,21 @@ do
 			part.Massless = true
 		end
 
-		local handle = clone:FindFirstChild("Handle")
-		if not (handle and handle:IsA("BasePart")) then
-			handle = parts[1]
+		-- Pick the part that anchors the cosmetic to the head: the model's primary
+		-- part, its Handle, or the largest part (the main body of the accessory)
+		local anchor = clone.PrimaryPart
+		if not (anchor and anchor:IsA("BasePart")) then
+			local handle = clone:FindFirstChild("Handle")
+			if handle and handle:IsA("BasePart") then
+				anchor = handle
+			end
+		end
+		if not (anchor and anchor:IsA("BasePart")) then
+			for _, part in ipairs(parts) do
+				if not anchor or part.Size.Magnitude > anchor.Size.Magnitude then
+					anchor = part
+				end
+			end
 		end
 
 		local headTop = head.CFrame * CFrame.new(0, head.Size.Y * 0.5, 0) * (COSMETIC_ADJUST[name] or CFrame.new())
@@ -1352,30 +1370,32 @@ do
 		if clone:IsA("BasePart") then
 			clone.CFrame = headTop
 		else
+			if not clone.PrimaryPart then
+				clone.PrimaryPart = anchor
+			end
 			local ok = pcall(function()
-				clone.PrimaryPart = handle
 				clone:PivotTo(headTop)
 			end)
 			if not ok then
-				handle.CFrame = headTop
+				anchor.CFrame = headTop
 			end
 		end
 
 		clone.Parent = character
 
-		-- Weld every part to the handle so the whole model moves as one
+		-- Weld every part to the anchor so the whole model moves as one
 		for _, part in ipairs(parts) do
-			if part ~= handle then
+			if part ~= anchor then
 				local weld = Instance.new("Weld")
-				weld.Part0 = handle
+				weld.Part0 = anchor
 				weld.Part1 = part
-				weld.C0 = handle.CFrame:ToObjectSpace(part.CFrame)
+				weld.C0 = anchor.CFrame:ToObjectSpace(part.CFrame)
 				weld.C1 = CFrame.new()
-				weld.Parent = handle
+				weld.Parent = anchor
 			end
 		end
 
-		weldHandleToHead(head, handle)
+		weldHandleToHead(head, anchor)
 	end
 
 	local function refreshCosmetic()
@@ -1386,23 +1406,29 @@ do
 		if not (character and head) then return end
 
 		local root = getCosmeticRoot()
-		local handle
+		local anchor
 		if root then
 			if root:IsA("BasePart") then
-				handle = root
+				anchor = root
 			else
-				handle = root:FindFirstChild("Handle") or root:FindFirstChildWhichIsA("BasePart")
+				anchor = root.PrimaryPart
+				if not (anchor and anchor:IsA("BasePart")) then
+					anchor = root:FindFirstChild("Handle")
+				end
+				if not (anchor and anchor:IsA("BasePart")) then
+					anchor = root:FindFirstChildWhichIsA("BasePart")
+				end
 			end
 		end
 
-		if not handle or root.Parent ~= character then
+		if not anchor or root.Parent ~= character then
 			wearCosmetic(activeCosmetic)
 			return
 		end
 
 		local weld = head:FindFirstChild("XenoCosmeticWeld")
-		if not weld or weld.Part1 ~= handle then
-			weldHandleToHead(head, handle)
+		if not weld or weld.Part1 ~= anchor then
+			weldHandleToHead(head, anchor)
 		end
 	end
 
