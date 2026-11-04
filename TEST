@@ -1441,29 +1441,30 @@ do
 	end
 
 	-- The game can try to weld our pieces to the head itself; that would fight
-	-- our anchoring, so drop any joint that touches one of our parts
-	local function cleanStrayJoints()
-		local character = getCharacter()
+	-- our anchoring. Instead of scanning the whole character on a timer, drop
+	-- any joint that touches one of our parts the moment it is added.
+	local function hookJointCleaner(character)
+		disconnect("XenoCosmetic_JointClean")
 		if not character then return end
-		local ours = {}
-		for _, frames in pairs(activeCosmetics) do
-			for _, entry in ipairs(frames) do
-				ours[entry.part] = true
-			end
-		end
-		if next(ours) == nil then return end
-		for _, obj in ipairs(character:GetDescendants()) do
-			if obj:IsA("JointInstance") or obj:IsA("WeldConstraint") then
-				if ours[obj.Part0] or ours[obj.Part1] then
-					obj:Destroy()
+		track("XenoCosmetic_JointClean", character.DescendantAdded:Connect(function(obj)
+			if not (obj:IsA("JointInstance") or obj:IsA("WeldConstraint")) then return end
+			local p0, p1 = obj.Part0, obj.Part1
+			if not p0 and not p1 then return end
+			for _, frames in pairs(activeCosmetics) do
+				for _, entry in ipairs(frames) do
+					if entry.part == p0 or entry.part == p1 then
+						obj:Destroy()
+						return
+					end
 				end
 			end
-		end
+		end))
 	end
 
 	Options.CosmeticSelect:OnChanged(function()
 		disconnect("XenoCosmetic_CharacterAdded")
 		disconnect("XenoCosmetic_Loop")
+		disconnect("XenoCosmetic_JointClean")
 
 		local selected = Options.CosmeticSelect.Value
 		local wanted = {}
@@ -1494,8 +1495,11 @@ do
 			return
 		end
 
-		track("XenoCosmetic_CharacterAdded", LocalPlayer.CharacterAdded:Connect(function()
+		hookJointCleaner(getCharacter())
+
+		track("XenoCosmetic_CharacterAdded", LocalPlayer.CharacterAdded:Connect(function(char)
 			task.wait(0.5)
+			hookJointCleaner(char)
 			for name in pairs(activeCosmetics) do
 				wearCosmetic(name)
 			end
@@ -1519,7 +1523,6 @@ do
 					end
 				end
 			end
-			cleanStrayJoints()
 		end))
 	end)
 
@@ -5630,10 +5633,33 @@ end)
 
 Toggles.Camlock:OnChanged(function()
 	disconnect("Camlock")
+	disconnect("CamlockPlayerAdded")
+	disconnect("CamlockPlayerRemoving")
 	if updatePVPModulesVisibility then
 		updatePVPModulesVisibility()
 	end
 	if Toggles.Camlock.Value then
+		-- Cache the player list so the per-frame loops never rebuild it. It is
+		-- refreshed only when someone joins or leaves.
+		local camlockPlayers = {}
+		local function refreshCamlockPlayers()
+			local list = {}
+			for _, p in ipairs(Players:GetPlayers()) do
+				if p ~= LocalPlayer then
+					table.insert(list, p)
+				end
+			end
+			camlockPlayers = list
+		end
+		refreshCamlockPlayers()
+		track("CamlockPlayerAdded", Players.PlayerAdded:Connect(refreshCamlockPlayers))
+		track("CamlockPlayerRemoving", Players.PlayerRemoving:Connect(refreshCamlockPlayers))
+
+		-- The target is re-picked a few times a second; the camera lock below
+		-- still runs every frame so it stays perfectly smooth.
+		local camlockTarget = nil
+		local camlockNextPick = 0
+
 		track("Camlock", RunService.RenderStepped:Connect(function(dt)
 			if not isAlive() then return end
 			local root = getRootPart()
@@ -5662,8 +5688,6 @@ Toggles.Camlock:OnChanged(function()
 
 			local maxDist = Options.CamlockStuds and Options.CamlockStuds.Value or 20
 			local myPos = root.Position
-			local closestPlayer = nil
-			local closestDist = math.huge
 			local targetSetting = Options.CamlockTarget and Options.CamlockTarget.Value or "All"
 			local ignoreTeam = Toggles.CamlockIgnoreTeam and Toggles.CamlockIgnoreTeam.Value
 			local ignoreAlly = Toggles.CamlockIgnoreAlly and Toggles.CamlockIgnoreAlly.Value
@@ -5694,23 +5718,47 @@ Toggles.Camlock:OnChanged(function()
 				return false
 			end
 
-			for _, otherPlayer in ipairs(Players:GetPlayers()) do
-				if otherPlayer ~= LocalPlayer and otherPlayer.Character then
-					if (not ignoreTeam or not isSameTeamOnly(otherPlayer)) and not isExcludedTeam(otherPlayer) then
-						local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
-						local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
-						if otherRoot and otherHum and otherHum.Health > 0 then
-							if targetSetting == "All" or otherPlayer.Name == targetSetting then
-								local dist = (otherRoot.Position - myPos).Magnitude
-								if dist <= maxDist and dist < closestDist then
-									closestDist = dist
-									closestPlayer = otherPlayer
-								end
-							end
+			local function camlockTargetValid(p)
+				if not p or p == LocalPlayer then return false end
+				local c = p.Character
+				if not c then return false end
+				if ignoreTeam and isSameTeamOnly(p) then return false end
+				if isExcludedTeam(p) then return false end
+				if targetSetting ~= "All" and p.Name ~= targetSetting then return false end
+				local otherRoot = c:FindFirstChild("HumanoidRootPart")
+				local otherHum = c:FindFirstChildOfClass("Humanoid")
+				if not (otherRoot and otherHum and otherHum.Health > 0) then return false end
+				return true, otherRoot
+			end
+
+			-- Drop a cached target that died, left, or walked out of range.
+			if camlockTarget then
+				local ok, otherRoot = camlockTargetValid(camlockTarget)
+				if not ok or (otherRoot.Position - myPos).Magnitude > maxDist then
+					camlockTarget = nil
+				end
+			end
+
+			-- Re-pick the closest valid target a few times per second instead of
+			-- every frame; only the camera lock needs to run every frame.
+			local camlockNow = os.clock()
+			if not camlockTarget or camlockNow >= camlockNextPick then
+				camlockNextPick = camlockNow + 0.1
+				local bestPlayer, bestDist = nil, math.huge
+				for _, otherPlayer in ipairs(camlockPlayers) do
+					local ok, otherRoot = camlockTargetValid(otherPlayer)
+					if ok then
+						local dist = (otherRoot.Position - myPos).Magnitude
+						if dist <= maxDist and dist < bestDist then
+							bestDist = dist
+							bestPlayer = otherPlayer
 						end
 					end
 				end
+				camlockTarget = bestPlayer
 			end
+
+			local closestPlayer = camlockTarget
 
 			-- Outline: Stop player from getting closer than studs to players while using Camlock
 			local outlineActive = (Toggles.Outline and Toggles.Outline.Value) or (Toggles.Cutline and Toggles.Cutline.Value)
@@ -5718,7 +5766,7 @@ Toggles.Camlock:OnChanged(function()
 
 			if outlineActive then
 				local outlineTargetSetting = (Options.OutlineTarget and Options.OutlineTarget.Value) or "All"
-				for _, otherPlayer in ipairs(Players:GetPlayers()) do
+				for _, otherPlayer in ipairs(camlockPlayers) do
 					if otherPlayer ~= LocalPlayer and otherPlayer.Character then
 						if (not ignoreTeam or not isSameTeamOnly(otherPlayer)) and not isExcludedTeam(otherPlayer) then
 							local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
