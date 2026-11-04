@@ -1259,13 +1259,23 @@ CosmeticsGroup:AddDropdown("BodyWearSelect", {
 	Default = "None",
 })
 
+CosmeticsGroup:AddDropdown("PantsWearSelect", {
+	Text = "Pants Wear",
+	Values = {"None", "Admin Pants"},
+	Default = "None",
+})
+
 do
 	local activeCosmetic = nil
 
 	-- Per-cosmetic tweaks so each piece sits correctly on the head
 	local COSMETIC_ADJUST = {
-		["Crown Of The Sky Dragon"] = CFrame.new(0, 0.2, -0.3) * CFrame.Angles(0, math.rad(-90), 0),
+		["Crown Of The Sky Dragon"] = CFrame.new(0, 0.2, -0.3) * CFrame.Angles(0, math.rad(90), 0),
 		["Flower Crown"] = CFrame.new(0, -0.3, 0),
+		["Golden Laurel"] = CFrame.Angles(0, math.rad(90), 0),
+		["Golden Horns Of Victory"] = CFrame.Angles(0, math.rad(90), 0),
+		["Royal Vizier Mask"] = CFrame.Angles(0, math.rad(90), 0),
+		["Admin Helmet"] = CFrame.new(0, -0.3, 0),
 	}
 
 	-- Cosmetics that don't live under ReplicatedStorage.game.Cosmetics.cosmetics
@@ -1450,168 +1460,215 @@ do
 		end))
 	end)
 
-	-- Body wear (torso)
-	local activeBodyWear = nil
+	-- ============================================================
+	-- Body wear / Pants wear (welded to a body part, hides native clothing)
+	-- ============================================================
+	local function buildWearSystem(cfg)
+		local active = nil
+		local clothingStore = nil
 
-	local BODY_ADJUST = {}
-
-	local BODY_PATHS = {
-		["Admin Armor"] = {"game", "Items", "models", "Admin Armor"},
-	}
-
-	local function getBodyWearRoot()
-		local character = getCharacter()
-		if not character then return nil end
-		return character:FindFirstChild("XenoBodyWear")
-	end
-
-	local function clearBodyWear()
-		local character = getCharacter()
-		if not character then return end
-		for _, obj in ipairs(character:GetDescendants()) do
-			if obj:GetAttribute("XenoBodyWear") then
-				obj:Destroy()
-			end
-		end
-	end
-
-	local function getTorso()
-		local character = getCharacter()
-		if not character then return nil end
-		return character:FindFirstChild("UpperTorso") or character:FindFirstChild("Torso") or character:FindFirstChild("HumanoidRootPart")
-	end
-
-	local function wearBodyWear(name)
-		local character = getCharacter()
-		local torso = getTorso()
-		local hum = getHumanoid()
-		if not (character and torso and hum) then return end
-
-		clearBodyWear()
-
-		local path = BODY_PATHS[name] or {"game", "Items", "models", name}
-		local template = resolvePath(ReplicatedStorage, table.unpack(path))
-		if not template then
-			Library:Notify({ Title = "Cosmetics", Description = name .. " not found", Time = 3 })
-			return
+		local function container()
+			local character = getCharacter()
+			if not character then return nil end
+			return character:FindFirstChild(cfg.attribute)
 		end
 
-		local clone = template:Clone()
-		clone.Name = "XenoBodyWear"
-		clone:SetAttribute("XenoBodyWear", true)
-
-		local parts = collectParts(clone)
-		if #parts == 0 then
-			clone:Destroy()
-			return
-		end
-
-		for _, desc in ipairs(clone:GetDescendants()) do
-			if desc:IsA("JointInstance") or desc:IsA("WeldConstraint") then
-				desc:Destroy()
-			end
-		end
-		for _, part in ipairs(parts) do
-			part.Anchored = false
-			part.CanCollide = false
-			part.Massless = true
-		end
-
-		local anchor = clone:FindFirstChild("Handle")
-		if not (anchor and anchor:IsA("BasePart")) then
-			anchor = parts[1]
-		end
-
-		local target = torso.CFrame * (BODY_ADJUST[name] or CFrame.new())
-
-		if clone:IsA("BasePart") then
-			clone.CFrame = target
-		else
-			local ok = pcall(function()
-				clone.PrimaryPart = anchor
-				clone:PivotTo(target)
-			end)
-			if not ok then
-				anchor.CFrame = target
+		local function clear()
+			local character = getCharacter()
+			if not character then return end
+			for _, obj in ipairs(character:GetDescendants()) do
+				if obj:GetAttribute(cfg.attribute) then
+					obj:Destroy()
+				end
 			end
 		end
 
-		clone.Parent = character
-
-		-- Weld every part to the anchor so the whole model moves as one
-		for _, part in ipairs(parts) do
-			if part ~= anchor then
-				local weld = Instance.new("Weld")
-				weld.Part0 = anchor
-				weld.Part1 = part
-				weld.C0 = anchor.CFrame:ToObjectSpace(part.CFrame)
-				weld.C1 = CFrame.new()
-				weld.Parent = anchor
+		-- Blank the native Shirt/Pants texture while this wear is active
+		local function setClothingHidden(hidden)
+			local character = getCharacter()
+			if not character then return end
+			local item = character:FindFirstChildOfClass(cfg.clothingClass)
+			if not item then return end
+			local prop = cfg.clothingClass .. "Template"
+			if hidden then
+				if clothingStore == nil then
+					clothingStore = item[prop]
+				end
+				item[prop] = ""
+			elseif clothingStore ~= nil then
+				item[prop] = clothingStore
+				clothingStore = nil
 			end
 		end
 
-		weldToPart(torso, anchor, "XenoBodyWeld")
-	end
+		local function wear(name)
+			local character = getCharacter()
+			local target = cfg.getTarget()
+			if not (character and target and getHumanoid()) then return end
 
-	local function refreshBodyWear()
-		if not activeBodyWear then return end
+			clear()
 
-		local character = getCharacter()
-		local torso = getTorso()
-		if not (character and torso) then return end
+			local path = cfg.paths[name] or {"game", "Items", "models", name}
+			local template = resolvePath(ReplicatedStorage, table.unpack(path))
+			if not template then
+				Library:Notify({ Title = "Cosmetics", Description = name .. " not found", Time = 3 })
+				return
+			end
 
-		local root = getBodyWearRoot()
-		local anchor
-		if root then
-			if root:IsA("BasePart") then
-				anchor = root
+			local clone = template:Clone()
+			clone.Name = cfg.attribute
+			clone:SetAttribute(cfg.attribute, true)
+
+			local parts = collectParts(clone)
+			if #parts == 0 then
+				clone:Destroy()
+				return
+			end
+
+			for _, desc in ipairs(clone:GetDescendants()) do
+				if desc:IsA("JointInstance") or desc:IsA("WeldConstraint") then
+					desc:Destroy()
+				end
+			end
+			for _, part in ipairs(parts) do
+				part.Anchored = false
+				part.CanCollide = false
+				part.Massless = true
+			end
+
+			local anchor = clone:FindFirstChild("Handle")
+			if not (anchor and anchor:IsA("BasePart")) then
+				anchor = parts[1]
+			end
+
+			local dest = target.CFrame * (cfg.adjust[name] or CFrame.new())
+
+			if clone:IsA("BasePart") then
+				clone.CFrame = dest
 			else
-				anchor = root:FindFirstChild("Handle") or root:FindFirstChildWhichIsA("BasePart")
+				local ok = pcall(function()
+					clone.PrimaryPart = anchor
+					clone:PivotTo(dest)
+				end)
+				if not ok then
+					anchor.CFrame = dest
+				end
+			end
+
+			clone.Parent = character
+
+			-- Weld every part to the anchor so the whole model moves as one
+			for _, part in ipairs(parts) do
+				if part ~= anchor then
+					local weld = Instance.new("Weld")
+					weld.Part0 = anchor
+					weld.Part1 = part
+					weld.C0 = anchor.CFrame:ToObjectSpace(part.CFrame)
+					weld.C1 = CFrame.new()
+					weld.Parent = anchor
+				end
+			end
+
+			weldToPart(target, anchor, cfg.weldName)
+		end
+
+		local function refresh()
+			if not active then return end
+
+			local character = getCharacter()
+			local target = cfg.getTarget()
+			if not (character and target) then return end
+
+			local root = container()
+			local anchor
+			if root then
+				if root:IsA("BasePart") then
+					anchor = root
+				else
+					anchor = root:FindFirstChild("Handle") or root:FindFirstChildWhichIsA("BasePart")
+				end
+			end
+
+			if not anchor or root.Parent ~= character then
+				wear(active)
+				return
+			end
+
+			local weld = target:FindFirstChild(cfg.weldName)
+			if not weld or weld.Part1 ~= anchor then
+				weldToPart(target, anchor, cfg.weldName)
 			end
 		end
 
-		if not anchor or root.Parent ~= character then
-			wearBodyWear(activeBodyWear)
-			return
-		end
+		Options[cfg.dropdown]:OnChanged(function()
+			disconnect(cfg.attribute .. "_CharacterAdded")
+			disconnect(cfg.attribute .. "_Loop")
 
-		local weld = torso:FindFirstChild("XenoBodyWeld")
-		if not weld or weld.Part1 ~= anchor then
-			weldToPart(torso, anchor, "XenoBodyWeld")
-		end
+			clear()
+
+			local name = Options[cfg.dropdown].Value
+			if not name or name == "None" then
+				active = nil
+				setClothingHidden(false)
+				return
+			end
+
+			active = name
+			setClothingHidden(true)
+			wear(name)
+
+			track(cfg.attribute .. "_CharacterAdded", LocalPlayer.CharacterAdded:Connect(function()
+				task.wait(0.5)
+				if active then
+					clothingStore = nil
+					setClothingHidden(true)
+					wear(active)
+				end
+			end))
+
+			-- Keep the item attached if the game strips or unwelds it
+			local lastCheck = 0
+			track(cfg.attribute .. "_Loop", RunService.Heartbeat:Connect(function()
+				local now = os.clock()
+				if now - lastCheck < 0.5 then return end
+				lastCheck = now
+				setClothingHidden(true)
+				refresh()
+			end))
+		end)
 	end
 
-	Options.BodyWearSelect:OnChanged(function()
-		disconnect("XenoBodyWear_CharacterAdded")
-		disconnect("XenoBodyWear_Loop")
+	buildWearSystem({
+		dropdown = "BodyWearSelect",
+		attribute = "XenoBodyWear",
+		weldName = "XenoBodyWeld",
+		clothingClass = "Shirt",
+		paths = {
+			["Admin Armor"] = {"game", "Items", "models", "Admin Armor"},
+		},
+		adjust = {},
+		getTarget = function()
+			local character = getCharacter()
+			if not character then return nil end
+			return character:FindFirstChild("UpperTorso") or character:FindFirstChild("Torso") or character:FindFirstChild("HumanoidRootPart")
+		end,
+	})
 
-		clearBodyWear()
-
-		local name = Options.BodyWearSelect.Value
-		if not name or name == "None" then
-			activeBodyWear = nil
-			return
-		end
-
-		activeBodyWear = name
-		wearBodyWear(name)
-
-		track("XenoBodyWear_CharacterAdded", LocalPlayer.CharacterAdded:Connect(function()
-			task.wait(0.5)
-			if activeBodyWear then
-				wearBodyWear(activeBodyWear)
-			end
-		end))
-
-		-- Keep the armor attached if the game strips or unwelds it
-		local lastCheck = 0
-		track("XenoBodyWear_Loop", RunService.Heartbeat:Connect(function()
-			local now = os.clock()
-			if now - lastCheck < 0.5 then return end
-			lastCheck = now
-			refreshBodyWear()
-		end))
-	end)
+	buildWearSystem({
+		dropdown = "PantsWearSelect",
+		attribute = "XenoPantsWear",
+		weldName = "XenoPantsWeld",
+		clothingClass = "Pants",
+		paths = {
+			["Admin Pants"] = {"game", "Items", "models", "Admin Pants"},
+		},
+		adjust = {},
+		getTarget = function()
+			local character = getCharacter()
+			if not character then return nil end
+			return character:FindFirstChild("LowerTorso") or character:FindFirstChild("Hips") or character:FindFirstChild("Torso") or character:FindFirstChild("HumanoidRootPart")
+		end,
+	})
 end
 
 local FunAttach = Tabs.Main:AddLeftGroupbox("ATTACH", "link")
@@ -11297,6 +11354,9 @@ Library:OnUnload(function()
 	end
 	if Options.BodyWearSelect and Options.BodyWearSelect.Value ~= "None" then
 		Options.BodyWearSelect:SetValue("None")
+	end
+	if Options.PantsWearSelect and Options.PantsWearSelect.Value ~= "None" then
+		Options.PantsWearSelect:SetValue("None")
 	end
 	if Toggles.SpearSword and Toggles.SpearSword.Value then
 		Toggles.SpearSword:SetValue(false)
