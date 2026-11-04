@@ -1267,6 +1267,8 @@ CosmeticsGroup:AddLabel("Head Wear Color"):AddColorPicker("CosmeticSelectColor",
 	Title = "Head Wear Color",
 })
 
+CosmeticsGroup:AddDivider()
+
 CosmeticsGroup:AddDropdown("BodyWearSelect", {
 	Text = "Body Wear",
 	Values = {"None", "Admin Armor"},
@@ -1282,6 +1284,8 @@ CosmeticsGroup:AddLabel("Body Wear Color"):AddColorPicker("BodyWearSelectColor",
 	Default = Color3.fromRGB(255, 255, 255),
 	Title = "Body Wear Color",
 })
+
+CosmeticsGroup:AddDivider()
 
 CosmeticsGroup:AddDropdown("PantsWearSelect", {
 	Text = "Pants Wear",
@@ -1299,6 +1303,8 @@ CosmeticsGroup:AddLabel("Pants Wear Color"):AddColorPicker("PantsWearSelectColor
 	Title = "Pants Wear Color",
 })
 
+CosmeticsGroup:AddDivider()
+
 CosmeticsGroup:AddDropdown("BackWearSelect", {
 	Text = "Back Wear",
 	Values = {"None", "Admin Bag", "Xpie101gamers Cape", "Wolf Pelt Cape", "Grey Wolf Pelt Cape", "Royal Embroidered Cape", "Angelic Wings", "Demonic Wings"},
@@ -1315,6 +1321,8 @@ CosmeticsGroup:AddLabel("Back Wear Color"):AddColorPicker("BackWearSelectColor",
 	Default = Color3.fromRGB(255, 255, 255),
 	Title = "Back Wear Color",
 })
+
+CosmeticsGroup:AddDivider()
 
 do
 	-- Several head pieces can be worn at the same time
