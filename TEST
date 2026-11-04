@@ -1248,13 +1248,19 @@ local MainRight = Tabs.Player:AddRightGroupbox("Settings", "settings")
 local CosmeticsGroup = Tabs.Main:AddLeftGroupbox("Cosmetics", "crown")
 
 CosmeticsGroup:AddDropdown("CosmeticSelect", {
-	Text = "Cosmetic",
+	Text = "Head Wear",
 	Values = {"None", "Villainous Crown", "Saviors Crown", "Tyrants Crown", "Crown Of The Sky Dragon", "Flower Crown"},
 	Default = "None",
 })
 
 do
 	local activeCosmetic = nil
+
+	-- Per-cosmetic tweaks so each piece sits correctly on the head
+	local COSMETIC_ADJUST = {
+		["Crown Of The Sky Dragon"] = CFrame.Angles(0, math.rad(90), 0),
+		["Flower Crown"] = CFrame.new(0, -0.3, 0),
+	}
 
 	local function getCosmeticRoot()
 		local character = getCharacter()
@@ -1341,7 +1347,7 @@ do
 			handle = parts[1]
 		end
 
-		local headTop = head.CFrame * CFrame.new(0, head.Size.Y * 0.5, 0)
+		local headTop = head.CFrame * CFrame.new(0, head.Size.Y * 0.5, 0) * (COSMETIC_ADJUST[name] or CFrame.new())
 
 		if clone:IsA("BasePart") then
 			clone.CFrame = headTop
