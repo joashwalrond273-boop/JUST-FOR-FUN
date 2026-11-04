@@ -1355,56 +1355,34 @@ CosmeticsGroup:AddDropdown("WearColorSelect", {
 	Multi = true,
 })
 
-local HeadWearColorLabel = CosmeticsGroup:AddLabel("Head Wear Color")
-HeadWearColorLabel:AddColorPicker("CosmeticSelectColor", {
-	Default = Color3.fromRGB(255, 255, 255),
-	Title = "Head Wear Color",
-})
-
-local BodyWearColorLabel = CosmeticsGroup:AddLabel("Body Wear Color")
-BodyWearColorLabel:AddColorPicker("BodyWearSelectColor", {
-	Default = Color3.fromRGB(255, 255, 255),
-	Title = "Body Wear Color",
-})
-
-local PantsWearColorLabel = CosmeticsGroup:AddLabel("Pants Wear Color")
-PantsWearColorLabel:AddColorPicker("PantsWearSelectColor", {
-	Default = Color3.fromRGB(255, 255, 255),
-	Title = "Pants Wear Color",
-})
-
-local BackWearColorLabel = CosmeticsGroup:AddLabel("Back Wear Color")
-BackWearColorLabel:AddColorPicker("BackWearSelectColor", {
-	Default = Color3.fromRGB(255, 255, 255),
-	Title = "Back Wear Color",
-})
-
-do
-	local colorLabels = {HeadWearColorLabel, BodyWearColorLabel, PantsWearColorLabel, BackWearColorLabel}
-
-	-- Show the colour pickers only while at least one wear colour is on;
-	-- selecting "Off" (or an empty selection) hides them all
-	local function updateWearColorPickers()
-		local value = Options.WearColorSelect and Options.WearColorSelect.Value
-		local on = false
-		if typeof(value) == "table" then
-			on = value["Head Wear"] == true or value["Body Wear"] == true or value["Pants Wear"] == true or value["Back Wear"] == true
-		end
-		for _, label in ipairs(colorLabels) do
-			label:SetVisible(on)
-		end
-	end
-
+if Options.WearColorSelect then
 	Options.WearColorSelect:OnChanged(function()
 		local value = Options.WearColorSelect.Value
 		if typeof(value) == "table" and value["Off"] then
 			Options.WearColorSelect:SetValue({})
 		end
-		updateWearColorPickers()
 	end)
-
-	updateWearColorPickers()
 end
+
+CosmeticsGroup:AddLabel("Head Wear Color"):AddColorPicker("CosmeticSelectColor", {
+	Default = Color3.fromRGB(255, 255, 255),
+	Title = "Head Wear Color",
+})
+
+CosmeticsGroup:AddLabel("Body Wear Color"):AddColorPicker("BodyWearSelectColor", {
+	Default = Color3.fromRGB(255, 255, 255),
+	Title = "Body Wear Color",
+})
+
+CosmeticsGroup:AddLabel("Pants Wear Color"):AddColorPicker("PantsWearSelectColor", {
+	Default = Color3.fromRGB(255, 255, 255),
+	Title = "Pants Wear Color",
+})
+
+CosmeticsGroup:AddLabel("Back Wear Color"):AddColorPicker("BackWearSelectColor", {
+	Default = Color3.fromRGB(255, 255, 255),
+	Title = "Back Wear Color",
+})
 
 CosmeticsGroup:AddDivider()
 
