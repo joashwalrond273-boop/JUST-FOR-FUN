@@ -1276,10 +1276,7 @@ CosmeticsGroup:AddButton({
 			return out
 		end
 		CosmeticPresets[presetSlot] = {
-			head = copySet(Options.CosmeticSelect and Options.CosmeticSelect.Value),
-			body = Options.BodyWearSelect and Options.BodyWearSelect.Value,
-			pants = Options.PantsWearSelect and Options.PantsWearSelect.Value,
-			back = copySet(Options.BackWearSelect and Options.BackWearSelect.Value),
+			wear = copySet(Options.CosmeticSelect and Options.CosmeticSelect.Value),
 			headColor = Options.CosmeticSelectColor and Options.CosmeticSelectColor.Value,
 			bodyColor = Options.BodyWearSelectColor and Options.BodyWearSelectColor.Value,
 			pantsColor = Options.PantsWearSelectColor and Options.PantsWearSelectColor.Value,
@@ -1315,10 +1312,7 @@ CosmeticsGroup:AddButton({
 		if Toggles.BackWearColorToggle then Toggles.BackWearColorToggle:SetValue(preset.useBackColor) end
 
 		-- Then the outfits themselves
-		if Options.CosmeticSelect then Options.CosmeticSelect:SetValue(preset.head or {}) end
-		if Options.BodyWearSelect then Options.BodyWearSelect:SetValue(preset.body) end
-		if Options.PantsWearSelect then Options.PantsWearSelect:SetValue(preset.pants) end
-		if Options.BackWearSelect then Options.BackWearSelect:SetValue(preset.back or {}) end
+		if Options.CosmeticSelect then Options.CosmeticSelect:SetValue(preset.wear or {}) end
 
 		Library:Notify({ Title = "Cosmetic Presets", Description = string.format("Loaded your look from slot %d", presetSlot), Time = 2 })
 	end,
@@ -1327,27 +1321,8 @@ CosmeticsGroup:AddButton({
 CosmeticsGroup:AddDivider()
 
 CosmeticsGroup:AddDropdown("CosmeticSelect", {
-	Text = "Head Wear",
-	Values = {"None", "Villainous Crown", "Saviors Crown", "Tyrants Crown", "Crown Of The Sky Dragon", "Flower Crown", "Golden Laurel", "Golden Horns Of Victory", "Royal Vizier Mask", "Admin Helmet", "Raider", "Spikes Of Chaos", "Skeleton Crown", "Imperial Hat", "Classic Crown", "Royal Knight Hat", "Golden Spartan", "Golden Valkyrie", "Plague Mask", "Magma Horned Helm", "Ancient Skull", "Shaded Warrior"},
-	Default = {},
-	Multi = true,
-})
-
-CosmeticsGroup:AddDropdown("BodyWearSelect", {
-	Text = "Body Wear",
-	Values = {"None", "Admin Armor"},
-	Default = "None",
-})
-
-CosmeticsGroup:AddDropdown("PantsWearSelect", {
-	Text = "Pants Wear",
-	Values = {"None", "Admin Pants"},
-	Default = "None",
-})
-
-CosmeticsGroup:AddDropdown("BackWearSelect", {
-	Text = "Back Wear",
-	Values = {"None", "Admin Bag", "Xpie101gamers Cape", "Wolf Pelt Cape", "Grey Wolf Pelt Cape", "Royal Embroidered Cape", "Angelic Wings", "Demonic Wings"},
+	Text = "Wear",
+	Values = {"None", "Villainous Crown", "Saviors Crown", "Tyrants Crown", "Crown Of The Sky Dragon", "Flower Crown", "Golden Laurel", "Golden Horns Of Victory", "Royal Vizier Mask", "Admin Helmet", "Raider", "Spikes Of Chaos", "Skeleton Crown", "Imperial Hat", "Classic Crown", "Royal Knight Hat", "Golden Spartan", "Golden Valkyrie", "Plague Mask", "Magma Horned Helm", "Ancient Skull", "Shaded Warrior", "Admin Armor", "Admin Pants", "Admin Bag", "Xpie101gamers Cape", "Wolf Pelt Cape", "Grey Wolf Pelt Cape", "Royal Embroidered Cape", "Angelic Wings", "Demonic Wings"},
 	Default = {},
 	Multi = true,
 })
@@ -1397,14 +1372,24 @@ CosmeticsGroup:AddLabel("Back Wear Color"):AddColorPicker("BackWearSelectColor",
 CosmeticsGroup:AddDivider()
 
 -- Hit Sounds
-local gameSoundsFolder = ReplicatedStorage:FindFirstChild("modules")
-if gameSoundsFolder then gameSoundsFolder = gameSoundsFolder:FindFirstChild("misc") end
-if gameSoundsFolder then gameSoundsFolder = gameSoundsFolder:FindFirstChild("Sounds") end
-if gameSoundsFolder then gameSoundsFolder = gameSoundsFolder:FindFirstChild("GameSounds") end
+local soundsRoot = ReplicatedStorage:FindFirstChild("modules")
+if soundsRoot then soundsRoot = soundsRoot:FindFirstChild("misc") end
+if soundsRoot then soundsRoot = soundsRoot:FindFirstChild("Sounds") end
+
+local soundFolders = {}
+if soundsRoot then
+	for _, folderName in ipairs({"GameSounds", "UISounds"}) do
+		local folder = soundsRoot:FindFirstChild(folderName)
+		if folder then table.insert(soundFolders, folder) end
+	end
+end
+
 local hitSoundNames = {"None"}
-if gameSoundsFolder then
-	for _, sound in ipairs(gameSoundsFolder:GetChildren()) do
-		if sound:IsA("Sound") then
+local hitSoundLookup = {}
+for _, folder in ipairs(soundFolders) do
+	for _, sound in ipairs(folder:GetChildren()) do
+		if sound:IsA("Sound") and not hitSoundLookup[sound.Name] then
+			hitSoundLookup[sound.Name] = folder
 			table.insert(hitSoundNames, sound.Name)
 		end
 	end
@@ -1424,10 +1409,11 @@ CosmeticsGroup:AddDropdown("HitSoundSelect", {
 Xeno_PlayHitSound = function()
 	pcall(function()
 		if not (Toggles.HitSound and Toggles.HitSound.Value) then return end
-		if not gameSoundsFolder then return end
 		local selected = Options.HitSoundSelect and Options.HitSoundSelect.Value
 		if not selected or selected == "None" then return end
-		local template = gameSoundsFolder:FindFirstChild(selected)
+		local folder = hitSoundLookup[selected]
+		if not folder then return end
+		local template = folder:FindFirstChild(selected)
 		if not (template and template:IsA("Sound")) then return end
 		local character = getCharacter()
 		local root = character and character:FindFirstChild("HumanoidRootPart")
@@ -1447,6 +1433,19 @@ Xeno_PlayHitSound = function()
 end
 
 do
+	-- Every wearable lives in one shared multi-select dropdown, so each
+	-- category is tracked here and used to route items to the right system
+	local HEAD_WEAR = {}
+	for _, name in ipairs({"Villainous Crown", "Saviors Crown", "Tyrants Crown", "Crown Of The Sky Dragon", "Flower Crown", "Golden Laurel", "Golden Horns Of Victory", "Royal Vizier Mask", "Admin Helmet", "Raider", "Spikes Of Chaos", "Skeleton Crown", "Imperial Hat", "Classic Crown", "Royal Knight Hat", "Golden Spartan", "Golden Valkyrie", "Plague Mask", "Magma Horned Helm", "Ancient Skull", "Shaded Warrior"}) do
+		HEAD_WEAR[name] = true
+	end
+	local BODY_WEAR = { ["Admin Armor"] = true }
+	local PANTS_WEAR = { ["Admin Pants"] = true }
+	local BACK_WEAR = {}
+	for _, name in ipairs({"Admin Bag", "Xpie101gamers Cape", "Wolf Pelt Cape", "Grey Wolf Pelt Cape", "Royal Embroidered Cape", "Angelic Wings", "Demonic Wings"}) do
+		BACK_WEAR[name] = true
+	end
+
 	-- Several head pieces can be worn at the same time
 	local activeCosmetics = {}
 
@@ -1469,6 +1468,8 @@ do
 		["Golden Valkyrie"] = CFrame.new(0, 0.5, 0) * CFrame.Angles(0, math.rad(90), 0),
 		["Plague Mask"] = CFrame.new(0, -0.5, -0.9) * CFrame.Angles(0, math.rad(90), 0),
 		["Magma Horned Helm"] = CFrame.new(0.0, 0.4, -0.7) * CFrame.Angles(0, math.rad(90), 0),
+		["Ancient Skull"] = CFrame.Angles(0, math.rad(90), 0),
+		["Shaded Warrior"] = CFrame.new(0, -1, 0),
 	}
 
 	-- Cosmetics that don't live under ReplicatedStorage.game.Cosmetics.cosmetics
@@ -1662,7 +1663,7 @@ do
 		local wanted = {}
 		if typeof(selected) == "table" then
 			for name, on in pairs(selected) do
-				if on == true and name ~= "None" then
+				if on == true and name ~= "None" and HEAD_WEAR[name] then
 					wanted[name] = true
 				end
 			end
@@ -2034,11 +2035,11 @@ do
 			local wanted = {}
 			if typeof(selected) == "table" then
 				for name, on in pairs(selected) do
-					if on == true and name ~= "None" then
+					if on == true and name ~= "None" and (not cfg.filter or cfg.filter[name]) then
 						wanted[name] = true
 					end
 				end
-			elseif selected and selected ~= "None" then
+			elseif selected and selected ~= "None" and (not cfg.filter or cfg.filter[selected]) then
 				wanted[selected] = true
 			end
 
@@ -2120,7 +2121,8 @@ do
 	end
 
 	buildWearSystem({
-		dropdown = "BodyWearSelect",
+		dropdown = "CosmeticSelect",
+		filter = BODY_WEAR,
 		colorKey = "BodyWearSelectColor",
 		enableKey = "BodyWearColorToggle",
 		attribute = "XenoBodyWear",
@@ -2140,7 +2142,8 @@ do
 	})
 
 	buildWearSystem({
-		dropdown = "PantsWearSelect",
+		dropdown = "CosmeticSelect",
+		filter = PANTS_WEAR,
 		colorKey = "PantsWearSelectColor",
 		enableKey = "PantsWearColorToggle",
 		attribute = "XenoPantsWear",
@@ -2167,7 +2170,8 @@ do
 	})
 
 	buildWearSystem({
-		dropdown = "BackWearSelect",
+		dropdown = "CosmeticSelect",
+		filter = BACK_WEAR,
 		colorKey = "BackWearSelectColor",
 		enableKey = "BackWearColorToggle",
 		attribute = "XenoBackWear",
@@ -11533,15 +11537,6 @@ Library:OnUnload(function()
 	end
 	if Options.CosmeticSelect and typeof(Options.CosmeticSelect.Value) == "table" and next(Options.CosmeticSelect.Value) ~= nil then
 		Options.CosmeticSelect:SetValue({})
-	end
-	if Options.BodyWearSelect and Options.BodyWearSelect.Value ~= "None" then
-		Options.BodyWearSelect:SetValue("None")
-	end
-	if Options.PantsWearSelect and Options.PantsWearSelect.Value ~= "None" then
-		Options.PantsWearSelect:SetValue("None")
-	end
-	if Options.BackWearSelect and typeof(Options.BackWearSelect.Value) == "table" and next(Options.BackWearSelect.Value) ~= nil then
-		Options.BackWearSelect:SetValue({})
 	end
 	if Toggles.SpearSword and Toggles.SpearSword.Value then
 		Toggles.SpearSword:SetValue(false)
