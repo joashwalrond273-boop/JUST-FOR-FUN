@@ -1255,7 +1255,9 @@ CosmeticsGroup:AddDropdown("CosmeticSelect", {
 	Values = {"None", "Villainous Crown", "Saviors Crown", "Tyrants Crown", "Crown Of The Sky Dragon", "Flower Crown", "Golden Laurel", "Golden Horns Of Victory", "Royal Vizier Mask", "Admin Helmet", "Raider", "Spikes Of Chaos", "Skeleton Crown", "Imperial Hat", "Classic Crown", "Royal Knight Hat", "Golden Spartan", "Golden Valkyrie", "Plague Mask", "Magma Horned Helm"},
 	Default = {},
 	Multi = true,
-}):AddColorPicker("CosmeticSelectColor", {
+})
+
+CosmeticsGroup:AddLabel("Head Wear Color"):AddColorPicker("CosmeticSelectColor", {
 	Default = Color3.fromRGB(255, 255, 255),
 	Title = "Head Wear Color",
 })
@@ -1264,7 +1266,9 @@ CosmeticsGroup:AddDropdown("BodyWearSelect", {
 	Text = "Body Wear",
 	Values = {"None", "Admin Armor"},
 	Default = "None",
-}):AddColorPicker("BodyWearSelectColor", {
+})
+
+CosmeticsGroup:AddLabel("Body Wear Color"):AddColorPicker("BodyWearSelectColor", {
 	Default = Color3.fromRGB(255, 255, 255),
 	Title = "Body Wear Color",
 })
@@ -1273,7 +1277,9 @@ CosmeticsGroup:AddDropdown("PantsWearSelect", {
 	Text = "Pants Wear",
 	Values = {"None", "Admin Pants"},
 	Default = "None",
-}):AddColorPicker("PantsWearSelectColor", {
+})
+
+CosmeticsGroup:AddLabel("Pants Wear Color"):AddColorPicker("PantsWearSelectColor", {
 	Default = Color3.fromRGB(255, 255, 255),
 	Title = "Pants Wear Color",
 })
@@ -1283,7 +1289,9 @@ CosmeticsGroup:AddDropdown("BackWearSelect", {
 	Values = {"None", "Admin Bag", "Xpie101gamers Cape", "Wolf Pelt Cape", "Grey Wolf Pelt Cape", "Royal Embroidered Cape", "Angelic Wings", "Demonic Wings"},
 	Default = {},
 	Multi = true,
-}):AddColorPicker("BackWearSelectColor", {
+})
+
+CosmeticsGroup:AddLabel("Back Wear Color"):AddColorPicker("BackWearSelectColor", {
 	Default = Color3.fromRGB(255, 255, 255),
 	Title = "Back Wear Color",
 })
