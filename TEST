@@ -1350,10 +1350,19 @@ CosmeticsGroup:AddDivider()
 
 CosmeticsGroup:AddDropdown("WearColorSelect", {
 	Text = "Use Wear Colors",
-	Values = {"Head Wear", "Body Wear", "Pants Wear", "Back Wear"},
+	Values = {"Off", "Head Wear", "Body Wear", "Pants Wear", "Back Wear"},
 	Default = {},
 	Multi = true,
 })
+
+if Options.WearColorSelect then
+	Options.WearColorSelect:OnChanged(function()
+		local value = Options.WearColorSelect.Value
+		if typeof(value) == "table" and value["Off"] then
+			Options.WearColorSelect:SetValue({})
+		end
+	end)
+end
 
 CosmeticsGroup:AddLabel("Head Wear Color"):AddColorPicker("CosmeticSelectColor", {
 	Default = Color3.fromRGB(255, 255, 255),
