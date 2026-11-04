@@ -1466,6 +1466,8 @@ do
 	-- ============================================================
 	local function buildWearSystem(cfg)
 		local active = nil
+		local activeIsClothing = false
+		local clothingStore = nil
 
 		local function container()
 			local character = getCharacter()
@@ -1496,8 +1498,7 @@ do
 
 		local function wear(name)
 			local character = getCharacter()
-			local target, targetOffset = cfg.getTarget()
-			if not (character and target and getHumanoid()) then return end
+			if not character then return end
 
 			clear()
 
@@ -1507,6 +1508,30 @@ do
 				Library:Notify({ Title = "Cosmetics", Description = name .. " not found", Time = 3 })
 				return
 			end
+
+			-- Classic clothing (Shirt/Pants): wear it as a texture so it fits the body
+			-- exactly and deforms with the limbs, just like the game's own clothing
+			local clothing = template:IsA(cfg.clothingClass) and template or template:FindFirstChildWhichIsA(cfg.clothingClass)
+			if clothing and #collectParts(template) == 0 then
+				activeIsClothing = true
+				local item = character:FindFirstChildOfClass(cfg.clothingClass)
+				if not item then
+					item = Instance.new(cfg.clothingClass)
+					item.Name = cfg.clothingClass
+					item.Parent = character
+				end
+				if clothingStore == nil then
+					clothingStore = item[cfg.clothingClass .. "Template"]
+				end
+				item[cfg.clothingClass .. "Template"] = clothing[cfg.clothingClass .. "Template"]
+				return
+			end
+
+			activeIsClothing = false
+			local target, targetOffset = cfg.getTarget()
+			if not (target and getHumanoid()) then return end
+
+			hideNativeClothing()
 
 			local clone = template:Clone()
 			clone.Name = cfg.attribute
@@ -1569,8 +1594,18 @@ do
 			if not active then return end
 
 			local character = getCharacter()
+			if not character then return end
+
+			-- Clothing wear: only re-apply if the game removed it
+			if activeIsClothing then
+				if not character:FindFirstChildOfClass(cfg.clothingClass) then
+					wear(active)
+				end
+				return
+			end
+
 			local target = cfg.getTarget()
-			if not (character and target) then return end
+			if not target then return end
 
 			local root = container()
 			local anchor
@@ -1602,28 +1637,37 @@ do
 			local name = Options[cfg.dropdown].Value
 			if not name or name == "None" then
 				active = nil
+				if activeIsClothing and clothingStore ~= nil then
+					local character = getCharacter()
+					local item = character and character:FindFirstChildOfClass(cfg.clothingClass)
+					if item then
+						item[cfg.clothingClass .. "Template"] = clothingStore
+					end
+				end
+				activeIsClothing = false
+				clothingStore = nil
 				return
 			end
 
 			active = name
-			hideNativeClothing()
 			wear(name)
 
 			track(cfg.attribute .. "_CharacterAdded", LocalPlayer.CharacterAdded:Connect(function()
 				task.wait(0.5)
 				if active then
-					hideNativeClothing()
 					wear(active)
 				end
 			end))
 
-			-- Keep the item attached and the native clothing removed
+			-- Keep the item attached and the native clothing removed (model wear only)
 			local lastCheck = 0
 			track(cfg.attribute .. "_Loop", RunService.Heartbeat:Connect(function()
 				local now = os.clock()
 				if now - lastCheck < 0.5 then return end
 				lastCheck = now
-				hideNativeClothing()
+				if not activeIsClothing then
+					hideNativeClothing()
+				end
 				refresh()
 			end))
 		end)
