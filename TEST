@@ -1285,6 +1285,7 @@ do
 		["Admin Helmet"] = CFrame.new(0, -0.3, 0),
 		["Spikes Of Chaos"] = CFrame.new(0, -0.5, 0),
 		["Raider"] = CFrame.new(0, 0.3, 0) * CFrame.Angles(0, math.rad(-90), 0),
+		["Skeleton Crown"] = CFrame.new(0, -0.5, 0),
 	}
 
 	-- Cosmetics that don't live under ReplicatedStorage.game.Cosmetics.cosmetics
@@ -1709,7 +1710,7 @@ do
 			["Admin Pants"] = {"game", "Items", "models", "Admin Pants"},
 		},
 		adjust = {
-			["Admin Pants"] = CFrame.Angles(0, math.rad(90), 0),
+			["Admin Pants"] = CFrame.new(0, -0.5, -0.5) * CFrame.Angles(0, math.rad(90), 0),
 		},
 		getTarget = function()
 			local character = getCharacter()
@@ -1733,7 +1734,7 @@ do
 			["Admin Bag"] = {"game", "Items", "models", "Admin Bag"},
 		},
 		adjust = {
-			["Admin Bag"] = CFrame.new(0, 0.5, -0.5) * CFrame.Angles(0, math.rad(90), 0),
+			["Admin Bag"] = CFrame.new(0, 0.5, -1) * CFrame.Angles(0, math.rad(90), 0),
 		},
 		getTarget = function()
 			local character = getCharacter()
