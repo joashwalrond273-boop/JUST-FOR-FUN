@@ -1663,7 +1663,7 @@ do
 			if not character then return nil end
 			-- R15: drop the pants below the lower torso so they cover the thighs
 			local lower = character:FindFirstChild("LowerTorso") or character:FindFirstChild("Hips")
-			if lower then return lower, CFrame.new(0, -lower.Size.Y * 0.5 - 1, 0) end
+			if lower then return lower, CFrame.new(0.5, -lower.Size.Y * 0.5 - 1.5, 0) end
 			-- R6: the hips sit at the bottom of the torso
 			local torso = character:FindFirstChild("Torso") or character:FindFirstChild("UpperTorso")
 			if torso then return torso, CFrame.new(0, -torso.Size.Y * 0.5, 0) end
