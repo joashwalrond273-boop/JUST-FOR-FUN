@@ -1276,15 +1276,15 @@ CosmeticsGroup:AddButton({
 			return out
 		end
 		CosmeticPresets[presetSlot] = {
-			wear = copySet(Options.CosmeticSelect and Options.CosmeticSelect.Value),
+			head = copySet(Options.CosmeticSelect and Options.CosmeticSelect.Value),
+			body = Options.BodyWearSelect and Options.BodyWearSelect.Value,
+			pants = Options.PantsWearSelect and Options.PantsWearSelect.Value,
+			back = copySet(Options.BackWearSelect and Options.BackWearSelect.Value),
 			headColor = Options.CosmeticSelectColor and Options.CosmeticSelectColor.Value,
 			bodyColor = Options.BodyWearSelectColor and Options.BodyWearSelectColor.Value,
 			pantsColor = Options.PantsWearSelectColor and Options.PantsWearSelectColor.Value,
 			backColor = Options.BackWearSelectColor and Options.BackWearSelectColor.Value,
-			useHeadColor = Toggles.HeadWearColorToggle and Toggles.HeadWearColorToggle.Value or false,
-			useBodyColor = Toggles.BodyWearColorToggle and Toggles.BodyWearColorToggle.Value or false,
-			usePantsColor = Toggles.PantsWearColorToggle and Toggles.PantsWearColorToggle.Value or false,
-			useBackColor = Toggles.BackWearColorToggle and Toggles.BackWearColorToggle.Value or false,
+			wearColors = copySet(Options.WearColorSelect and Options.WearColorSelect.Value),
 		}
 		Library:Notify({ Title = "Cosmetic Presets", Description = string.format("Saved your look to slot %d", presetSlot), Time = 2 })
 	end,
@@ -1306,13 +1306,13 @@ CosmeticsGroup:AddButton({
 		if Options.PantsWearSelectColor and preset.pantsColor then Options.PantsWearSelectColor:SetValue(preset.pantsColor) end
 		if Options.BackWearSelectColor and preset.backColor then Options.BackWearSelectColor:SetValue(preset.backColor) end
 
-		if Toggles.HeadWearColorToggle then Toggles.HeadWearColorToggle:SetValue(preset.useHeadColor) end
-		if Toggles.BodyWearColorToggle then Toggles.BodyWearColorToggle:SetValue(preset.useBodyColor) end
-		if Toggles.PantsWearColorToggle then Toggles.PantsWearColorToggle:SetValue(preset.usePantsColor) end
-		if Toggles.BackWearColorToggle then Toggles.BackWearColorToggle:SetValue(preset.useBackColor) end
+		if Options.WearColorSelect then Options.WearColorSelect:SetValue(preset.wearColors or {}) end
 
 		-- Then the outfits themselves
-		if Options.CosmeticSelect then Options.CosmeticSelect:SetValue(preset.wear or {}) end
+		if Options.CosmeticSelect then Options.CosmeticSelect:SetValue(preset.head or {}) end
+		if Options.BodyWearSelect then Options.BodyWearSelect:SetValue(preset.body) end
+		if Options.PantsWearSelect then Options.PantsWearSelect:SetValue(preset.pants) end
+		if Options.BackWearSelect then Options.BackWearSelect:SetValue(preset.back or {}) end
 
 		Library:Notify({ Title = "Cosmetic Presets", Description = string.format("Loaded your look from slot %d", presetSlot), Time = 2 })
 	end,
@@ -1321,17 +1321,38 @@ CosmeticsGroup:AddButton({
 CosmeticsGroup:AddDivider()
 
 CosmeticsGroup:AddDropdown("CosmeticSelect", {
-	Text = "Wear",
-	Values = {"None", "Villainous Crown", "Saviors Crown", "Tyrants Crown", "Crown Of The Sky Dragon", "Flower Crown", "Golden Laurel", "Golden Horns Of Victory", "Royal Vizier Mask", "Admin Helmet", "Raider", "Spikes Of Chaos", "Skeleton Crown", "Imperial Hat", "Classic Crown", "Royal Knight Hat", "Golden Spartan", "Golden Valkyrie", "Plague Mask", "Magma Horned Helm", "Ancient Skull", "Shaded Warrior", "Admin Armor", "Admin Pants", "Admin Bag", "Xpie101gamers Cape", "Wolf Pelt Cape", "Grey Wolf Pelt Cape", "Royal Embroidered Cape", "Angelic Wings", "Demonic Wings"},
+	Text = "Head Wear",
+	Values = {"None", "Villainous Crown", "Saviors Crown", "Tyrants Crown", "Crown Of The Sky Dragon", "Flower Crown", "Golden Laurel", "Golden Horns Of Victory", "Royal Vizier Mask", "Admin Helmet", "Raider", "Spikes Of Chaos", "Skeleton Crown", "Imperial Hat", "Classic Crown", "Royal Knight Hat", "Golden Spartan", "Golden Valkyrie", "Plague Mask", "Magma Horned Helm", "Ancient Skull", "Shaded Warrior"},
+	Default = {},
+	Multi = true,
+})
+
+CosmeticsGroup:AddDropdown("BodyWearSelect", {
+	Text = "Body Wear",
+	Values = {"None", "Admin Armor"},
+	Default = "None",
+})
+
+CosmeticsGroup:AddDropdown("PantsWearSelect", {
+	Text = "Pants Wear",
+	Values = {"None", "Admin Pants"},
+	Default = "None",
+})
+
+CosmeticsGroup:AddDropdown("BackWearSelect", {
+	Text = "Back Wear",
+	Values = {"None", "Admin Bag", "Xpie101gamers Cape", "Wolf Pelt Cape", "Grey Wolf Pelt Cape", "Royal Embroidered Cape", "Angelic Wings", "Demonic Wings"},
 	Default = {},
 	Multi = true,
 })
 
 CosmeticsGroup:AddDivider()
 
-CosmeticsGroup:AddCheckbox("HeadWearColorToggle", {
-	Text = "Use Head Wear Color",
-	Default = false,
+CosmeticsGroup:AddDropdown("WearColorSelect", {
+	Text = "Use Wear Colors",
+	Values = {"Head Wear", "Body Wear", "Pants Wear", "Back Wear"},
+	Default = {},
+	Multi = true,
 })
 
 CosmeticsGroup:AddLabel("Head Wear Color"):AddColorPicker("CosmeticSelectColor", {
@@ -1339,29 +1360,14 @@ CosmeticsGroup:AddLabel("Head Wear Color"):AddColorPicker("CosmeticSelectColor",
 	Title = "Head Wear Color",
 })
 
-CosmeticsGroup:AddCheckbox("BodyWearColorToggle", {
-	Text = "Use Body Wear Color",
-	Default = false,
-})
-
 CosmeticsGroup:AddLabel("Body Wear Color"):AddColorPicker("BodyWearSelectColor", {
 	Default = Color3.fromRGB(255, 255, 255),
 	Title = "Body Wear Color",
 })
 
-CosmeticsGroup:AddCheckbox("PantsWearColorToggle", {
-	Text = "Use Pants Wear Color",
-	Default = false,
-})
-
 CosmeticsGroup:AddLabel("Pants Wear Color"):AddColorPicker("PantsWearSelectColor", {
 	Default = Color3.fromRGB(255, 255, 255),
 	Title = "Pants Wear Color",
-})
-
-CosmeticsGroup:AddCheckbox("BackWearColorToggle", {
-	Text = "Use Back Wear Color",
-	Default = false,
 })
 
 CosmeticsGroup:AddLabel("Back Wear Color"):AddColorPicker("BackWearSelectColor", {
@@ -1433,17 +1439,11 @@ Xeno_PlayHitSound = function()
 end
 
 do
-	-- Every wearable lives in one shared multi-select dropdown, so each
-	-- category is tracked here and used to route items to the right system
-	local HEAD_WEAR = {}
-	for _, name in ipairs({"Villainous Crown", "Saviors Crown", "Tyrants Crown", "Crown Of The Sky Dragon", "Flower Crown", "Golden Laurel", "Golden Horns Of Victory", "Royal Vizier Mask", "Admin Helmet", "Raider", "Spikes Of Chaos", "Skeleton Crown", "Imperial Hat", "Classic Crown", "Royal Knight Hat", "Golden Spartan", "Golden Valkyrie", "Plague Mask", "Magma Horned Helm", "Ancient Skull", "Shaded Warrior"}) do
-		HEAD_WEAR[name] = true
-	end
-	local BODY_WEAR = { ["Admin Armor"] = true }
-	local PANTS_WEAR = { ["Admin Pants"] = true }
-	local BACK_WEAR = {}
-	for _, name in ipairs({"Admin Bag", "Xpie101gamers Cape", "Wolf Pelt Cape", "Grey Wolf Pelt Cape", "Royal Embroidered Cape", "Angelic Wings", "Demonic Wings"}) do
-		BACK_WEAR[name] = true
+	-- Which wear colours are active is chosen from one shared multi-select
+	-- dropdown ("Head Wear", "Body Wear", "Pants Wear", "Back Wear")
+	local function isWearColorOn(category)
+		local sel = Options.WearColorSelect and Options.WearColorSelect.Value
+		return typeof(sel) == "table" and sel[category] == true
 	end
 
 	-- Several head pieces can be worn at the same time
@@ -1588,7 +1588,7 @@ do
 		-- piece is re-glued onto the head each frame so it stays perfectly
 		-- stuck while walking.
 		local frames = {}
-		local useColor = Toggles.HeadWearColorToggle and Toggles.HeadWearColorToggle.Value
+		local useColor = isWearColorOn("Head Wear")
 		local headColor = Options.CosmeticSelectColor and Options.CosmeticSelectColor.Value or Color3.fromRGB(255, 255, 255)
 		for i, part in ipairs(parts) do
 			part.Anchored = true
@@ -1663,7 +1663,7 @@ do
 		local wanted = {}
 		if typeof(selected) == "table" then
 			for name, on in pairs(selected) do
-				if on == true and name ~= "None" and HEAD_WEAR[name] then
+				if on == true and name ~= "None" then
 					wanted[name] = true
 				end
 			end
@@ -1721,15 +1721,19 @@ do
 
 	if Options.CosmeticSelectColor then
 		Options.CosmeticSelectColor:OnChanged(function()
-			if Toggles.HeadWearColorToggle and Toggles.HeadWearColorToggle.Value then
+			if isWearColorOn("Head Wear") then
 				applyHeadColor()
 			end
 		end)
 	end
 
-	if Toggles.HeadWearColorToggle then
-		Toggles.HeadWearColorToggle:OnChanged(function()
-			if Toggles.HeadWearColorToggle.Value then
+	if Options.WearColorSelect then
+		local headColorWasOn = false
+		Options.WearColorSelect:OnChanged(function()
+			local on = isWearColorOn("Head Wear")
+			if on == headColorWasOn then return end
+			headColorWasOn = on
+			if on then
 				applyHeadColor()
 			else
 				restoreHeadColors()
@@ -1752,8 +1756,7 @@ do
 		end
 
 		local function wearColorEnabled()
-			local opt = Toggles[cfg.enableKey]
-			return opt and opt.Value == true
+			return isWearColorOn(cfg.colorCategory)
 		end
 
 		-- Recolour every piece of this wear type that is currently on the body
@@ -2035,11 +2038,11 @@ do
 			local wanted = {}
 			if typeof(selected) == "table" then
 				for name, on in pairs(selected) do
-					if on == true and name ~= "None" and (not cfg.filter or cfg.filter[name]) then
+					if on == true and name ~= "None" then
 						wanted[name] = true
 					end
 				end
-			elseif selected and selected ~= "None" and (not cfg.filter or cfg.filter[selected]) then
+			elseif selected and selected ~= "None" then
 				wanted[selected] = true
 			end
 
@@ -2109,9 +2112,13 @@ do
 			end)
 		end
 
-		if Toggles[cfg.enableKey] then
-			Toggles[cfg.enableKey]:OnChanged(function()
-				if wearColorEnabled() then
+		if Options.WearColorSelect then
+			local colorWasOn = false
+			Options.WearColorSelect:OnChanged(function()
+				local on = wearColorEnabled()
+				if on == colorWasOn then return end
+				colorWasOn = on
+				if on then
 					applyWearColor()
 				else
 					restoreWearColors()
@@ -2121,10 +2128,9 @@ do
 	end
 
 	buildWearSystem({
-		dropdown = "CosmeticSelect",
-		filter = BODY_WEAR,
+		dropdown = "BodyWearSelect",
 		colorKey = "BodyWearSelectColor",
-		enableKey = "BodyWearColorToggle",
+		colorCategory = "Body Wear",
 		attribute = "XenoBodyWear",
 		weldName = "XenoBodyWeld",
 		clothingClass = "Shirt",
@@ -2142,10 +2148,9 @@ do
 	})
 
 	buildWearSystem({
-		dropdown = "CosmeticSelect",
-		filter = PANTS_WEAR,
+		dropdown = "PantsWearSelect",
 		colorKey = "PantsWearSelectColor",
-		enableKey = "PantsWearColorToggle",
+		colorCategory = "Pants Wear",
 		attribute = "XenoPantsWear",
 		weldName = "XenoPantsWeld",
 		clothingClass = "Pants",
@@ -2170,10 +2175,9 @@ do
 	})
 
 	buildWearSystem({
-		dropdown = "CosmeticSelect",
-		filter = BACK_WEAR,
+		dropdown = "BackWearSelect",
 		colorKey = "BackWearSelectColor",
-		enableKey = "BackWearColorToggle",
+		colorCategory = "Back Wear",
 		attribute = "XenoBackWear",
 		weldName = "XenoBackWeld",
 		clothingClass = "Backpack",
@@ -11537,6 +11541,15 @@ Library:OnUnload(function()
 	end
 	if Options.CosmeticSelect and typeof(Options.CosmeticSelect.Value) == "table" and next(Options.CosmeticSelect.Value) ~= nil then
 		Options.CosmeticSelect:SetValue({})
+	end
+	if Options.BodyWearSelect and Options.BodyWearSelect.Value ~= "None" then
+		Options.BodyWearSelect:SetValue("None")
+	end
+	if Options.PantsWearSelect and Options.PantsWearSelect.Value ~= "None" then
+		Options.PantsWearSelect:SetValue("None")
+	end
+	if Options.BackWearSelect and typeof(Options.BackWearSelect.Value) == "table" and next(Options.BackWearSelect.Value) ~= nil then
+		Options.BackWearSelect:SetValue({})
 	end
 	if Toggles.SpearSword and Toggles.SpearSword.Value then
 		Toggles.SpearSword:SetValue(false)
