@@ -1422,26 +1422,28 @@ CosmeticsGroup:AddDropdown("HitSoundSelect", {
 })
 
 Xeno_PlayHitSound = function()
-	if not (Toggles.HitSound and Toggles.HitSound.Value) then return end
-	if not gameSoundsFolder then return end
-	local selected = Options.HitSoundSelect and Options.HitSoundSelect.Value
-	if not selected or selected == "None" then return end
-	local template = gameSoundsFolder:FindFirstChild(selected)
-	if not (template and template:IsA("Sound")) then return end
-	local character = getCharacter()
-	local root = character and character:FindFirstChild("HumanoidRootPart")
-	if not root then return end
+	pcall(function()
+		if not (Toggles.HitSound and Toggles.HitSound.Value) then return end
+		if not gameSoundsFolder then return end
+		local selected = Options.HitSoundSelect and Options.HitSoundSelect.Value
+		if not selected or selected == "None" then return end
+		local template = gameSoundsFolder:FindFirstChild(selected)
+		if not (template and template:IsA("Sound")) then return end
+		local character = getCharacter()
+		local root = character and character:FindFirstChild("HumanoidRootPart")
+		if not root then return end
 
-	local sound = template:Clone()
-	sound.Name = "XenoHitSound"
-	sound.Parent = root
-	sound:Play()
+		local sound = template:Clone()
+		sound.Name = "XenoHitSound"
+		sound.Parent = root
+		sound:Play()
 
-	local function cleanup()
-		if sound and sound.Parent then sound:Destroy() end
-	end
-	sound.Ended:Once(cleanup)
-	task.delay(6, cleanup)
+		local function cleanup()
+			if sound and sound.Parent then sound:Destroy() end
+		end
+		sound.Ended:Connect(cleanup)
+		task.delay(6, cleanup)
+	end)
 end
 
 do
@@ -3563,9 +3565,15 @@ if hookmetamethod then
 			if Toggles.NoBossDamage and Toggles.NoBossDamage.Value then
 				return -- Block the attack to prevent damage
 			end
-		elseif (method == "FireServer" or method == "InvokeServer")
-			and TSG.MeleePlayerRemote and rawequal(self, TSG.MeleePlayerRemote) then
-			if Xeno_PlayHitSound then Xeno_PlayHitSound() end
+		end
+
+		-- Play the hit sound only after the real remote call goes through, so an
+		-- error in the sound code can never stop the attack from landing
+		local playHit = (method == "FireServer" or method == "InvokeServer")
+			and TSG.MeleePlayerRemote and rawequal(self, TSG.MeleePlayerRemote)
+		if playHit and Xeno_PlayHitSound then
+			local fn = Xeno_PlayHitSound
+			task.defer(function() pcall(fn) end)
 		end
 
 		return originalNamecall(...)
