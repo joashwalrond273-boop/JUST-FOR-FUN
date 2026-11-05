@@ -1931,21 +1931,37 @@ do
 
 			-- Optional per-item stretch: a (left/right, up/down, forward/back)
 			-- size multiplier so a piece can be widened to cover the body.
-			-- The multiplier is applied on the character's axes regardless of
-			-- how the model itself is rotated.
+			-- May be a fixed Vector3 or a function(part, t) where t runs from
+			-- 0 at the bottom of the item to 1 at the top, so a piece can be
+			-- tapered (e.g. wide at the hems, narrow at the waist). The
+			-- multiplier is applied on the character's axes regardless of how
+			-- the model itself is rotated.
 			local stretch = cfg.stretch and cfg.stretch[name]
 			if stretch then
-				local function axisMult(axisVec)
-					if math.abs(axisVec.X) > 0.5 then return stretch.X end
-					if math.abs(axisVec.Y) > 0.5 then return stretch.Y end
-					return stretch.Z
-				end
+				local minY, maxY = math.huge, -math.huge
 				for _, part in ipairs(parts) do
-					local cf = part.CFrame
-					local mr = axisMult(cf:VectorToObjectSpace(target.CFrame.RightVector))
-					local mu = axisMult(cf:VectorToObjectSpace(target.CFrame.UpVector))
-					local mf = axisMult(cf:VectorToObjectSpace(target.CFrame.LookVector))
-					part.Size = Vector3.new(part.Size.X * mr, part.Size.Y * mu, part.Size.Z * mf)
+					local y = part.Position.Y
+					if y < minY then minY = y end
+					if y > maxY then maxY = y end
+				end
+				local span = math.max(maxY - minY, 0.001)
+				for _, part in ipairs(parts) do
+					local mult = stretch
+					if typeof(stretch) == "function" then
+						mult = stretch(part, (part.Position.Y - minY) / span)
+					end
+					if mult and mult ~= Vector3.new(1, 1, 1) then
+						local cf = part.CFrame
+						local function axisMult(axisVec)
+							if math.abs(axisVec.X) > 0.5 then return mult.X end
+							if math.abs(axisVec.Y) > 0.5 then return mult.Y end
+							return mult.Z
+						end
+						local mr = axisMult(cf:VectorToObjectSpace(target.CFrame.RightVector))
+						local mu = axisMult(cf:VectorToObjectSpace(target.CFrame.UpVector))
+						local mf = axisMult(cf:VectorToObjectSpace(target.CFrame.LookVector))
+						part.Size = Vector3.new(part.Size.X * mr, part.Size.Y * mu, part.Size.Z * mf)
+					end
 				end
 			end
 
@@ -2232,7 +2248,11 @@ do
 			["Admin Pants"] = CFrame.new(-0.1, -0.45, -0.25) * CFrame.Angles(0, math.rad(90), 0),
 		},
 		stretch = {
-			["Admin Pants"] = Vector3.new(1.15, 1, 1),
+			["Admin Pants"] = function(_, t)
+				-- t = 0 at the hems, 1 at the waist: wider at the bottom so the
+				-- feet are covered, narrower at the top so the waist fits.
+				return Vector3.new(1.2 - 0.22 * t, 1, 1)
+			end,
 		},
 		getTarget = function()
 			local character = getCharacter()
