@@ -7693,6 +7693,41 @@ MoveMountAura:AddSlider("MountFlySpeed", {
 	Compact = true,
 })
 
+local mountAutopilotWaypoint = nil
+
+MoveMountAura:AddToggle("MountAutopilot", {
+	Text = "Mount Autopilot",
+	Default = false,
+})
+
+MoveMountAura:AddSlider("MountAutopilotSpeed", {
+	Text = "Autopilot Speed",
+	Default = 60,
+	Min = 10,
+	Max = 300,
+	Rounding = 0,
+	Compact = true,
+})
+
+MoveMountAura:AddButton({
+	Text = "Set Waypoint",
+	Func = function()
+		local root = getRootPart()
+		if root then
+			mountAutopilotWaypoint = root.Position
+			Library:Notify({ Title = "Mount Autopilot", Description = "Waypoint set.", Time = 2 })
+		end
+	end,
+})
+
+MoveMountAura:AddButton({
+	Text = "Clear Waypoint",
+	Func = function()
+		mountAutopilotWaypoint = nil
+		Library:Notify({ Title = "Mount Autopilot", Description = "Waypoint cleared.", Time = 2 })
+	end,
+})
+
 
 local noclipCorePartNames = {
 	["HumanoidRootPart"] = true,
@@ -8097,6 +8132,56 @@ Toggles.MountFly:OnChanged(function()
 			end
 		end
 		Library:Notify({ Title = "Mount Fly", Description = "Disabled", Time = 2 })
+	end
+end)
+
+local MOUNT_AUTOPILOT_ARRIVE = 8
+local mountAutopilotArrived = false
+
+Toggles.MountAutopilot:OnChanged(function()
+	disconnect("MountAutopilot")
+	if Toggles.MountAutopilot.Value then
+		Library:Notify({ Title = "Mount Autopilot", Description = "Enabled", Time = 2 })
+		if not mountAutopilotWaypoint then
+			Library:Notify({ Title = "Mount Autopilot", Description = "Set a waypoint first.", Time = 3 })
+		end
+		track("MountAutopilot", RunService.Heartbeat:Connect(function()
+			if not isAlive() or not mountAutopilotWaypoint then return end
+			local mountModel, seat = getCurrentMount()
+			if not mountModel then return end
+
+			local mountRoot = mountModel.PrimaryPart or mountModel:FindFirstChild("HumanoidRootPart") or seat
+			if not mountRoot then return end
+
+			local delta = mountAutopilotWaypoint - mountRoot.Position
+			local flat = Vector3.new(delta.X, 0, delta.Z)
+			if flat.Magnitude <= MOUNT_AUTOPILOT_ARRIVE then
+				mountAutopilotWaypoint = nil
+				mountAutopilotArrived = true
+				Toggles.MountAutopilot:SetValue(false)
+				return
+			end
+
+			local speed = (Options.MountAutopilotSpeed and Options.MountAutopilotSpeed.Value) or 60
+			local dir = flat.Unit
+			local vel = mountRoot.AssemblyLinearVelocity
+			mountRoot.AssemblyLinearVelocity = Vector3.new(dir.X * speed, vel.Y, dir.Z * speed)
+			mountRoot.AssemblyAngularVelocity = Vector3.zero
+		end))
+	else
+		local mountModel, seat = getCurrentMount()
+		if mountModel then
+			local mountRoot = mountModel.PrimaryPart or mountModel:FindFirstChild("HumanoidRootPart") or seat
+			if mountRoot then
+				mountRoot.AssemblyLinearVelocity = Vector3.zero
+			end
+		end
+		if mountAutopilotArrived then
+			mountAutopilotArrived = false
+			Library:Notify({ Title = "Mount Autopilot", Description = "Destination reached.", Time = 2 })
+		else
+			Library:Notify({ Title = "Mount Autopilot", Description = "Disabled", Time = 2 })
+		end
 	end
 end)
 
@@ -11766,6 +11851,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.MountSpeedBoost and Toggles.MountSpeedBoost.Value then
 		Toggles.MountSpeedBoost:SetValue(false)
+	end
+	if Toggles.MountAutopilot and Toggles.MountAutopilot.Value then
+		Toggles.MountAutopilot:SetValue(false)
 	end
 	if Toggles.SwimSlotBoost and Toggles.SwimSlotBoost.Value then
 		Toggles.SwimSlotBoost:SetValue(false)
