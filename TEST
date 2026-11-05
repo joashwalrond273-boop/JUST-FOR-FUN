@@ -1946,9 +1946,9 @@ do
 				end
 				local span = math.max(maxY - minY, 0.001)
 				for _, part in ipairs(parts) do
-					local mult = stretch
+					local mult, shift = stretch, nil
 					if typeof(stretch) == "function" then
-						mult = stretch(part, (part.Position.Y - minY) / span)
+						mult, shift = stretch(part, (part.Position.Y - minY) / span)
 					end
 					if mult and mult ~= Vector3.new(1, 1, 1) then
 						local cf = part.CFrame
@@ -1961,6 +1961,12 @@ do
 						local mu = axisMult(cf:VectorToObjectSpace(target.CFrame.UpVector))
 						local mf = axisMult(cf:VectorToObjectSpace(target.CFrame.LookVector))
 						part.Size = Vector3.new(part.Size.X * mr, part.Size.Y * mu, part.Size.Z * mf)
+					end
+					if shift then
+						part.CFrame = part.CFrame
+							+ target.CFrame.RightVector * shift.X
+							+ target.CFrame.UpVector * shift.Y
+							+ target.CFrame.LookVector * shift.Z
 					end
 				end
 			end
@@ -2250,8 +2256,9 @@ do
 		stretch = {
 			["Admin Pants"] = function(_, t)
 				-- t = 0 at the hems, 1 at the waist: wider at the bottom so the
-				-- feet are covered, narrower at the top so the waist fits.
-				return Vector3.new(1.27 - 0.29 * t, 1, 1)
+				-- feet are covered, narrower at the top so the waist fits, and
+				-- the waist leaned a little forward.
+				return Vector3.new(1.32 - 0.34 * t, 1, 1), Vector3.new(0, 0, 0.1 * t)
 			end,
 		},
 		getTarget = function()
