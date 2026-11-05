@@ -2391,12 +2391,13 @@ do
 				-- waist fits, and the very top bends a little back.
 				local width = 1.42 - 0.47 * t
 				local lean = 0.07 * t - 0.1 * t * t * t
-				-- Pull the mid-section (around the knee) down a little so the
-				-- pant legs reach down instead of hanging, and drop the top.
+				-- Keep the mid-section (around the knee) lifted so it stays
+				-- flush with the waist and doesn't pull away from it when the
+				-- legs swing during jumps and swimming.
 				local knee = math.max(0, 1 - math.abs(t - 0.4) / 0.3)
-				-- Hem sits a touch higher, the knee section drops slightly and
-				-- the waist drops a little.
-				local down = -0.14 * knee - 0.08 * t
+				-- Hem sits a touch higher, the knee section stays up with the
+				-- waist and the waist drops a little.
+				local down = -0.04 * knee - 0.08 * t
 				return Vector3.new(width, 1, 1.15), Vector3.new(0, down, lean)
 			end,
 		},
@@ -7693,41 +7694,6 @@ MoveMountAura:AddSlider("MountFlySpeed", {
 	Compact = true,
 })
 
-local mountAutopilotWaypoint = nil
-
-MoveMountAura:AddToggle("MountAutopilot", {
-	Text = "Mount Autopilot",
-	Default = false,
-})
-
-MoveMountAura:AddSlider("MountAutopilotSpeed", {
-	Text = "Autopilot Speed",
-	Default = 60,
-	Min = 10,
-	Max = 300,
-	Rounding = 0,
-	Compact = true,
-})
-
-MoveMountAura:AddButton({
-	Text = "Set Waypoint",
-	Func = function()
-		local root = getRootPart()
-		if root then
-			mountAutopilotWaypoint = root.Position
-			Library:Notify({ Title = "Mount Autopilot", Description = "Waypoint set.", Time = 2 })
-		end
-	end,
-})
-
-MoveMountAura:AddButton({
-	Text = "Clear Waypoint",
-	Func = function()
-		mountAutopilotWaypoint = nil
-		Library:Notify({ Title = "Mount Autopilot", Description = "Waypoint cleared.", Time = 2 })
-	end,
-})
-
 
 local noclipCorePartNames = {
 	["HumanoidRootPart"] = true,
@@ -8132,56 +8098,6 @@ Toggles.MountFly:OnChanged(function()
 			end
 		end
 		Library:Notify({ Title = "Mount Fly", Description = "Disabled", Time = 2 })
-	end
-end)
-
-local MOUNT_AUTOPILOT_ARRIVE = 8
-local mountAutopilotArrived = false
-
-Toggles.MountAutopilot:OnChanged(function()
-	disconnect("MountAutopilot")
-	if Toggles.MountAutopilot.Value then
-		Library:Notify({ Title = "Mount Autopilot", Description = "Enabled", Time = 2 })
-		if not mountAutopilotWaypoint then
-			Library:Notify({ Title = "Mount Autopilot", Description = "Set a waypoint first.", Time = 3 })
-		end
-		track("MountAutopilot", RunService.Heartbeat:Connect(function()
-			if not isAlive() or not mountAutopilotWaypoint then return end
-			local mountModel, seat = getCurrentMount()
-			if not mountModel then return end
-
-			local mountRoot = mountModel.PrimaryPart or mountModel:FindFirstChild("HumanoidRootPart") or seat
-			if not mountRoot then return end
-
-			local delta = mountAutopilotWaypoint - mountRoot.Position
-			local flat = Vector3.new(delta.X, 0, delta.Z)
-			if flat.Magnitude <= MOUNT_AUTOPILOT_ARRIVE then
-				mountAutopilotWaypoint = nil
-				mountAutopilotArrived = true
-				Toggles.MountAutopilot:SetValue(false)
-				return
-			end
-
-			local speed = (Options.MountAutopilotSpeed and Options.MountAutopilotSpeed.Value) or 60
-			local dir = flat.Unit
-			local vel = mountRoot.AssemblyLinearVelocity
-			mountRoot.AssemblyLinearVelocity = Vector3.new(dir.X * speed, vel.Y, dir.Z * speed)
-			mountRoot.AssemblyAngularVelocity = Vector3.zero
-		end))
-	else
-		local mountModel, seat = getCurrentMount()
-		if mountModel then
-			local mountRoot = mountModel.PrimaryPart or mountModel:FindFirstChild("HumanoidRootPart") or seat
-			if mountRoot then
-				mountRoot.AssemblyLinearVelocity = Vector3.zero
-			end
-		end
-		if mountAutopilotArrived then
-			mountAutopilotArrived = false
-			Library:Notify({ Title = "Mount Autopilot", Description = "Destination reached.", Time = 2 })
-		else
-			Library:Notify({ Title = "Mount Autopilot", Description = "Disabled", Time = 2 })
-		end
 	end
 end)
 
@@ -11851,9 +11767,6 @@ Library:OnUnload(function()
 	end
 	if Toggles.MountSpeedBoost and Toggles.MountSpeedBoost.Value then
 		Toggles.MountSpeedBoost:SetValue(false)
-	end
-	if Toggles.MountAutopilot and Toggles.MountAutopilot.Value then
-		Toggles.MountAutopilot:SetValue(false)
 	end
 	if Toggles.SwimSlotBoost and Toggles.SwimSlotBoost.Value then
 		Toggles.SwimSlotBoost:SetValue(false)
