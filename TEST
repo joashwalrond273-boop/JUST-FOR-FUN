@@ -1403,26 +1403,12 @@ end
 
 local hitSoundNames = {"None"}
 local hitSoundLookup = {}
-local function registerHitSound(sound)
-	if sound and sound:IsA("Sound") and not hitSoundLookup[sound.Name] then
-		hitSoundLookup[sound.Name] = sound
-		table.insert(hitSoundNames, sound.Name)
-	end
-end
-
 for _, folder in ipairs(soundFolders) do
 	for _, sound in ipairs(folder:GetChildren()) do
-		registerHitSound(sound)
-	end
-end
-
--- Extra hit sounds from the arena controller's SFX
-local arenaController = game:GetService("StarterPlayer").StarterPlayerScripts:FindFirstChild("ArenaController")
-local arenaSfx = arenaController and arenaController:FindFirstChild("SFX")
-if arenaSfx then
-	registerHitSound(arenaSfx)
-	for _, desc in ipairs(arenaSfx:GetDescendants()) do
-		registerHitSound(desc)
+		if sound:IsA("Sound") and not hitSoundLookup[sound.Name] then
+			hitSoundLookup[sound.Name] = folder
+			table.insert(hitSoundNames, sound.Name)
+		end
 	end
 end
 
@@ -1442,7 +1428,9 @@ Xeno_PlayHitSound = function()
 		if not (Toggles.HitSound and Toggles.HitSound.Value) then return end
 		local selected = Options.HitSoundSelect and Options.HitSoundSelect.Value
 		if not selected or selected == "None" then return end
-		local template = hitSoundLookup[selected]
+		local folder = hitSoundLookup[selected]
+		if not folder then return end
+		local template = folder:FindFirstChild(selected)
 		if not (template and template:IsA("Sound")) then return end
 		local character = getCharacter()
 		local root = character and character:FindFirstChild("HumanoidRootPart")
