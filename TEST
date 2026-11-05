@@ -2391,13 +2391,13 @@ do
 				-- waist fits, and the very top bends a little back.
 				local width = 1.42 - 0.47 * t
 				local lean = 0.07 * t - 0.1 * t * t * t
-				-- Keep the mid-section (around the knee) lifted so it stays
-				-- flush with the waist and doesn't pull away from it when the
-				-- legs swing during jumps and swimming.
+				-- Keep the mid-section (around the knee) near the waist so it
+				-- doesn't pull away from it when the legs swing during jumps
+				-- and swimming, just a little lower than the top.
 				local knee = math.max(0, 1 - math.abs(t - 0.4) / 0.3)
-				-- Hem sits a touch higher, the knee section stays up with the
-				-- waist and the waist drops a little.
-				local down = -0.04 * knee - 0.08 * t
+				-- Hem sits a touch higher, the knee section sits a little below
+				-- the waist and the waist drops a little.
+				local down = -0.08 * knee - 0.08 * t
 				return Vector3.new(width, 1, 1.15), Vector3.new(0, down, lean)
 			end,
 		},
