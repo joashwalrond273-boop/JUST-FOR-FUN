@@ -1403,12 +1403,26 @@ end
 
 local hitSoundNames = {"None"}
 local hitSoundLookup = {}
+local function registerHitSound(sound)
+	if sound and sound:IsA("Sound") and not hitSoundLookup[sound.Name] then
+		hitSoundLookup[sound.Name] = sound
+		table.insert(hitSoundNames, sound.Name)
+	end
+end
+
 for _, folder in ipairs(soundFolders) do
 	for _, sound in ipairs(folder:GetChildren()) do
-		if sound:IsA("Sound") and not hitSoundLookup[sound.Name] then
-			hitSoundLookup[sound.Name] = folder
-			table.insert(hitSoundNames, sound.Name)
-		end
+		registerHitSound(sound)
+	end
+end
+
+-- Extra hit sounds from the arena controller's SFX
+local arenaController = game:GetService("StarterPlayer").StarterPlayerScripts:FindFirstChild("ArenaController")
+local arenaSfx = arenaController and arenaController:FindFirstChild("SFX")
+if arenaSfx then
+	registerHitSound(arenaSfx)
+	for _, desc in ipairs(arenaSfx:GetDescendants()) do
+		registerHitSound(desc)
 	end
 end
 
@@ -1428,9 +1442,7 @@ Xeno_PlayHitSound = function()
 		if not (Toggles.HitSound and Toggles.HitSound.Value) then return end
 		local selected = Options.HitSoundSelect and Options.HitSoundSelect.Value
 		if not selected or selected == "None" then return end
-		local folder = hitSoundLookup[selected]
-		if not folder then return end
-		local template = folder:FindFirstChild(selected)
+		local template = hitSoundLookup[selected]
 		if not (template and template:IsA("Sound")) then return end
 		local character = getCharacter()
 		local root = character and character:FindFirstChild("HumanoidRootPart")
@@ -1536,30 +1548,48 @@ do
 		["Admin Bag"] = true,
 	}
 
-	local bloomReady = false
-	local function ensureBloom()
-		if bloomReady then return end
-		bloomReady = true
+	-- Every piece that currently glows, so the bloom can be switched back off
+	-- once the last one is taken off instead of bleeding GPU on a full-screen
+	-- post-process pass for the rest of the session.
+	local glowParts = {}
+
+	local function setBloomActive(active)
 		local lighting = game:GetService("Lighting")
-		local bloom = lighting:FindFirstChildOfClass("BloomEffect")
-		if bloom then
+		local bloom = lighting:FindFirstChild("XenoGlowBloom")
+		if active then
+			if not bloom or not bloom:IsA("BloomEffect") then
+				if bloom then bloom:Destroy() end
+				bloom = Instance.new("BloomEffect")
+				bloom.Name = "XenoGlowBloom"
+				bloom.Intensity = 1.1
+				bloom.Size = 20
+				bloom.Threshold = 0.95
+				bloom.Parent = lighting
+			end
 			bloom.Enabled = true
-		else
-			bloom = Instance.new("BloomEffect")
-			bloom.Name = "XenoGlowBloom"
-			bloom.Intensity = 1.1
-			bloom.Size = 20
-			bloom.Threshold = 0.95
-			bloom.Parent = lighting
+		elseif bloom then
+			bloom:Destroy()
 		end
+	end
+
+	-- Forget pieces that have been removed and match the bloom to what is
+	-- actually worn right now.
+	local function refreshGlowBloom()
+		for part in pairs(glowParts) do
+			if not part.Parent then
+				glowParts[part] = nil
+			end
+		end
+		setBloomActive(next(glowParts) ~= nil)
 	end
 
 	local function applyGlow(part)
 		if not part:IsA("BasePart") then return end
 		if part:GetAttribute("XenoGlow") then return end
-		ensureBloom()
 		part:SetAttribute("XenoGlow", true)
 		part.Material = Enum.Material.Neon
+		glowParts[part] = true
+		setBloomActive(true)
 	end
 
 	-- Hide the character's own hair (workspace.Characters.<name>.avatarHair)
@@ -1819,6 +1849,7 @@ do
 			lastCheck = now
 
 			syncAvatarHair()
+			refreshGlowBloom()
 
 			for _, frames in pairs(activeCosmetics) do
 				for _, entry in ipairs(frames) do
@@ -2284,6 +2315,7 @@ do
 				local now = os.clock()
 				if now - lastCheck < 0.5 then return end
 				lastCheck = now
+				refreshGlowBloom()
 				if not activeIsClothing then
 					hideNativeClothing()
 				end
@@ -9936,10 +9968,10 @@ VisualFPS:AddToggle("UncapFPS", {
 		-- Trigger immediately on toggle enable
 		triggerUncap()
 
-		-- Re-trigger every 3 seconds to stop the game from resetting back to 60 FPS
+		-- Re-trigger every 7 seconds to stop the game from resetting back to 60 FPS
 		local lastTrigger = os.clock()
 		track("UncapFPS_Timer", RunService.Heartbeat:Connect(function()
-			if os.clock() - lastTrigger >= 3 then
+			if os.clock() - lastTrigger >= 7 then
 				lastTrigger = os.clock()
 				triggerUncap()
 			end
