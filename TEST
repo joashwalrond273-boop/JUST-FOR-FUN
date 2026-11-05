@@ -1277,8 +1277,8 @@ CosmeticsGroup:AddButton({
 		end
 		CosmeticPresets[presetSlot] = {
 			head = copySet(Options.CosmeticSelect and Options.CosmeticSelect.Value),
-			body = Options.BodyWearSelect and Options.BodyWearSelect.Value,
-			pants = Options.PantsWearSelect and Options.PantsWearSelect.Value,
+			body = copySet(Options.BodyWearSelect and Options.BodyWearSelect.Value),
+			pants = copySet(Options.PantsWearSelect and Options.PantsWearSelect.Value),
 			back = copySet(Options.BackWearSelect and Options.BackWearSelect.Value),
 			headColor = Options.CosmeticSelectColor and Options.CosmeticSelectColor.Value,
 			bodyColor = Options.BodyWearSelectColor and Options.BodyWearSelectColor.Value,
@@ -1330,13 +1330,15 @@ CosmeticsGroup:AddDropdown("CosmeticSelect", {
 CosmeticsGroup:AddDropdown("BodyWearSelect", {
 	Text = "Body Wear",
 	Values = {"None", "Admin Armor", "Target Practice"},
-	Default = "None",
+	Default = {},
+	Multi = true,
 })
 
 CosmeticsGroup:AddDropdown("PantsWearSelect", {
 	Text = "Pants Wear",
 	Values = {"None", "Admin Pants"},
-	Default = "None",
+	Default = {},
+	Multi = true,
 })
 
 CosmeticsGroup:AddDropdown("BackWearSelect", {
@@ -2255,10 +2257,12 @@ do
 		},
 		stretch = {
 			["Admin Pants"] = function(_, t)
-				-- t = 0 at the hems, 1 at the waist: wider at the bottom so the
-				-- feet are covered, deeper front-to-back, narrower at the top
-				-- so the waist fits, and the waist leaned a little forward.
-				return Vector3.new(1.47 - 0.49 * t, 1, 1.1), Vector3.new(0, 0, 0.05 * t)
+				-- t = 0 at the hems, 1 at the waist: wider and deeper at the
+				-- bottom so the feet are covered, narrower at the top so the
+				-- waist fits, and the very top bends a little back.
+				local width = 1.47 - 0.49 * t
+				local lean = 0.05 * t - 0.07 * t * t * t
+				return Vector3.new(width, 1, 1.1), Vector3.new(0, 0, lean)
 			end,
 		},
 		getTarget = function()
@@ -11661,11 +11665,11 @@ Library:OnUnload(function()
 	if Options.CosmeticSelect and typeof(Options.CosmeticSelect.Value) == "table" and next(Options.CosmeticSelect.Value) ~= nil then
 		Options.CosmeticSelect:SetValue({})
 	end
-	if Options.BodyWearSelect and Options.BodyWearSelect.Value ~= "None" then
-		Options.BodyWearSelect:SetValue("None")
+	if Options.BodyWearSelect and typeof(Options.BodyWearSelect.Value) == "table" and next(Options.BodyWearSelect.Value) ~= nil then
+		Options.BodyWearSelect:SetValue({})
 	end
-	if Options.PantsWearSelect and Options.PantsWearSelect.Value ~= "None" then
-		Options.PantsWearSelect:SetValue("None")
+	if Options.PantsWearSelect and typeof(Options.PantsWearSelect.Value) == "table" and next(Options.PantsWearSelect.Value) ~= nil then
+		Options.PantsWearSelect:SetValue({})
 	end
 	if Options.BackWearSelect and typeof(Options.BackWearSelect.Value) == "table" and next(Options.BackWearSelect.Value) ~= nil then
 		Options.BackWearSelect:SetValue({})
