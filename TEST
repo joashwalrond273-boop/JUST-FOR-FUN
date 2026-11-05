@@ -1481,10 +1481,10 @@ do
 		["Shaded Warrior"] = CFrame.new(0, -1, 0),
 		["Obsidian Lion"] = CFrame.new(0, 0, 0.5) * CFrame.Angles(0, math.rad(90), 0),
 		["Golden Lion"] = CFrame.new(0, 0, 0.5) * CFrame.Angles(0, math.rad(90), 0),
-		["Horned Helm Of Loki"] = CFrame.Angles(0, math.rad(90), 0),
-		["Crown Of The Royal Dragon"] = CFrame.Angles(0, math.rad(90), 0),
-		["Arctic Cap"] = CFrame.Angles(0, math.rad(90), 0),
-		["Witch Hat Brown"] = CFrame.Angles(0, math.rad(90), 0),
+		["Horned Helm Of Loki"] = CFrame.new(0, 0.5, -0.5) * CFrame.Angles(0, math.rad(90), 0),
+		["Crown Of The Royal Dragon"] = CFrame.new(0, 0, -0.5) * CFrame.Angles(0, math.rad(90), 0),
+		["Arctic Cap"] = CFrame.new(0, -0.3, 0) * CFrame.Angles(0, math.rad(-90), 0),
+		["Witch Hat Brown"] = CFrame.new(0, 0.5, 0) * CFrame.Angles(0, math.rad(90), 0),
 	}
 
 	-- Cosmetics that don't live under ReplicatedStorage.game.Cosmetics.cosmetics
