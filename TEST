@@ -1526,6 +1526,47 @@ do
 		return parts
 	end
 
+	-- Admin pieces that should glow. A BloomEffect in Lighting makes the
+	-- light each piece emits bleed into a soft halo, so the whole outfit
+	-- reads as glowing without changing its colours or material.
+	local GLOW_ITEMS = {
+		["Admin Helmet"] = true,
+		["Admin Armor"] = true,
+		["Admin Pants"] = true,
+		["Admin Bag"] = true,
+	}
+
+	local bloomReady = false
+	local function ensureBloom()
+		if bloomReady then return end
+		bloomReady = true
+		local lighting = game:GetService("Lighting")
+		local bloom = lighting:FindFirstChildOfClass("BloomEffect")
+		if bloom then
+			bloom.Enabled = true
+		else
+			bloom = Instance.new("BloomEffect")
+			bloom.Name = "XenoGlowBloom"
+			bloom.Intensity = 1.5
+			bloom.Size = 28
+			bloom.Threshold = 0.85
+			bloom.Parent = lighting
+		end
+	end
+
+	local function applyGlow(part)
+		if not part:IsA("BasePart") then return end
+		if part:FindFirstChild("XenoGlow") then return end
+		ensureBloom()
+		local light = Instance.new("PointLight")
+		light.Name = "XenoGlow"
+		light.Color = Color3.fromRGB(0, 244, 255)
+		light.Brightness = 2
+		light.Range = 7
+		light.Shadows = false
+		light.Parent = part
+	end
+
 	local function normalizeName(n)
 		return (n:gsub("[%s_%-]", ""):lower())
 	end
@@ -1616,6 +1657,7 @@ do
 			part.CanCollide = false
 			part.Massless = true
 			if useColor then part.Color = headColor end
+			if GLOW_ITEMS[name] then applyGlow(part) end
 			frames[i] = { part = part, offset = head.CFrame:Inverse() * part.CFrame }
 		end
 		activeCosmetics[name] = frames
@@ -2041,6 +2083,11 @@ do
 				local wearColor = getWearColor()
 				for _, part in ipairs(parts) do
 					part.Color = wearColor
+				end
+			end
+			if GLOW_ITEMS[name] then
+				for _, part in ipairs(parts) do
+					applyGlow(part)
 				end
 			end
 			worn[name] = true
