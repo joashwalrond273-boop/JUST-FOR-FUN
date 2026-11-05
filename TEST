@@ -2369,7 +2369,6 @@ do
 		attribute = "XenoPantsWear",
 		weldName = "XenoPantsWeld",
 		clothingClass = "Pants",
-		deform = true,
 		paths = {
 			["Admin Pants"] = {"game", "Items", "models", "Admin Pants"},
 		},
