@@ -1468,7 +1468,7 @@ do
 		["Golden Laurel"] = CFrame.Angles(0, math.rad(90), 0),
 		["Golden Horns Of Victory"] = CFrame.new(0, 0.4, 0) * CFrame.Angles(0, math.rad(90), 0),
 		["Royal Vizier Mask"] = CFrame.new(0, 1.1, -0.6) * CFrame.Angles(0, math.rad(90), 0),
-		["Admin Helmet"] = CFrame.new(0, -0.55, 0),
+		["Admin Helmet"] = CFrame.new(0, -0.5, 0),
 		["Spikes Of Chaos"] = CFrame.new(0, -0.5, 0),
 		["Raider"] = CFrame.new(0, 0.3, 0) * CFrame.Angles(0, math.rad(-90), 0),
 		["Skeleton Crown"] = CFrame.new(0, -0.5, 0),
@@ -2368,7 +2368,11 @@ do
 				-- waist fits, and the very top bends a little back.
 				local width = 1.42 - 0.44 * t
 				local lean = 0.05 * t - 0.1 * t * t * t
-				return Vector3.new(width, 1, 1.1), Vector3.new(0, 0, lean)
+				-- Pull the mid-section (around the knee) down a little so the
+				-- pant legs reach down instead of hanging.
+				local knee = math.max(0, 1 - math.abs(t - 0.4) / 0.3)
+				local down = -0.2 * knee
+				return Vector3.new(width, 1, 1.1), Vector3.new(0, down, lean)
 			end,
 		},
 		getTarget = function()
