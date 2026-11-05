@@ -2102,18 +2102,44 @@ do
 						table.insert(bodyParts, obj)
 					end
 				end
+				-- Everything from the mid of the pants up to the waist is pinned
+				-- to one body part (the hips) so the whole mid-to-top section
+				-- moves as a single unit and can't split open and expose the
+				-- knees when the legs swing.
+				local topPart, partT
+				if cfg.deformTop then
+					topPart = character:FindFirstChild(cfg.deformTop.part or "LowerTorso")
+						or character:FindFirstChild("UpperTorso")
+						or character:FindFirstChild("Torso")
+						or character:FindFirstChild("Hips")
+					partT = {}
+					local minY, maxY = math.huge, -math.huge
+					for _, part in ipairs(parts) do
+						local y = part.Position.Y
+						if y < minY then minY = y end
+						if y > maxY then maxY = y end
+					end
+					local span = math.max(maxY - minY, 0.001)
+					for _, part in ipairs(parts) do
+						partT[part] = (part.Position.Y - minY) / span
+					end
+				end
 				for _, part in ipairs(parts) do
-					local nname = normalizeName(part.Name)
 					local bestPart, bestDist
-					for _, bodyPart in ipairs(bodyParts) do
-						if normalizeName(bodyPart.Name) == nname then
-							bestPart, bestDist = bodyPart, -1
-							break
-						end
-						local dist = (bodyPart.Position - part.Position).Magnitude
-						if not bestDist or dist < bestDist then
-							bestPart = bodyPart
-							bestDist = dist
+					if topPart and partT[part] >= cfg.deformTop.t then
+						bestPart = topPart
+					else
+						local nname = normalizeName(part.Name)
+						for _, bodyPart in ipairs(bodyParts) do
+							if normalizeName(bodyPart.Name) == nname then
+								bestPart, bestDist = bodyPart, -1
+								break
+							end
+							local dist = (bodyPart.Position - part.Position).Magnitude
+							if not bestDist or dist < bestDist then
+								bestPart = bodyPart
+								bestDist = dist
+							end
 						end
 					end
 					if bestPart then
@@ -2378,6 +2404,7 @@ do
 		weldName = "XenoPantsWeld",
 		clothingClass = "Pants",
 		deform = true,
+		deformTop = { t = 0.4, part = "LowerTorso" },
 		paths = {
 			["Admin Pants"] = {"game", "Items", "models", "Admin Pants"},
 		},
