@@ -1468,7 +1468,7 @@ do
 		["Golden Laurel"] = CFrame.Angles(0, math.rad(90), 0),
 		["Golden Horns Of Victory"] = CFrame.new(0, 0.4, 0) * CFrame.Angles(0, math.rad(90), 0),
 		["Royal Vizier Mask"] = CFrame.new(0, 1.1, -0.6) * CFrame.Angles(0, math.rad(90), 0),
-		["Admin Helmet"] = CFrame.new(0, -0.6, 0),
+		["Admin Helmet"] = CFrame.new(0, -0.55, 0),
 		["Spikes Of Chaos"] = CFrame.new(0, -0.5, 0),
 		["Raider"] = CFrame.new(0, 0.3, 0) * CFrame.Angles(0, math.rad(-90), 0),
 		["Skeleton Crown"] = CFrame.new(0, -0.5, 0),
