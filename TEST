@@ -2102,31 +2102,23 @@ do
 						table.insert(bodyParts, obj)
 					end
 				end
-				-- Everything from the mid of the pants up to the waist is pinned
-				-- to one body part (the hips) so the whole mid-to-top section
-				-- moves as a single unit and can't split open and expose the
-				-- knees when the legs swing.
-				local topPart, partT
+				-- Only the part of the pants that sits at or above the hips
+				-- (the waist/top) is welded to the torso so it stays together,
+				-- while everything below the hips keeps deforming with the
+				-- legs, so the pants still moves with the feet.
+				local topPart, pinAboveY
 				if cfg.deformTop then
 					topPart = character:FindFirstChild(cfg.deformTop.part or "LowerTorso")
 						or character:FindFirstChild("UpperTorso")
 						or character:FindFirstChild("Torso")
 						or character:FindFirstChild("Hips")
-					partT = {}
-					local minY, maxY = math.huge, -math.huge
-					for _, part in ipairs(parts) do
-						local y = part.Position.Y
-						if y < minY then minY = y end
-						if y > maxY then maxY = y end
-					end
-					local span = math.max(maxY - minY, 0.001)
-					for _, part in ipairs(parts) do
-						partT[part] = (part.Position.Y - minY) / span
+					if topPart then
+						pinAboveY = topPart.Position.Y - topPart.Size.Y * 0.5
 					end
 				end
 				for _, part in ipairs(parts) do
 					local bestPart, bestDist
-					if topPart and partT[part] >= cfg.deformTop.t then
+					if topPart and pinAboveY and part.Position.Y >= pinAboveY then
 						bestPart = topPart
 					else
 						local nname = normalizeName(part.Name)
@@ -2404,7 +2396,7 @@ do
 		weldName = "XenoPantsWeld",
 		clothingClass = "Pants",
 		deform = true,
-		deformTop = { t = 0.4, part = "LowerTorso" },
+		deformTop = { part = "LowerTorso" },
 		paths = {
 			["Admin Pants"] = {"game", "Items", "models", "Admin Pants"},
 		},
@@ -2427,7 +2419,7 @@ do
 				local seam = math.max(0, 1 - math.abs(t - 0.6) / 0.25)
 				-- Hem sits a touch higher, the knee section sits a little below
 				-- the waist and the waist drops a little more.
-				local down = -0.02 * knee - 0.10 * t - 0.03 * seam
+				local down = 0.04 * knee - 0.10 * t + 0.04 * seam
 				return Vector3.new(width, 1, 1.15), Vector3.new(0, down, lean)
 			end,
 		},
