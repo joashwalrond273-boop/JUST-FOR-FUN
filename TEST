@@ -1481,10 +1481,10 @@ do
 		["Shaded Warrior"] = CFrame.new(0, -1, 0),
 		["Obsidian Lion"] = CFrame.new(0, 0, 0.5) * CFrame.Angles(0, math.rad(90), 0),
 		["Golden Lion"] = CFrame.new(0, 0, 0.5) * CFrame.Angles(0, math.rad(90), 0),
-		["Horned Helm Of Loki"] = CFrame.new(0, 0.5, -1.0) * CFrame.Angles(0, math.rad(90), 0),
+		["Horned Helm Of Loki"] = CFrame.new(0, 0.5, -0.7) * CFrame.Angles(0, math.rad(90), 0),
 		["Crown Of The Royal Dragon"] = CFrame.new(0, 0, -0.5) * CFrame.Angles(0, math.rad(90), 0),
-		["Arctic Cap"] = CFrame.new(0, -0.3, 0) * CFrame.Angles(0, math.rad(90), 0),
-		["Witch Hat Brown"] = CFrame.new(0, 0.5, 0) * CFrame.Angles(0, math.rad(-90), 0),
+		["Arctic Cap"] = CFrame.new(0, -0.3, 0),
+		["Witch Hat Brown"] = CFrame.new(-0.3, 0.9, 0.4) * CFrame.Angles(0, math.rad(-90), 0),
 	}
 
 	-- Cosmetics that don't live under ReplicatedStorage.game.Cosmetics.cosmetics
@@ -1851,9 +1851,8 @@ do
 			end
 
 			local clothingTemplate = clothing and clothing[cfg.clothingClass .. "Template"] or nil
-			-- Pants (preferClothing) always wear as classic clothing so they behave
-			-- exactly like the player's own pants; fall back to a texture asset on
-			-- the model when it doesn't ship a clothing object.
+			-- Optional: for wear types that opt in with preferClothing, fall back
+			-- to a texture asset on the model when it ships no clothing object.
 			if not clothingTemplate and cfg.preferClothing then
 				for _, desc in ipairs(template:GetDescendants()) do
 					if desc:IsA("Decal") or desc:IsA("Texture") then
@@ -1930,28 +1929,44 @@ do
 				end
 			end
 
-			-- Deform mode (pants): if a part is named after a real body part
-			-- (e.g. a leg piece), weld it straight to that body part so the
-			-- item bends with the limbs instead of staying rigid.
+			-- Deform mode (pants): weld every piece onto the body part it
+			-- belongs to so the item bends with the limbs (walk/run) instead
+			-- of sitting rigidly on the hips. An exact name match wins;
+			-- otherwise the nearest body part is used, so a rigged model
+			-- whose pieces aren't named after the limbs still follows them.
 			local matched = {}
 			if cfg.deform then
-				local charParts = {}
-				for _, obj in ipairs(character:GetDescendants()) do
+				-- Body parts are direct children of the character, so scanning
+				-- children is enough and far cheaper than GetDescendants.
+				local bodyParts = {}
+				for _, obj in ipairs(character:GetChildren()) do
 					if obj:IsA("BasePart") then
-						charParts[normalizeName(obj.Name)] = obj
+						table.insert(bodyParts, obj)
 					end
 				end
 				for _, part in ipairs(parts) do
-					local bodyPart = charParts[normalizeName(part.Name)]
-					if bodyPart and bodyPart ~= anchor then
+					local nname = normalizeName(part.Name)
+					local bestPart, bestDist
+					for _, bodyPart in ipairs(bodyParts) do
+						if normalizeName(bodyPart.Name) == nname then
+							bestPart, bestDist = bodyPart, -1
+							break
+						end
+						local dist = (bodyPart.Position - part.Position).Magnitude
+						if not bestDist or dist < bestDist then
+							bestPart = bodyPart
+							bestDist = dist
+						end
+					end
+					if bestPart then
 						matched[part] = true
 						local weld = Instance.new("Motor6D")
 						weld.Name = cfg.weldName .. "_" .. part.Name
-						weld.Part0 = bodyPart
+						weld.Part0 = bestPart
 						weld.Part1 = part
-						weld.C0 = bodyPart.CFrame:ToObjectSpace(part.CFrame)
+						weld.C0 = bestPart.CFrame:ToObjectSpace(part.CFrame)
 						weld.C1 = CFrame.new()
-						weld.Parent = bodyPart
+						weld.Parent = bestPart
 					end
 				end
 			end
@@ -2043,28 +2058,20 @@ do
 
 			local weld = target:FindFirstChild(cfg.weldName .. "_" .. name)
 			if cfg.deform then
-				-- In deform mode the anchor may be welded to a matching body
-				-- part instead of the target, so re-apply whichever applies.
-				-- Body parts are direct children of the character, so scanning
-				-- children is enough and avoids a full descendant walk.
-				local bodyPart
+				-- The anchor is welded to whichever body part it matched; only
+				-- fall back to welding it onto the target when it didn't match
+				-- anything, otherwise a duplicate joint would fight the first.
+				local welded = false
 				for _, obj in ipairs(character:GetChildren()) do
-					if obj:IsA("BasePart") and normalizeName(obj.Name) == normalizeName(anchor.Name) then
-						bodyPart = obj
-						break
+					if obj:IsA("BasePart") then
+						local w = obj:FindFirstChild(cfg.weldName .. "_" .. anchor.Name)
+						if w and w.Part1 == anchor then
+							welded = true
+							break
+						end
 					end
 				end
-				if bodyPart then
-					if not bodyPart:FindFirstChild(cfg.weldName .. "_" .. anchor.Name) then
-						local w = Instance.new("Motor6D")
-						w.Name = cfg.weldName .. "_" .. anchor.Name
-						w.Part0 = bodyPart
-						w.Part1 = anchor
-						w.C0 = bodyPart.CFrame:ToObjectSpace(anchor.CFrame)
-						w.C1 = CFrame.new()
-						w.Parent = bodyPart
-					end
-				elseif not weld or weld.Part1 ~= anchor then
+				if not welded then
 					weldToPart(target, anchor, cfg.weldName .. "_" .. name)
 				end
 			elseif not weld or weld.Part1 ~= anchor then
@@ -2197,7 +2204,6 @@ do
 		attribute = "XenoPantsWear",
 		weldName = "XenoPantsWeld",
 		clothingClass = "Pants",
-		preferClothing = true,
 		deform = true,
 		paths = {
 			["Admin Pants"] = {"game", "Items", "models", "Admin Pants"},
