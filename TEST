@@ -2098,32 +2098,32 @@ do
 						end
 					end
 					if bestPart then
-						-- Optional deformBones: bind arm pieces to the nearest
-						-- *arm* bone (never the wrist/hand, so a rigid sleeve
-						-- can't be pivoted around the hand and swing into the
-						-- body), and only if the piece sits past the torso's
-						-- side so a chest panel can never grab an arm bone.
+						-- Optional deformBones: bind arm pieces to a bone from
+						-- the fragment list, tried in order, so the shirt can
+						-- pivot its sleeves at the shoulder (connected) rather
+						-- than the wrist/elbow. Only pieces past the torso's
+						-- side are considered so chest panels stay put.
 						local allow = true
 						if cfg.deformBones then
 							allow = false
 							local localX = target.CFrame:PointToObjectSpace(part.Position).X
 							if math.abs(localX) > target.Size.X * 0.35 then
-								local bonePart, boneDist
-								for _, bodyPart in ipairs(bodyParts) do
-									local boneName = normalizeName(bodyPart.Name)
-									for _, frag in ipairs(cfg.deformBones) do
+								for _, frag in ipairs(cfg.deformBones) do
+									local bonePart, boneDist
+									for _, bodyPart in ipairs(bodyParts) do
+										local boneName = normalizeName(bodyPart.Name)
 										if string.find(boneName, frag, 1, true) then
 											local dist = (bodyPart.Position - part.Position).Magnitude
 											if not boneDist or dist < boneDist then
 												bonePart, boneDist = bodyPart, dist
 											end
-											break
 										end
 									end
-								end
-								if bonePart then
-									bestPart = bonePart
-									allow = true
+									if bonePart then
+										bestPart = bonePart
+										allow = true
+										break
+									end
 								end
 							end
 						end
@@ -2358,10 +2358,10 @@ do
 		attribute = "XenoBodyWear",
 		weldName = "XenoBodyWeld",
 		clothingClass = "Shirt",
-		-- Only pieces out on the arms limb-weld to the arm bones so the
-		-- sleeves follow a raised weapon; the torso panels stay put.
+		-- Sleeves bind to the shoulder bone (upper arm) so they lift with the
+		-- arm while staying attached at the shoulder; torso panels stay put.
 		deform = true,
-		deformBones = {"arm"},
+		deformBones = {"upperarm", "arm"},
 		paths = {
 			["Admin Armor"] = {"game", "Items", "models", "Admin Armor"},
 			["Target Practice"] = {"game", "Cosmetics", "cosmetics", "Target Practice"},
