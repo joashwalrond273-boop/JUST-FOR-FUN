@@ -1481,10 +1481,10 @@ do
 		["Shaded Warrior"] = CFrame.new(0, -1, 0),
 		["Obsidian Lion"] = CFrame.new(0, 0, 0.5) * CFrame.Angles(0, math.rad(90), 0),
 		["Golden Lion"] = CFrame.new(0, 0, 0.5) * CFrame.Angles(0, math.rad(90), 0),
-		["Horned Helm Of Loki"] = CFrame.new(0, 0.5, -0.5) * CFrame.Angles(0, math.rad(90), 0),
+		["Horned Helm Of Loki"] = CFrame.new(0, 0.5, -1.0) * CFrame.Angles(0, math.rad(90), 0),
 		["Crown Of The Royal Dragon"] = CFrame.new(0, 0, -0.5) * CFrame.Angles(0, math.rad(90), 0),
-		["Arctic Cap"] = CFrame.new(0, -0.3, 0) * CFrame.Angles(0, math.rad(-90), 0),
-		["Witch Hat Brown"] = CFrame.new(0, 0.5, 0) * CFrame.Angles(0, math.rad(90), 0),
+		["Arctic Cap"] = CFrame.new(0, -0.3, 0) * CFrame.Angles(0, math.rad(90), 0),
+		["Witch Hat Brown"] = CFrame.new(0, 0.5, 0) * CFrame.Angles(0, math.rad(-90), 0),
 	}
 
 	-- Cosmetics that don't live under ReplicatedStorage.game.Cosmetics.cosmetics
@@ -1837,9 +1837,36 @@ do
 			end
 
 			-- Classic clothing (Shirt/Pants): wear it as a texture so it fits the body
-			-- exactly and deforms with the limbs, just like the game's own clothing
-			local clothing = template:IsA(cfg.clothingClass) and template or template:FindFirstChildWhichIsA(cfg.clothingClass)
-			if clothing and #collectParts(template) == 0 then
+			-- exactly and deforms with the limbs, just like the game's own clothing.
+			-- Some models nest the clothing object or bundle 3D parts with it, so
+			-- search the whole template instead of only its direct children.
+			local clothing = template:IsA(cfg.clothingClass) and template or nil
+			if not clothing then
+				for _, desc in ipairs(template:GetDescendants()) do
+					if desc:IsA(cfg.clothingClass) then
+						clothing = desc
+						break
+					end
+				end
+			end
+
+			local clothingTemplate = clothing and clothing[cfg.clothingClass .. "Template"] or nil
+			-- Pants (preferClothing) always wear as classic clothing so they behave
+			-- exactly like the player's own pants; fall back to a texture asset on
+			-- the model when it doesn't ship a clothing object.
+			if not clothingTemplate and cfg.preferClothing then
+				for _, desc in ipairs(template:GetDescendants()) do
+					if desc:IsA("Decal") or desc:IsA("Texture") then
+						local tex = desc.Texture
+						if typeof(tex) == "string" and tex ~= "" then
+							clothingTemplate = tex
+							break
+						end
+					end
+				end
+			end
+
+			if clothingTemplate and (cfg.preferClothing or #collectParts(template) == 0) then
 				activeIsClothing = true
 				local item = character:FindFirstChildOfClass(cfg.clothingClass)
 				if not item then
@@ -1850,7 +1877,7 @@ do
 				if clothingStore == nil then
 					clothingStore = item[cfg.clothingClass .. "Template"]
 				end
-				item[cfg.clothingClass .. "Template"] = clothing[cfg.clothingClass .. "Template"]
+				item[cfg.clothingClass .. "Template"] = clothingTemplate
 				worn[name] = true
 				return
 			end
@@ -2170,6 +2197,7 @@ do
 		attribute = "XenoPantsWear",
 		weldName = "XenoPantsWeld",
 		clothingClass = "Pants",
+		preferClothing = true,
 		deform = true,
 		paths = {
 			["Admin Pants"] = {"game", "Items", "models", "Admin Pants"},
@@ -2359,7 +2387,7 @@ FunLeft:AddCheckbox("TouchFling", {
 
 FunLeft:AddSlider("TouchFlingPower", {
 	Text = "Fling Power",
-	Default = 5000,
+	Default = 100,
 	Min = 50,
 	Max = 5000,
 	Rounding = 0,
@@ -4067,6 +4095,12 @@ CombatCamlockConfig:AddSlider("CamlockPrediction", {
 	Max = 2,
 	Rounding = 2,
 	Compact = true,
+})
+
+CombatCamlockConfig:AddDropdown("CamlockPriority", {
+	Text = "Target Priority",
+	Values = {"Normal", "Lowest HP Kill", "Highest HP Kill"},
+	Default = "Normal",
 })
 
 CombatCamlockConfig:AddCheckbox("CamlockPull", {
@@ -5917,6 +5951,7 @@ Toggles.Camlock:OnChanged(function()
 			local maxDist = Options.CamlockStuds and Options.CamlockStuds.Value or 20
 			local myPos = root.Position
 			local targetSetting = Options.CamlockTarget and Options.CamlockTarget.Value or "All"
+			local camlockPriority = (Options.CamlockPriority and Options.CamlockPriority.Value) or "Normal"
 			local ignoreTeam = Toggles.CamlockIgnoreTeam and Toggles.CamlockIgnoreTeam.Value
 			local ignoreAlly = Toggles.CamlockIgnoreAlly and Toggles.CamlockIgnoreAlly.Value
 			local excludedTeams = Options.CamlockIgnoreTeams and Options.CamlockIgnoreTeams.Value or {}
@@ -5972,14 +6007,24 @@ Toggles.Camlock:OnChanged(function()
 			local camlockNow = os.clock()
 			if not camlockTarget or camlockNow >= camlockNextPick then
 				camlockNextPick = camlockNow + 0.1
-				local bestPlayer, bestDist = nil, math.huge
+				local bestPlayer, bestDist, bestHealth = nil, math.huge, nil
 				for _, otherPlayer in ipairs(camlockPlayers) do
 					local ok, otherRoot = camlockTargetValid(otherPlayer)
 					if ok then
 						local dist = (otherRoot.Position - myPos).Magnitude
-						if dist <= maxDist and dist < bestDist then
-							bestDist = dist
-							bestPlayer = otherPlayer
+						if dist <= maxDist then
+							if camlockPriority == "Lowest HP Kill" or camlockPriority == "Highest HP Kill" then
+								local hum = otherPlayer.Character and otherPlayer.Character:FindFirstChildOfClass("Humanoid")
+								local hp = hum and hum.Health or math.huge
+								if bestPlayer == nil
+									or (camlockPriority == "Lowest HP Kill" and hp < bestHealth)
+									or (camlockPriority == "Highest HP Kill" and hp > bestHealth) then
+									bestPlayer, bestHealth = otherPlayer, hp
+								end
+							elseif dist < bestDist then
+								bestDist = dist
+								bestPlayer = otherPlayer
+							end
 						end
 					end
 				end
@@ -9878,10 +9923,10 @@ VisualFPS:AddToggle("FullBright", {
 		pcall(function()
 			local lighting = game:GetService("Lighting")
 			if state then
-				lighting.Brightness = 1.2
+				lighting.Brightness = 1.5
 				lighting.GlobalShadows = false
-				lighting.Ambient = Color3.new(0.55, 0.55, 0.55)
-				lighting.OutdoorAmbient = Color3.new(0.65, 0.65, 0.65)
+				lighting.Ambient = Color3.new(0.7, 0.7, 0.7)
+				lighting.OutdoorAmbient = Color3.new(0.8, 0.8, 0.8)
 			else
 				lighting.Brightness = 1
 				lighting.GlobalShadows = true
@@ -10760,7 +10805,7 @@ local function touchFlingLoop()
 		local c = LocalPlayer.Character
 		local hrp = c and c:FindFirstChild("HumanoidRootPart")
 		if hrp then
-			local power = (Options.TouchFlingPower and Options.TouchFlingPower.Value) or 5000
+			local power = (Options.TouchFlingPower and Options.TouchFlingPower.Value) or 100
 			local vel = hrp.Velocity
 			hrp.Velocity = vel * power + Vector3.new(0, power, 0)
 			RunService.RenderStepped:Wait()
@@ -11404,7 +11449,9 @@ ThemeManager:SetLibrary(Library)
 -- Set default accent and outline color
 ThemeManager:SetDefaultTheme({
 	AccentColor = "00f4ff", -- RGB(0, 244, 255)
-	OutlineColor = "242424" -- RGB(36, 36, 36)
+	OutlineColor = "242424", -- RGB(36, 36, 36)
+	MainColor = "131717", -- RGB(19, 23, 23)
+	BackgroundColor = "0c0e0e" -- RGB(12, 14, 14)
 })
 SaveManager:SetLibrary(Library)
 SaveManager:IgnoreThemeSettings()
