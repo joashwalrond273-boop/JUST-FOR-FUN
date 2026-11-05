@@ -2068,11 +2068,12 @@ do
 				end
 			end
 
-			-- Deform mode (pants): weld every piece onto the body part it
-			-- belongs to so the item bends with the limbs (walk/run) instead
-			-- of sitting rigidly on the hips. An exact name match wins;
-			-- otherwise the nearest body part is used, so a rigged model
-			-- whose pieces aren't named after the limbs still follows them.
+			-- Deform mode: weld every piece onto the body part it belongs to so
+			-- the item bends with the limbs (walk/run) instead of sitting
+			-- rigidly on the hips. An exact name match wins; otherwise the
+			-- nearest body part is used, so a rigged model whose pieces aren't
+			-- named after the limbs still follows them. deformBones limits
+			-- which bones are eligible (the shirt uses it for sleeves only).
 			local matched = {}
 			if cfg.deform then
 				-- Body parts are direct children of the character, so scanning
@@ -2098,14 +2099,31 @@ do
 						end
 					end
 					if bestPart then
-						matched[part] = true
-						local weld = Instance.new("Motor6D")
-						weld.Name = cfg.weldName .. "_" .. part.Name
-						weld.Part0 = bestPart
-						weld.Part1 = part
-						weld.C0 = bestPart.CFrame:ToObjectSpace(part.CFrame)
-						weld.C1 = CFrame.new()
-						weld.Parent = bestPart
+						-- Optional deformBones: only limb-weld pieces whose
+						-- nearest bone matches one of the given name fragments
+						-- (e.g. {"arm", "hand"} so just the sleeves follow the
+						-- arms). Anything else stays rigid on the anchor.
+						local allow = true
+						if cfg.deformBones then
+							allow = false
+							local boneName = normalizeName(bestPart.Name)
+							for _, frag in ipairs(cfg.deformBones) do
+								if string.find(boneName, frag, 1, true) then
+									allow = true
+									break
+								end
+							end
+						end
+						if allow then
+							matched[part] = true
+							local weld = Instance.new("Motor6D")
+							weld.Name = cfg.weldName .. "_" .. part.Name
+							weld.Part0 = bestPart
+							weld.Part1 = part
+							weld.C0 = bestPart.CFrame:ToObjectSpace(part.CFrame)
+							weld.C1 = CFrame.new()
+							weld.Parent = bestPart
+						end
 					end
 				end
 			end
@@ -2327,6 +2345,10 @@ do
 		attribute = "XenoBodyWear",
 		weldName = "XenoBodyWeld",
 		clothingClass = "Shirt",
+		-- Only the sleeves limb-weld to the arms so they follow a raised
+		-- weapon; the rest of the armour stays rigid on the torso.
+		deform = true,
+		deformBones = {"arm", "hand"},
 		paths = {
 			["Admin Armor"] = {"game", "Items", "models", "Admin Armor"},
 			["Target Practice"] = {"game", "Cosmetics", "cosmetics", "Target Practice"},
@@ -2337,7 +2359,7 @@ do
 				-- Lift the top (chest/shoulders) a little so it sits higher,
 				-- and stretch the bottom hem down slightly.
 				local liftTop = 0.24 * t
-				local dropBottom = -0.12 * (1 - t)
+				local dropBottom = -0.15 * (1 - t)
 				return Vector3.new(1, 1, 1), Vector3.new(0, liftTop + dropBottom, 0)
 			end,
 		},
@@ -2370,12 +2392,12 @@ do
 				-- bottom so the feet are covered, narrower at the top so the
 				-- waist fits, and the very top bends a little back.
 				local width = 1.42 - 0.47 * t
-				local lean = 0.06 * t - 0.1 * t * t * t
+				local lean = 0.07 * t - 0.1 * t * t * t
 				-- Pull the mid-section (around the knee) down a little so the
 				-- pant legs reach down instead of hanging, and drop the top.
 				local knee = math.max(0, 1 - math.abs(t - 0.4) / 0.3)
-				local down = -0.2 * knee - 0.08 * t
-				return Vector3.new(width, 1, 1.1), Vector3.new(0, down, lean)
+				local down = -0.2 * knee - 0.08 * t - 0.05
+				return Vector3.new(width, 1, 1.15), Vector3.new(0, down, lean)
 			end,
 		},
 		getTarget = function()
