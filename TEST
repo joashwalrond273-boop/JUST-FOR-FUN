@@ -2068,12 +2068,11 @@ do
 				end
 			end
 
-			-- Deform mode: weld every piece onto the body part it belongs to so
-			-- the item bends with the limbs (walk/run) instead of sitting
-			-- rigidly on the hips. An exact name match wins; otherwise the
-			-- nearest body part is used, so a rigged model whose pieces aren't
-			-- named after the limbs still follows them. deformBones limits
-			-- which bones are eligible (the shirt uses it for sleeves only).
+			-- Deform mode (pants): weld every piece onto the body part it
+			-- belongs to so the item bends with the limbs (walk/run) instead
+			-- of sitting rigidly on the hips. An exact name match wins;
+			-- otherwise the nearest body part is used, so a rigged model
+			-- whose pieces aren't named after the limbs still follows them.
 			local matched = {}
 			if cfg.deform then
 				-- Body parts are direct children of the character, so scanning
@@ -2099,31 +2098,14 @@ do
 						end
 					end
 					if bestPart then
-						-- Optional deformBones: only limb-weld pieces whose
-						-- nearest bone matches one of the given name fragments
-						-- (e.g. {"arm", "hand"} so just the sleeves follow the
-						-- arms). Anything else stays rigid on the anchor.
-						local allow = true
-						if cfg.deformBones then
-							allow = false
-							local boneName = normalizeName(bestPart.Name)
-							for _, frag in ipairs(cfg.deformBones) do
-								if string.find(boneName, frag, 1, true) then
-									allow = true
-									break
-								end
-							end
-						end
-						if allow then
-							matched[part] = true
-							local weld = Instance.new("Motor6D")
-							weld.Name = cfg.weldName .. "_" .. part.Name
-							weld.Part0 = bestPart
-							weld.Part1 = part
-							weld.C0 = bestPart.CFrame:ToObjectSpace(part.CFrame)
-							weld.C1 = CFrame.new()
-							weld.Parent = bestPart
-						end
+						matched[part] = true
+						local weld = Instance.new("Motor6D")
+						weld.Name = cfg.weldName .. "_" .. part.Name
+						weld.Part0 = bestPart
+						weld.Part1 = part
+						weld.C0 = bestPart.CFrame:ToObjectSpace(part.CFrame)
+						weld.C1 = CFrame.new()
+						weld.Parent = bestPart
 					end
 				end
 			end
@@ -2345,10 +2327,6 @@ do
 		attribute = "XenoBodyWear",
 		weldName = "XenoBodyWeld",
 		clothingClass = "Shirt",
-		-- Only the sleeves limb-weld to the arms so they follow a raised
-		-- weapon; the rest of the armour stays rigid on the torso.
-		deform = true,
-		deformBones = {"arm", "hand"},
 		paths = {
 			["Admin Armor"] = {"game", "Items", "models", "Admin Armor"},
 			["Target Practice"] = {"game", "Cosmetics", "cosmetics", "Target Practice"},
