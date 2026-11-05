@@ -1547,8 +1547,8 @@ do
 		else
 			bloom = Instance.new("BloomEffect")
 			bloom.Name = "XenoGlowBloom"
-			bloom.Intensity = 1.3
-			bloom.Size = 24
+			bloom.Intensity = 1.1
+			bloom.Size = 20
 			bloom.Threshold = 0.95
 			bloom.Parent = lighting
 		end
@@ -2359,7 +2359,7 @@ do
 			["Admin Pants"] = {"game", "Items", "models", "Admin Pants"},
 		},
 		adjust = {
-			["Admin Pants"] = CFrame.new(-0.1, -0.4, -0.25) * CFrame.Angles(0, math.rad(90), 0),
+			["Admin Pants"] = CFrame.new(-0.1, -0.45, -0.25) * CFrame.Angles(0, math.rad(90), 0),
 		},
 		stretch = {
 			["Admin Pants"] = function(_, t)
