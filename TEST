@@ -1530,37 +1530,6 @@ do
 		return (n:gsub("[%s_%-]", ""):lower())
 	end
 
-	-- Size-multiply one part on the reference frame's left/right, up/down and
-	-- forward/back axes, regardless of how the part itself is rotated.
-	local function stretchPart(part, mult, refCF)
-		local cf = part.CFrame
-		local function axisMult(axisVec)
-			if math.abs(axisVec.X) > 0.5 then return mult.X end
-			if math.abs(axisVec.Y) > 0.5 then return mult.Y end
-			return mult.Z
-		end
-		local mr = axisMult(cf:VectorToObjectSpace(refCF.RightVector))
-		local mu = axisMult(cf:VectorToObjectSpace(refCF.UpVector))
-		local mf = axisMult(cf:VectorToObjectSpace(refCF.LookVector))
-		part.Size = Vector3.new(part.Size.X * mr, part.Size.Y * mu, part.Size.Z * mf)
-	end
-
-	-- The admin set gets a soft glow.
-	local GLOW_ITEMS = {
-		["Admin Helmet"] = true,
-		["Admin Armor"] = true,
-		["Admin Pants"] = true,
-		["Admin Bag"] = true,
-	}
-
-	local function applyGlow(clone)
-		for _, part in ipairs(collectParts(clone)) do
-			part.Material = Enum.Material.Neon
-			-- Force a bright cyan glow to match the image
-			part.Color = Color3.fromRGB(0, 244, 255)
-		end
-	end
-
 	local function weldToPart(target, handle, weldName)
 		local existing = target:FindFirstChild(weldName)
 		if existing then
@@ -1634,10 +1603,6 @@ do
 		end
 
 		clone.Parent = character
-
-		if GLOW_ITEMS[name] then
-			applyGlow(clone)
-		end
 
 		-- Anchor every part and remember how each one sits relative to the
 		-- head. Anchored parts never wobble or get knocked around, and the
@@ -2069,9 +2034,6 @@ do
 			end
 
 			clone.Parent = character
-			if GLOW_ITEMS[name] then
-				applyGlow(clone)
-			end
 			if not matched[anchor] then
 				weldToPart(target, anchor, cfg.weldName .. "_" .. name)
 			end
