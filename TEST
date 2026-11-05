@@ -1468,7 +1468,7 @@ do
 		["Golden Laurel"] = CFrame.Angles(0, math.rad(90), 0),
 		["Golden Horns Of Victory"] = CFrame.new(0, 0.4, 0) * CFrame.Angles(0, math.rad(90), 0),
 		["Royal Vizier Mask"] = CFrame.new(0, 1.1, -0.6) * CFrame.Angles(0, math.rad(90), 0),
-		["Admin Helmet"] = CFrame.new(0, -0.3, 0),
+		["Admin Helmet"] = CFrame.new(0, -0.5, 0),
 		["Spikes Of Chaos"] = CFrame.new(0, -0.5, 0),
 		["Raider"] = CFrame.new(0, 0.3, 0) * CFrame.Angles(0, math.rad(-90), 0),
 		["Skeleton Crown"] = CFrame.new(0, -0.5, 0),
@@ -1487,6 +1487,12 @@ do
 		["Crown Of The Royal Dragon"] = CFrame.new(0, 0, -0.5) * CFrame.Angles(0, math.rad(90), 0),
 		["Arctic Cap"] = CFrame.new(0, -0.3, 0),
 		["Witch Hat Brown"] = CFrame.new(-0.3, 0.9, 0.4) * CFrame.Angles(0, math.rad(-90), 0),
+	}
+
+	-- Per-cosmetic (left/right, up/down, forward/back) size multipliers so a
+	-- head piece can be widened to fit better.
+	local COSMETIC_STRETCH = {
+		["Admin Helmet"] = Vector3.new(1.12, 1, 1.12),
 	}
 
 	-- Cosmetics that don't live under ReplicatedStorage.game.Cosmetics.cosmetics
@@ -1524,6 +1530,41 @@ do
 
 	local function normalizeName(n)
 		return (n:gsub("[%s_%-]", ""):lower())
+	end
+
+	-- Size-multiply one part on the reference frame's left/right, up/down and
+	-- forward/back axes, regardless of how the part itself is rotated.
+	local function stretchPart(part, mult, refCF)
+		local cf = part.CFrame
+		local function axisMult(axisVec)
+			if math.abs(axisVec.X) > 0.5 then return mult.X end
+			if math.abs(axisVec.Y) > 0.5 then return mult.Y end
+			return mult.Z
+		end
+		local mr = axisMult(cf:VectorToObjectSpace(refCF.RightVector))
+		local mu = axisMult(cf:VectorToObjectSpace(refCF.UpVector))
+		local mf = axisMult(cf:VectorToObjectSpace(refCF.LookVector))
+		part.Size = Vector3.new(part.Size.X * mr, part.Size.Y * mu, part.Size.Z * mf)
+	end
+
+	-- The admin set gets a soft glow.
+	local GLOW_ITEMS = {
+		["Admin Helmet"] = true,
+		["Admin Armor"] = true,
+		["Admin Pants"] = true,
+		["Admin Bag"] = true,
+	}
+
+	local function applyGlow(clone)
+		local highlight = Instance.new("Highlight")
+		highlight.Name = "XenoGlow"
+		highlight.Adornee = clone
+		highlight.FillColor = Color3.fromRGB(255, 255, 255)
+		highlight.FillTransparency = 0.75
+		highlight.OutlineColor = Color3.fromRGB(0, 244, 255)
+		highlight.OutlineTransparency = 0.15
+		highlight.DepthMode = Enum.HighlightDepthMode.Occluded
+		highlight.Parent = clone
 	end
 
 	local function weldToPart(target, handle, weldName)
@@ -1598,7 +1639,18 @@ do
 			end
 		end
 
+		local stretchMult = COSMETIC_STRETCH[name]
+		if stretchMult then
+			for _, part in ipairs(parts) do
+				stretchPart(part, stretchMult, head.CFrame)
+			end
+		end
+
 		clone.Parent = character
+
+		if GLOW_ITEMS[name] then
+			applyGlow(clone)
+		end
 
 		-- Anchor every part and remember how each one sits relative to the
 		-- head. Anchored parts never wobble or get knocked around, and the
@@ -2030,6 +2082,9 @@ do
 			end
 
 			clone.Parent = character
+			if GLOW_ITEMS[name] then
+				applyGlow(clone)
+			end
 			if not matched[anchor] then
 				weldToPart(target, anchor, cfg.weldName .. "_" .. name)
 			end
@@ -2235,7 +2290,7 @@ do
 		stretch = {
 			["Admin Armor"] = function(_, t)
 				-- Lift the top (chest/shoulders) a little so it sits higher.
-				return Vector3.new(1, 1, 1), Vector3.new(0, 0.1 * t, 0)
+				return Vector3.new(1, 1, 1), Vector3.new(0, 0.18 * t, 0)
 			end,
 		},
 		getTarget = function()
