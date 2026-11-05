@@ -2395,12 +2395,12 @@ do
 				-- doesn't pull away from it when the legs swing during jumps
 				-- and swimming, just a little lower than the top.
 				local knee = math.max(0, 1 - math.abs(t - 0.4) / 0.3)
-				-- Extra lift right at the mid-to-top join so the two sections
-				-- overlap and don't split open when the legs swing.
+				-- Lift right at the mid-to-top join so the two sections
+				-- overlap and stay together at the thigh when the legs swing.
 				local seam = math.max(0, 1 - math.abs(t - 0.6) / 0.25)
 				-- Hem sits a touch higher, the knee section sits a little below
 				-- the waist and the waist drops a little more.
-				local down = -0.08 * knee - 0.10 * t - 0.09 * seam
+				local down = -0.02 * knee - 0.10 * t - 0.03 * seam
 				return Vector3.new(width, 1, 1.15), Vector3.new(0, down, lean)
 			end,
 		},
