@@ -2052,19 +2052,25 @@ do
 			-- tapered (e.g. wide at the hems, narrow at the waist). The
 			-- multiplier is applied on the character's axes regardless of how
 			-- the model itself is rotated.
+			-- Vertical span of the item: t = 0 at the bottom, 1 at the top.
+			-- Cached per part so the stretch and the deform split agree.
+			local minY, maxY = math.huge, -math.huge
+			for _, part in ipairs(parts) do
+				local y = part.Position.Y
+				if y < minY then minY = y end
+				if y > maxY then maxY = y end
+			end
+			local span = math.max(maxY - minY, 0.001)
+			local partT = {}
+
 			local stretch = cfg.stretch and cfg.stretch[name]
 			if stretch then
-				local minY, maxY = math.huge, -math.huge
 				for _, part in ipairs(parts) do
-					local y = part.Position.Y
-					if y < minY then minY = y end
-					if y > maxY then maxY = y end
-				end
-				local span = math.max(maxY - minY, 0.001)
-				for _, part in ipairs(parts) do
+					local t = (part.Position.Y - minY) / span
+					partT[part] = t
 					local mult, shift = stretch, nil
 					if typeof(stretch) == "function" then
-						mult, shift = stretch(part, (part.Position.Y - minY) / span)
+						mult, shift = stretch(part, t)
 					end
 					if mult and mult ~= Vector3.new(1, 1, 1) then
 						local cf = part.CFrame
@@ -2102,18 +2108,32 @@ do
 						table.insert(bodyParts, obj)
 					end
 				end
+				-- Pieces at or above the split height are pinned to one body
+				-- part so the mid-to-top section stays together as a unit
+				-- instead of splitting open when the legs swing.
+				local topPart = nil
+				if cfg.deformTop then
+					topPart = character:FindFirstChild(cfg.deformTop.part or "LowerTorso")
+						or character:FindFirstChild("UpperTorso")
+						or character:FindFirstChild("Torso")
+						or character:FindFirstChild("Hips")
+				end
 				for _, part in ipairs(parts) do
-					local nname = normalizeName(part.Name)
 					local bestPart, bestDist
-					for _, bodyPart in ipairs(bodyParts) do
-						if normalizeName(bodyPart.Name) == nname then
-							bestPart, bestDist = bodyPart, -1
-							break
-						end
-						local dist = (bodyPart.Position - part.Position).Magnitude
-						if not bestDist or dist < bestDist then
-							bestPart = bodyPart
-							bestDist = dist
+					if topPart and partT[part] and partT[part] >= cfg.deformTop.t then
+						bestPart = topPart
+					else
+						local nname = normalizeName(part.Name)
+						for _, bodyPart in ipairs(bodyParts) do
+							if normalizeName(bodyPart.Name) == nname then
+								bestPart, bestDist = bodyPart, -1
+								break
+							end
+							local dist = (bodyPart.Position - part.Position).Magnitude
+							if not bestDist or dist < bestDist then
+								bestPart = bodyPart
+								bestDist = dist
+							end
 						end
 					end
 					if bestPart then
@@ -2378,6 +2398,7 @@ do
 		weldName = "XenoPantsWeld",
 		clothingClass = "Pants",
 		deform = true,
+		deformTop = { t = 0.35, part = "LowerTorso" },
 		paths = {
 			["Admin Pants"] = {"game", "Items", "models", "Admin Pants"},
 		},
