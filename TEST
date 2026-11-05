@@ -1468,7 +1468,7 @@ do
 		["Golden Laurel"] = CFrame.Angles(0, math.rad(90), 0),
 		["Golden Horns Of Victory"] = CFrame.new(0, 0.4, 0) * CFrame.Angles(0, math.rad(90), 0),
 		["Royal Vizier Mask"] = CFrame.new(0, 1.1, -0.6) * CFrame.Angles(0, math.rad(90), 0),
-		["Admin Helmet"] = CFrame.new(0, -0.65, 0),
+		["Admin Helmet"] = CFrame.new(0, -0.6, 0),
 		["Spikes Of Chaos"] = CFrame.new(0, -0.5, 0),
 		["Raider"] = CFrame.new(0, 0.3, 0) * CFrame.Angles(0, math.rad(-90), 0),
 		["Skeleton Crown"] = CFrame.new(0, -0.5, 0),
@@ -1547,9 +1547,9 @@ do
 		else
 			bloom = Instance.new("BloomEffect")
 			bloom.Name = "XenoGlowBloom"
-			bloom.Intensity = 1.5
-			bloom.Size = 28
-			bloom.Threshold = 0.85
+			bloom.Intensity = 1.3
+			bloom.Size = 24
+			bloom.Threshold = 0.95
 			bloom.Parent = lighting
 		end
 	end
@@ -1560,6 +1560,55 @@ do
 		ensureBloom()
 		part:SetAttribute("XenoGlow", true)
 		part.Material = Enum.Material.Neon
+	end
+
+	-- Hide the character's own hair (workspace.Characters.<name>.avatarHair)
+	-- while the Admin Helmet is worn, so it doesn't poke through the helmet.
+	local function findAvatarHair()
+		local containers = {}
+		local charFolder = workspace:FindFirstChild("Characters")
+		if charFolder then
+			local model = charFolder:FindFirstChild(LocalPlayer.Name)
+			if model then table.insert(containers, model) end
+		end
+		local character = getCharacter()
+		if character then table.insert(containers, character) end
+		for _, container in ipairs(containers) do
+			local hair = container:FindFirstChild("avatarHair")
+			if hair then return hair end
+		end
+		return nil
+	end
+
+	local function syncAvatarHair()
+		local hair = findAvatarHair()
+		if not hair then return end
+		local hidden = activeCosmetics["Admin Helmet"] ~= nil
+
+		local function applyPart(part)
+			if hidden then
+				if part:GetAttribute("XenoHairTransparency") == nil then
+					part:SetAttribute("XenoHairTransparency", part.Transparency)
+				end
+				part.Transparency = 1
+			else
+				local original = part:GetAttribute("XenoHairTransparency")
+				if original ~= nil then
+					part.Transparency = original
+					part:SetAttribute("XenoHairTransparency", nil)
+				end
+			end
+		end
+
+		if hair:IsA("BasePart") then
+			applyPart(hair)
+		else
+			for _, desc in ipairs(hair:GetDescendants()) do
+				if desc:IsA("BasePart") then
+					applyPart(desc)
+				end
+			end
+		end
 	end
 
 	local function normalizeName(n)
@@ -1742,6 +1791,8 @@ do
 			end
 		end
 
+		syncAvatarHair()
+
 		if next(activeCosmetics) == nil then
 			return
 		end
@@ -1754,6 +1805,7 @@ do
 			for name in pairs(activeCosmetics) do
 				wearCosmetic(name)
 			end
+			syncAvatarHair()
 		end))
 
 		-- Glue the pieces back onto the head every frame, and make sure the
@@ -1765,6 +1817,8 @@ do
 			local now = os.clock()
 			if now - lastCheck < 0.5 then return end
 			lastCheck = now
+
+			syncAvatarHair()
 
 			for _, frames in pairs(activeCosmetics) do
 				for _, entry in ipairs(frames) do
@@ -2305,14 +2359,14 @@ do
 			["Admin Pants"] = {"game", "Items", "models", "Admin Pants"},
 		},
 		adjust = {
-			["Admin Pants"] = CFrame.new(-0.1, -0.45, -0.25) * CFrame.Angles(0, math.rad(90), 0),
+			["Admin Pants"] = CFrame.new(-0.1, -0.4, -0.25) * CFrame.Angles(0, math.rad(90), 0),
 		},
 		stretch = {
 			["Admin Pants"] = function(_, t)
 				-- t = 0 at the hems, 1 at the waist: wider and deeper at the
 				-- bottom so the feet are covered, narrower at the top so the
 				-- waist fits, and the very top bends a little back.
-				local width = 1.47 - 0.49 * t
+				local width = 1.42 - 0.44 * t
 				local lean = 0.05 * t - 0.1 * t * t * t
 				return Vector3.new(width, 1, 1.1), Vector3.new(0, 0, lean)
 			end,
