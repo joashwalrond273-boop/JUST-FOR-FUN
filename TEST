@@ -2357,7 +2357,7 @@ do
 				-- Lift the top (chest/shoulders) a little so it sits higher,
 				-- and stretch the bottom hem down slightly.
 				local liftTop = 0.24 * t
-				local dropBottom = -0.15 * (1 - t)
+				local dropBottom = -0.20 * (1 - t)
 				return Vector3.new(1, 1, 1), Vector3.new(0, liftTop + dropBottom, 0)
 			end,
 		},
@@ -2399,8 +2399,8 @@ do
 				-- overlap and don't split open when the legs swing.
 				local seam = math.max(0, 1 - math.abs(t - 0.6) / 0.25)
 				-- Hem sits a touch higher, the knee section sits a little below
-				-- the waist and the waist drops a little.
-				local down = -0.08 * knee - 0.08 * t - 0.09 * seam
+				-- the waist and the waist drops a little more.
+				local down = -0.08 * knee - 0.10 * t - 0.09 * seam
 				return Vector3.new(width, 1, 1.15), Vector3.new(0, down, lean)
 			end,
 		},
@@ -2439,6 +2439,12 @@ do
 			["Royal Embroidered Cape"] = CFrame.new(0, -1.1, 2.0) * CFrame.Angles(0, math.rad(90), 0),
 			["Angelic Wings"] = CFrame.new(0, 0, 1.1) * CFrame.Angles(0, math.rad(90), 0),
 			["Demonic Wings"] = CFrame.new(0, 0, 1.1) * CFrame.Angles(0, math.rad(90), 0),
+		},
+		stretch = {
+			["Admin Bag"] = function(_, t)
+				-- Hang the bag a bit lower so it stretches down the back.
+				return Vector3.new(1, 1, 1), Vector3.new(0, -0.3 * (1 - t), 0)
+			end,
 		},
 		getTarget = function()
 			local character = getCharacter()
