@@ -2334,8 +2334,11 @@ do
 		adjust = {},
 		stretch = {
 			["Admin Armor"] = function(_, t)
-				-- Lift the top (chest/shoulders) a little so it sits higher.
-				return Vector3.new(1, 1, 1), Vector3.new(0, 0.24 * t, 0)
+				-- Lift the top (chest/shoulders) a little so it sits higher,
+				-- and stretch the bottom hem down slightly.
+				local liftTop = 0.24 * t
+				local dropBottom = -0.12 * (1 - t)
+				return Vector3.new(1, 1, 1), Vector3.new(0, liftTop + dropBottom, 0)
 			end,
 		},
 		getTarget = function()
@@ -2366,12 +2369,12 @@ do
 				-- t = 0 at the hems, 1 at the waist: wider and deeper at the
 				-- bottom so the feet are covered, narrower at the top so the
 				-- waist fits, and the very top bends a little back.
-				local width = 1.42 - 0.44 * t
-				local lean = 0.05 * t - 0.1 * t * t * t
+				local width = 1.42 - 0.47 * t
+				local lean = 0.06 * t - 0.1 * t * t * t
 				-- Pull the mid-section (around the knee) down a little so the
-				-- pant legs reach down instead of hanging.
+				-- pant legs reach down instead of hanging, and drop the top.
 				local knee = math.max(0, 1 - math.abs(t - 0.4) / 0.3)
-				local down = -0.2 * knee
+				local down = -0.2 * knee - 0.08 * t
 				return Vector3.new(width, 1, 1.1), Vector3.new(0, down, lean)
 			end,
 		},
