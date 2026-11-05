@@ -2334,8 +2334,11 @@ do
 		adjust = {},
 		stretch = {
 			["Admin Armor"] = function(_, t)
-				-- Lift the top (chest/shoulders) a little so it sits higher.
-				return Vector3.new(1, 1, 1), Vector3.new(0, 0.18 * t, 0)
+				-- Lift the top (chest/shoulders) a little so it sits higher,
+				-- and stretch the bottom hem down slightly.
+				local liftTop = 0.24 * t
+				local dropBottom = -0.15 * (1 - t)
+				return Vector3.new(1, 1, 1), Vector3.new(0, liftTop + dropBottom, 0)
 			end,
 		},
 		getTarget = function()
