@@ -2098,45 +2098,14 @@ do
 						end
 					end
 					if bestPart then
-						-- Optional deformBones: bind arm pieces to a bone from
-						-- the fragment list, tried in order, so the shirt can
-						-- pivot its sleeves at the shoulder (connected) rather
-						-- than the wrist/elbow. Only pieces past the torso's
-						-- side are considered so chest panels stay put.
-						local allow = true
-						if cfg.deformBones then
-							allow = false
-							local localX = target.CFrame:PointToObjectSpace(part.Position).X
-							if math.abs(localX) > target.Size.X * 0.35 then
-								for _, frag in ipairs(cfg.deformBones) do
-									local bonePart, boneDist
-									for _, bodyPart in ipairs(bodyParts) do
-										local boneName = normalizeName(bodyPart.Name)
-										if string.find(boneName, frag, 1, true) then
-											local dist = (bodyPart.Position - part.Position).Magnitude
-											if not boneDist or dist < boneDist then
-												bonePart, boneDist = bodyPart, dist
-											end
-										end
-									end
-									if bonePart then
-										bestPart = bonePart
-										allow = true
-										break
-									end
-								end
-							end
-						end
-						if allow then
-							matched[part] = true
-							local weld = Instance.new("Motor6D")
-							weld.Name = cfg.weldName .. "_" .. part.Name
-							weld.Part0 = bestPart
-							weld.Part1 = part
-							weld.C0 = bestPart.CFrame:ToObjectSpace(part.CFrame)
-							weld.C1 = CFrame.new()
-							weld.Parent = bestPart
-						end
+						matched[part] = true
+						local weld = Instance.new("Motor6D")
+						weld.Name = cfg.weldName .. "_" .. part.Name
+						weld.Part0 = bestPart
+						weld.Part1 = part
+						weld.C0 = bestPart.CFrame:ToObjectSpace(part.CFrame)
+						weld.C1 = CFrame.new()
+						weld.Parent = bestPart
 					end
 				end
 			end
@@ -2358,10 +2327,6 @@ do
 		attribute = "XenoBodyWear",
 		weldName = "XenoBodyWeld",
 		clothingClass = "Shirt",
-		-- Sleeves bind to the shoulder bone (upper arm) so they lift with the
-		-- arm while staying attached at the shoulder; torso panels stay put.
-		deform = true,
-		deformBones = {"upperarm", "arm"},
 		paths = {
 			["Admin Armor"] = {"game", "Items", "models", "Admin Armor"},
 			["Target Practice"] = {"game", "Cosmetics", "cosmetics", "Target Practice"},
@@ -2369,11 +2334,8 @@ do
 		adjust = {},
 		stretch = {
 			["Admin Armor"] = function(_, t)
-				-- Lift the top (chest/shoulders) a little so it sits higher,
-				-- and stretch the bottom hem down slightly.
-				local liftTop = 0.24 * t
-				local dropBottom = -0.15 * (1 - t)
-				return Vector3.new(1, 1, 1), Vector3.new(0, liftTop + dropBottom, 0)
+				-- Lift the top (chest/shoulders) a little so it sits higher.
+				return Vector3.new(1, 1, 1), Vector3.new(0, 0.18 * t, 0)
 			end,
 		},
 		getTarget = function()
