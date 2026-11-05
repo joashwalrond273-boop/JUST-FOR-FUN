@@ -8497,6 +8497,53 @@ OreFarm:AddSlider("OreESPDistance", {
 	Compact = true,
 })
 
+OreFarm:AddCheckbox("OreTeleportAll", {
+	Text = "Teleport To Ores",
+	Default = false,
+})
+
+local ORE_TELEPORT_DELAY = 0.15
+local oreTeleportIndex = 0
+local oreTeleportLast = 0
+
+Toggles.OreTeleportAll:OnChanged(function()
+	disconnect("OreTeleportAll")
+	oreTeleportIndex = 0
+	oreTeleportLast = 0
+	if Toggles.OreTeleportAll.Value then
+		Library:Notify({ Title = "Ore Teleport", Description = "Enabled", Time = 2 })
+		track("OreTeleportAll", RunService.Heartbeat:Connect(function()
+			if not isAlive() then return end
+			if tick() - oreTeleportLast < ORE_TELEPORT_DELAY then return end
+			local root = getRootPart()
+			if not root then return end
+			local folder = workspace:FindFirstChild("worldResources") and workspace.worldResources:FindFirstChild("mineable")
+			if not folder then return end
+
+			local ores = {}
+			for _, chunk in ipairs(folder:GetChildren()) do
+				if chunk:IsA("Folder") then
+					for _, obj in ipairs(chunk:GetChildren()) do
+						if obj and obj.Parent then
+							local anchor = obj:IsA("Model") and (obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")) or (obj:IsA("BasePart") and obj)
+							if anchor then
+								table.insert(ores, anchor)
+							end
+						end
+					end
+				end
+			end
+			if #ores == 0 then return end
+
+			oreTeleportLast = tick()
+			oreTeleportIndex = oreTeleportIndex % #ores + 1
+			root.CFrame = CFrame.new(ores[oreTeleportIndex].Position + Vector3.new(0, 3, 0))
+		end))
+	else
+		Library:Notify({ Title = "Ore Teleport", Description = "Disabled", Time = 2 })
+	end
+end)
+
 -- ==========================================
 -- Aura highlights (one per aura type, created after makeAuraHighlight is defined)
 local hlMine = makeAuraHighlight(Options.HighlightMineColor and Options.HighlightMineColor.Value)
