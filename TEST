@@ -2261,7 +2261,7 @@ do
 				-- bottom so the feet are covered, narrower at the top so the
 				-- waist fits, and the very top bends a little back.
 				local width = 1.47 - 0.49 * t
-				local lean = 0.05 * t - 0.07 * t * t * t
+				local lean = 0.05 * t - 0.1 * t * t * t
 				return Vector3.new(width, 1, 1.1), Vector3.new(0, 0, lean)
 			end,
 		},
