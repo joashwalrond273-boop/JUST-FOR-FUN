@@ -1929,6 +1929,26 @@ do
 				end
 			end
 
+			-- Optional per-item stretch: a (left/right, up/down, forward/back)
+			-- size multiplier so a piece can be widened to cover the body.
+			-- The multiplier is applied on the character's axes regardless of
+			-- how the model itself is rotated.
+			local stretch = cfg.stretch and cfg.stretch[name]
+			if stretch then
+				local function axisMult(axisVec)
+					if math.abs(axisVec.X) > 0.5 then return stretch.X end
+					if math.abs(axisVec.Y) > 0.5 then return stretch.Y end
+					return stretch.Z
+				end
+				for _, part in ipairs(parts) do
+					local cf = part.CFrame
+					local mr = axisMult(cf:VectorToObjectSpace(target.CFrame.RightVector))
+					local mu = axisMult(cf:VectorToObjectSpace(target.CFrame.UpVector))
+					local mf = axisMult(cf:VectorToObjectSpace(target.CFrame.LookVector))
+					part.Size = Vector3.new(part.Size.X * mr, part.Size.Y * mu, part.Size.Z * mf)
+				end
+			end
+
 			-- Deform mode (pants): weld every piece onto the body part it
 			-- belongs to so the item bends with the limbs (walk/run) instead
 			-- of sitting rigidly on the hips. An exact name match wins;
@@ -2209,7 +2229,10 @@ do
 			["Admin Pants"] = {"game", "Items", "models", "Admin Pants"},
 		},
 		adjust = {
-			["Admin Pants"] = CFrame.new(-0.2, -0.45, -0.25) * CFrame.Angles(0, math.rad(90), 0),
+			["Admin Pants"] = CFrame.new(-0.1, -0.45, -0.25) * CFrame.Angles(0, math.rad(90), 0),
+		},
+		stretch = {
+			["Admin Pants"] = Vector3.new(1.15, 1, 1),
 		},
 		getTarget = function()
 			local character = getCharacter()
