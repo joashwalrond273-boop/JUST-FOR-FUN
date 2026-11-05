@@ -2232,6 +2232,12 @@ do
 			["Target Practice"] = {"game", "Cosmetics", "cosmetics", "Target Practice"},
 		},
 		adjust = {},
+		stretch = {
+			["Admin Armor"] = function(_, t)
+				-- Lift the top (chest/shoulders) a little so it sits higher.
+				return Vector3.new(1, 1, 1), Vector3.new(0, 0.1 * t, 0)
+			end,
+		},
 		getTarget = function()
 			local character = getCharacter()
 			if not character then return nil end
