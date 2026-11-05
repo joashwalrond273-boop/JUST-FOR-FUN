@@ -2077,17 +2077,10 @@ do
 			if cfg.deform then
 				-- Body parts are direct children of the character, so scanning
 				-- children is enough and far cheaper than GetDescendants.
-				-- The foot bones are excluded: a piece bound to an ankle swings
-				-- with every footstep and the feet slowly stretch out of shape,
-				-- so the lower leg (or the hips) is the closest bone a piece is
-				-- allowed to follow instead.
 				local bodyParts = {}
 				for _, obj in ipairs(character:GetChildren()) do
 					if obj:IsA("BasePart") then
-						local nname = normalizeName(obj.Name)
-						if nname ~= "leftfoot" and nname ~= "rightfoot" then
-							table.insert(bodyParts, obj)
-						end
+						table.insert(bodyParts, obj)
 					end
 				end
 				for _, part in ipairs(parts) do
@@ -2106,13 +2099,8 @@ do
 					end
 					if bestPart then
 						matched[part] = true
-						local weldName = cfg.weldName .. "_" .. part.Name
-						-- Drop a leftover joint from a previous wear so two
-						-- joints can never fight over the same piece.
-						local old = bestPart:FindFirstChild(weldName)
-						if old then old:Destroy() end
 						local weld = Instance.new("Motor6D")
-						weld.Name = weldName
+						weld.Name = cfg.weldName .. "_" .. part.Name
 						weld.Part0 = bestPart
 						weld.Part1 = part
 						weld.C0 = bestPart.CFrame:ToObjectSpace(part.CFrame)
@@ -2369,6 +2357,7 @@ do
 		attribute = "XenoPantsWear",
 		weldName = "XenoPantsWeld",
 		clothingClass = "Pants",
+		deform = true,
 		paths = {
 			["Admin Pants"] = {"game", "Items", "models", "Admin Pants"},
 		},
