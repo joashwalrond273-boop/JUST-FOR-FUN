@@ -1468,7 +1468,7 @@ do
 		["Golden Laurel"] = CFrame.Angles(0, math.rad(90), 0),
 		["Golden Horns Of Victory"] = CFrame.new(0, 0.4, 0) * CFrame.Angles(0, math.rad(90), 0),
 		["Royal Vizier Mask"] = CFrame.new(0, 1.1, -0.6) * CFrame.Angles(0, math.rad(90), 0),
-		["Admin Helmet"] = CFrame.new(0, -0.5, 0),
+		["Admin Helmet"] = CFrame.new(0, -0.65, 0),
 		["Spikes Of Chaos"] = CFrame.new(0, -0.5, 0),
 		["Raider"] = CFrame.new(0, 0.3, 0) * CFrame.Angles(0, math.rad(-90), 0),
 		["Skeleton Crown"] = CFrame.new(0, -0.5, 0),
@@ -1556,15 +1556,10 @@ do
 
 	local function applyGlow(part)
 		if not part:IsA("BasePart") then return end
-		if part:FindFirstChild("XenoGlow") then return end
+		if part:GetAttribute("XenoGlow") then return end
 		ensureBloom()
-		local light = Instance.new("PointLight")
-		light.Name = "XenoGlow"
-		light.Color = Color3.fromRGB(0, 244, 255)
-		light.Brightness = 2
-		light.Range = 7
-		light.Shadows = false
-		light.Parent = part
+		part:SetAttribute("XenoGlow", true)
+		part.Material = Enum.Material.Neon
 	end
 
 	local function normalizeName(n)
@@ -2286,7 +2281,7 @@ do
 		stretch = {
 			["Admin Armor"] = function(_, t)
 				-- Lift the top (chest/shoulders) a little so it sits higher.
-				return Vector3.new(1, 1, 1), Vector3.new(0, 0.18 * t, 0)
+				return Vector3.new(1, 1, 1), Vector3.new(0, 0.24 * t, 0)
 			end,
 		},
 		getTarget = function()
