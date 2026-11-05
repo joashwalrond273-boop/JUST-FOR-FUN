@@ -2459,12 +2459,6 @@ do
 			["Angelic Wings"] = CFrame.new(0, 0, 1.1) * CFrame.Angles(0, math.rad(90), 0),
 			["Demonic Wings"] = CFrame.new(0, 0, 1.1) * CFrame.Angles(0, math.rad(90), 0),
 		},
-		stretch = {
-			["Admin Bag"] = function(_, t)
-				-- Hang the bag a bit lower so it stretches down the back.
-				return Vector3.new(1, 1, 1), Vector3.new(0, -0.3 * (1 - t), 0)
-			end,
-		},
 		getTarget = function()
 			local character = getCharacter()
 			if not character then return nil end
@@ -8525,6 +8519,120 @@ OreFarm:AddSlider("OreESPDistance", {
 	Compact = true,
 })
 
+OreFarm:AddCheckbox("TeleportToEveryOre", {
+	Text = "Teleport to Every Ore",
+	Default = false,
+})
+
+local isTeleportingToOres = false
+local teleportOresThread = nil
+
+local function getMineableFolder()
+	local folder = workspace:FindFirstChild("worldResources") and workspace.worldResources:FindFirstChild("mineable")
+	if not folder then
+		folder = workspace:FindFirstChild("mineable")
+	end
+	return folder
+end
+
+local function getOreAnchor(obj)
+	if not obj or not obj.Parent then return nil end
+	if obj:IsA("Model") then
+		return obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
+	elseif obj:IsA("BasePart") then
+		return obj
+	end
+	return nil
+end
+
+local function getAllMineableOres()
+	local folder = getMineableFolder()
+	if not folder then return {} end
+
+	local ores = {}
+	for _, chunkFolder in ipairs(folder:GetChildren()) do
+		if chunkFolder:IsA("Folder") then
+			for _, obj in ipairs(chunkFolder:GetChildren()) do
+				if obj and obj.Parent then
+					local anchor = getOreAnchor(obj)
+					if anchor then
+						table.insert(ores, { obj = obj, anchor = anchor })
+					end
+				end
+			end
+		else
+			local anchor = getOreAnchor(chunkFolder)
+			if anchor then
+				table.insert(ores, { obj = chunkFolder, anchor = anchor })
+			end
+		end
+	end
+	return ores
+end
+
+Toggles.TeleportToEveryOre:OnChanged(function()
+	if not Toggles.TeleportToEveryOre.Value then
+		isTeleportingToOres = false
+		if teleportOresThread then
+			pcall(task.cancel, teleportOresThread)
+			teleportOresThread = nil
+		end
+		Library:Notify({ Title = "Teleport", Description = "Teleport to ores disabled.", Time = 2 })
+		return
+	end
+
+	local folder = getMineableFolder()
+	if not folder then
+		Library:Notify({ Title = "Teleport", Description = "Mineable folder not found.", Time = 3 })
+		Toggles.TeleportToEveryOre:SetValue(false)
+		return
+	end
+
+	isTeleportingToOres = true
+	Library:Notify({ Title = "Teleport", Description = "Teleporting to every ore...", Time = 2 })
+
+	teleportOresThread = task.spawn(function()
+		while isTeleportingToOres and Toggles.TeleportToEveryOre and Toggles.TeleportToEveryOre.Value do
+			local ores = getAllMineableOres()
+			if #ores == 0 then
+				Library:Notify({ Title = "Teleport", Description = "No ores found in mineable folder.", Time = 3 })
+				Toggles.TeleportToEveryOre:SetValue(false)
+				break
+			end
+
+			for _, item in ipairs(ores) do
+				if not isTeleportingToOres or not (Toggles.TeleportToEveryOre and Toggles.TeleportToEveryOre.Value) then
+					break
+				end
+
+				while isTeleportingToOres and Toggles.TeleportToEveryOre and Toggles.TeleportToEveryOre.Value and not isAlive() do
+					task.wait(0.5)
+				end
+
+				if not isTeleportingToOres or not (Toggles.TeleportToEveryOre and Toggles.TeleportToEveryOre.Value) then
+					break
+				end
+
+				local obj = item.obj
+				local anchor = item.anchor
+				if obj and obj.Parent and anchor and anchor.Parent then
+					local root = getRootPart()
+					if root then
+						pcall(function()
+							root.CFrame = CFrame.new(anchor.Position + Vector3.new(0, 3, 0))
+						end)
+					end
+					task.wait(0.3)
+				end
+			end
+
+			task.wait(0.5)
+		end
+		isTeleportingToOres = false
+		teleportOresThread = nil
+	end)
+end)
+
 -- ==========================================
 -- Aura highlights (one per aura type, created after makeAuraHighlight is defined)
 local hlMine = makeAuraHighlight(Options.HighlightMineColor and Options.HighlightMineColor.Value)
@@ -11858,6 +11966,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.OreESPToggle and Toggles.OreESPToggle.Value then
 		Toggles.OreESPToggle:SetValue(false)
+	end
+	if Toggles.TeleportToEveryOre and Toggles.TeleportToEveryOre.Value then
+		Toggles.TeleportToEveryOre:SetValue(false)
 	end
 	if Toggles.AutoMine and Toggles.AutoMine.Value then
 		Toggles.AutoMine:SetValue(false)
