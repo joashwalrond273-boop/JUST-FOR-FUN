@@ -2098,22 +2098,32 @@ do
 						end
 					end
 					if bestPart then
-						-- Optional deformBones: only limb-weld pieces that sit
-						-- out on a limb (e.g. {"arm", "hand"} for the sleeves).
-						-- The piece must also be past the torso's side, so a
-						-- chest panel can never grab an arm bone and collapse
-						-- the armour into the body.
+						-- Optional deformBones: bind arm pieces to the nearest
+						-- *arm* bone (never the wrist/hand, so a rigid sleeve
+						-- can't be pivoted around the hand and swing into the
+						-- body), and only if the piece sits past the torso's
+						-- side so a chest panel can never grab an arm bone.
 						local allow = true
 						if cfg.deformBones then
 							allow = false
-							local boneName = normalizeName(bestPart.Name)
-							for _, frag in ipairs(cfg.deformBones) do
-								if string.find(boneName, frag, 1, true) then
-									local localX = target.CFrame:PointToObjectSpace(part.Position).X
-									if math.abs(localX) > target.Size.X * 0.35 then
-										allow = true
+							local localX = target.CFrame:PointToObjectSpace(part.Position).X
+							if math.abs(localX) > target.Size.X * 0.35 then
+								local bonePart, boneDist
+								for _, bodyPart in ipairs(bodyParts) do
+									local boneName = normalizeName(bodyPart.Name)
+									for _, frag in ipairs(cfg.deformBones) do
+										if string.find(boneName, frag, 1, true) then
+											local dist = (bodyPart.Position - part.Position).Magnitude
+											if not boneDist or dist < boneDist then
+												bonePart, boneDist = bodyPart, dist
+											end
+											break
+										end
 									end
-									break
+								end
+								if bonePart then
+									bestPart = bonePart
+									allow = true
 								end
 							end
 						end
@@ -2351,7 +2361,7 @@ do
 		-- Only pieces out on the arms limb-weld to the arm bones so the
 		-- sleeves follow a raised weapon; the torso panels stay put.
 		deform = true,
-		deformBones = {"arm", "hand"},
+		deformBones = {"arm"},
 		paths = {
 			["Admin Armor"] = {"game", "Items", "models", "Admin Armor"},
 			["Target Practice"] = {"game", "Cosmetics", "cosmetics", "Target Practice"},
