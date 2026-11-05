@@ -1491,9 +1491,7 @@ do
 
 	-- Per-cosmetic (left/right, up/down, forward/back) size multipliers so a
 	-- head piece can be widened to fit better.
-	local COSMETIC_STRETCH = {
-		["Admin Helmet"] = Vector3.new(1.12, 1, 1.12),
-	}
+	local COSMETIC_STRETCH = {}
 
 	-- Cosmetics that don't live under ReplicatedStorage.game.Cosmetics.cosmetics
 	local COSMETIC_PATHS = {
@@ -1556,15 +1554,11 @@ do
 	}
 
 	local function applyGlow(clone)
-		local highlight = Instance.new("Highlight")
-		highlight.Name = "XenoGlow"
-		highlight.Adornee = clone
-		highlight.FillColor = Color3.fromRGB(255, 255, 255)
-		highlight.FillTransparency = 0.75
-		highlight.OutlineColor = Color3.fromRGB(0, 244, 255)
-		highlight.OutlineTransparency = 0.15
-		highlight.DepthMode = Enum.HighlightDepthMode.Occluded
-		highlight.Parent = clone
+		for _, part in ipairs(collectParts(clone)) do
+			part.Material = Enum.Material.Neon
+			-- Force a bright cyan glow to match the image
+			part.Color = Color3.fromRGB(0, 244, 255)
+		end
 	end
 
 	local function weldToPart(target, handle, weldName)
@@ -1636,13 +1630,6 @@ do
 			end)
 			if not ok then
 				anchor.CFrame = headTop
-			end
-		end
-
-		local stretchMult = COSMETIC_STRETCH[name]
-		if stretchMult then
-			for _, part in ipairs(parts) do
-				stretchPart(part, stretchMult, head.CFrame)
 			end
 		end
 
