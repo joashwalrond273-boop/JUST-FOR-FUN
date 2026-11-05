@@ -1322,14 +1322,14 @@ CosmeticsGroup:AddDivider()
 
 CosmeticsGroup:AddDropdown("CosmeticSelect", {
 	Text = "Head Wear",
-	Values = {"None", "Villainous Crown", "Saviors Crown", "Tyrants Crown", "Crown Of The Sky Dragon", "Flower Crown", "Golden Laurel", "Golden Horns Of Victory", "Royal Vizier Mask", "Admin Helmet", "Raider", "Spikes Of Chaos", "Skeleton Crown", "Imperial Hat", "Classic Crown", "Royal Knight Hat", "Golden Spartan", "Golden Valkyrie", "Plague Mask", "Magma Horned Helm", "Ancient Skull", "Shaded Warrior", "Obsidian Lion", "Golden Lion"},
+	Values = {"None", "Villainous Crown", "Saviors Crown", "Tyrants Crown", "Crown Of The Sky Dragon", "Flower Crown", "Golden Laurel", "Golden Horns Of Victory", "Royal Vizier Mask", "Admin Helmet", "Raider", "Spikes Of Chaos", "Skeleton Crown", "Imperial Hat", "Classic Crown", "Royal Knight Hat", "Golden Spartan", "Golden Valkyrie", "Plague Mask", "Magma Horned Helm", "Ancient Skull", "Shaded Warrior", "Obsidian Lion", "Golden Lion", "Horned Helm Of Loki", "Crown Of The Royal Dragon", "Arctic Cap", "Witch Hat Brown"},
 	Default = {},
 	Multi = true,
 })
 
 CosmeticsGroup:AddDropdown("BodyWearSelect", {
 	Text = "Body Wear",
-	Values = {"None", "Admin Armor"},
+	Values = {"None", "Admin Armor", "Target Practice"},
 	Default = "None",
 })
 
@@ -1479,8 +1479,12 @@ do
 		["Magma Horned Helm"] = CFrame.new(0.0, 0.4, -0.7) * CFrame.Angles(0, math.rad(90), 0),
 		["Ancient Skull"] = CFrame.Angles(0, math.rad(90), 0),
 		["Shaded Warrior"] = CFrame.new(0, -1, 0),
-		["Obsidian Lion"] = CFrame.Angles(0, math.rad(90), 0),
-		["Golden Lion"] = CFrame.Angles(0, math.rad(90), 0),
+		["Obsidian Lion"] = CFrame.new(0, 0, 0.5) * CFrame.Angles(0, math.rad(90), 0),
+		["Golden Lion"] = CFrame.new(0, 0, 0.5) * CFrame.Angles(0, math.rad(90), 0),
+		["Horned Helm Of Loki"] = CFrame.Angles(0, math.rad(90), 0),
+		["Crown Of The Royal Dragon"] = CFrame.Angles(0, math.rad(90), 0),
+		["Arctic Cap"] = CFrame.Angles(0, math.rad(90), 0),
+		["Witch Hat Brown"] = CFrame.Angles(0, math.rad(90), 0),
 	}
 
 	-- Cosmetics that don't live under ReplicatedStorage.game.Cosmetics.cosmetics
@@ -2147,6 +2151,7 @@ do
 		clothingClass = "Shirt",
 		paths = {
 			["Admin Armor"] = {"game", "Items", "models", "Admin Armor"},
+			["Target Practice"] = {"game", "Cosmetics", "cosmetics", "Target Practice"},
 		},
 		adjust = {},
 		getTarget = function()
