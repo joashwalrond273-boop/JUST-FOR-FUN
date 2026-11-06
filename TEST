@@ -2377,13 +2377,13 @@ do
 		adjust = {},
 		stretch = {
 			["Admin Armor"] = function(_, t)
-				-- Lift the top (chest/shoulders) a little so it sits higher,
-				-- and stretch the bottom hem down slightly. The whole piece is
-				-- also nudged up a touch so it sits a bit higher on the torso.
+				-- Lift the top (chest/shoulders) so it sits higher, and raise
+				-- the bottom hem too so the whole piece rides higher on the
+				-- torso instead of hanging low.
 				local raise = 0.1
 				local liftTop = 0.24 * t
-				local dropBottom = -0.20 * (1 - t)
-				return Vector3.new(1, 1, 1), Vector3.new(0, raise + liftTop + dropBottom, 0)
+				local liftBottom = 0.10 * (1 - t)
+				return Vector3.new(1, 1, 1), Vector3.new(0, raise + liftTop + liftBottom, 0)
 			end,
 		},
 		getTarget = function()
