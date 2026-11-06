@@ -8529,11 +8529,6 @@ OreFarm:AddSlider("OreESPDistance", {
 	Compact = true,
 })
 
-OreFarm:AddCheckbox("OreESPTeleport", {
-	Text = "Teleport To Ores",
-	Default = false,
-})
-
 -- ==========================================
 -- Aura highlights (one per aura type, created after makeAuraHighlight is defined)
 local hlMine = makeAuraHighlight(Options.HighlightMineColor and Options.HighlightMineColor.Value)
@@ -9821,79 +9816,6 @@ Toggles.OreESPToggle:OnChanged(function()
 	end))
 
 	Library:Notify({ Title = "Ore ESP", Description = "Enabled", Time = 2 })
-end)
-
--- Teleport To Ores: cycles the player onto every ore the ESP tracks in the
--- same worldResources.mineable folder, skipping any filtered-out ore.
-local oreTeleportRunning = false
-local oreTeleportToken = 0
-
-local function collectOreTargets()
-	local folder = workspace:FindFirstChild("worldResources") and workspace.worldResources:FindFirstChild("mineable")
-	if not folder then return {} end
-	local root = getRootPart()
-	if not root then return {} end
-	local rootPos = root.Position
-	local maxDist = (Options and Options.OreESPDistance and Options.OreESPDistance.Value) or 500
-	local targets = {}
-	for _, chunkFolder in ipairs(folder:GetChildren()) do
-		if chunkFolder:IsA("Folder") then
-			for _, obj in ipairs(chunkFolder:GetChildren()) do
-				if obj and obj.Parent and isOreFilterEnabled(obj.Name) then
-					local anchor = obj:IsA("Model") and (obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")) or (obj:IsA("BasePart") and obj)
-					if anchor then
-						local pos = anchor.Position
-						local dist = (pos - rootPos).Magnitude
-						if dist <= maxDist then
-							table.insert(targets, { pos = pos, dist = dist })
-						end
-					end
-				end
-			end
-		end
-	end
-	table.sort(targets, function(a, b) return a.dist < b.dist end)
-	return targets
-end
-
-local function oreTeleportLoop(token)
-	while oreTeleportRunning and oreTeleportToken == token do
-		if not isAlive() then return end
-		local targets = collectOreTargets()
-		if #targets == 0 then
-			task.wait(0.5)
-		else
-			for _, target in ipairs(targets) do
-				if not oreTeleportRunning or oreTeleportToken ~= token then return end
-				local root = getRootPart()
-				if not root then return end
-				pcall(function()
-					root.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
-					root.CFrame = CFrame.new(target.pos + Vector3.new(0, 4, 0))
-				end)
-				task.wait(0.4)
-			end
-		end
-	end
-end
-
-Toggles.OreESPTeleport:OnChanged(function()
-	oreTeleportToken += 1
-	oreTeleportRunning = Toggles.OreESPTeleport.Value
-	if oreTeleportRunning then
-		if not isAlive() then
-			Library:Notify({ Title = "Teleport To Ores", Description = "Character not found.", Time = 3 })
-			Toggles.OreESPTeleport:SetValue(false)
-			return
-		end
-		local token = oreTeleportToken
-		task.spawn(function()
-			pcall(oreTeleportLoop, token)
-		end)
-		Library:Notify({ Title = "Teleport To Ores", Description = "Enabled", Time = 2 })
-	else
-		Library:Notify({ Title = "Teleport To Ores", Description = "Disabled", Time = 2 })
-	end
 end)
 
 -- ==========================================
