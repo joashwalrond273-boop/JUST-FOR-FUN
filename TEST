@@ -10408,68 +10408,6 @@ do
 	})
 end
 
--- Kill shadows on every part and light in the world, not just players'
-do
-	local partOriginal = setmetatable({}, { __mode = "k" })
-	local lightOriginal = setmetatable({}, { __mode = "k" })
-	local globalShadowOriginal = nil
-
-	local function killShadow(v)
-		if not v or not v.Parent then return end
-		if v:IsA("BasePart") then
-			if partOriginal[v] == nil then partOriginal[v] = v.CastShadow end
-			if v.CastShadow then
-				pcall(function() v.CastShadow = false end)
-			end
-		elseif v:IsA("Light") then
-			if lightOriginal[v] == nil then lightOriginal[v] = v.Shadows end
-			if v.Shadows then
-				pcall(function() v.Shadows = false end)
-			end
-		end
-	end
-
-	VisualFPS:AddToggle("GlobalShadowKill", {
-		Text = "Global Shadow Kill",
-		Default = false,
-		Callback = function(state)
-			disconnect("GlobalShadowKill_DescAdded")
-			local lighting = game:GetService("Lighting")
-
-			if state then
-				globalShadowOriginal = lighting.GlobalShadows
-				pcall(function() lighting.GlobalShadows = false end)
-
-				-- Scan in chunks so a big map doesn't freeze the frame
-				task.spawn(function()
-					local descendants = workspace:GetDescendants()
-					for i = 1, #descendants do
-						if not (Toggles.GlobalShadowKill and Toggles.GlobalShadowKill.Value) then break end
-						killShadow(descendants[i])
-						if i % 300 == 0 then task.wait() end
-					end
-				end)
-
-				track("GlobalShadowKill_DescAdded", workspace.DescendantAdded:Connect(function(v)
-					if Toggles.GlobalShadowKill and Toggles.GlobalShadowKill.Value then
-						killShadow(v)
-					end
-				end))
-			else
-				pcall(function() lighting.GlobalShadows = (globalShadowOriginal ~= false) end)
-				for v, original in pairs(partOriginal) do
-					if v and v.Parent then pcall(function() v.CastShadow = original end) end
-				end
-				for v, original in pairs(lightOriginal) do
-					if v and v.Parent then pcall(function() v.Shadows = original end) end
-				end
-				table.clear(partOriginal)
-				table.clear(lightOriginal)
-			end
-		end,
-	})
-end
-
 -- Drop render quality to the lowest preset for a large GPU saving
 do
 	local qualityOriginal = nil
@@ -10554,42 +10492,56 @@ do
 	})
 end
 
--- Flatten terrain decoration (grass) and water waves
+-- Remove the skybox and lock the time of day so shadow maps stop rebuilding
 do
-	local waveOriginal = nil
+	local skyStore = {}
+	local clockOriginal = nil
 
-	VisualFPS:AddToggle("TerrainDowngrade", {
-		Text = "Terrain Downgrade",
+	local function removeSky(child)
+		if child and child:IsA("Sky") and child.Parent then
+			local parent = child.Parent
+			table.insert(skyStore, { sky = child, parent = parent })
+			pcall(function() child.Parent = nil end)
+		end
+	end
+
+	VisualFPS:AddToggle("SkyboxFreezeTime", {
+		Text = "Kill Skybox + Freeze Time",
 		Default = false,
 		Callback = function(state)
-			local terrain = workspace:FindFirstChildOfClass("Terrain")
-			if not terrain then return end
+			disconnect("SkyboxFreezeTime_ChildAdded")
+			disconnect("SkyboxFreezeTime_Clock")
+			local lighting = game:GetService("Lighting")
 
-			pcall(function()
-				if state then
-					if sethiddenproperty then
-						sethiddenproperty(terrain, "Decoration", false)
-					else
-						terrain.Decoration = false
+			if state then
+				for _, child in ipairs(lighting:GetChildren()) do
+					removeSky(child)
+				end
+
+				clockOriginal = lighting.ClockTime
+				pcall(function() lighting.ClockTime = 14 end)
+				track("SkyboxFreezeTime_Clock", lighting:GetPropertyChangedSignal("ClockTime"):Connect(function()
+					if Toggles.SkyboxFreezeTime and Toggles.SkyboxFreezeTime.Value then
+						pcall(function() lighting.ClockTime = 14 end)
 					end
-					if waveOriginal == nil then
-						waveOriginal = { terrain.WaterWaveSize, terrain.WaterWaveSpeed }
+				end))
+
+				track("SkyboxFreezeTime_ChildAdded", lighting.ChildAdded:Connect(function(child)
+					if Toggles.SkyboxFreezeTime and Toggles.SkyboxFreezeTime.Value then
+						removeSky(child)
 					end
-					terrain.WaterWaveSize = 0
-					terrain.WaterWaveSpeed = 0
-				else
-					if sethiddenproperty then
-						sethiddenproperty(terrain, "Decoration", true)
-					else
-						terrain.Decoration = true
-					end
-					if waveOriginal then
-						terrain.WaterWaveSize = waveOriginal[1]
-						terrain.WaterWaveSpeed = waveOriginal[2]
-						waveOriginal = nil
+				end))
+			else
+				for _, entry in ipairs(skyStore) do
+					local sky = entry.sky
+					if sky and sky.Parent == nil then
+						pcall(function() sky.Parent = entry.parent end)
 					end
 				end
-			end)
+				table.clear(skyStore)
+				pcall(function() lighting.ClockTime = clockOriginal or lighting.ClockTime end)
+				clockOriginal = nil
+			end
 		end,
 	})
 end
@@ -11931,17 +11883,14 @@ Library:OnUnload(function()
 	if Toggles.NoGrass and Toggles.NoGrass.Value then
 		Toggles.NoGrass:SetValue(false)
 	end
-	if Toggles.GlobalShadowKill and Toggles.GlobalShadowKill.Value then
-		Toggles.GlobalShadowKill:SetValue(false)
-	end
 	if Toggles.LowQualityLevel and Toggles.LowQualityLevel.Value then
 		Toggles.LowQualityLevel:SetValue(false)
 	end
 	if Toggles.HideNameplates and Toggles.HideNameplates.Value then
 		Toggles.HideNameplates:SetValue(false)
 	end
-	if Toggles.TerrainDowngrade and Toggles.TerrainDowngrade.Value then
-		Toggles.TerrainDowngrade:SetValue(false)
+	if Toggles.SkyboxFreezeTime and Toggles.SkyboxFreezeTime.Value then
+		Toggles.SkyboxFreezeTime:SetValue(false)
 	end
 
 	if Toggles.WalkOnWater and Toggles.WalkOnWater.Value then
