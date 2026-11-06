@@ -287,28 +287,16 @@ TSG.BuildRemote = (keyedRemotes and rawget(keyedRemotes, "build")) or (interacti
 TSG.CraftRemote = (keyedRemotes and rawget(keyedRemotes, "craft")) or (interactionsFolder and interactionsFolder:FindFirstChild("craft"))
 TSG.DeleteStructureRemote = (keyedRemotes and rawget(keyedRemotes, "deleteStructure")) or (interactionsFolder and interactionsFolder:FindFirstChild("deleteStructure"))
 
--- No Bear Trap DMG Remote Interception
+-- No Bear Trap DMG remote (intercepted by the single shared __namecall hook
+-- further below, plus a direct InvokeServer hook as a fallback)
+local TrapRunEvent = resolvePath(ReplicatedStorage, "remoteInterface", "traps", "Run") or (ReplicatedStorage:FindFirstChild("remoteInterface") and ReplicatedStorage.remoteInterface:FindFirstChild("traps") and ReplicatedStorage.remoteInterface.traps:FindFirstChild("Run"))
+
 pcall(function()
-	local Event = resolvePath(ReplicatedStorage, "remoteInterface", "traps", "Run") or (ReplicatedStorage:FindFirstChild("remoteInterface") and ReplicatedStorage.remoteInterface:FindFirstChild("traps") and ReplicatedStorage.remoteInterface.traps:FindFirstChild("Run"))
-	if not Event then return end
-
-	local mtHook; mtHook = hookmetamethod(game, "__namecall", function(...)
-		local self = ...
-
-		if Toggles.NoBearTrapDMG and Toggles.NoBearTrapDMG.Value and rawequal(self, Event) and getnamecallmethod() == "InvokeServer" then
-			print(`Intercepted (__namecall) {Event.Name}:InvokeServer() - BLOCKED`, ...)
-			return nil
-		end
-
-		return mtHook(...)
-	end)
-
-	if typeof(hookfunction) == "function" and Event.InvokeServer then
-		local OldInvokeServer; OldInvokeServer = hookfunction(Event.InvokeServer, function(...)
+	if typeof(hookfunction) == "function" and TrapRunEvent and TrapRunEvent.InvokeServer then
+		local OldInvokeServer; OldInvokeServer = hookfunction(TrapRunEvent.InvokeServer, function(...)
 			local self = ...
 
-			if Toggles.NoBearTrapDMG and Toggles.NoBearTrapDMG.Value and rawequal(self, Event) then
-				print(`Intercepted (__index) {Event.Name}:InvokeServer() - BLOCKED`, ...)
+			if Toggles.NoBearTrapDMG and Toggles.NoBearTrapDMG.Value and rawequal(self, TrapRunEvent) then
 				return nil
 			end
 
@@ -1749,15 +1737,29 @@ do
 		end
 	end
 
-	-- Glue every worn piece back onto the head
+	-- Glue every worn piece back onto the head. The head reference is cached so
+	-- we don't run a FindFirstChild namecall every frame, and the CFrame loop is
+	-- skipped entirely while the head is not moving.
+	local cachedHead = nil
+	local cachedHeadCFrame = nil
 	local function followHead()
-		local character = getCharacter()
-		local head = character and character:FindFirstChild("Head")
+		local head = cachedHead
+		if not head or not head.Parent then
+			local character = getCharacter()
+			head = character and character:FindFirstChild("Head")
+			cachedHead = head
+			cachedHeadCFrame = nil
+		end
 		if not head then return end
+
+		local headCFrame = head.CFrame
+		if headCFrame == cachedHeadCFrame then return end
+		cachedHeadCFrame = headCFrame
+
 		for _, frames in pairs(activeCosmetics) do
 			for _, entry in ipairs(frames) do
 				if entry.part.Parent then
-					entry.part.CFrame = head.CFrame * entry.offset
+					entry.part.CFrame = headCFrame * entry.offset
 				end
 			end
 		end
@@ -1788,6 +1790,9 @@ do
 		disconnect("XenoCosmetic_CharacterAdded")
 		disconnect("XenoCosmetic_Loop")
 		disconnect("XenoCosmetic_JointClean")
+
+		cachedHead = nil
+		cachedHeadCFrame = nil
 
 		local selected = Options.CosmeticSelect.Value
 		local wanted = {}
@@ -1824,6 +1829,8 @@ do
 
 		track("XenoCosmetic_CharacterAdded", LocalPlayer.CharacterAdded:Connect(function(char)
 			task.wait(0.5)
+			cachedHead = nil
+			cachedHeadCFrame = nil
 			hookJointCleaner(char)
 			for name in pairs(activeCosmetics) do
 				wearCosmetic(name)
@@ -3832,30 +3839,38 @@ track("CharacterModuleRespawn", LocalPlayer.CharacterAdded:Connect(function()
 	end
 end))
 
--- No Boss Damage Hook Setup
+-- Single shared __namecall hook. It handles bear-trap blocking, boss damage
+-- blocking and the melee hit sound. Using one hook instead of chaining two
+-- keeps the per-call overhead down, since every Lua method call hits this.
 local BossDamageEvent = resolvePath(ReplicatedStorage, "remoteInterface", "character", "hurtByAIAttack")
-local originalNamecall
 if hookmetamethod then
-	originalNamecall = hookmetamethod(game, "__namecall", function(...)
+	local namecallOriginal
+	namecallOriginal = hookmetamethod(game, "__namecall", function(...)
 		local self = ...
 		local method = getnamecallmethod()
 
-		if method == "FireServer" and BossDamageEvent and rawequal(self, BossDamageEvent) then
-			if Toggles.NoBossDamage and Toggles.NoBossDamage.Value then
-				return -- Block the attack to prevent damage
+		if method == "InvokeServer" then
+			if TrapRunEvent and rawequal(self, TrapRunEvent) then
+				if Toggles.NoBearTrapDMG and Toggles.NoBearTrapDMG.Value then
+					return nil
+				end
+			elseif TSG.MeleePlayerRemote and rawequal(self, TSG.MeleePlayerRemote) then
+				-- Play the hit sound only after the real remote call goes through
+				local fn = Xeno_PlayHitSound
+				if fn then task.defer(function() pcall(fn) end) end
+			end
+		elseif method == "FireServer" then
+			if BossDamageEvent and rawequal(self, BossDamageEvent) then
+				if Toggles.NoBossDamage and Toggles.NoBossDamage.Value then
+					return -- Block the attack to prevent damage
+				end
+			elseif TSG.MeleePlayerRemote and rawequal(self, TSG.MeleePlayerRemote) then
+				local fn = Xeno_PlayHitSound
+				if fn then task.defer(function() pcall(fn) end) end
 			end
 		end
 
-		-- Play the hit sound only after the real remote call goes through, so an
-		-- error in the sound code can never stop the attack from landing
-		local playHit = (method == "FireServer" or method == "InvokeServer")
-			and TSG.MeleePlayerRemote and rawequal(self, TSG.MeleePlayerRemote)
-		if playHit and Xeno_PlayHitSound then
-			local fn = Xeno_PlayHitSound
-			task.defer(function() pcall(fn) end)
-		end
-
-		return originalNamecall(...)
+		return namecallOriginal(...)
 	end)
 end
 
@@ -10832,13 +10847,19 @@ local function getOrCreateESP(player)
 end
 
 local lastThrottledUpdate = 0
+local lastEspFrame = 0
 
 local function updateAllESP()
 	if not Toggles.PlayerESP or not Toggles.PlayerESP.Value then return end
 
+	-- Cap to ~30 Hz. The Billboard/Highlight follow their Adornee natively, so
+	-- running this every frame just burns CPU without any visual difference.
+	local now = tick()
+	if now - lastEspFrame < 1 / 30 then return end
+	lastEspFrame = now
+
 	local myRoot = getRootPart()
 	local myPos = myRoot and myRoot.Position
-	local now = tick()
 	local shouldThrottle = (now - lastThrottledUpdate >= 0.1)
 
 	if shouldThrottle then
