@@ -6791,9 +6791,6 @@ if Toggles.AutoJump then
 											lastJumpTime = tick()
 											if myHum.FloorMaterial ~= Enum.Material.Air then
 												myHum.Jump = true
-												pcall(function()
-													myHum:ChangeState(Enum.HumanoidStateType.Jumping)
-												end)
 											end
 										end
 									end
@@ -8289,6 +8286,11 @@ FarmMine:AddCheckbox("HighlightMine", {
 }):AddColorPicker("HighlightMineColor", {
 	Default = Color3.fromRGB(255, 0, 0),
 	Title = "Highlight Target Color",
+})
+
+FarmMine:AddCheckbox("TeleportMineables", {
+	Text = "Teleport To Mineables",
+	Default = false,
 })
 
 -- ==========================================
@@ -9817,6 +9819,69 @@ Toggles.OreESPToggle:OnChanged(function()
 	end))
 
 	Library:Notify({ Title = "Ore ESP", Description = "Enabled", Time = 2 })
+end)
+
+-- Teleport To Mineables (cycles through workspace.worldResources.mineable)
+local mineableTeleportList = {}
+local mineableTeleportIndex = 0
+local lastMineableTeleport = 0
+
+local function collectMineablePositions()
+	local folder = workspace:FindFirstChild("worldResources") and workspace.worldResources:FindFirstChild("mineable")
+	if not folder then return {} end
+	local list = {}
+	local function addObject(obj)
+		if not obj or not obj.Parent then return end
+		local anchor = (obj:IsA("Model") and (obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")))
+			or (obj:IsA("BasePart") and obj)
+		if anchor then
+			table.insert(list, anchor.Position)
+		end
+	end
+	for _, child in ipairs(folder:GetChildren()) do
+		if child:IsA("Folder") then
+			for _, obj in ipairs(child:GetChildren()) do
+				addObject(obj)
+			end
+		else
+			addObject(child)
+		end
+	end
+	return list
+end
+
+local function rebuildMineableTeleportList()
+	mineableTeleportList = collectMineablePositions()
+	mineableTeleportIndex = 0
+end
+
+Toggles.TeleportMineables:OnChanged(function()
+	disconnect("TeleportMineables")
+	lastMineableTeleport = 0
+	mineableTeleportIndex = 0
+	mineableTeleportList = {}
+	if Toggles.TeleportMineables.Value then
+		rebuildMineableTeleportList()
+		track("TeleportMineables", RunService.Heartbeat:Connect(function()
+			if tick() - lastMineableTeleport < 0.15 then return end
+			lastMineableTeleport = tick()
+			local root = getRootPart()
+			if not root then return end
+			if #mineableTeleportList == 0 then
+				rebuildMineableTeleportList()
+			end
+			if #mineableTeleportList == 0 then return end
+			mineableTeleportIndex = mineableTeleportIndex + 1
+			if mineableTeleportIndex > #mineableTeleportList then
+				rebuildMineableTeleportList()
+				mineableTeleportIndex = 1
+			end
+			local pos = mineableTeleportList[mineableTeleportIndex]
+			if pos then
+				root.CFrame = CFrame.new(pos + Vector3.new(0, 5, 0))
+			end
+		end))
+	end
 end)
 
 -- ==========================================
@@ -11863,6 +11928,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.OreESPToggle and Toggles.OreESPToggle.Value then
 		Toggles.OreESPToggle:SetValue(false)
+	end
+	if Toggles.TeleportMineables and Toggles.TeleportMineables.Value then
+		Toggles.TeleportMineables:SetValue(false)
 	end
 	if Toggles.AutoMine and Toggles.AutoMine.Value then
 		Toggles.AutoMine:SetValue(false)
