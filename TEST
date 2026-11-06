@@ -9826,7 +9826,7 @@ end)
 -- TELEPORT
 -- ==========================================
 -- Reset-then-teleport helper.
--- Button sequence: reset -> respawn (natural spawn) -> wait 3s -> respawn -> teleport to vector.
+-- Button sequence: reset normally -> wait 7s -> respawn -> wait 1s -> teleport to vector.
 local function resetAndTeleport(targetPos, label)
 	task.spawn(function()
 		local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
@@ -9846,28 +9846,20 @@ local function resetAndTeleport(targetPos, label)
 			end)
 		end
 
-		-- 1) Reset the character
+		-- 1) Reset the character normally
 		if resetRemote then
 			pcall(function()
 				resetRemote:InvokeServer()
 			end)
 		end
 
-		-- 2) First respawn right after the reset so the character spawns in naturally
-		task.wait(0.2)
+		-- 2) After 7 seconds, fire the respawn remote
+		task.wait(7)
 		callRespawn()
 
-		-- 3) After 8 seconds, respawn again
-		task.wait(8)
-		callRespawn()
-
-		-- 4) Teleport to the button's vector
-		local start = tick()
+		-- 3) After 1 second, teleport to the button's vector
+		task.wait(1)
 		local root = getRootPart()
-		while (not root or not root.Parent) and tick() - start < 5 do
-			task.wait(0.1)
-			root = getRootPart()
-		end
 		if root then
 			root.CFrame = CFrame.new(targetPos + Vector3.new(0, 10, 0))
 			Library:Notify({ Title = "Reset & Teleport", Description = "Teleported to " .. label, Time = 2 })
