@@ -6797,7 +6797,7 @@ if Toggles.AutoJump then
 										if tick() - lastJumpTime >= jumpDelay then
 											lastJumpTime = tick()
 											if myHum.FloorMaterial ~= Enum.Material.Air then
-												myHum.Jump = true
+												myHum:ChangeState("Jumping")
 											end
 										end
 									end
