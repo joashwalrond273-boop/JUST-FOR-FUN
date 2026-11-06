@@ -10408,6 +10408,192 @@ do
 	})
 end
 
+-- Kill shadows on every part and light in the world, not just players'
+do
+	local partOriginal = setmetatable({}, { __mode = "k" })
+	local lightOriginal = setmetatable({}, { __mode = "k" })
+	local globalShadowOriginal = nil
+
+	local function killShadow(v)
+		if not v or not v.Parent then return end
+		if v:IsA("BasePart") then
+			if partOriginal[v] == nil then partOriginal[v] = v.CastShadow end
+			if v.CastShadow then
+				pcall(function() v.CastShadow = false end)
+			end
+		elseif v:IsA("Light") then
+			if lightOriginal[v] == nil then lightOriginal[v] = v.Shadows end
+			if v.Shadows then
+				pcall(function() v.Shadows = false end)
+			end
+		end
+	end
+
+	VisualFPS:AddToggle("GlobalShadowKill", {
+		Text = "Global Shadow Kill",
+		Default = false,
+		Callback = function(state)
+			disconnect("GlobalShadowKill_DescAdded")
+			local lighting = game:GetService("Lighting")
+
+			if state then
+				globalShadowOriginal = lighting.GlobalShadows
+				pcall(function() lighting.GlobalShadows = false end)
+
+				-- Scan in chunks so a big map doesn't freeze the frame
+				task.spawn(function()
+					local descendants = workspace:GetDescendants()
+					for i = 1, #descendants do
+						if not (Toggles.GlobalShadowKill and Toggles.GlobalShadowKill.Value) then break end
+						killShadow(descendants[i])
+						if i % 300 == 0 then task.wait() end
+					end
+				end)
+
+				track("GlobalShadowKill_DescAdded", workspace.DescendantAdded:Connect(function(v)
+					if Toggles.GlobalShadowKill and Toggles.GlobalShadowKill.Value then
+						killShadow(v)
+					end
+				end))
+			else
+				pcall(function() lighting.GlobalShadows = (globalShadowOriginal ~= false) end)
+				for v, original in pairs(partOriginal) do
+					if v and v.Parent then pcall(function() v.CastShadow = original end) end
+				end
+				for v, original in pairs(lightOriginal) do
+					if v and v.Parent then pcall(function() v.Shadows = original end) end
+				end
+				table.clear(partOriginal)
+				table.clear(lightOriginal)
+			end
+		end,
+	})
+end
+
+-- Drop render quality to the lowest preset for a large GPU saving
+do
+	local qualityOriginal = nil
+
+	VisualFPS:AddToggle("LowQualityLevel", {
+		Text = "Low Quality Level",
+		Default = false,
+		Callback = function(state)
+			pcall(function()
+				if state then
+					if qualityOriginal == nil then
+						qualityOriginal = settings().Rendering.QualityLevel
+					end
+					settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
+				else
+					settings().Rendering.QualityLevel = qualityOriginal or Enum.QualityLevel.Automatic
+					qualityOriginal = nil
+				end
+			end)
+		end,
+	})
+end
+
+-- Hide the name/health billboards above every character
+do
+	local original = setmetatable({}, { __mode = "k" })
+
+	local function hideNameplate(humanoid)
+		if not humanoid or not humanoid:IsA("Humanoid") then return end
+		if original[humanoid] == nil then
+			original[humanoid] = { humanoid.NameDisplayDistance, humanoid.HealthDisplayDistance }
+		end
+		pcall(function()
+			humanoid.NameDisplayDistance = 0
+			humanoid.HealthDisplayDistance = 0
+		end)
+	end
+
+	local function hookPlayer(player)
+		if not player then return end
+		local connName = "HideNameplates_CharAdded_" .. tostring(player.UserId or player.Name)
+		disconnect(connName)
+		track(connName, player.CharacterAdded:Connect(function(char)
+			if Toggles.HideNameplates and Toggles.HideNameplates.Value then
+				task.wait(0.1)
+				hideNameplate(char:FindFirstChildOfClass("Humanoid"))
+			end
+		end))
+	end
+
+	VisualFPS:AddToggle("HideNameplates", {
+		Text = "Hide Nameplates",
+		Default = false,
+		Callback = function(state)
+			disconnect("HideNameplates_PlayerAdded")
+			for name in pairs(Connections) do
+				if typeof(name) == "string" and name:match("^HideNameplates_CharAdded") then
+					disconnect(name)
+				end
+			end
+
+			if state then
+				for _, player in ipairs(Players:GetPlayers()) do
+					hookPlayer(player)
+					if player.Character then
+						hideNameplate(player.Character:FindFirstChildOfClass("Humanoid"))
+					end
+				end
+				track("HideNameplates_PlayerAdded", Players.PlayerAdded:Connect(hookPlayer))
+			else
+				for humanoid, values in pairs(original) do
+					if humanoid and humanoid.Parent then
+						pcall(function()
+							humanoid.NameDisplayDistance = values[1]
+							humanoid.HealthDisplayDistance = values[2]
+						end)
+					end
+				end
+				table.clear(original)
+			end
+		end,
+	})
+end
+
+-- Flatten terrain decoration (grass) and water waves
+do
+	local waveOriginal = nil
+
+	VisualFPS:AddToggle("TerrainDowngrade", {
+		Text = "Terrain Downgrade",
+		Default = false,
+		Callback = function(state)
+			local terrain = workspace:FindFirstChildOfClass("Terrain")
+			if not terrain then return end
+
+			pcall(function()
+				if state then
+					if sethiddenproperty then
+						sethiddenproperty(terrain, "Decoration", false)
+					else
+						terrain.Decoration = false
+					end
+					if waveOriginal == nil then
+						waveOriginal = { terrain.WaterWaveSize, terrain.WaterWaveSpeed }
+					end
+					terrain.WaterWaveSize = 0
+					terrain.WaterWaveSpeed = 0
+				else
+					if sethiddenproperty then
+						sethiddenproperty(terrain, "Decoration", true)
+					else
+						terrain.Decoration = true
+					end
+					if waveOriginal then
+						terrain.WaterWaveSize = waveOriginal[1]
+						terrain.WaterWaveSpeed = waveOriginal[2]
+						waveOriginal = nil
+					end
+				end
+			end)
+		end,
+	})
+end
+
 VisualLeft:AddToggle("PlayerESP", {
 	Text = "Enabled",
 	Default = false,
@@ -11744,6 +11930,18 @@ Library:OnUnload(function()
 	end
 	if Toggles.NoGrass and Toggles.NoGrass.Value then
 		Toggles.NoGrass:SetValue(false)
+	end
+	if Toggles.GlobalShadowKill and Toggles.GlobalShadowKill.Value then
+		Toggles.GlobalShadowKill:SetValue(false)
+	end
+	if Toggles.LowQualityLevel and Toggles.LowQualityLevel.Value then
+		Toggles.LowQualityLevel:SetValue(false)
+	end
+	if Toggles.HideNameplates and Toggles.HideNameplates.Value then
+		Toggles.HideNameplates:SetValue(false)
+	end
+	if Toggles.TerrainDowngrade and Toggles.TerrainDowngrade.Value then
+		Toggles.TerrainDowngrade:SetValue(false)
 	end
 
 	if Toggles.WalkOnWater and Toggles.WalkOnWater.Value then
