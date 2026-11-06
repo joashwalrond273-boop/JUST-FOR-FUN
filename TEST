@@ -8525,15 +8525,6 @@ OreFarm:AddSlider("OreESPDistance", {
 	Compact = true,
 })
 
-OreFarm:AddButton({
-	Text = "Teleport to Nearest Ore",
-	Func = function()
-		if oreESP and oreESP.teleportToNearestOre then
-			oreESP.teleportToNearestOre(true)
-		end
-	end,
-})
-
 -- ==========================================
 -- Aura highlights (one per aura type, created after makeAuraHighlight is defined)
 local hlMine = makeAuraHighlight(Options.HighlightMineColor and Options.HighlightMineColor.Value)
@@ -9822,125 +9813,6 @@ Toggles.OreESPToggle:OnChanged(function()
 
 	Library:Notify({ Title = "Ore ESP", Description = "Enabled", Time = 2 })
 end)
-
--- ==========================================
--- Ore ESP Teleport Functions
--- ==========================================
-local currentOreTarget = nil
-
-local function getClosestMineableOre(ignoreObj)
-	local folder = workspace:FindFirstChild("worldResources") and workspace.worldResources:FindFirstChild("mineable")
-	if not folder then return nil end
-
-	local root = getRootPart()
-	if not root then return nil end
-	local rootPos = root.Position
-
-	local maxDist = (Options and Options.OreESPDistance and Options.OreESPDistance.Value) or 500
-
-	local closestInRange, closestInRangeAnchor, closestInRangeDist, closestInRangeName = nil, nil, math.huge, nil
-	local closestOverall, closestOverallAnchor, closestOverallDist, closestOverallName = nil, nil, math.huge, nil
-
-	local function checkObj(obj)
-		if not obj or not obj.Parent or obj == ignoreObj then return end
-		local oreName = obj.Name or "Unknown"
-		if not isOreFilterEnabled(oreName) then return end
-
-		local anchor = obj:IsA("Model") and (obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")) or (obj:IsA("BasePart") and obj)
-		if not anchor then return end
-
-		local dist = (anchor.Position - rootPos).Magnitude
-
-		if dist < closestOverallDist then
-			closestOverallDist = dist
-			closestOverall = obj
-			closestOverallAnchor = anchor
-			closestOverallName = oreName
-		end
-
-		if dist <= maxDist and dist < closestInRangeDist then
-			closestInRangeDist = dist
-			closestInRange = obj
-			closestInRangeAnchor = anchor
-			closestInRangeName = oreName
-		end
-	end
-
-	for _, child in ipairs(folder:GetChildren()) do
-		if child:IsA("Folder") then
-			for _, obj in ipairs(child:GetChildren()) do
-				checkObj(obj)
-			end
-		else
-			checkObj(child)
-		end
-	end
-
-	if closestInRange then
-		return closestInRange, closestInRangeAnchor, closestInRangeDist, closestInRangeName
-	end
-	return closestOverall, closestOverallAnchor, closestOverallDist, closestOverallName
-end
-
-local function teleportToOre(targetObj, notifyUser)
-	if not isAlive() then return false end
-	local root = getRootPart()
-	if not root then
-		if notifyUser then
-			Library:Notify({ Title = "Ore Teleport", Description = "Character root not found.", Time = 2.5 })
-		end
-		return false
-	end
-	if not targetObj or not targetObj.Parent then
-		if notifyUser then
-			Library:Notify({ Title = "Ore Teleport", Description = "Target ore not found.", Time = 2.5 })
-		end
-		return false
-	end
-
-	local anchor = targetObj:IsA("Model") and (targetObj.PrimaryPart or targetObj:FindFirstChildWhichIsA("BasePart")) or (targetObj:IsA("BasePart") and targetObj)
-	if not anchor then return false end
-
-	currentOreTarget = targetObj
-	local yOffset = (anchor:IsA("BasePart") and (anchor.Size.Y * 0.5 + 3)) or 3.5
-	pcall(function()
-		root.AssemblyLinearVelocity = Vector3.zero
-		root.AssemblyAngularVelocity = Vector3.zero
-	end)
-	root.CFrame = CFrame.new(anchor.Position + Vector3.new(0, yOffset, 0))
-
-	if notifyUser then
-		local oreName = targetObj.Name or "Ore"
-		Library:Notify({ Title = "Ore Teleport", Description = "Teleported to " .. tostring(oreName), Time = 2 })
-	end
-	return true
-end
-
-local function teleportToNearestOre(notifyUser, skipCurrent)
-	if not isAlive() then return false end
-	local root = getRootPart()
-	if not root then
-		if notifyUser then
-			Library:Notify({ Title = "Ore Teleport", Description = "Character root not found.", Time = 2.5 })
-		end
-		return false
-	end
-
-	local ignore = (skipCurrent and currentOreTarget) or nil
-	local targetObj, targetAnchor, dist, oreName = getClosestMineableOre(ignore)
-	if not targetObj or not targetAnchor then
-		if notifyUser then
-			Library:Notify({ Title = "Ore Teleport", Description = "No enabled ores found.", Time = 2.5 })
-		end
-		return false
-	end
-
-	return teleportToOre(targetObj, notifyUser)
-end
-
-oreESP.getClosestOre = getClosestMineableOre
-oreESP.teleportToOre = teleportToOre
-oreESP.teleportToNearestOre = teleportToNearestOre
 
 -- ==========================================
 -- TELEPORT
@@ -12133,6 +12005,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.OreESPToggle and Toggles.OreESPToggle.Value then
 		Toggles.OreESPToggle:SetValue(false)
+	end
+	if Toggles.OreESPTeleport and Toggles.OreESPTeleport.Value then
+		Toggles.OreESPTeleport:SetValue(false)
 	end
 	if Toggles.AutoMine and Toggles.AutoMine.Value then
 		Toggles.AutoMine:SetValue(false)
