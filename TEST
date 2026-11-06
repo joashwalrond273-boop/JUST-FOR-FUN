@@ -9857,8 +9857,8 @@ local function resetAndTeleport(targetPos, label)
 		task.wait(0.2)
 		callRespawn()
 
-		-- 3) After 5 seconds, respawn again
-		task.wait(5)
+		-- 3) After 7 seconds, respawn again
+		task.wait(7)
 		callRespawn()
 
 		-- 4) Teleport to the button's vector
