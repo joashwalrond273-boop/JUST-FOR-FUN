@@ -1417,30 +1417,43 @@ CosmeticsGroup:AddDropdown("HitSoundSelect", {
 	Default = "None",
 })
 
+-- One reused Sound instance is far cheaper than cloning a Sound, connecting an
+-- Ended signal and scheduling a delayed cleanup on every single hit. A small
+-- debounce also caps how often we play when a weapon fires the remote rapidly.
+local cachedHitSound = nil
+local cachedHitSoundName = nil
+local lastHitSoundPlay = 0
+
 Xeno_PlayHitSound = function()
-	pcall(function()
-		if not (Toggles.HitSound and Toggles.HitSound.Value) then return end
-		local selected = Options.HitSoundSelect and Options.HitSoundSelect.Value
-		if not selected or selected == "None" then return end
+	if not (Toggles.HitSound and Toggles.HitSound.Value) then return end
+	local selected = Options.HitSoundSelect and Options.HitSoundSelect.Value
+	if not selected or selected == "None" then return end
+
+	local now = tick()
+	if now - lastHitSoundPlay < 0.05 then return end
+	lastHitSoundPlay = now
+
+	local sound = cachedHitSound
+	if not sound or not sound.Parent or cachedHitSoundName ~= selected then
 		local folder = hitSoundLookup[selected]
-		if not folder then return end
-		local template = folder:FindFirstChild(selected)
+		local template = folder and folder:FindFirstChild(selected)
 		if not (template and template:IsA("Sound")) then return end
 		local character = getCharacter()
 		local root = character and character:FindFirstChild("HumanoidRootPart")
 		if not root then return end
+		if sound then sound:Destroy() end
 
-		local sound = template:Clone()
+		sound = template:Clone()
 		sound.Name = "XenoHitSound"
+		sound.Looped = false
 		sound.Parent = root
-		sound:Play()
+		cachedHitSound = sound
+		cachedHitSoundName = selected
+	else
+		sound.TimePosition = 0
+	end
 
-		local function cleanup()
-			if sound and sound.Parent then sound:Destroy() end
-		end
-		sound.Ended:Connect(cleanup)
-		task.delay(6, cleanup)
-	end)
+	sound:Play()
 end
 
 do
@@ -3854,13 +3867,15 @@ if hookmetamethod then
 					return -- Block the attack to prevent damage
 				end
 			elseif TSG.MeleePlayerRemote and rawequal(self, TSG.MeleePlayerRemote) then
-				local fn = Xeno_PlayHitSound
-				if fn then task.defer(function() pcall(fn) end) end
+				if Xeno_PlayHitSound and Toggles.HitSound and Toggles.HitSound.Value then
+					task.defer(Xeno_PlayHitSound)
+				end
 			end
 		elseif method == "InvokeServer" then
 			if TSG.MeleePlayerRemote and rawequal(self, TSG.MeleePlayerRemote) then
-				local fn = Xeno_PlayHitSound
-				if fn then task.defer(function() pcall(fn) end) end
+				if Xeno_PlayHitSound and Toggles.HitSound and Toggles.HitSound.Value then
+					task.defer(Xeno_PlayHitSound)
+				end
 			end
 		end
 
