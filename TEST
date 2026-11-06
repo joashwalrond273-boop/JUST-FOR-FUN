@@ -8504,11 +8504,6 @@ OreFarm:AddButton({
    end,
 })
 
-OreFarm:AddCheckbox("TeleportToOres", {
-	Text = "Teleport To Ores",
-	Default = false,
-})
-
 OreFarm:AddDivider()
 
 OreFarm:AddToggle("OreESPToggle", {
@@ -8534,83 +8529,6 @@ OreFarm:AddSlider("OreESPDistance", {
 	Rounding = 10,
 	Compact = true,
 })
-
--- ==========================================
--- Teleport To Ores (cycles through workspace.worldResources.mineable)
-local isOreTeleportRunning = false
-local oreTeleportList = {}
-local oreTeleportIndex = 0
-local lastOreTeleport = 0
-
-local function collectOrePositions()
-	local folder = workspace:FindFirstChild("worldResources") and workspace.worldResources:FindFirstChild("mineable")
-	if not folder then return {} end
-	local list = {}
-	for _, chunk in ipairs(folder:GetChildren()) do
-		if chunk:IsA("Folder") then
-			for _, obj in ipairs(chunk:GetChildren()) do
-				local anchor = (obj:IsA("Model") and (obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart"))) or (obj:IsA("BasePart") and obj)
-				if anchor and anchor.Parent then
-					table.insert(list, anchor.Position)
-				end
-			end
-		end
-	end
-	return list
-end
-
-local function oreTeleportStep()
-	local root = getRootPart()
-	if not root then return end
-
-	if oreTeleportIndex < 1 or oreTeleportIndex > #oreTeleportList then
-		oreTeleportList = collectOrePositions()
-		oreTeleportIndex = 1
-		if #oreTeleportList == 0 then
-			isOreTeleportRunning = false
-			disconnect("OreTeleport")
-			if Toggles.TeleportToOres then Toggles.TeleportToOres:SetValue(false) end
-			Library:Notify({ Title = "Teleport Ores", Description = "No ores found in mineable folder.", Time = 3 })
-			return
-		end
-	end
-
-	local pos = oreTeleportList[oreTeleportIndex]
-	oreTeleportIndex += 1
-	if pos then
-		root.CFrame = CFrame.new(pos + Vector3.new(0, 5, 0))
-	end
-end
-
-if Toggles.TeleportToOres then
-	Toggles.TeleportToOres:OnChanged(function()
-		disconnect("OreTeleport")
-		isOreTeleportRunning = false
-		if not Toggles.TeleportToOres.Value then return end
-		if not isAlive() then
-			Toggles.TeleportToOres:SetValue(false)
-			return
-		end
-
-		oreTeleportList = collectOrePositions()
-		if #oreTeleportList == 0 then
-			Toggles.TeleportToOres:SetValue(false)
-			Library:Notify({ Title = "Teleport Ores", Description = "No ores found in mineable folder.", Time = 3 })
-			return
-		end
-		oreTeleportIndex = 1
-		lastOreTeleport = 0
-		isOreTeleportRunning = true
-		track("OreTeleport", RunService.Heartbeat:Connect(function()
-			if not isOreTeleportRunning or not isAlive() then return end
-			local now = tick()
-			if now - lastOreTeleport < 0.15 then return end
-			lastOreTeleport = now
-			oreTeleportStep()
-		end))
-		Library:Notify({ Title = "Teleport Ores", Description = "Teleporting to all ores...", Time = 2 })
-	end)
-end
 
 -- ==========================================
 -- Aura highlights (one per aura type, created after makeAuraHighlight is defined)
