@@ -9978,7 +9978,7 @@ TeleportExtra:AddButton({
 TeleportExtra:AddButton({
 	Text = "Asia Cave",
 	Func = function()
-		resetAndTeleport(Vector3.new(-2108.44, 210, 6823.05), "Asia Cave")
+		resetAndTeleport(Vector3.new(-1782.19, 353.22, 7074.68), "Asia Cave")
 	end,
 })
 
