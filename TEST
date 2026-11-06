@@ -9825,118 +9825,266 @@ end)
 -- ==========================================
 -- TELEPORT
 -- ==========================================
+-- Reset-then-teleport helper: resets the character first, then teleports on respawn.
+local pendingTeleportTarget = nil
+local pendingTeleportLabel = nil
+
+track("TeleportResetRespawn", LocalPlayer.CharacterAdded:Connect(function()
+	if not pendingTeleportTarget then return end
+	local target = pendingTeleportTarget
+	local label = pendingTeleportLabel
+	pendingTeleportTarget = nil
+	pendingTeleportLabel = nil
+	task.wait(0.6)
+	local root = getRootPart()
+	if root then
+		root.CFrame = CFrame.new(target + Vector3.new(0, 10, 0))
+		Library:Notify({ Title = "Reset & Teleport", Description = "Teleported to " .. label, Time = 2 })
+	end
+end))
+
+local function resetAndTeleport(targetPos, label)
+	pendingTeleportTarget = targetPos
+	pendingTeleportLabel = label
+
+	local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
+	local characterFolder = remoteInterface and remoteInterface:FindFirstChild("character")
+	local resetRemote = characterFolder and characterFolder:FindFirstChild("reset")
+	if resetRemote then
+		local ok = pcall(function()
+			resetRemote:InvokeServer()
+		end)
+		if ok then
+			return
+		end
+	end
+
+	-- Reset unavailable: fall back to a direct teleport.
+	pendingTeleportTarget = nil
+	pendingTeleportLabel = nil
+	local root = getRootPart()
+	if root then
+		root.CFrame = CFrame.new(targetPos + Vector3.new(0, 10, 0))
+		Library:Notify({ Title = "Teleport", Description = "Teleported to " .. label, Time = 1.5 })
+	else
+		Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
+	end
+end
+
 -- Boss Locations
 local BossLocationsGroup = Tabs.Teleport:AddLeftGroupbox("Boss locations", "swords")
 
-local bossLocations = {
-	{ name = "Samurai",         pos = Vector3.new(-1727.48, 520.01, 7305.50) },
-	{ name = "Juggernaut",      pos = Vector3.new(-1601.49, 113.27, -2890.59) },
-	{ name = "Spider",          pos = Vector3.new(-330.32, -90.12, 382.67) },
-	{ name = "Titan",           pos = Vector3.new(1654.57, 23.20, 2312.14) },
-	{ name = "Kraken",          pos = Vector3.new(802.42, 19.35, -1999.35) },
-	{ name = "Marvin",          pos = Vector3.new(-663.22, 26.14, 741.84) },
-	{ name = "Hacker Platform", pos = Vector3.new(3811.73, 1546.83, -977.48) },
-}
+BossLocationsGroup:AddButton({
+	Text = "Samurai",
+	Func = function()
+		resetAndTeleport(Vector3.new(-1727.48, 520.01, 7305.50), "Samurai")
+	end,
+})
 
-for _, loc in ipairs(bossLocations) do
-	BossLocationsGroup:AddButton({
-		Text = loc.name,
-		Func = function()
-			local root = getRootPart()
-			if root then
-				root.CFrame = CFrame.new(loc.pos + Vector3.new(0, 10, 0))
-				Library:Notify({ Title = "Teleport", Description = "Teleported to " .. loc.name, Time = 1.5 })
-			else
-				Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
-			end
-		end,
-	})
-end
+BossLocationsGroup:AddButton({
+	Text = "Juggernaut",
+	Func = function()
+		resetAndTeleport(Vector3.new(-1601.49, 113.27, -2890.59), "Juggernaut")
+	end,
+})
+
+BossLocationsGroup:AddButton({
+	Text = "Spider",
+	Func = function()
+		resetAndTeleport(Vector3.new(-330.32, -90.12, 382.67), "Spider")
+	end,
+})
+
+BossLocationsGroup:AddButton({
+	Text = "Titan",
+	Func = function()
+		resetAndTeleport(Vector3.new(1654.57, 23.20, 2312.14), "Titan")
+	end,
+})
+
+BossLocationsGroup:AddButton({
+	Text = "Kraken",
+	Func = function()
+		resetAndTeleport(Vector3.new(802.42, 19.35, -1999.35), "Kraken")
+	end,
+})
+
+BossLocationsGroup:AddButton({
+	Text = "Marvin",
+	Func = function()
+		resetAndTeleport(Vector3.new(-663.22, 26.14, 741.84), "Marvin")
+	end,
+})
+
+BossLocationsGroup:AddButton({
+	Text = "Hacker Platform",
+	Func = function()
+		resetAndTeleport(Vector3.new(3811.73, 1546.83, -977.48), "Hacker Platform")
+	end,
+})
 
 -- Extra Locations
 local TeleportExtra = Tabs.Teleport:AddLeftGroupbox("Extra Locations", "map-pin")
 
-local extraLocations = {
-	{ name = "Desert",        pos = Vector3.new(1459.50, 26.26, -204.70) },
-	{ name = "Desert Hill",   pos = Vector3.new(1548.35, 145.47, 196.68) },
-	{ name = "MainLand",      pos = Vector3.new(-170.20, 25.26, 430.70) },
-	{ name = "Below ML",      pos = Vector3.new(-177, 25.26, -1014.83) },
-	{ name = "Arena",         pos = Vector3.new(-1315.59, 41.19, 1972.84) },
-	{ name = "Bamboo",        pos = Vector3.new(-1330.92, 39.43, 5798.47) },
-	{ name = "Volcano",       pos = Vector3.new(1769.70, 36.43, 1832.10) },
-	{ name = "Asia Cave",     pos = Vector3.new(-2108.44, 210, 6823.05) },
-	{ name = "Juggernaut 2",  pos = Vector3.new(-1645.06, 336.32, -2874.34) },
-	{ name = "Waterfall",     pos = Vector3.new(-1949.89, 25.29, 345.83) },
-}
+TeleportExtra:AddButton({
+	Text = "Desert",
+	Func = function()
+		resetAndTeleport(Vector3.new(1459.50, 26.26, -204.70), "Desert")
+	end,
+})
 
-for _, loc in ipairs(extraLocations) do
-	TeleportExtra:AddButton({
-		Text = loc.name,
-		Func = function()
-			local root = getRootPart()
-			if root then
-				root.CFrame = CFrame.new(loc.pos + Vector3.new(0, 10, 0))
-				Library:Notify({ Title = "Teleport", Description = "Teleported to " .. loc.name, Time = 1.5 })
-			else
-				Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
-			end
-		end,
-	})
-end
+TeleportExtra:AddButton({
+	Text = "Desert Hill",
+	Func = function()
+		resetAndTeleport(Vector3.new(1548.35, 145.47, 196.68), "Desert Hill")
+	end,
+})
+
+TeleportExtra:AddButton({
+	Text = "MainLand",
+	Func = function()
+		resetAndTeleport(Vector3.new(-170.20, 25.26, 430.70), "MainLand")
+	end,
+})
+
+TeleportExtra:AddButton({
+	Text = "Below ML",
+	Func = function()
+		resetAndTeleport(Vector3.new(-177, 25.26, -1014.83), "Below ML")
+	end,
+})
+
+TeleportExtra:AddButton({
+	Text = "Arena",
+	Func = function()
+		resetAndTeleport(Vector3.new(-1315.59, 41.19, 1972.84), "Arena")
+	end,
+})
+
+TeleportExtra:AddButton({
+	Text = "Bamboo",
+	Func = function()
+		resetAndTeleport(Vector3.new(-1330.92, 39.43, 5798.47), "Bamboo")
+	end,
+})
+
+TeleportExtra:AddButton({
+	Text = "Volcano",
+	Func = function()
+		resetAndTeleport(Vector3.new(1769.70, 36.43, 1832.10), "Volcano")
+	end,
+})
+
+TeleportExtra:AddButton({
+	Text = "Asia Cave",
+	Func = function()
+		resetAndTeleport(Vector3.new(-2108.44, 210, 6823.05), "Asia Cave")
+	end,
+})
+
+TeleportExtra:AddButton({
+	Text = "Juggernaut 2",
+	Func = function()
+		resetAndTeleport(Vector3.new(-1645.06, 336.32, -2874.34), "Juggernaut 2")
+	end,
+})
+
+TeleportExtra:AddButton({
+	Text = "Waterfall",
+	Func = function()
+		resetAndTeleport(Vector3.new(-1949.89, 25.29, 345.83), "Waterfall")
+	end,
+})
 
 -- Mounts Groupbox
 local MountsGroup = Tabs.Teleport:AddRightGroupbox("Mounts", "paw-print")
 
-local mountLocations = {
-	{ name = "Lion",          pos = Vector3.new(1327.79, 25.26, -756.75) },
-	{ name = "White Wolf",    pos = Vector3.new(-1447.88, 25.26, -1566.85) },
-	{ name = "Horse",         pos = Vector3.new(-215.30, 25.26, 496.58) },
-	{ name = "Grey Wolf",     pos = Vector3.new(84.67, 25.26, 442.49) },
-	{ name = "Elephant",      pos = Vector3.new(1495.75, 25.26, -313.55) },
-	{ name = "Snow Bear",     pos = Vector3.new(-879.8, 25.3, -2062.5) },
-}
+MountsGroup:AddButton({
+	Text = "Lion",
+	Func = function()
+		resetAndTeleport(Vector3.new(1327.79, 25.26, -756.75), "Lion")
+	end,
+})
 
-for _, loc in ipairs(mountLocations) do
-	MountsGroup:AddButton({
-		Text = loc.name,
-		Func = function()
-			local root = getRootPart()
-			if root then
-				root.CFrame = CFrame.new(loc.pos + Vector3.new(0, 10, 0))
-				Library:Notify({ Title = "Teleport", Description = "Teleported to " .. loc.name, Time = 1.5 })
-			else
-				Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
-			end
-		end,
-	})
-end
+MountsGroup:AddButton({
+	Text = "White Wolf",
+	Func = function()
+		resetAndTeleport(Vector3.new(-1447.88, 25.26, -1566.85), "White Wolf")
+	end,
+})
+
+MountsGroup:AddButton({
+	Text = "Horse",
+	Func = function()
+		resetAndTeleport(Vector3.new(-215.30, 25.26, 496.58), "Horse")
+	end,
+})
+
+MountsGroup:AddButton({
+	Text = "Grey Wolf",
+	Func = function()
+		resetAndTeleport(Vector3.new(84.67, 25.26, 442.49), "Grey Wolf")
+	end,
+})
+
+MountsGroup:AddButton({
+	Text = "Elephant",
+	Func = function()
+		resetAndTeleport(Vector3.new(1495.75, 25.26, -313.55), "Elephant")
+	end,
+})
+
+MountsGroup:AddButton({
+	Text = "Snow Bear",
+	Func = function()
+		resetAndTeleport(Vector3.new(-879.8, 25.3, -2062.5), "Snow Bear")
+	end,
+})
 
 -- Merchants Groupbox
 local MerchantsGroup = Tabs.Teleport:AddRightGroupbox("Merchants", "map-pin")
 
-local merchantLocations = {
-	{ name = "Mainland",   pos = Vector3.new(-144.60, 25.26, 429.38) },
-	{ name = "Desert",     pos = Vector3.new(1428.14, 25.26, -593.17) },
-	{ name = "Asia",       pos = Vector3.new(-744.10, 329.20, 7134.18) },
-	{ name = "Arctic",     pos = Vector3.new(-1251.90, 25.25, -1997.17) },
-	{ name = "Below Main", pos = Vector3.new(-166.28, 25.26, -1043.86) },
-	{ name = "Secret",     pos = Vector3.new(-1171.82, 24.40, 90.70) },
-}
+MerchantsGroup:AddButton({
+	Text = "Mainland",
+	Func = function()
+		resetAndTeleport(Vector3.new(-144.60, 25.26, 429.38), "Mainland")
+	end,
+})
 
-for _, loc in ipairs(merchantLocations) do
-	MerchantsGroup:AddButton({
-		Text = loc.name,
-		Func = function()
-			local root = getRootPart()
-			if root then
-				root.CFrame = CFrame.new(loc.pos + Vector3.new(0, 10, 0))
-				Library:Notify({ Title = "Teleport", Description = "Teleported to " .. loc.name, Time = 1.5 })
-			else
-				Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
-			end
-		end,
-	})
-end
+MerchantsGroup:AddButton({
+	Text = "Desert",
+	Func = function()
+		resetAndTeleport(Vector3.new(1428.14, 25.26, -593.17), "Desert")
+	end,
+})
+
+MerchantsGroup:AddButton({
+	Text = "Asia",
+	Func = function()
+		resetAndTeleport(Vector3.new(-744.10, 329.20, 7134.18), "Asia")
+	end,
+})
+
+MerchantsGroup:AddButton({
+	Text = "Arctic",
+	Func = function()
+		resetAndTeleport(Vector3.new(-1251.90, 25.25, -1997.17), "Arctic")
+	end,
+})
+
+MerchantsGroup:AddButton({
+	Text = "Below Main",
+	Func = function()
+		resetAndTeleport(Vector3.new(-166.28, 25.26, -1043.86), "Below Main")
+	end,
+})
+
+MerchantsGroup:AddButton({
+	Text = "Secret",
+	Func = function()
+		resetAndTeleport(Vector3.new(-1171.82, 24.40, 90.70), "Secret")
+	end,
+})
 
 -- ==========================================
 -- VISUALS
