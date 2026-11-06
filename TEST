@@ -9877,7 +9877,7 @@ local BossLocationsGroup = Tabs.Teleport:AddLeftGroupbox("Boss locations", "swor
 BossLocationsGroup:AddButton({
 	Text = "Samurai",
 	Func = function()
-		resetAndTeleport(Vector3.new(-1727.48, 520.01, 7305.50), "Samurai")
+		resetAndTeleport(Vector3.new(-1727.48, 530.01, 7305.50), "Samurai")
 	end,
 })
 
@@ -9898,7 +9898,7 @@ BossLocationsGroup:AddButton({
 BossLocationsGroup:AddButton({
 	Text = "Titan",
 	Func = function()
-		resetAndTeleport(Vector3.new(1654.57, 23.20, 2312.14), "Titan")
+		resetAndTeleport(Vector3.new(1654.57, 33.20, 2312.14), "Titan")
 	end,
 })
 
@@ -10068,7 +10068,7 @@ MerchantsGroup:AddButton({
 MerchantsGroup:AddButton({
 	Text = "Arctic",
 	Func = function()
-		resetAndTeleport(Vector3.new(-1251.90, 25.25, -1997.17), "Arctic")
+		resetAndTeleport(Vector3.new(-1251.90, 35.25, -1997.17), "Arctic")
 	end,
 })
 
