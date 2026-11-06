@@ -10535,7 +10535,6 @@ end
 -- Drop render quality to the lowest preset for a large GPU saving
 do
 	local qualityOriginal = nil
-	local meshOriginal = nil
 
 	VisualFPS:AddToggle("LowQualityLevel", {
 		Text = "Low Quality Level",
@@ -10546,18 +10545,10 @@ do
 					if qualityOriginal == nil then
 						qualityOriginal = settings().Rendering.QualityLevel
 					end
-					if meshOriginal == nil then
-						meshOriginal = settings().Rendering.MeshPartDetailLevel
-					end
-					-- Level01 is the minimum QualityLevel; also drop mesh LOD to its
-					-- lowest so the GPU/CPU cost goes below what Level01 alone allows.
 					settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
-					settings().Rendering.MeshPartDetailLevel = Enum.MeshPartDetailLevel.Level00
 				else
 					settings().Rendering.QualityLevel = qualityOriginal or Enum.QualityLevel.Automatic
-					settings().Rendering.MeshPartDetailLevel = meshOriginal or Enum.MeshPartDetailLevel.Automatic
 					qualityOriginal = nil
-					meshOriginal = nil
 				end
 			end)
 		end,
