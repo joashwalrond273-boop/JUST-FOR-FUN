@@ -1,10 +1,10 @@
 -- URIEL | Obsidian UI
 -- Docs: https://docs.mspaint.cc/obsidian
 
-if getgenv().TSG_OBSIDIAN_LOADED then
-	return warn("[TSG] Script already loaded - rejoin to re-execute.")
+if getgenv().TSG_UNLOAD then
+	pcall(getgenv().TSG_UNLOAD)
+	getgenv().TSG_UNLOAD = nil
 end
-getgenv().TSG_OBSIDIAN_LOADED = true
 
 -- Services
 local Players = game:GetService("Players")
@@ -21,6 +21,11 @@ local joinLowPingServer
 -- Obsidian
 local repo = "https://raw.githubusercontent.com/deividcomsono/Obsidian/main/"
 local Library = loadstring(game:HttpGet(repo .. "Library.lua"))()
+getgenv().TSG_UNLOAD = function()
+	pcall(function()
+		Library:Unload()
+	end)
+end
 local ThemeManager = loadstring(game:HttpGet(repo .. "addons/ThemeManager.lua"))()
 local SaveManager = loadstring(game:HttpGet(repo .. "addons/SaveManager.lua"))()
 
@@ -11967,7 +11972,7 @@ Library:OnUnload(function()
 	clearESP()
 	pcall(function() clearOreESPHighlights() end)
 	workspace.Gravity = 196.2
-	getgenv().TSG_OBSIDIAN_LOADED = nil
+	getgenv().TSG_UNLOAD = nil
 end)
 
 Library:Notify({
