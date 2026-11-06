@@ -287,23 +287,24 @@ TSG.BuildRemote = (keyedRemotes and rawget(keyedRemotes, "build")) or (interacti
 TSG.CraftRemote = (keyedRemotes and rawget(keyedRemotes, "craft")) or (interactionsFolder and interactionsFolder:FindFirstChild("craft"))
 TSG.DeleteStructureRemote = (keyedRemotes and rawget(keyedRemotes, "deleteStructure")) or (interactionsFolder and interactionsFolder:FindFirstChild("deleteStructure"))
 
--- No Bear Trap DMG remote (intercepted by the single shared __namecall hook
--- further below, plus a direct InvokeServer hook as a fallback)
+-- No Bear Trap DMG remote (intercepted via the __namecall hook below)
 local TrapRunEvent = resolvePath(ReplicatedStorage, "remoteInterface", "traps", "Run") or (ReplicatedStorage:FindFirstChild("remoteInterface") and ReplicatedStorage.remoteInterface:FindFirstChild("traps") and ReplicatedStorage.remoteInterface.traps:FindFirstChild("Run"))
 
-pcall(function()
-	if typeof(hookfunction) == "function" and TrapRunEvent and TrapRunEvent.InvokeServer then
-		local OldInvokeServer; OldInvokeServer = hookfunction(TrapRunEvent.InvokeServer, function(...)
-			local self = ...
+if hookmetamethod then
+	local bearTrapOriginal
+	bearTrapOriginal = hookmetamethod(game, "__namecall", function(...)
+		local self = ...
+		local method = getnamecallmethod()
 
-			if Toggles.NoBearTrapDMG and Toggles.NoBearTrapDMG.Value and rawequal(self, TrapRunEvent) then
+		if method == "InvokeServer" and TrapRunEvent and rawequal(self, TrapRunEvent) then
+			if Toggles.NoBearTrapDMG and Toggles.NoBearTrapDMG.Value then
 				return nil
 			end
+		end
 
-			return OldInvokeServer(self, ...)
-		end)
-	end
-end)
+		return bearTrapOriginal(...)
+	end)
+end
 
 
 Library.Font = Enum.Font.Gotham
@@ -3839,9 +3840,7 @@ track("CharacterModuleRespawn", LocalPlayer.CharacterAdded:Connect(function()
 	end
 end))
 
--- Single shared __namecall hook. It handles bear-trap blocking, boss damage
--- blocking and the melee hit sound. Using one hook instead of chaining two
--- keeps the per-call overhead down, since every Lua method call hits this.
+-- Boss damage blocking and the melee hit sound share one __namecall hook.
 local BossDamageEvent = resolvePath(ReplicatedStorage, "remoteInterface", "character", "hurtByAIAttack")
 if hookmetamethod then
 	local namecallOriginal
@@ -3849,22 +3848,17 @@ if hookmetamethod then
 		local self = ...
 		local method = getnamecallmethod()
 
-		if method == "InvokeServer" then
-			if TrapRunEvent and rawequal(self, TrapRunEvent) then
-				if Toggles.NoBearTrapDMG and Toggles.NoBearTrapDMG.Value then
-					return nil
-				end
-			elseif TSG.MeleePlayerRemote and rawequal(self, TSG.MeleePlayerRemote) then
-				-- Play the hit sound only after the real remote call goes through
-				local fn = Xeno_PlayHitSound
-				if fn then task.defer(function() pcall(fn) end) end
-			end
-		elseif method == "FireServer" then
+		if method == "FireServer" then
 			if BossDamageEvent and rawequal(self, BossDamageEvent) then
 				if Toggles.NoBossDamage and Toggles.NoBossDamage.Value then
 					return -- Block the attack to prevent damage
 				end
 			elseif TSG.MeleePlayerRemote and rawequal(self, TSG.MeleePlayerRemote) then
+				local fn = Xeno_PlayHitSound
+				if fn then task.defer(function() pcall(fn) end) end
+			end
+		elseif method == "InvokeServer" then
+			if TSG.MeleePlayerRemote and rawequal(self, TSG.MeleePlayerRemote) then
 				local fn = Xeno_PlayHitSound
 				if fn then task.defer(function() pcall(fn) end) end
 			end
@@ -10847,17 +10841,11 @@ local function getOrCreateESP(player)
 end
 
 local lastThrottledUpdate = 0
-local lastEspFrame = 0
 
 local function updateAllESP()
 	if not Toggles.PlayerESP or not Toggles.PlayerESP.Value then return end
 
-	-- Cap to ~30 Hz. The Billboard/Highlight follow their Adornee natively, so
-	-- running this every frame just burns CPU without any visual difference.
 	local now = tick()
-	if now - lastEspFrame < 1 / 30 then return end
-	lastEspFrame = now
-
 	local myRoot = getRootPart()
 	local myPos = myRoot and myRoot.Position
 	local shouldThrottle = (now - lastThrottledUpdate >= 0.1)
