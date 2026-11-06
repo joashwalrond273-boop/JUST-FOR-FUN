@@ -8516,11 +8516,6 @@ OreFarm:AddCheckbox("OreESPHighlights", {
 	Default = false,
 })
 
-OreFarm:AddCheckbox("OreESPTeleport", {
-	Text = "Teleport to Ores",
-	Default = false,
-})
-
 OreFarm:AddSlider("OreESPDistance", {
 	Text = "Max Distance",
 	Default = 500,
@@ -9832,7 +9827,6 @@ end)
 -- Ore ESP Teleport Functions
 -- ==========================================
 local currentOreTarget = nil
-local lastOreTeleportCheck = 0
 
 local function getClosestMineableOre(ignoreObj)
 	local folder = workspace:FindFirstChild("worldResources") and workspace.worldResources:FindFirstChild("mineable")
@@ -9947,55 +9941,6 @@ end
 oreESP.getClosestOre = getClosestMineableOre
 oreESP.teleportToOre = teleportToOre
 oreESP.teleportToNearestOre = teleportToNearestOre
-
-if Toggles.OreESPTeleport then
-	Toggles.OreESPTeleport:OnChanged(function()
-		disconnect("OreESPTeleport")
-		currentOreTarget = nil
-		if not Toggles.OreESPTeleport.Value then
-			Library:Notify({ Title = "Ore Teleport", Description = "Disabled", Time = 2 })
-			return
-		end
-
-		if scanOreTypesAndBuildUI then
-			pcall(scanOreTypesAndBuildUI)
-		end
-
-		teleportToNearestOre(true)
-
-		track("OreESPTeleport", RunService.Heartbeat:Connect(function()
-			if not isAlive() then return end
-			if not (Toggles.OreESPTeleport and Toggles.OreESPTeleport.Value) then
-				disconnect("OreESPTeleport")
-				return
-			end
-
-			local now = tick()
-			if now - lastOreTeleportCheck < 0.35 then return end
-			lastOreTeleportCheck = now
-
-			local root = getRootPart()
-			if not root then return end
-
-			if currentOreTarget and currentOreTarget.Parent then
-				local anchor = currentOreTarget:IsA("Model") and (currentOreTarget.PrimaryPart or currentOreTarget:FindFirstChildWhichIsA("BasePart")) or (currentOreTarget:IsA("BasePart") and currentOreTarget)
-				if anchor and anchor.Parent then
-					local dist = (anchor.Position - root.Position).Magnitude
-					if dist <= 12 then
-						return
-					end
-				end
-			end
-
-			local targetObj, targetAnchor = getClosestMineableOre()
-			if targetObj and targetAnchor then
-				teleportToOre(targetObj, false)
-			end
-		end))
-
-		Library:Notify({ Title = "Ore Teleport", Description = "Enabled", Time = 2 })
-	end)
-end
 
 -- ==========================================
 -- TELEPORT
@@ -12197,9 +12142,6 @@ Library:OnUnload(function()
 	end
 	if Toggles.OreESPToggle and Toggles.OreESPToggle.Value then
 		Toggles.OreESPToggle:SetValue(false)
-	end
-	if Toggles.OreESPTeleport and Toggles.OreESPTeleport.Value then
-		Toggles.OreESPTeleport:SetValue(false)
 	end
 	if Toggles.AutoMine and Toggles.AutoMine.Value then
 		Toggles.AutoMine:SetValue(false)
