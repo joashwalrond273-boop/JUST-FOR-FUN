@@ -8346,6 +8346,37 @@ FarmChop:AddCheckbox("HighlightChop", {
 	Title = "Highlight Target Color",
 })
 
+local function getMineableNames()
+	local names, seen = {}, {}
+	local folder = workspace:FindFirstChild("worldResources") and workspace.worldResources:FindFirstChild("mineable")
+	if folder then
+		for _, chunkFolder in ipairs(folder:GetChildren()) do
+			if chunkFolder:IsA("Folder") then
+				for _, obj in ipairs(chunkFolder:GetChildren()) do
+					local n = obj.Name
+					if n and not seen[n] then
+						seen[n] = true
+						table.insert(names, n)
+					end
+				end
+			end
+		end
+	end
+	table.sort(names)
+	return names
+end
+
+local chopMineableNames = getMineableNames()
+if #chopMineableNames == 0 then
+	chopMineableNames = { "None" }
+end
+
+FarmChop:AddDropdown("AutoChopOreFilter", {
+	Text = "Select Ore",
+	Values = chopMineableNames,
+	Default = chopMineableNames[1],
+})
+
 -- ==========================================
 local FarmAI = Tabs.OreFactory:AddRightGroupbox("AI Aura", "zap")
 
