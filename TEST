@@ -9835,7 +9835,7 @@ track("TeleportResetRespawn", LocalPlayer.CharacterAdded:Connect(function()
 	local label = pendingTeleportLabel
 	pendingTeleportTarget = nil
 	pendingTeleportLabel = nil
-	task.wait(0.6)
+	task.wait(1)
 	local root = getRootPart()
 	if root then
 		root.CFrame = CFrame.new(target + Vector3.new(0, 10, 0))
