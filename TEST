@@ -2378,7 +2378,6 @@ do
 		attribute = "XenoBodyWear",
 		weldName = "XenoBodyWeld",
 		clothingClass = "Shirt",
-		deform = true,
 		paths = {
 			["Admin Armor"] = {"game", "Items", "models", "Admin Armor"},
 			["Target Practice"] = {"game", "Cosmetics", "cosmetics", "Target Practice"},
