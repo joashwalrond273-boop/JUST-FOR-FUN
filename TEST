@@ -1417,6 +1417,43 @@ CosmeticsGroup:AddDropdown("HitSoundSelect", {
 	Default = "None",
 })
 
+CosmeticsGroup:AddDivider()
+
+CosmeticsGroup:AddButton({
+	Text = "Redeem Codes",
+	Func = function()
+		task.spawn(function()
+			local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
+			local codesFolder = remoteInterface and remoteInterface:FindFirstChild("codes")
+			local redeemRemote = codesFolder and codesFolder:FindFirstChild("RedeemCode")
+			if not redeemRemote then
+				Library:Notify({ Title = "Redeem Codes", Description = "Redeem remote not found.", Time = 3 })
+				return
+			end
+
+			local codes = {
+				"ilovesurvival",
+				"banditesisepic",
+				"hoopieisepic",
+				"mangoisawesome",
+				"tanqrisawesome",
+				"magmamighty",
+				"antlersofdoom",
+				"iwillsurvive",
+			}
+
+			for _, code in ipairs(codes) do
+				pcall(function()
+					redeemRemote:InvokeServer(code)
+				end)
+				task.wait(1)
+			end
+
+			Library:Notify({ Title = "Redeem Codes", Description = "Redeemed " .. #codes .. " codes.", Time = 3 })
+		end)
+	end,
+})
+
 Xeno_PlayHitSound = function()
 	pcall(function()
 		if not (Toggles.HitSound and Toggles.HitSound.Value) then return end
