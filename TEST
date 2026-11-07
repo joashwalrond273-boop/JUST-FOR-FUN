@@ -1362,65 +1362,25 @@ if Options.WearColorSelect then
 	end)
 end
 
-local headWearColorLabel = CosmeticsGroup:AddLabel("Head Wear Color")
-headWearColorLabel:AddColorPicker("CosmeticSelectColor", {
+CosmeticsGroup:AddLabel("Head Wear Color"):AddColorPicker("CosmeticSelectColor", {
 	Default = Color3.fromRGB(255, 255, 255),
 	Title = "Head Wear Color",
 })
 
-local bodyWearColorLabel = CosmeticsGroup:AddLabel("Body Wear Color")
-bodyWearColorLabel:AddColorPicker("BodyWearSelectColor", {
+CosmeticsGroup:AddLabel("Body Wear Color"):AddColorPicker("BodyWearSelectColor", {
 	Default = Color3.fromRGB(255, 255, 255),
 	Title = "Body Wear Color",
 })
 
-local pantsWearColorLabel = CosmeticsGroup:AddLabel("Pants Wear Color")
-pantsWearColorLabel:AddColorPicker("PantsWearSelectColor", {
+CosmeticsGroup:AddLabel("Pants Wear Color"):AddColorPicker("PantsWearSelectColor", {
 	Default = Color3.fromRGB(255, 255, 255),
 	Title = "Pants Wear Color",
 })
 
-local backWearColorLabel = CosmeticsGroup:AddLabel("Back Wear Color")
-backWearColorLabel:AddColorPicker("BackWearSelectColor", {
+CosmeticsGroup:AddLabel("Back Wear Color"):AddColorPicker("BackWearSelectColor", {
 	Default = Color3.fromRGB(255, 255, 255),
 	Title = "Back Wear Color",
 })
-
--- Only show a wear color picker when its category is selected in "Use Wear Colors"
-local function updateCosmeticColorVisibility()
-	local sel = Options.WearColorSelect and Options.WearColorSelect.Value
-
-	local function isOn(category)
-		return typeof(sel) == "table" and sel[category] == true
-	end
-
-	local function setVisible(label, visible)
-		if not label then return end
-		label.Visible = visible
-		if label.Holder then
-			label.Holder.Visible = visible
-		end
-	end
-
-	setVisible(headWearColorLabel, isOn("Head Wear"))
-	setVisible(bodyWearColorLabel, isOn("Body Wear"))
-	setVisible(pantsWearColorLabel, isOn("Pants Wear"))
-	setVisible(backWearColorLabel, isOn("Back Wear"))
-
-	CosmeticsGroup:Resize()
-end
-
-if Options.WearColorSelect then
-	Options.WearColorSelect:OnChanged(function()
-		updateCosmeticColorVisibility()
-	end)
-end
-
-updateCosmeticColorVisibility()
-task.spawn(function()
-	task.wait(0.05)
-	updateCosmeticColorVisibility()
-end)
 
 CosmeticsGroup:AddDivider()
 
@@ -2655,20 +2615,10 @@ TeleportGroup:AddButton({
 			local hum = char:FindFirstChild("Humanoid")
 			if not hrp or not hum or hum.Health <= 0 then return nil end
 			local targetCFrame = hrp.CFrame
-			local dist = (Options.TeleportOffsetStuds and Options.TeleportOffsetStuds.Value) or 30
-			local offsetPos = targetCFrame.Position - targetCFrame.LookVector * dist
+			local offsetPos = targetCFrame.Position - targetCFrame.LookVector * 30
 			return CFrame.new(offsetPos, offsetPos - targetCFrame.LookVector)
 		end, targetPlayer.Name)
 	end,
-})
-
-TeleportGroup:AddSlider("TeleportOffsetStuds", {
-	Text = "Spawn Distance",
-	Default = 30,
-	Min = 0,
-	Max = 100,
-	Rounding = 0,
-	Compact = true,
 })
 
 local SpectateGroup = Tabs.Main:AddRightGroupbox("SPECTATE", "scan-eye")
