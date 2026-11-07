@@ -2558,29 +2558,6 @@ FunAttach:AddDropdown("AttachPlayerList", {
 
 local TeleportGroup = Tabs.Main:AddRightGroupbox("TELEPORT", "map-pin")
 
-TeleportGroup:AddButton({
-	Text = "Reset Character",
-	Func = function()
-		local root = getRootPart()
-		if root then
-			lastDeathPosition = root.Position
-		end
-
-		local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
-		if remoteInterface then
-			local characterFolder = remoteInterface:FindFirstChild("character")
-			if characterFolder then
-				local resetRemote = characterFolder:FindFirstChild("reset")
-				if resetRemote then
-					pcall(function()
-						resetRemote:InvokeServer()
-					end)
-				end
-			end
-		end
-	end,
-})
-
 TeleportGroup:AddDropdown("TeleportPlayerList", {
 	Text = "Select Player",
 	Values = {},
@@ -2622,18 +2599,24 @@ TeleportGroup:AddButton({
 			return
 		end
 
-		local targetCharacter = matchedPlayers[1].Character
+		local targetPlayer = matchedPlayers[1]
+		local targetCharacter = targetPlayer.Character
 
 		if not targetCharacter or not targetCharacter:FindFirstChild("Humanoid") or targetCharacter:FindFirstChild("Humanoid").Health <= 0 then
 			notify("Tp Error", "This player is not alive.", 5)
 			return
 		end
 
-		if targetCharacter:FindFirstChild("HumanoidRootPart") and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-			local targetCFrame = targetCharacter.HumanoidRootPart.CFrame
+		resetAndTeleport(function()
+			local char = targetPlayer.Character
+			if not char then return nil end
+			local hrp = char:FindFirstChild("HumanoidRootPart")
+			local hum = char:FindFirstChild("Humanoid")
+			if not hrp or not hum or hum.Health <= 0 then return nil end
+			local targetCFrame = hrp.CFrame
 			local offsetPos = targetCFrame.Position - targetCFrame.LookVector * 30
-			player.Character.HumanoidRootPart.CFrame = CFrame.new(offsetPos, offsetPos - targetCFrame.LookVector)
-		end
+			return CFrame.new(offsetPos, offsetPos - targetCFrame.LookVector)
+		end, targetPlayer.Name)
 	end,
 })
 
@@ -9835,25 +9818,37 @@ end)
 -- TELEPORT
 -- ==========================================
 -- Reset-then-teleport helper: resets the character first, then teleports on respawn.
-local pendingTeleportTarget = nil
+local pendingTeleportResolve = nil
 local pendingTeleportLabel = nil
 
 track("TeleportResetRespawn", LocalPlayer.CharacterAdded:Connect(function()
-	if not pendingTeleportTarget then return end
-	local target = pendingTeleportTarget
+	if not pendingTeleportResolve then return end
+	local resolve = pendingTeleportResolve
 	local label = pendingTeleportLabel
-	pendingTeleportTarget = nil
+	pendingTeleportResolve = nil
 	pendingTeleportLabel = nil
 	task.wait(1)
 	local root = getRootPart()
 	if root then
-		root.CFrame = CFrame.new(target + Vector3.new(0, 10, 0))
-		Library:Notify({ Title = "Reset & Teleport", Description = "Teleported to " .. label, Time = 2 })
+		local cf = resolve()
+		if cf then
+			root.CFrame = cf
+			Library:Notify({ Title = "Reset & Teleport", Description = "Teleported to " .. label, Time = 2 })
+		end
 	end
 end))
 
 resetAndTeleport = function(targetPos, label)
-	pendingTeleportTarget = targetPos
+	local resolve
+	if type(targetPos) == "function" then
+		resolve = targetPos
+	else
+		resolve = function()
+			return CFrame.new(targetPos + Vector3.new(0, 10, 0))
+		end
+	end
+
+	pendingTeleportResolve = resolve
 	pendingTeleportLabel = label
 
 	local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
@@ -9869,14 +9864,17 @@ resetAndTeleport = function(targetPos, label)
 	end
 
 	-- Reset unavailable: fall back to a direct teleport.
-	pendingTeleportTarget = nil
+	pendingTeleportResolve = nil
 	pendingTeleportLabel = nil
 	local root = getRootPart()
-	if root then
-		root.CFrame = CFrame.new(targetPos + Vector3.new(0, 10, 0))
-		Library:Notify({ Title = "Teleport", Description = "Teleported to " .. label, Time = 1.5 })
-	else
+	if not root then
 		Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
+		return
+	end
+	local cf = resolve()
+	if cf then
+		root.CFrame = cf
+		Library:Notify({ Title = "Teleport", Description = "Teleported to " .. label, Time = 1.5 })
 	end
 end
 
