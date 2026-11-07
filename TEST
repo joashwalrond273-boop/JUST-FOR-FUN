@@ -8424,6 +8424,10 @@ OreFarm:AddToggle("TeleportAllGold", {
 Toggles.TeleportAllGold:OnChanged(function()
 	local on = Toggles.TeleportAllGold.Value
 
+	if Toggles.AutoMine then Toggles.AutoMine:SetValue(on) end
+	if Toggles.FastPickup then Toggles.FastPickup:SetValue(on) end
+	if Toggles.VacuumPickup then Toggles.VacuumPickup:SetValue(on) end
+
 	if not on then
 		goldOreFarmRunning = false
 		return
@@ -8546,6 +8550,10 @@ OreFarm:AddToggle("TeleportAllCoal", {
 Toggles.TeleportAllCoal:OnChanged(function()
 	local on = Toggles.TeleportAllCoal.Value
 
+	if Toggles.AutoMine then Toggles.AutoMine:SetValue(on) end
+	if Toggles.FastPickup then Toggles.FastPickup:SetValue(on) end
+	if Toggles.VacuumPickup then Toggles.VacuumPickup:SetValue(on) end
+
 	if not on then
 		coalOreFarmRunning = false
 		return
@@ -8624,24 +8632,6 @@ Toggles.TeleportAllCoal:OnChanged(function()
 		end
 		Library:Notify({ Title = "Ore Factory", Description = "Finished Coal teleports.", Time = 3 })
 	end)
-end)
-
-OreFarm:AddCheckbox("OreFarmAutoMine", {
-	Text = "Mine Function",
-	Default = false,
-})
-
-Toggles.OreFarmAutoMine:OnChanged(function()
-	local on = Toggles.OreFarmAutoMine.Value
-	if Toggles.AutoMine then
-		Toggles.AutoMine:SetValue(on)
-	end
-	if Toggles.FastPickup then
-		Toggles.FastPickup:SetValue(on)
-	end
-	if Toggles.VacuumPickup then
-		Toggles.VacuumPickup:SetValue(on)
-	end
 end)
 
 OreFarm:AddDivider()
