@@ -8570,6 +8570,24 @@ OreFarm:AddButton({
 	end,
 })
 
+OreFarm:AddCheckbox("OreFarmAutoMine", {
+	Text = "Auto Mine + Pickup + Vacuum",
+	Default = false,
+})
+
+Toggles.OreFarmAutoMine:OnChanged(function()
+	local on = Toggles.OreFarmAutoMine.Value
+	if Toggles.AutoMine then
+		Toggles.AutoMine:SetValue(on)
+	end
+	if Toggles.FastPickup then
+		Toggles.FastPickup:SetValue(on)
+	end
+	if Toggles.VacuumPickup then
+		Toggles.VacuumPickup:SetValue(on)
+	end
+end)
+
 OreFarm:AddDivider()
 
 OreFarm:AddToggle("OreESPToggle", {
