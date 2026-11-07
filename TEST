@@ -9825,48 +9825,50 @@ end)
 -- ==========================================
 -- TELEPORT
 -- ==========================================
--- Reset-then-teleport helper.
--- Button sequence: reset normally -> wait 7s -> respawn -> wait 1s -> teleport to vector.
+-- Reset-then-teleport helper: resets the character first, then teleports on respawn.
+local pendingTeleportTarget = nil
+local pendingTeleportLabel = nil
+
+track("TeleportResetRespawn", LocalPlayer.CharacterAdded:Connect(function()
+	if not pendingTeleportTarget then return end
+	local target = pendingTeleportTarget
+	local label = pendingTeleportLabel
+	pendingTeleportTarget = nil
+	pendingTeleportLabel = nil
+	task.wait(1)
+	local root = getRootPart()
+	if root then
+		root.CFrame = CFrame.new(target + Vector3.new(0, 10, 0))
+		Library:Notify({ Title = "Reset & Teleport", Description = "Teleported to " .. label, Time = 2 })
+	end
+end))
+
 local function resetAndTeleport(targetPos, label)
-	task.spawn(function()
-		local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
-		local characterFolder = remoteInterface and remoteInterface:FindFirstChild("character")
-		if not characterFolder then
-			Library:Notify({ Title = "Teleport", Description = "Character remotes not found.", Time = 3 })
+	pendingTeleportTarget = targetPos
+	pendingTeleportLabel = label
+
+	local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
+	local characterFolder = remoteInterface and remoteInterface:FindFirstChild("character")
+	local resetRemote = characterFolder and characterFolder:FindFirstChild("reset")
+	if resetRemote then
+		local ok = pcall(function()
+			resetRemote:InvokeServer()
+		end)
+		if ok then
 			return
 		end
+	end
 
-		local resetRemote = characterFolder:FindFirstChild("reset")
-		local respawnRemote = characterFolder:FindFirstChild("respawn")
-
-		local function callRespawn()
-			if not respawnRemote then return end
-			pcall(function()
-				respawnRemote:InvokeServer(0, 20, 1, 1, 0, 15382674, false, nil)
-			end)
-		end
-
-		-- 1) Reset the character normally
-		if resetRemote then
-			pcall(function()
-				resetRemote:InvokeServer()
-			end)
-		end
-
-		-- 2) After 7 seconds, fire the respawn remote
-		task.wait(7)
-		callRespawn()
-
-		-- 3) After 1 second, teleport to the button's vector
-		task.wait(1)
-		local root = getRootPart()
-		if root then
-			root.CFrame = CFrame.new(targetPos + Vector3.new(0, 10, 0))
-			Library:Notify({ Title = "Reset & Teleport", Description = "Teleported to " .. label, Time = 2 })
-		else
-			Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
-		end
-	end)
+	-- Reset unavailable: fall back to a direct teleport.
+	pendingTeleportTarget = nil
+	pendingTeleportLabel = nil
+	local root = getRootPart()
+	if root then
+		root.CFrame = CFrame.new(targetPos + Vector3.new(0, 10, 0))
+		Library:Notify({ Title = "Teleport", Description = "Teleported to " .. label, Time = 1.5 })
+	else
+		Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
+	end
 end
 
 -- Boss Locations
