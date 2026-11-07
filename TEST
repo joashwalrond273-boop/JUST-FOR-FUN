@@ -4934,11 +4934,6 @@ CombatAutoPVP:AddSlider("AutoJumpDelay", {
 	Compact = true,
 })
 
-CombatAutoPVP:AddCheckbox("CrosshairLock", {
-	Text = "Crosshair Lock",
-	Default = false,
-})
-
 updatePVPModulesVisibility = function()
 	local isCam = (Toggles.Camlock and Toggles.Camlock.Value) or false
 	local isCamLerp = (Toggles.CamlockCameraLerp and Toggles.CamlockCameraLerp.Value) or false
@@ -6848,90 +6843,6 @@ if Toggles.AutoJump then
 				end
 			end))
 		end
-	end)
-end
-
--- Bow Crosshair Lock (locks the mobile bow crosshair onto nearby players)
-local CROSSHAIR_LOCK_RANGE = 100
-local crosshairLockTarget = nil
-
-local function getBowCrosshair()
-	local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
-	local mobileCursors = playerGui and playerGui:FindFirstChild("mobileCursors")
-	local dragger = mobileCursors and mobileCursors:FindFirstChild("bowCrosshairDragger")
-	return dragger and dragger:FindFirstChild("crosshair")
-end
-
-local function updateCrosshairLock()
-	disconnect("CrosshairLock")
-	crosshairLockTarget = nil
-	if not (Toggles.CrosshairLock and Toggles.CrosshairLock.Value) then
-		return
-	end
-
-	track("CrosshairLock", RunService.RenderStepped:Connect(function()
-		if not (Toggles.CrosshairLock and Toggles.CrosshairLock.Value) then return end
-
-		local crosshair = getBowCrosshair()
-		local myRoot = getRootPart()
-		local camera = workspace.CurrentCamera
-		if not crosshair or not crosshair:IsA("GuiObject") or not myRoot or not camera then return end
-
-		local myPos = myRoot.Position
-
-		-- keep the current lock while it stays valid and in range
-		local targetRoot
-		if crosshairLockTarget then
-			local char = crosshairLockTarget.Character
-			local h = char and char:FindFirstChildOfClass("Humanoid")
-			targetRoot = char and char:FindFirstChild("HumanoidRootPart")
-			if not (targetRoot and h and h.Health > 0 and (targetRoot.Position - myPos).Magnitude <= CROSSHAIR_LOCK_RANGE) then
-				crosshairLockTarget = nil
-				targetRoot = nil
-			end
-		end
-
-		-- otherwise acquire the closest player in range
-		if not targetRoot then
-			local bestDist = CROSSHAIR_LOCK_RANGE
-			for _, player in ipairs(Players:GetPlayers()) do
-				if player ~= LocalPlayer then
-					local char = player.Character
-					local h = char and char:FindFirstChildOfClass("Humanoid")
-					local root = char and char:FindFirstChild("HumanoidRootPart")
-					if root and h and h.Health > 0 then
-						local dist = (root.Position - myPos).Magnitude
-						if dist <= bestDist then
-							bestDist = dist
-							crosshairLockTarget = player
-							targetRoot = root
-						end
-					end
-				end
-			end
-		end
-
-		if not targetRoot then return end
-
-		local screenPos, onScreen = camera:WorldToViewportPoint(targetRoot.Position)
-		if not onScreen then return end
-
-		-- move the crosshair so its center lands on the target's screen position
-		local parent = crosshair.Parent
-		if not (parent and parent:IsA("GuiObject")) then return end
-		local parentAbs = parent.AbsolutePosition
-		local size = crosshair.AbsoluteSize
-		local anchor = crosshair.AnchorPoint
-		crosshair.Position = UDim2.new(
-			0, screenPos.X - parentAbs.X + size.X * anchor.X,
-			0, screenPos.Y - parentAbs.Y + size.Y * anchor.Y
-		)
-	end))
-end
-
-if Toggles.CrosshairLock then
-	Toggles.CrosshairLock:OnChanged(function()
-		updateCrosshairLock()
 	end)
 end
 
@@ -12378,9 +12289,6 @@ Library:OnUnload(function()
 	end
 	if Toggles.AutoJumpIgnoreTeam and Toggles.AutoJumpIgnoreTeam.Value then
 		Toggles.AutoJumpIgnoreTeam:SetValue(false)
-	end
-	if Toggles.CrosshairLock and Toggles.CrosshairLock.Value then
-		Toggles.CrosshairLock:SetValue(false)
 	end
 	if Toggles.InvisibleFlyToggle and Toggles.InvisibleFlyToggle.Value then
 		Toggles.InvisibleFlyToggle:SetValue(false)
