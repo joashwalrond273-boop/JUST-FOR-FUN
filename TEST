@@ -2615,10 +2615,20 @@ TeleportGroup:AddButton({
 			local hum = char:FindFirstChild("Humanoid")
 			if not hrp or not hum or hum.Health <= 0 then return nil end
 			local targetCFrame = hrp.CFrame
-			local offsetPos = targetCFrame.Position - targetCFrame.LookVector * 30
+			local dist = (Options.TeleportOffsetStuds and Options.TeleportOffsetStuds.Value) or 30
+			local offsetPos = targetCFrame.Position - targetCFrame.LookVector * dist
 			return CFrame.new(offsetPos, offsetPos - targetCFrame.LookVector)
 		end, targetPlayer.Name)
 	end,
+})
+
+TeleportGroup:AddSlider("TeleportOffsetStuds", {
+	Text = "Spawn Distance",
+	Default = 30,
+	Min = 0,
+	Max = 100,
+	Rounding = 0,
+	Compact = true,
 })
 
 local SpectateGroup = Tabs.Main:AddRightGroupbox("SPECTATE", "scan-eye")
