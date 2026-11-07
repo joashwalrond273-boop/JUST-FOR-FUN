@@ -8449,53 +8449,62 @@ local goldLocations = {
 	{ name = "Coal 12", pos = Vector3.new(11.22, 36.86, -1008.32)   },
 }
 
-local function filterLocations(prefix)
-	local names = {}
-	for _, loc in ipairs(goldLocations) do
-		if loc.name:sub(1, #prefix) == prefix then
-			table.insert(names, loc.name)
-		end
-	end
-	return names
-end
-
-OreFarm:AddDropdown("SelectOreDropdown", {
-	Text = "Select Ore",
-	Values = { "Gold", "Coal" },
-	Default = "Gold",
-})
-
-OreFarm:AddDropdown("GoldLocationsDropdown", {
-	Text = "Select Ore Location",
-	Values = filterLocations("Gold"),
-	Default = "Gold 1",
-})
-
-Options.SelectOreDropdown:OnChanged(function()
-	local value = Options.SelectOreDropdown.Value
-	local filtered = filterLocations(value)
-	Options.GoldLocationsDropdown:SetValues(filtered)
-	if value == "Gold" then
-		Options.GoldLocationsDropdown:SetValue("Gold 1")
-	elseif value == "Coal" then
-		Options.GoldLocationsDropdown:SetValue("Coal 1")
-	end
-end)
+local oreFarmRunning = false
 
 OreFarm:AddButton({
-	Text = "Teleport to Selected",
+	Text = "Teleport All Ores",
 	Func = function()
-		local selected = Options.GoldLocationsDropdown.Value
-		local targetPos = nil
-		for _, loc in ipairs(goldLocations) do
-			if loc.name == selected then
-				targetPos = loc.pos
-				break
+		if oreFarmRunning then return end
+		oreFarmRunning = true
+
+		task.spawn(function()
+			local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
+			local characterFolder = remoteInterface and remoteInterface:FindFirstChild("character")
+			local resetRemote = characterFolder and characterFolder:FindFirstChild("reset")
+
+			local function resetAndWaitForSpawn()
+				local respawned = false
+				local conn
+				conn = LocalPlayer.CharacterAdded:Connect(function()
+					respawned = true
+				end)
+
+				if resetRemote then
+					pcall(function()
+						resetRemote:InvokeServer()
+					end)
+				end
+
+				local timeout = os.clock() + 15
+				while not respawned and os.clock() < timeout do
+					task.wait(0.1)
+				end
+
+				if conn then
+					conn:Disconnect()
+				end
+
+				task.wait(0.5)
 			end
-		end
-		if targetPos then
-			resetAndTeleport(targetPos, selected)
-		end
+
+			local count = 0
+			for _, loc in ipairs(goldLocations) do
+				local root = getRootPart()
+				if root then
+					root.CFrame = CFrame.new(loc.pos)
+				end
+
+				count = count + 1
+				task.wait(1.5)
+
+				if count % 3 == 0 then
+					resetAndWaitForSpawn()
+				end
+			end
+
+			oreFarmRunning = false
+			Library:Notify({ Title = "Ore Factory", Description = "Finished all ore teleports.", Time = 3 })
+		end)
 	end,
 })
 
