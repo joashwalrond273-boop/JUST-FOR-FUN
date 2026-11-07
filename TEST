@@ -8427,7 +8427,7 @@ local goldLocations = {
 	{ name = "Gold 10", pos = Vector3.new(-2015.67, 30.73, -39.95)  },
 	{ name = "Gold 11", pos = Vector3.new(-912.17, 125.72, -408.72) },
 	{ name = "Gold 12", pos = Vector3.new(-264.65, 47.32,  1427.81) },
-    { name = "Gold 13", pos = Vector3.new(245.51,  45.00,  460.77)  },
+	{ name = "Gold 13", pos = Vector3.new(245.51,  45.00,  460.77)  },
 	{ name = "Gold 14", pos = Vector3.new(-1261.77, 43.72, 6281.94) },
 	{ name = "Gold 15", pos = Vector3.new(-1765.08, 95.91, 7158.15) },
 	{ name = "Gold 16", pos = Vector3.new(1686.60, 41.64, -917.39)  },
@@ -8435,6 +8435,9 @@ local goldLocations = {
 	{ name = "Gold 18", pos = Vector3.new(252.14, 22.06, 811.69)    },
 	{ name = "Gold 19", pos = Vector3.new(50.11, 125.73, -1040.40)  },
 	{ name = "Gold 20", pos = Vector3.new(462.81, 100.69, -455.26)  },
+}
+
+local coalLocations = {
 	{ name = "Coal 1",  pos = Vector3.new(1130.93, 24.94, -601.55)  },
 	{ name = "Coal 2",  pos = Vector3.new(1319.54, 25.26, -1129.08) },
 	{ name = "Coal 3",  pos = Vector3.new(-681.19, 173.56, 657.90)  },
@@ -8451,62 +8454,91 @@ local goldLocations = {
 
 local oreFarmRunning = false
 
-OreFarm:AddButton({
-	Text = "Teleport All Ores",
-	Func = function()
-		if oreFarmRunning then return end
-		oreFarmRunning = true
+local function runOreFarmLoop(locations, label)
+	if oreFarmRunning then return end
+	oreFarmRunning = true
 
-		task.spawn(function()
-			local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
-			local characterFolder = remoteInterface and remoteInterface:FindFirstChild("character")
-			local resetRemote = characterFolder and characterFolder:FindFirstChild("reset")
+	task.spawn(function()
+		local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
+		local characterFolder = remoteInterface and remoteInterface:FindFirstChild("character")
+		local resetRemote = characterFolder and characterFolder:FindFirstChild("reset")
 
-			local function resetAndWaitForSpawn()
-				local respawned = false
-				local conn
-				conn = LocalPlayer.CharacterAdded:Connect(function()
-					respawned = true
+		local function resetAndWaitForSpawn()
+			local respawned = false
+			local conn
+			conn = LocalPlayer.CharacterAdded:Connect(function()
+				respawned = true
+			end)
+
+			if resetRemote then
+				pcall(function()
+					resetRemote:InvokeServer()
 				end)
-
-				if resetRemote then
-					pcall(function()
-						resetRemote:InvokeServer()
-					end)
-				end
-
-				local timeout = os.clock() + 15
-				while not respawned and os.clock() < timeout do
-					task.wait(0.1)
-				end
-
-				if conn then
-					conn:Disconnect()
-				end
-
-				task.wait(0.5)
 			end
 
-			local count = 0
-			for _, loc in ipairs(goldLocations) do
-				local root = getRootPart()
-				if root then
-					root.CFrame = CFrame.new(loc.pos)
-				end
-
-				count = count + 1
-				task.wait(1.5)
-
-				if count % 3 == 0 then
-					resetAndWaitForSpawn()
-				end
+			local timeout = os.clock() + 15
+			while not respawned and os.clock() < timeout do
+				task.wait(0.1)
 			end
 
-			oreFarmRunning = false
-			Library:Notify({ Title = "Ore Factory", Description = "Finished all ore teleports.", Time = 3 })
-		end)
+			if conn then
+				conn:Disconnect()
+			end
+
+			task.wait(0.5)
+		end
+
+		local count = 0
+		for _, loc in ipairs(locations) do
+			local root = getRootPart()
+			if root then
+				root.CFrame = CFrame.new(loc.pos)
+			end
+
+			count = count + 1
+			task.wait(1.5)
+
+			if count % 3 == 0 then
+				resetAndWaitForSpawn()
+			end
+		end
+
+		oreFarmRunning = false
+		Library:Notify({ Title = "Ore Factory", Description = "Finished " .. label .. " teleports.", Time = 3 })
+	end)
+end
+
+OreFarm:AddButton({
+	Text = "Teleport All Gold",
+	Func = function()
+		runOreFarmLoop(goldLocations, "Gold")
 	end,
 })
+
+OreFarm:AddButton({
+	Text = "Teleport All Coal",
+	Func = function()
+		runOreFarmLoop(coalLocations, "Coal")
+	end,
+})
+
+OreFarm:AddCheckbox("OreFarmAutoMine", {
+	Text = "Auto Mine + Pickup + Vacuum",
+	Default = false,
+})
+
+Toggles.OreFarmAutoMine:OnChanged(function()
+	local on = Toggles.OreFarmAutoMine.Value
+	if Toggles.AutoMine then
+		Toggles.AutoMine:SetValue(on)
+	end
+	if Toggles.FastPickup then
+		Toggles.FastPickup:SetValue(on)
+	end
+	if Toggles.VacuumPickup then
+		Toggles.VacuumPickup:SetValue(on)
+	end
+end)
 
 OreFarm:AddDivider()
 
