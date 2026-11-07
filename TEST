@@ -2754,6 +2754,46 @@ MainLeft:AddCheckbox("AntiAFK", {
 	Default = false,
 })
 
+MainLeft:AddCheckbox("AutoJump", {
+	Text = "Auto Jump",
+	Default = false,
+})
+
+MainLeft:AddCheckbox("AutoJumpSlotSystem", {
+	Text = "Slot System",
+	Default = false,
+})
+
+MainLeft:AddCheckbox("AutoJumpIgnoreTeam", {
+	Text = "Ignore Team",
+	Default = true,
+})
+
+MainLeft:AddDropdown("AutoJumpSlotSystemSlot", {
+	Text = "Tool Slot",
+	Values = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" },
+	Default = { "1" },
+	Multi = true,
+})
+
+MainLeft:AddSlider("AutoJumpStuds", {
+	Text = "Auto Jump Studs",
+	Default = 20,
+	Min = 1,
+	Max = 50,
+	Rounding = 0,
+	Compact = true,
+})
+
+MainLeft:AddSlider("AutoJumpDelay", {
+	Text = "Auto Jump Delay",
+	Default = 0.25,
+	Min = 0.05,
+	Max = 2,
+	Rounding = 2,
+	Compact = true,
+})
+
 updateAutoPickupVisibility = function()
 	local isPickup = (Toggles.FastPickup and Toggles.FastPickup.Value) or false
 	if Options.AutoPickupRange then
@@ -4903,48 +4943,6 @@ CombatAutoPVP:AddButton({
 	end,
 })
 
-CombatAutoPVP:AddDivider()
-
-CombatAutoPVP:AddToggle("AutoJump", {
-	Text = "Auto Jump",
-	Default = false,
-})
-
-CombatAutoPVP:AddCheckbox("AutoJumpSlotSystem", {
-	Text = "Slot System",
-	Default = false,
-})
-
-CombatAutoPVP:AddCheckbox("AutoJumpIgnoreTeam", {
-	Text = "Ignore Team",
-	Default = true,
-})
-
-CombatAutoPVP:AddDropdown("AutoJumpSlotSystemSlot", {
-	Text = "Tool Slot",
-	Values = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" },
-	Default = { "1" },
-	Multi = true,
-})
-
-CombatAutoPVP:AddSlider("AutoJumpStuds", {
-	Text = "Auto Jump Studs",
-	Default = 20,
-	Min = 1,
-	Max = 50,
-	Rounding = 0,
-	Compact = true,
-})
-
-CombatAutoPVP:AddSlider("AutoJumpDelay", {
-	Text = "Auto Jump Delay",
-	Default = 0.25,
-	Min = 0.05,
-	Max = 2,
-	Rounding = 2,
-	Compact = true,
-})
-
 updatePVPModulesVisibility = function()
 	local isCam = (Toggles.Camlock and Toggles.Camlock.Value) or false
 	local isCamLerp = (Toggles.CamlockCameraLerp and Toggles.CamlockCameraLerp.Value) or false
@@ -5134,6 +5132,9 @@ updatePVPModulesVisibility = function()
 		end
 	end
 	CombatAutoPVP:Resize()
+	if MainLeft and MainLeft.Resize then
+		pcall(function() MainLeft:Resize() end)
+	end
 	if CombatCamlock and CombatCamlock.Resize then
 		pcall(function() CombatCamlock:Resize() end)
 	end
