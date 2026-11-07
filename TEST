@@ -62,6 +62,7 @@ local updateSwimBoostVisibility
 local isTeammate
 local Xeno_PlayHitSound
 local resetAndTeleport
+local CombatAutoPVP
 
 Library.ShowToggleFrameInKeybinds = true
 
@@ -1361,25 +1362,65 @@ if Options.WearColorSelect then
 	end)
 end
 
-CosmeticsGroup:AddLabel("Head Wear Color"):AddColorPicker("CosmeticSelectColor", {
+local headWearColorLabel = CosmeticsGroup:AddLabel("Head Wear Color")
+headWearColorLabel:AddColorPicker("CosmeticSelectColor", {
 	Default = Color3.fromRGB(255, 255, 255),
 	Title = "Head Wear Color",
 })
 
-CosmeticsGroup:AddLabel("Body Wear Color"):AddColorPicker("BodyWearSelectColor", {
+local bodyWearColorLabel = CosmeticsGroup:AddLabel("Body Wear Color")
+bodyWearColorLabel:AddColorPicker("BodyWearSelectColor", {
 	Default = Color3.fromRGB(255, 255, 255),
 	Title = "Body Wear Color",
 })
 
-CosmeticsGroup:AddLabel("Pants Wear Color"):AddColorPicker("PantsWearSelectColor", {
+local pantsWearColorLabel = CosmeticsGroup:AddLabel("Pants Wear Color")
+pantsWearColorLabel:AddColorPicker("PantsWearSelectColor", {
 	Default = Color3.fromRGB(255, 255, 255),
 	Title = "Pants Wear Color",
 })
 
-CosmeticsGroup:AddLabel("Back Wear Color"):AddColorPicker("BackWearSelectColor", {
+local backWearColorLabel = CosmeticsGroup:AddLabel("Back Wear Color")
+backWearColorLabel:AddColorPicker("BackWearSelectColor", {
 	Default = Color3.fromRGB(255, 255, 255),
 	Title = "Back Wear Color",
 })
+
+-- Only show a wear color picker when its category is selected in "Use Wear Colors"
+local function updateCosmeticColorVisibility()
+	local sel = Options.WearColorSelect and Options.WearColorSelect.Value
+
+	local function isOn(category)
+		return typeof(sel) == "table" and sel[category] == true
+	end
+
+	local function setVisible(label, visible)
+		if not label then return end
+		label.Visible = visible
+		if label.Holder then
+			label.Holder.Visible = visible
+		end
+	end
+
+	setVisible(headWearColorLabel, isOn("Head Wear"))
+	setVisible(bodyWearColorLabel, isOn("Body Wear"))
+	setVisible(pantsWearColorLabel, isOn("Pants Wear"))
+	setVisible(backWearColorLabel, isOn("Back Wear"))
+
+	CosmeticsGroup:Resize()
+end
+
+if Options.WearColorSelect then
+	Options.WearColorSelect:OnChanged(function()
+		updateCosmeticColorVisibility()
+	end)
+end
+
+updateCosmeticColorVisibility()
+task.spawn(function()
+	task.wait(0.05)
+	updateCosmeticColorVisibility()
+end)
 
 CosmeticsGroup:AddDivider()
 
@@ -2614,10 +2655,20 @@ TeleportGroup:AddButton({
 			local hum = char:FindFirstChild("Humanoid")
 			if not hrp or not hum or hum.Health <= 0 then return nil end
 			local targetCFrame = hrp.CFrame
-			local offsetPos = targetCFrame.Position - targetCFrame.LookVector * 30
+			local dist = (Options.TeleportOffsetStuds and Options.TeleportOffsetStuds.Value) or 30
+			local offsetPos = targetCFrame.Position - targetCFrame.LookVector * dist
 			return CFrame.new(offsetPos, offsetPos - targetCFrame.LookVector)
 		end, targetPlayer.Name)
 	end,
+})
+
+TeleportGroup:AddSlider("TeleportOffsetStuds", {
+	Text = "Spawn Distance",
+	Default = 30,
+	Min = 0,
+	Max = 100,
+	Rounding = 0,
+	Compact = true,
 })
 
 local SpectateGroup = Tabs.Main:AddRightGroupbox("SPECTATE", "scan-eye")
@@ -4632,72 +4683,6 @@ CombatShieldSystem:AddSlider("ShieldDamageRefire", {
 
 CombatShieldSystem:AddDivider()
 
-CombatShieldSystem:AddCheckbox("ShieldButtonMove", {
-	Text = "Move Shield",
-	Default = false,
-})
-
-CombatShieldSystem:AddSlider("ShieldButtonX", {
-	Text = "Shield Button Horizontal",
-	Default = 0,
-	Min = -1000,
-	Max = 1000,
-	Rounding = 0,
-	Compact = true,
-})
-
-CombatShieldSystem:AddSlider("ShieldButtonY", {
-	Text = "Shield Button Vertical",
-	Default = 0,
-	Min = -1000,
-	Max = 1000,
-	Rounding = 0,
-	Compact = true,
-})
-
-CombatShieldSystem:AddSlider("ShieldButtonSize", {
-	Text = "Shield Button Size",
-	Default = 1,
-	Min = 0.5,
-	Max = 3,
-	Rounding = 2,
-	Compact = true,
-})
-
-CombatShieldSystem:AddCheckbox("JumpButtonMove", {
-	Text = "Move Jump",
-	Default = false,
-})
-
-CombatShieldSystem:AddSlider("JumpButtonX", {
-	Text = "Jump Button Horizontal",
-	Default = 0,
-	Min = -1000,
-	Max = 1000,
-	Rounding = 0,
-	Compact = true,
-})
-
-CombatShieldSystem:AddSlider("JumpButtonY", {
-	Text = "Jump Button Vertical",
-	Default = 0,
-	Min = -1000,
-	Max = 1000,
-	Rounding = 0,
-	Compact = true,
-})
-
-CombatShieldSystem:AddSlider("JumpButtonSize", {
-	Text = "Jump Button Size",
-	Default = 1,
-	Min = 0.5,
-	Max = 3,
-	Rounding = 2,
-	Compact = true,
-})
-
-CombatShieldSystem:AddDivider()
-
 CombatShieldSystem:AddToggle("ImmortalMode", {
 	Text = "Infinite Shield",
 	Default = false,
@@ -4810,7 +4795,9 @@ local function updateShieldButtonVisibility()
 	setVisible(Options.JumpButtonY, moveJump)
 	setVisible(Options.JumpButtonSize, moveJump)
 
-	CombatShieldSystem:Resize()
+	if CombatAutoPVP then
+		CombatAutoPVP:Resize()
+	end
 end
 
 updateShieldButtonVisibility()
@@ -4819,9 +4806,73 @@ task.spawn(function()
 	updateShieldButtonVisibility()
 end)
 
-local CombatAutoPVP = Tabs.Combat:AddRightGroupbox("PVP Modules", "swords")
+CombatAutoPVP = Tabs.Combat:AddRightGroupbox("PVP Modules", "swords")
 
 HotbarPresets = {}
+
+CombatAutoPVP:AddCheckbox("ShieldButtonMove", {
+	Text = "Move Shield",
+	Default = false,
+})
+
+CombatAutoPVP:AddSlider("ShieldButtonX", {
+	Text = "Shield Button Horizontal",
+	Default = 0,
+	Min = -1000,
+	Max = 1000,
+	Rounding = 0,
+	Compact = true,
+})
+
+CombatAutoPVP:AddSlider("ShieldButtonY", {
+	Text = "Shield Button Vertical",
+	Default = 0,
+	Min = -1000,
+	Max = 1000,
+	Rounding = 0,
+	Compact = true,
+})
+
+CombatAutoPVP:AddSlider("ShieldButtonSize", {
+	Text = "Shield Button Size",
+	Default = 1,
+	Min = 0.5,
+	Max = 3,
+	Rounding = 2,
+	Compact = true,
+})
+
+CombatAutoPVP:AddCheckbox("JumpButtonMove", {
+	Text = "Move Jump",
+	Default = false,
+})
+
+CombatAutoPVP:AddSlider("JumpButtonX", {
+	Text = "Jump Button Horizontal",
+	Default = 0,
+	Min = -1000,
+	Max = 1000,
+	Rounding = 0,
+	Compact = true,
+})
+
+CombatAutoPVP:AddSlider("JumpButtonY", {
+	Text = "Jump Button Vertical",
+	Default = 0,
+	Min = -1000,
+	Max = 1000,
+	Rounding = 0,
+	Compact = true,
+})
+
+CombatAutoPVP:AddSlider("JumpButtonSize", {
+	Text = "Jump Button Size",
+	Default = 1,
+	Min = 0.5,
+	Max = 3,
+	Rounding = 2,
+	Compact = true,
+})
 
 CombatAutoPVP:AddSlider("HotbarPresetSlot", {
 	Text = "Hotbar Preset Slot",
@@ -7013,13 +7064,13 @@ Options.AdvancePreset:OnChanged(function()
 	if not rangeSlider then return end
 
 	if val == "Sword" then
-		rangeSlider:SetValue(11)
+		rangeSlider:SetValue(5)
 		if angleSlider then angleSlider:SetValue(35) end
-		Library:Notify({ Title = "Advance Preset", Description = "Preset: Sword (11) applied!", Time = 2 })
+		Library:Notify({ Title = "Advance Preset", Description = "Preset: Sword (5) applied!", Time = 2 })
 	elseif val == "Spear" then
-		rangeSlider:SetValue(13)
+		rangeSlider:SetValue(7)
 		if angleSlider then angleSlider:SetValue(35) end
-		Library:Notify({ Title = "Advance Preset", Description = "Preset: Spear (13) applied!", Time = 2 })
+		Library:Notify({ Title = "Advance Preset", Description = "Preset: Spear (7) applied!", Time = 2 })
 	elseif val == "Spear/Sword(Slot 3/5)" then
 		Library:Notify({ Title = "Advance Preset", Description = "Preset: Spear/Sword (Slot 3/5) active!", Time = 2 })
 		local lastSlot = nil
@@ -8257,7 +8308,7 @@ if LocalPlayer.Character then
 end
 
 -- ==========================================
-local FarmAI = Tabs.OreFactory:AddLeftGroupbox("AI Aura", "zap")
+local FarmAI = Tabs.OreFactory:AddLeftGroupbox("AI Aura", "target")
 
 FarmAI:AddToggle("AiAura", {
 	Text = "AI Aura",
@@ -10020,7 +10071,7 @@ track("TeleportResetRespawn", LocalPlayer.CharacterAdded:Connect(function()
 				holdCFrame = root.CFrame
 				glueStart = tick()
 			end
-			if tick() - glueStart >= 1 then
+			if tick() - glueStart >= 2 then
 				disconnect("TeleportGlue")
 				return
 			end
@@ -10030,7 +10081,7 @@ track("TeleportResetRespawn", LocalPlayer.CharacterAdded:Connect(function()
 		end))
 	end
 
-	task.wait(1)
+	task.wait(glue and 2 or 1)
 	disconnect("TeleportGlue")
 	local root = getRootPart()
 	if root then
@@ -10104,7 +10155,7 @@ BossLocationsGroup:AddButton({
 BossLocationsGroup:AddButton({
 	Text = "Spider",
 	Func = function()
-		resetAndTeleport(Vector3.new(-330.32, -90.12, 382.67), "Spider", true)
+		resetAndTeleport(Vector3.new(-577.39, -98.80, 334.28), "Spider", true)
 	end,
 })
 
