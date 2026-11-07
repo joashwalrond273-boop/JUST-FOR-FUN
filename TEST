@@ -6204,6 +6204,15 @@ Toggles.Camlock:OnChanged(function()
 			local hum = getHumanoid()
 			if not root or not hum then return end
 
+			-- Never interfere with swimming: while in water the camlock would
+			-- otherwise force CFrame/velocity and make the character act weird.
+			if hum:GetState() == Enum.HumanoidStateType.Swimming then
+				UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+				UserInputService.MouseIconEnabled = true
+				hum.AutoRotate = true
+				return
+			end
+
 			local maxDist = Options.CamlockStuds and Options.CamlockStuds.Value or 20
 			local myPos = root.Position
 			local targetSetting = Options.CamlockTarget and Options.CamlockTarget.Value or "All"
