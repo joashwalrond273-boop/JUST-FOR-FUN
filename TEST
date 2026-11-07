@@ -10768,67 +10768,6 @@ do
 	})
 end
 
--- Hide the name/health billboards above every character
-do
-	local original = setmetatable({}, { __mode = "k" })
-
-	local function hideNameplate(humanoid)
-		if not humanoid or not humanoid:IsA("Humanoid") then return end
-		if original[humanoid] == nil then
-			original[humanoid] = { humanoid.NameDisplayDistance, humanoid.HealthDisplayDistance }
-		end
-		pcall(function()
-			humanoid.NameDisplayDistance = 0
-			humanoid.HealthDisplayDistance = 0
-		end)
-	end
-
-	local function hookPlayer(player)
-		if not player then return end
-		local connName = "HideNameplates_CharAdded_" .. tostring(player.UserId or player.Name)
-		disconnect(connName)
-		track(connName, player.CharacterAdded:Connect(function(char)
-			if Toggles.HideNameplates and Toggles.HideNameplates.Value then
-				task.wait(0.1)
-				hideNameplate(char:FindFirstChildOfClass("Humanoid"))
-			end
-		end))
-	end
-
-	VisualFPS:AddToggle("HideNameplates", {
-		Text = "Hide Nameplates",
-		Default = false,
-		Callback = function(state)
-			disconnect("HideNameplates_PlayerAdded")
-			for name in pairs(Connections) do
-				if typeof(name) == "string" and name:match("^HideNameplates_CharAdded") then
-					disconnect(name)
-				end
-			end
-
-			if state then
-				for _, player in ipairs(Players:GetPlayers()) do
-					hookPlayer(player)
-					if player.Character then
-						hideNameplate(player.Character:FindFirstChildOfClass("Humanoid"))
-					end
-				end
-				track("HideNameplates_PlayerAdded", Players.PlayerAdded:Connect(hookPlayer))
-			else
-				for humanoid, values in pairs(original) do
-					if humanoid and humanoid.Parent then
-						pcall(function()
-							humanoid.NameDisplayDistance = values[1]
-							humanoid.HealthDisplayDistance = values[2]
-						end)
-					end
-				end
-				table.clear(original)
-			end
-		end,
-	})
-end
-
 -- Remove the skybox and lock the time of day so shadow maps stop rebuilding
 do
 	local skyStore = {}
@@ -11554,61 +11493,68 @@ Toggles.AntiFling:OnChanged(function()
 	end
 end)
 
--- Fling Your Victim Script Logic
-local helicopterAngle = 0
-local function startHelicopter()
-	disconnect("HelicopterLoop")
-	local myHum = getHumanoid()
-	if Toggles.HelicopterTroll.Value then
-		track("HelicopterLoop", RunService.Heartbeat:Connect(function(dt)
-			if not Toggles.HelicopterTroll.Value then return end
-			local targetName = Options.HelicopterPlayerList and Options.HelicopterPlayerList.Value
-			if not targetName or targetName == "" then return end
-
-			local targetPlayer = Players:FindFirstChild(targetName)
-			local targetChar = targetPlayer and targetPlayer.Character
-			local targetRoot = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
-			local char = getCharacter()
-			local myRoot = getRootPart()
-			local hum = getHumanoid()
-
-			if targetRoot and myRoot and isAlive() then
-				for _, part in ipairs(noclipCoreParts) do
-					if part and part.CanCollide then
-						part.CanCollide = false
-					end
-				end
-
-				local speed = 100
-				local height = 1
-				helicopterAngle = (helicopterAngle + (speed * 15) * dt) % 360
-
-				if hum then
-					hum.PlatformStand = true
-				end
-
-				local targetPos = targetRoot.Position + Vector3.new(0, height, 0)
-				myRoot.CFrame = CFrame.new(targetPos) * CFrame.Angles(0, math.rad(helicopterAngle), 0)
-				myRoot.Velocity = Vector3.zero
-				myRoot.RotVelocity = Vector3.new(0, speed * 25, 0)
-			end
-		end))
-	else
-		if myHum then
-			myHum.PlatformStand = false
-		end
-		local myRoot = getRootPart()
-		if myRoot then
-			myRoot.RotVelocity = Vector3.zero
-		end
+-- Fling Your Victim (continuously flings the selected player while enabled)
+local function stopTargetFling()
+	disconnect("TargetFlingLoop")
+	local hum = getHumanoid()
+	if hum then
+		hum.PlatformStand = false
 	end
+	local myRoot = getRootPart()
+	if myRoot then
+		myRoot.AssemblyLinearVelocity = Vector3.zero
+		myRoot.AssemblyAngularVelocity = Vector3.zero
+	end
+end
+
+local function startTargetFling()
+	disconnect("TargetFlingLoop")
+	if not Toggles.HelicopterTroll.Value then
+		stopTargetFling()
+		return
+	end
+
+	local myHum = getHumanoid()
+	if myHum then
+		myHum.PlatformStand = true
+	end
+
+	track("TargetFlingLoop", RunService.Heartbeat:Connect(function()
+		if not Toggles.HelicopterTroll.Value then return end
+
+		local targetName = Options.HelicopterPlayerList and Options.HelicopterPlayerList.Value
+		if not targetName or targetName == "" then return end
+
+		local targetPlayer = Players:FindFirstChild(targetName)
+		local targetChar = targetPlayer and targetPlayer.Character
+		local targetRoot = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
+		local myRoot = getRootPart()
+		if not (targetRoot and myRoot and isAlive()) then return end
+
+		for _, part in ipairs(noclipCoreParts) do
+			if part and part.CanCollide then
+				part.CanCollide = false
+			end
+		end
+
+		local offset = targetRoot.Position - myRoot.Position
+		if offset.Magnitude < 0.5 then
+			offset = Vector3.new(0, 1, 0)
+		end
+
+		-- Ram into the target with extreme velocity and rotation so the
+		-- collision solver launches their character off.
+		myRoot.CFrame = targetRoot.CFrame * CFrame.new(0, 0.5, 0)
+		myRoot.AssemblyLinearVelocity = offset.Unit * 1e5 + Vector3.new(0, 1e5, 0)
+		myRoot.AssemblyAngularVelocity = Vector3.new(1e5, 1e5, 1e5)
+	end))
 end
 
 Toggles.HelicopterTroll:OnChanged(function()
 	if updateHelicopterVisibility then
 		updateHelicopterVisibility()
 	end
-	startHelicopter()
+	startTargetFling()
 	if Toggles.HelicopterTroll.Value then
 		Library:Notify({ Title = "FLING YOUR VICTIM", Description = "Flinging: " .. tostring(Options.HelicopterPlayerList.Value), Time = 2 })
 	else
@@ -11618,7 +11564,7 @@ end)
 
 Options.HelicopterPlayerList:OnChanged(function()
 	if Toggles.HelicopterTroll.Value then
-		startHelicopter()
+		startTargetFling()
 	end
 end)
 
@@ -12222,9 +12168,6 @@ Library:OnUnload(function()
 	end
 	if Toggles.LowQualityLevel and Toggles.LowQualityLevel.Value then
 		Toggles.LowQualityLevel:SetValue(false)
-	end
-	if Toggles.HideNameplates and Toggles.HideNameplates.Value then
-		Toggles.HideNameplates:SetValue(false)
 	end
 	if Toggles.SkyboxFreezeTime and Toggles.SkyboxFreezeTime.Value then
 		Toggles.SkyboxFreezeTime:SetValue(false)
