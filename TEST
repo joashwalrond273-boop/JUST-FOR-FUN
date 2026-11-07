@@ -8248,6 +8248,53 @@ if LocalPlayer.Character then
 end
 
 -- ==========================================
+local FarmAI = Tabs.OreFactory:AddLeftGroupbox("AI Aura", "zap")
+
+FarmAI:AddToggle("AiAura", {
+	Text = "AI Aura",
+	Default = false,
+})
+
+FarmAI:AddDropdown("AiAuraSlot", {
+	Text = "Attack Slot",
+	Values = {"1","2","3","4","5","6","7","8","9","10"},
+	Default = "1",
+})
+
+FarmAI:AddCheckbox("AiAuraSlotSystem", {
+	Text = "Slot System",
+	Default = false,
+})
+
+FarmAI:AddDropdown("AiAuraSlotSystemSlot", {
+	Text = "Tool Slot",
+	Values = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"},
+	Default = {"1"},
+	Multi = true,
+})
+
+FarmAI:AddSlider("AiAuraRange", {
+	Text = "Range",
+	Default = 30,
+	Min = 5,
+	Max = 60,
+	Rounding = 1,
+	Compact = true,
+})
+
+FarmAI:AddDivider()
+
+FarmAI:AddToggle("BossSpawnNotifier", {
+	Text = "Boss Spawn Notifier",
+	Default = false,
+})
+
+FarmAI:AddToggle("BossSpawnPredictor", {
+	Text = "Spawn Predictor",
+	Default = false,
+})
+
+-- ==========================================
 -- ORE FACTORY
 -- ==========================================
 local OreFarm = Tabs.OreFactory:AddLeftGroupbox("Ore Factory", "drill")
@@ -8365,53 +8412,6 @@ FarmChop:AddCheckbox("HighlightChop", {
 }):AddColorPicker("HighlightChopColor", {
 	Default = Color3.fromRGB(255, 0, 0),
 	Title = "Highlight Target Color",
-})
-
--- ==========================================
-local FarmAI = Tabs.OreFactory:AddRightGroupbox("AI Aura", "zap")
-
-FarmAI:AddToggle("AiAura", {
-	Text = "AI Aura",
-	Default = false,
-})
-
-FarmAI:AddDropdown("AiAuraSlot", {
-	Text = "Attack Slot",
-	Values = {"1","2","3","4","5","6","7","8","9","10"},
-	Default = "1",
-})
-
-FarmAI:AddCheckbox("AiAuraSlotSystem", {
-	Text = "Slot System",
-	Default = false,
-})
-
-FarmAI:AddDropdown("AiAuraSlotSystemSlot", {
-	Text = "Tool Slot",
-	Values = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"},
-	Default = {"1"},
-	Multi = true,
-})
-
-FarmAI:AddSlider("AiAuraRange", {
-	Text = "Range",
-	Default = 30,
-	Min = 5,
-	Max = 60,
-	Rounding = 1,
-	Compact = true,
-})
-
-FarmAI:AddDivider()
-
-FarmAI:AddToggle("BossSpawnNotifier", {
-	Text = "Boss Spawn Notifier",
-	Default = false,
-})
-
-FarmAI:AddToggle("BossSpawnPredictor", {
-	Text = "Spawn Predictor",
-	Default = false,
 })
 
 local goldOreFarmRunning = false
