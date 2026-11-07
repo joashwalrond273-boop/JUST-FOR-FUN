@@ -9998,14 +9998,40 @@ end)
 -- Reset-then-teleport helper: resets the character first, then teleports on respawn.
 local pendingTeleportResolve = nil
 local pendingTeleportLabel = nil
+local pendingTeleportGlue = nil
 
 track("TeleportResetRespawn", LocalPlayer.CharacterAdded:Connect(function()
 	if not pendingTeleportResolve then return end
 	local resolve = pendingTeleportResolve
 	local label = pendingTeleportLabel
+	local glue = pendingTeleportGlue
 	pendingTeleportResolve = nil
 	pendingTeleportLabel = nil
+	pendingTeleportGlue = nil
+
+	if glue then
+		disconnect("TeleportGlue")
+		local holdCFrame = nil
+		local glueStart = nil
+		track("TeleportGlue", RunService.Heartbeat:Connect(function()
+			local root = getRootPart()
+			if not root then return end
+			if not holdCFrame then
+				holdCFrame = root.CFrame
+				glueStart = tick()
+			end
+			if tick() - glueStart >= 1 then
+				disconnect("TeleportGlue")
+				return
+			end
+			root.CFrame = holdCFrame
+			root.AssemblyLinearVelocity = Vector3.zero
+			root.AssemblyAngularVelocity = Vector3.zero
+		end))
+	end
+
 	task.wait(1)
+	disconnect("TeleportGlue")
 	local root = getRootPart()
 	if root then
 		local cf = resolve()
@@ -10016,7 +10042,7 @@ track("TeleportResetRespawn", LocalPlayer.CharacterAdded:Connect(function()
 	end
 end))
 
-resetAndTeleport = function(targetPos, label)
+resetAndTeleport = function(targetPos, label, glue)
 	local resolve
 	if type(targetPos) == "function" then
 		resolve = targetPos
@@ -10028,6 +10054,7 @@ resetAndTeleport = function(targetPos, label)
 
 	pendingTeleportResolve = resolve
 	pendingTeleportLabel = label
+	pendingTeleportGlue = glue or nil
 
 	local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
 	local characterFolder = remoteInterface and remoteInterface:FindFirstChild("character")
@@ -10044,6 +10071,7 @@ resetAndTeleport = function(targetPos, label)
 	-- Reset unavailable: fall back to a direct teleport.
 	pendingTeleportResolve = nil
 	pendingTeleportLabel = nil
+	pendingTeleportGlue = nil
 	local root = getRootPart()
 	if not root then
 		Library:Notify({ Title = "Teleport", Description = "Character not found.", Time = 3 })
@@ -10076,7 +10104,7 @@ BossLocationsGroup:AddButton({
 BossLocationsGroup:AddButton({
 	Text = "Spider",
 	Func = function()
-		resetAndTeleport(Vector3.new(-330.32, -90.12, 382.67), "Spider")
+		resetAndTeleport(Vector3.new(-330.32, -90.12, 382.67), "Spider", true)
 	end,
 })
 
