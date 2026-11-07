@@ -8517,15 +8517,21 @@ Toggles.TeleportAllGold:OnChanged(function()
 		for _, loc in ipairs(goldLocations) do
 			if not goldOreFarmRunning then break end
 
-			local root = getRootPart()
-			if root then
-				root.CFrame = CFrame.new(loc.pos)
+			local target = CFrame.new(loc.pos)
+			local stayUntil = os.clock() + 1.5
+			while os.clock() < stayUntil do
+				if not goldOreFarmRunning then break end
+				local root = getRootPart()
+				if root then
+					root.CFrame = target
+					root.AssemblyLinearVelocity = Vector3.zero
+				end
+				task.wait()
 			end
 
-			count = count + 1
-			task.wait(1.5)
-
 			if not goldOreFarmRunning then break end
+
+			count = count + 1
 
 			if count % 3 == 0 then
 				resetAndWaitForSpawn()
@@ -8611,15 +8617,21 @@ Toggles.TeleportAllCoal:OnChanged(function()
 		for _, loc in ipairs(coalLocations) do
 			if not coalOreFarmRunning then break end
 
-			local root = getRootPart()
-			if root then
-				root.CFrame = CFrame.new(loc.pos)
+			local target = CFrame.new(loc.pos)
+			local stayUntil = os.clock() + 1.5
+			while os.clock() < stayUntil do
+				if not coalOreFarmRunning then break end
+				local root = getRootPart()
+				if root then
+					root.CFrame = target
+					root.AssemblyLinearVelocity = Vector3.zero
+				end
+				task.wait()
 			end
 
-			count = count + 1
-			task.wait(1.5)
-
 			if not coalOreFarmRunning then break end
+
+			count = count + 1
 
 			if count % 3 == 0 then
 				resetAndWaitForSpawn()
