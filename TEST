@@ -8416,159 +8416,191 @@ FarmAI:AddToggle("BossSpawnPredictor", {
 
 local goldOreFarmRunning = false
 
-OreFarm:AddButton({
+OreFarm:AddToggle("TeleportAllGold", {
 	Text = "Teleport All Gold",
-	Func = function()
-		if goldOreFarmRunning then return end
-		goldOreFarmRunning = true
-
-		local goldLocations = {
-			{ name = "Gold 1",  pos = Vector3.new(1732.94, 113.13, 2295.19) },
-			{ name = "Gold 2",  pos = Vector3.new(1447.98, 39.83,  2400.27) },
-			{ name = "Gold 3",  pos = Vector3.new(1837.06, 29.36,  2471.74) },
-			{ name = "Gold 4",  pos = Vector3.new(1177.61, 29.01,  -609.47) },
-			{ name = "Gold 5",  pos = Vector3.new(1188.42, 20.58,  -563.03) },
-			{ name = "Gold 6",  pos = Vector3.new(-651.84, 226.09, 654.28)  },
-			{ name = "Gold 7",  pos = Vector3.new(-540.20, 76.40,  297.97)  },
-			{ name = "Gold 8",  pos = Vector3.new(-2202.22, 51.01, 22.08)   },
-			{ name = "Gold 9",  pos = Vector3.new(-1182.86, 54.42, 6608.34) },
-			{ name = "Gold 10", pos = Vector3.new(-2015.67, 30.73, -39.95)  },
-			{ name = "Gold 11", pos = Vector3.new(-912.17, 125.72, -408.72) },
-			{ name = "Gold 12", pos = Vector3.new(-264.65, 47.32,  1427.81) },
-			{ name = "Gold 13", pos = Vector3.new(245.51,  45.00,  460.77)  },
-			{ name = "Gold 14", pos = Vector3.new(-1261.77, 43.72, 6281.94) },
-			{ name = "Gold 15", pos = Vector3.new(-1765.08, 95.91, 7158.15) },
-			{ name = "Gold 16", pos = Vector3.new(1686.60, 41.64, -917.39)  },
-			{ name = "Gold 17", pos = Vector3.new(1566.16, 23.19, -946.35)  },
-			{ name = "Gold 18", pos = Vector3.new(252.14, 22.06, 811.69)    },
-			{ name = "Gold 19", pos = Vector3.new(50.11, 125.73, -1040.40)  },
-			{ name = "Gold 20", pos = Vector3.new(462.81, 100.69, -455.26)  },
-		}
-
-		task.spawn(function()
-			local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
-			local characterFolder = remoteInterface and remoteInterface:FindFirstChild("character")
-			local resetRemote = characterFolder and characterFolder:FindFirstChild("reset")
-
-			local function resetAndWaitForSpawn()
-				local respawned = false
-				local conn
-				conn = LocalPlayer.CharacterAdded:Connect(function()
-					respawned = true
-				end)
-
-				if resetRemote then
-					pcall(function()
-						resetRemote:InvokeServer()
-					end)
-				end
-
-				local timeout = os.clock() + 15
-				while not respawned and os.clock() < timeout do
-					task.wait(0.1)
-				end
-
-				if conn then
-					conn:Disconnect()
-				end
-
-				task.wait(0.5)
-			end
-
-			local count = 0
-			for _, loc in ipairs(goldLocations) do
-				local root = getRootPart()
-				if root then
-					root.CFrame = CFrame.new(loc.pos)
-				end
-
-				count = count + 1
-				task.wait(1.5)
-
-				if count % 3 == 0 then
-					resetAndWaitForSpawn()
-				end
-			end
-
-			goldOreFarmRunning = false
-			Library:Notify({ Title = "Ore Factory", Description = "Finished Gold teleports.", Time = 3 })
-		end)
-	end,
+	Default = false,
 })
+
+Toggles.TeleportAllGold:OnChanged(function()
+	local on = Toggles.TeleportAllGold.Value
+
+	if not on then
+		goldOreFarmRunning = false
+		return
+	end
+
+	if goldOreFarmRunning then return end
+	goldOreFarmRunning = true
+
+	local goldLocations = {
+		{ name = "Gold 1",  pos = Vector3.new(1732.94, 113.13, 2295.19) },
+		{ name = "Gold 2",  pos = Vector3.new(1447.98, 39.83,  2400.27) },
+		{ name = "Gold 3",  pos = Vector3.new(1837.06, 29.36,  2471.74) },
+		{ name = "Gold 4",  pos = Vector3.new(1177.61, 29.01,  -609.47) },
+		{ name = "Gold 5",  pos = Vector3.new(1188.42, 20.58,  -563.03) },
+		{ name = "Gold 6",  pos = Vector3.new(-651.84, 226.09, 654.28)  },
+		{ name = "Gold 7",  pos = Vector3.new(-540.20, 76.40,  297.97)  },
+		{ name = "Gold 8",  pos = Vector3.new(-2202.22, 51.01, 22.08)   },
+		{ name = "Gold 9",  pos = Vector3.new(-1182.86, 54.42, 6608.34) },
+		{ name = "Gold 10", pos = Vector3.new(-2015.67, 30.73, -39.95)  },
+		{ name = "Gold 11", pos = Vector3.new(-912.17, 125.72, -408.72) },
+		{ name = "Gold 12", pos = Vector3.new(-264.65, 47.32,  1427.81) },
+		{ name = "Gold 13", pos = Vector3.new(245.51,  45.00,  460.77)  },
+		{ name = "Gold 14", pos = Vector3.new(-1261.77, 43.72, 6281.94) },
+		{ name = "Gold 15", pos = Vector3.new(-1765.08, 95.91, 7158.15) },
+		{ name = "Gold 16", pos = Vector3.new(1686.60, 41.64, -917.39)  },
+		{ name = "Gold 17", pos = Vector3.new(1566.16, 23.19, -946.35)  },
+		{ name = "Gold 18", pos = Vector3.new(252.14, 22.06, 811.69)    },
+		{ name = "Gold 19", pos = Vector3.new(50.11, 125.73, -1040.40)  },
+		{ name = "Gold 20", pos = Vector3.new(462.81, 100.69, -455.26)  },
+	}
+
+	task.spawn(function()
+		local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
+		local characterFolder = remoteInterface and remoteInterface:FindFirstChild("character")
+		local resetRemote = characterFolder and characterFolder:FindFirstChild("reset")
+
+		local function resetAndWaitForSpawn()
+			local respawned = false
+			local conn
+			conn = LocalPlayer.CharacterAdded:Connect(function()
+				respawned = true
+			end)
+
+			if resetRemote then
+				pcall(function()
+					resetRemote:InvokeServer()
+				end)
+			end
+
+			local timeout = os.clock() + 15
+			while not respawned and os.clock() < timeout do
+				task.wait(0.1)
+			end
+
+			if conn then
+				conn:Disconnect()
+			end
+
+			task.wait(0.5)
+		end
+
+		local count = 0
+		for _, loc in ipairs(goldLocations) do
+			if not goldOreFarmRunning then break end
+
+			local root = getRootPart()
+			if root then
+				root.CFrame = CFrame.new(loc.pos)
+			end
+
+			count = count + 1
+			task.wait(1.5)
+
+			if not goldOreFarmRunning then break end
+
+			if count % 3 == 0 then
+				resetAndWaitForSpawn()
+			end
+		end
+
+		goldOreFarmRunning = false
+		if Toggles.TeleportAllGold.Value then
+			Toggles.TeleportAllGold:SetValue(false)
+		end
+		Library:Notify({ Title = "Ore Factory", Description = "Finished Gold teleports.", Time = 3 })
+	end)
+end)
 
 local coalOreFarmRunning = false
 
-OreFarm:AddButton({
+OreFarm:AddToggle("TeleportAllCoal", {
 	Text = "Teleport All Coal",
-	Func = function()
-		if coalOreFarmRunning then return end
-		coalOreFarmRunning = true
-
-		local coalLocations = {
-			{ name = "Coal 1",  pos = Vector3.new(1130.93, 24.94, -601.55)  },
-			{ name = "Coal 2",  pos = Vector3.new(1319.54, 25.26, -1129.08) },
-			{ name = "Coal 3",  pos = Vector3.new(-681.19, 173.56, 657.90)  },
-			{ name = "Coal 4",  pos = Vector3.new(-886.51, 75.31, 192.70)   },
-			{ name = "Coal 5",  pos = Vector3.new(-1351.22, 31.18, -167.99) },
-			{ name = "Coal 6",  pos = Vector3.new(-1872.79, 30.78, 194.66)  },
-			{ name = "Coal 7",  pos = Vector3.new(-2255.10, 29.20, 964.32)  },
-			{ name = "Coal 8",  pos = Vector3.new(331.57, 47.36, 492.03)    },
-			{ name = "Coal 9",  pos = Vector3.new(264.71, 27.19, 267.24)    },
-			{ name = "Coal 10", pos = Vector3.new(-680.98, 26.07, 254.45)   },
-			{ name = "Coal 11", pos = Vector3.new(182.10, 25.26, -934.94)   },
-			{ name = "Coal 12", pos = Vector3.new(11.22, 36.86, -1008.32)   },
-		}
-
-		task.spawn(function()
-			local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
-			local characterFolder = remoteInterface and remoteInterface:FindFirstChild("character")
-			local resetRemote = characterFolder and characterFolder:FindFirstChild("reset")
-
-			local function resetAndWaitForSpawn()
-				local respawned = false
-				local conn
-				conn = LocalPlayer.CharacterAdded:Connect(function()
-					respawned = true
-				end)
-
-				if resetRemote then
-					pcall(function()
-						resetRemote:InvokeServer()
-					end)
-				end
-
-				local timeout = os.clock() + 15
-				while not respawned and os.clock() < timeout do
-					task.wait(0.1)
-				end
-
-				if conn then
-					conn:Disconnect()
-				end
-
-				task.wait(0.5)
-			end
-
-			local count = 0
-			for _, loc in ipairs(coalLocations) do
-				local root = getRootPart()
-				if root then
-					root.CFrame = CFrame.new(loc.pos)
-				end
-
-				count = count + 1
-				task.wait(1.5)
-
-				if count % 3 == 0 then
-					resetAndWaitForSpawn()
-				end
-			end
-
-			coalOreFarmRunning = false
-			Library:Notify({ Title = "Ore Factory", Description = "Finished Coal teleports.", Time = 3 })
-		end)
-	end,
+	Default = false,
 })
+
+Toggles.TeleportAllCoal:OnChanged(function()
+	local on = Toggles.TeleportAllCoal.Value
+
+	if not on then
+		coalOreFarmRunning = false
+		return
+	end
+
+	if coalOreFarmRunning then return end
+	coalOreFarmRunning = true
+
+	local coalLocations = {
+		{ name = "Coal 1",  pos = Vector3.new(1130.93, 24.94, -601.55)  },
+		{ name = "Coal 2",  pos = Vector3.new(1319.54, 25.26, -1129.08) },
+		{ name = "Coal 3",  pos = Vector3.new(-681.19, 173.56, 657.90)  },
+		{ name = "Coal 4",  pos = Vector3.new(-886.51, 75.31, 192.70)   },
+		{ name = "Coal 5",  pos = Vector3.new(-1351.22, 31.18, -167.99) },
+		{ name = "Coal 6",  pos = Vector3.new(-1872.79, 30.78, 194.66)  },
+		{ name = "Coal 7",  pos = Vector3.new(-2255.10, 29.20, 964.32)  },
+		{ name = "Coal 8",  pos = Vector3.new(331.57, 47.36, 492.03)    },
+		{ name = "Coal 9",  pos = Vector3.new(264.71, 27.19, 267.24)    },
+		{ name = "Coal 10", pos = Vector3.new(-680.98, 26.07, 254.45)   },
+		{ name = "Coal 11", pos = Vector3.new(182.10, 25.26, -934.94)   },
+		{ name = "Coal 12", pos = Vector3.new(11.22, 36.86, -1008.32)   },
+	}
+
+	task.spawn(function()
+		local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
+		local characterFolder = remoteInterface and remoteInterface:FindFirstChild("character")
+		local resetRemote = characterFolder and characterFolder:FindFirstChild("reset")
+
+		local function resetAndWaitForSpawn()
+			local respawned = false
+			local conn
+			conn = LocalPlayer.CharacterAdded:Connect(function()
+				respawned = true
+			end)
+
+			if resetRemote then
+				pcall(function()
+					resetRemote:InvokeServer()
+				end)
+			end
+
+			local timeout = os.clock() + 15
+			while not respawned and os.clock() < timeout do
+				task.wait(0.1)
+			end
+
+			if conn then
+				conn:Disconnect()
+			end
+
+			task.wait(0.5)
+		end
+
+		local count = 0
+		for _, loc in ipairs(coalLocations) do
+			if not coalOreFarmRunning then break end
+
+			local root = getRootPart()
+			if root then
+				root.CFrame = CFrame.new(loc.pos)
+			end
+
+			count = count + 1
+			task.wait(1.5)
+
+			if not coalOreFarmRunning then break end
+
+			if count % 3 == 0 then
+				resetAndWaitForSpawn()
+			end
+		end
+
+		coalOreFarmRunning = false
+		if Toggles.TeleportAllCoal.Value then
+			Toggles.TeleportAllCoal:SetValue(false)
+		end
+		Library:Notify({ Title = "Ore Factory", Description = "Finished Coal teleports.", Time = 3 })
+	end)
+end)
 
 OreFarm:AddCheckbox("OreFarmAutoMine", {
 	Text = "Auto Mine + Pickup + Vacuum",
