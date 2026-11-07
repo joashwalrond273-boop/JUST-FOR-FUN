@@ -8481,6 +8481,26 @@ Toggles.TeleportAllGold:OnChanged(function()
 		{ name = "Gold 42", pos = Vector3.new(-1172.27, 65.16, 6621.89)  },
 		{ name = "Gold 43", pos = Vector3.new(-1213.45, 64.51, 6624.58)  },
 		{ name = "Gold 44", pos = Vector3.new(-1400.78, 25.24, -395.94)  },
+		{ name = "Gold 45", pos = Vector3.new(1118.38, -111.96, 2029.53) },
+		{ name = "Gold 46", pos = Vector3.new(945.18, -153.26, 2327.91)  },
+		{ name = "Gold 47", pos = Vector3.new(1156.04, -104.52, 2399.89) },
+		{ name = "Gold 48", pos = Vector3.new(998.95, -173.57, 2636.58)  },
+		{ name = "Gold 49", pos = Vector3.new(1616.02, -103.28, 2955.18) },
+		{ name = "Gold 50", pos = Vector3.new(1849.67, -35.19, 2691.63)  },
+		{ name = "Gold 51", pos = Vector3.new(2154.13, -98.55, 2644.76)  },
+		{ name = "Gold 52", pos = Vector3.new(2339.90, -100.89, 2328.77) },
+		{ name = "Gold 53", pos = Vector3.new(2004.04, -42.34, 2099.46)  },
+		{ name = "Gold 54", pos = Vector3.new(1852.13, -107.16, 1627.06) },
+		{ name = "Gold 55", pos = Vector3.new(1740.55, -103.90, 1626.94) },
+		{ name = "Gold 56", pos = Vector3.new(1363.03, -74.36, 1697.86)  },
+		{ name = "Gold 57", pos = Vector3.new(-24.38, -196.69, 978.64)   },
+		{ name = "Gold 58", pos = Vector3.new(63.16, -188.27, 956.27)    },
+		{ name = "Gold 59", pos = Vector3.new(746.97, -61.05, -333.77)   },
+		{ name = "Gold 60", pos = Vector3.new(825.71, -293.60, -332.13)  },
+		{ name = "Gold 61", pos = Vector3.new(842.68, -294.72, -313.27)  },
+		{ name = "Gold 62", pos = Vector3.new(840.11, -293.25, -337.24)  },
+		{ name = "Gold 63", pos = Vector3.new(-1462.39, -92.42, 215.77)  },
+		{ name = "Gold 64", pos = Vector3.new(-1459.47, -92.33, 215.86)  },
 	}
 
 	task.spawn(function()
@@ -8514,6 +8534,7 @@ Toggles.TeleportAllGold:OnChanged(function()
 		end
 
 		local count = 0
+		resetAndWaitForSpawn()
 		for _, loc in ipairs(goldLocations) do
 			if not goldOreFarmRunning then break end
 
@@ -8614,6 +8635,7 @@ Toggles.TeleportAllCoal:OnChanged(function()
 		end
 
 		local count = 0
+		resetAndWaitForSpawn()
 		for _, loc in ipairs(coalLocations) do
 			if not coalOreFarmRunning then break end
 
