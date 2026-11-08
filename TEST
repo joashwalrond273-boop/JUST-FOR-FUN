@@ -2554,6 +2554,15 @@ if PlusKillPlayerToggle.TextLabel then
         PlusKillPlayerToggle.TextLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
 end
 
+FunAttach:AddSlider("AttachDistance", {
+        Text = "Attach Distance",
+        Default = 2.5,
+        Min = 0,
+        Max = 20,
+        Rounding = 1,
+        Compact = true,
+})
+
 FunAttach:AddDropdown("AttachPosition", {
         Text = "Attach Position",
         Values = { "Behind", "Front", "Float Over", "Hide Beneath", "Orbit" },
@@ -2916,6 +2925,16 @@ MainRight:AddCheckbox("PerfHud", {
 
 MainRight:AddCheckbox("ThreatRadar", {
 	Text = "Threat Radar",
+	Default = false,
+})
+
+MainRight:AddCheckbox("BossSpawnNotifier", {
+	Text = "Boss Spawn Notifier",
+	Default = false,
+})
+
+MainRight:AddCheckbox("BossSpawnPredictor", {
+	Text = "Spawn Predictor",
 	Default = false,
 })
 
@@ -4440,9 +4459,9 @@ CombatCamlockConfig:AddSlider("CamlockPullDist", {
 CombatCamlockConfig:AddSlider("CamlockPullStrength", {
 	Text = "Tug / Pull Strength",
 	Default = 5,
-	Min = 0.1,
+	Min = 0.01,
 	Max = 20,
-	Rounding = 1,
+	Rounding = 2,
 	Compact = true,
 })
 
@@ -8262,18 +8281,6 @@ FarmAI:AddSlider("AiAuraRange", {
 	Compact = true,
 })
 
-FarmAI:AddDivider()
-
-FarmAI:AddToggle("BossSpawnNotifier", {
-	Text = "Boss Spawn Notifier",
-	Default = false,
-})
-
-FarmAI:AddToggle("BossSpawnPredictor", {
-	Text = "Spawn Predictor",
-	Default = false,
-})
-
 -- ==========================================
 -- ORE FACTORY
 -- ==========================================
@@ -11777,17 +11784,18 @@ local function startAttach()
 
 			if targetRoot and myRoot and isAlive() then
 				local attachPosition = (Options.AttachPosition and Options.AttachPosition.Value) or "Behind"
+				local attachDist = (Options.AttachDistance and Options.AttachDistance.Value) or 2.5
 				if attachPosition == "Float Over" then
 					myRoot.CFrame = targetRoot.CFrame * CFrame.new(0, 6, 0) -- Over head
 				elseif attachPosition == "Hide Beneath" then
 					myRoot.CFrame = targetRoot.CFrame * CFrame.new(0, -6, 0) -- Below feet
 				elseif attachPosition == "Front" then
-					myRoot.CFrame = targetRoot.CFrame * CFrame.new(0, 0, -2.5) -- In front of player
+					myRoot.CFrame = targetRoot.CFrame * CFrame.new(0, 0, -attachDist) -- In front of player
 				elseif attachPosition == "Orbit" then
 					local angle = tick() * 3
-					myRoot.CFrame = targetRoot.CFrame * CFrame.new(math.cos(angle) * 3, 0, math.sin(angle) * 3) -- Circle around target
+					myRoot.CFrame = targetRoot.CFrame * CFrame.new(math.cos(angle) * attachDist, 0, math.sin(angle) * attachDist) -- Circle around target
 				else
-					myRoot.CFrame = targetRoot.CFrame * CFrame.new(0, 0, 2.5) -- Behind player
+					myRoot.CFrame = targetRoot.CFrame * CFrame.new(0, 0, attachDist) -- Behind player
 				end
 				myRoot.Velocity = Vector3.zero
 			end
@@ -11833,6 +11841,11 @@ Options.AttachPlayerList:OnChanged(function()
 	end
 end)
 Options.AttachPosition:OnChanged(function()
+	if Toggles.AttachToggle.Value then
+		startAttach()
+	end
+end)
+Options.AttachDistance:OnChanged(function()
 	if Toggles.AttachToggle.Value then
 		startAttach()
 	end
