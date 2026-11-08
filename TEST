@@ -4691,7 +4691,12 @@ CombatShieldSystem:AddCheckbox("ShieldHud", {
 })
 
 CombatShieldSystem:AddToggle("ShieldOnDamage", {
-	Text = "Shield on Damage",
+	Text = "Advance Shield",
+	Default = false,
+})
+
+CombatShieldSystem:AddCheckbox("ImmortalMode", {
+	Text = "Inf Shield",
 	Default = false,
 })
 
@@ -4711,13 +4716,6 @@ CombatShieldSystem:AddSlider("ShieldDamageRefire", {
 	Max = 5,
 	Rounding = 2,
 	Compact = true,
-})
-
-CombatShieldSystem:AddDivider()
-
-CombatShieldSystem:AddToggle("ImmortalMode", {
-	Text = "Infinite Shield",
-	Default = false,
 })
 
 CombatShieldSystem:AddCheckbox("Advance", {
