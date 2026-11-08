@@ -8403,9 +8403,33 @@ FarmChop:AddCheckbox("HighlightChop", {
 
 local goldOreFarmRunning = false
 
+OreFarm:AddDropdown("FarmSelector", {
+	Text = "Select Farm",
+	Values = { "Gold Farm", "Coal Farm" },
+	Default = "Gold Farm",
+})
+
 OreFarm:AddToggle("TeleportAllGold", {
 	Text = "Gold Farm",
 	Default = false,
+})
+
+OreFarm:AddSlider("GoldFarmResetEvery", {
+	Text = "Teleports Before Reset",
+	Default = 3,
+	Min = 1,
+	Max = 100,
+	Rounding = 0,
+	Compact = true,
+})
+
+OreFarm:AddSlider("GoldFarmDelay", {
+	Text = "Teleport Delay",
+	Default = 1.5,
+	Min = 0.1,
+	Max = 5,
+	Rounding = 1,
+	Compact = true,
 })
 
 Toggles.TeleportAllGold:OnChanged(function()
@@ -8520,13 +8544,15 @@ Toggles.TeleportAllGold:OnChanged(function()
 			task.wait(0.5)
 		end
 
+		local resetEvery = math.max(1, math.floor((Options.GoldFarmResetEvery and Options.GoldFarmResetEvery.Value) or 3))
+		local teleportDelay = (Options.GoldFarmDelay and Options.GoldFarmDelay.Value) or 1.5
 		local count = 0
 		resetAndWaitForSpawn()
 		for _, loc in ipairs(goldLocations) do
 			if not goldOreFarmRunning then break end
 
 			local target = CFrame.new(loc.pos)
-			local stayUntil = os.clock() + 1.5
+			local stayUntil = os.clock() + teleportDelay
 			while os.clock() < stayUntil do
 				if not goldOreFarmRunning then break end
 				local root = getRootPart()
@@ -8541,7 +8567,7 @@ Toggles.TeleportAllGold:OnChanged(function()
 
 			count = count + 1
 
-			if count % 3 == 0 then
+			if count % resetEvery == 0 then
 				resetAndWaitForSpawn()
 			end
 		end
@@ -8559,6 +8585,24 @@ local coalOreFarmRunning = false
 OreFarm:AddToggle("TeleportAllCoal", {
 	Text = "Coal Farm",
 	Default = false,
+})
+
+OreFarm:AddSlider("CoalFarmResetEvery", {
+	Text = "Teleports Before Reset",
+	Default = 3,
+	Min = 1,
+	Max = 100,
+	Rounding = 0,
+	Compact = true,
+})
+
+OreFarm:AddSlider("CoalFarmDelay", {
+	Text = "Teleport Delay",
+	Default = 1.5,
+	Min = 0.1,
+	Max = 5,
+	Rounding = 1,
+	Compact = true,
 })
 
 Toggles.TeleportAllCoal:OnChanged(function()
@@ -8621,13 +8665,15 @@ Toggles.TeleportAllCoal:OnChanged(function()
 			task.wait(0.5)
 		end
 
+		local resetEvery = math.max(1, math.floor((Options.CoalFarmResetEvery and Options.CoalFarmResetEvery.Value) or 3))
+		local teleportDelay = (Options.CoalFarmDelay and Options.CoalFarmDelay.Value) or 1.5
 		local count = 0
 		resetAndWaitForSpawn()
 		for _, loc in ipairs(coalLocations) do
 			if not coalOreFarmRunning then break end
 
 			local target = CFrame.new(loc.pos)
-			local stayUntil = os.clock() + 1.5
+			local stayUntil = os.clock() + teleportDelay
 			while os.clock() < stayUntil do
 				if not coalOreFarmRunning then break end
 				local root = getRootPart()
@@ -8642,7 +8688,7 @@ Toggles.TeleportAllCoal:OnChanged(function()
 
 			count = count + 1
 
-			if count % 3 == 0 then
+			if count % resetEvery == 0 then
 				resetAndWaitForSpawn()
 			end
 		end
@@ -8653,6 +8699,42 @@ Toggles.TeleportAllCoal:OnChanged(function()
 		end
 		Library:Notify({ Title = "Ore Factory", Description = "Finished Coal teleports.", Time = 3 })
 	end)
+end)
+
+local updateFarmVisibility = function()
+	local selected = (Options.FarmSelector and Options.FarmSelector.Value) or "Gold Farm"
+	local showGold = selected == "Gold Farm"
+	local showCoal = selected == "Coal Farm"
+
+	local function setVisible(option, visible)
+		if not option then return end
+		option.Visible = visible
+		if option.Holder then
+			option.Holder.Visible = visible
+		end
+	end
+
+	setVisible(Toggles.TeleportAllGold, showGold)
+	setVisible(Options.GoldFarmResetEvery, showGold)
+	setVisible(Options.GoldFarmDelay, showGold)
+
+	setVisible(Toggles.TeleportAllCoal, showCoal)
+	setVisible(Options.CoalFarmResetEvery, showCoal)
+	setVisible(Options.CoalFarmDelay, showCoal)
+
+	OreFarm:Resize()
+end
+
+if Options.FarmSelector then
+	Options.FarmSelector:OnChanged(function()
+		updateFarmVisibility()
+	end)
+end
+
+updateFarmVisibility()
+task.spawn(function()
+	task.wait(0.05)
+	updateFarmVisibility()
 end)
 
 OreFarm:AddDivider()
