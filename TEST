@@ -2744,11 +2744,6 @@ MainLeft:AddSlider("AutoPickupRange", {
 	Compact = true,
 })
 
-MainLeft:AddCheckbox("Noclip", {
-	Text = "Noclip",
-	Default = false,
-})
-
 MainLeft:AddCheckbox("AntiAFK", {
 	Text = "Anti-AFK",
 	Default = false,
@@ -7773,97 +7768,6 @@ MoveMountAura:AddSlider("MountFlySpeed", {
 })
 
 
-local noclipCorePartNames = {
-	["HumanoidRootPart"] = true,
-	["Head"] = true,
-	["Torso"] = true,
-	["UpperTorso"] = true,
-	["LowerTorso"] = true,
-	["Left Arm"] = true,
-	["Right Arm"] = true,
-	["Left Leg"] = true,
-	["Right Leg"] = true,
-	["LeftUpperArm"] = true,
-	["LeftLowerArm"] = true,
-	["RightUpperArm"] = true,
-	["RightLowerArm"] = true,
-	["LeftUpperLeg"] = true,
-	["LeftLowerLeg"] = true,
-	["RightUpperLeg"] = true,
-	["RightLowerLeg"] = true,
-}
-local noclipCoreParts = {}
-
-local function updateNoclipParts(character)
-	table.clear(noclipCoreParts)
-	if not character then return end
-	for _, child in ipairs(character:GetChildren()) do
-		if child:IsA("BasePart") and noclipCorePartNames[child.Name] then
-			table.insert(noclipCoreParts, child)
-		end
-	end
-end
-
-local function restoreCharacterCollisions(character)
-	if not character then return end
-	for _, part in ipairs(character:GetDescendants()) do
-		if part:IsA("BasePart") then
-			if part.Name == "Torso" or part.Name == "UpperTorso" or part.Name == "LowerTorso" or part.Name == "Head" then
-				part.CanCollide = true
-			else
-				part.CanCollide = false
-			end
-		end
-	end
-end
-
--- Lean noclip: collisions are cleared once when enabled/respawned, then a
--- throttled guard over the cached part list keeps them off. This avoids the
--- costly per-frame GetDescendants scan that caused lag.
-local noclipAccum = 0
-
-local function clearNoclipCollisions()
-	for i = 1, #noclipCoreParts do
-		local part = noclipCoreParts[i]
-		if part and part.CanCollide then
-			part.CanCollide = false
-		end
-	end
-end
-
-LocalPlayer.CharacterAdded:Connect(function(char)
-	updateNoclipParts(char)
-	if Toggles.Noclip and Toggles.Noclip.Value then
-		clearNoclipCollisions()
-	else
-		restoreCharacterCollisions(char)
-	end
-end)
-if LocalPlayer.Character then
-	updateNoclipParts(LocalPlayer.Character)
-	if not (Toggles.Noclip and Toggles.Noclip.Value) then
-		restoreCharacterCollisions(LocalPlayer.Character)
-	end
-end
-
-Toggles.Noclip:OnChanged(function()
-	disconnect("Noclip")
-	noclipAccum = 0
-	if Toggles.Noclip.Value then
-		updateNoclipParts(getCharacter())
-		clearNoclipCollisions()
-		track("Noclip", RunService.Heartbeat:Connect(function(dt)
-			noclipAccum = noclipAccum + dt
-			if noclipAccum < 0.05 then return end
-			noclipAccum = 0
-			clearNoclipCollisions()
-		end))
-	else
-		restoreCharacterCollisions(getCharacter())
-	end
-end)
-
-
 Toggles.SpeedHack:OnChanged(function()
 	disconnect("SpeedHack")
 	if Toggles.SpeedHack.Value then
@@ -11609,12 +11513,6 @@ local function startTargetFling()
 		local myRoot = getRootPart()
 		if not (targetRoot and myRoot and isAlive()) then return end
 
-		for _, part in ipairs(noclipCoreParts) do
-			if part and part.CanCollide then
-				part.CanCollide = false
-			end
-		end
-
 		local offset = targetRoot.Position - myRoot.Position
 		if offset.Magnitude < 0.5 then
 			offset = Vector3.new(0, 1, 0)
@@ -11770,11 +11668,6 @@ local function startAttach()
 			local myRoot = getRootPart()
 
 			if targetRoot and myRoot and isAlive() then
-				for _, part in ipairs(noclipCoreParts) do
-					if part and part.CanCollide then
-						part.CanCollide = false
-					end
-				end
 				local attachPosition = (Options.AttachPosition and Options.AttachPosition.Value) or "Behind"
 				if attachPosition == "Float Over" then
 					myRoot.CFrame = targetRoot.CFrame * CFrame.new(0, 6, 0) -- Over head
@@ -12189,9 +12082,6 @@ SaveManager:SetFolder("TSG/TheSurvivalGame")
 SaveManager:BuildConfigSection(Tabs["UI Settings"])
 ThemeManager:ApplyToTab(Tabs["UI Settings"])
 SaveManager:LoadAutoloadConfig()
-if not (Toggles.Noclip and Toggles.Noclip.Value) then
-	restoreCharacterCollisions(getCharacter())
-end
 
 Library:OnUnload(function()
 	if Toggles.Reach and Toggles.Reach.Value then
