@@ -460,13 +460,22 @@ AutoArmorDeluxeGroup:AddButton({
 			)
 		end)
 
+		task.wait(getCraftDelay())
+
 		local furnace = nil
 		pcall(function()
 			for _, structure in pairs(workspace.placedStructures:GetChildren()) do
-				if structure:FindFirstChild("Bluesteel Furnace") then
-					furnace = structure:FindFirstChild("Bluesteel Furnace")
+				if structure.Name:lower():find("bluesteel") then
+					furnace = structure
 					break
 				end
+				for _, child in ipairs(structure:GetChildren()) do
+					if child.Name:lower():find("bluesteel") then
+						furnace = child
+						break
+					end
+				end
+				if furnace then break end
 			end
 		end)
 
@@ -4375,6 +4384,15 @@ CombatCamlockConfig:AddSlider("CamlockSmoothness", {
 	Compact = true,
 })
 
+CombatCamlockConfig:AddSlider("CamlockTurnSmoothness", {
+	Text = "Turn Smoothness",
+	Default = 0.2,
+	Min = 0.01,
+	Max = 1,
+	Rounding = 2,
+	Compact = true,
+})
+
 CombatCamlockConfig:AddDropdown("CamlockAimPart", {
 	Text = "Aim Part",
 	Values = {"Head", "HumanoidRootPart", "UpperTorso"},
@@ -6006,8 +6024,6 @@ local function killAuraLoop()
 	end
 end
 
-
-
 Toggles.KillAura:OnChanged(function()
 	disconnect("KillAura")
 	if Toggles.KillAura.Value then
@@ -6447,7 +6463,21 @@ Toggles.Camlock:OnChanged(function()
 							angleOffset = -math.rad(deg)
 						end
 
-						root.CFrame = CFrame.new(myPos, myPos + lookDir) * CFrame.Angles(0, angleOffset, 0)
+						-- Smoothly rotate the body toward the target instead of snapping
+						-- instantly, so the turn looks natural.
+						local curLook = root.CFrame.LookVector
+						local curYaw = math.atan2(-curLook.X, -curLook.Z)
+						local flatDir = Vector3.new(lookDir.X, 0, lookDir.Z)
+						if flatDir.Magnitude > 0.001 then
+							local targetYaw = math.atan2(-flatDir.X, -flatDir.Z)
+							local yawDelta = ((targetYaw - curYaw + math.pi) % (2 * math.pi)) - math.pi
+							local turnSpeed = (Options.CamlockTurnSmoothness and Options.CamlockTurnSmoothness.Value) or 0.2
+							local turnAlpha = 1 - math.exp(-math.clamp(turnSpeed, 0.01, 1) * 60 * dt)
+							local newYaw = curYaw + yawDelta * turnAlpha
+							root.CFrame = CFrame.new(myPos) * CFrame.Angles(0, newYaw + angleOffset, 0)
+						else
+							root.CFrame = CFrame.new(myPos) * CFrame.Angles(0, curYaw + angleOffset, 0)
+						end
 					else
 						root.CFrame = CFrame.new(myPos, myPos + root.CFrame.LookVector)
 					end
@@ -7833,8 +7863,6 @@ Toggles.InfiniteBackpack:OnChanged(function()
 	end
 end)
 
-
-
 local originalMountSpeeds = {}
 
 local function getCurrentMount()
@@ -7950,8 +7978,6 @@ Toggles.PlusSpeedBoost:OnChanged(function()
 		Library:Notify({ Title = "Slot Boost", Description = "Disabled", Time = 2 })
 	end
 end)
-
-
 
 Toggles.SwimBoost:OnChanged(function()
 	disconnect("SwimBoost")
@@ -10828,6 +10854,13 @@ VisualLeft:AddCheckbox("OutlineESP", {
 	Title = "Outline ESP Color",
 })
 
+VisualLeft:AddCheckbox("BoxESP", {
+	Text = "Box ESP",
+	Default = false,
+}):AddColorPicker("BoxESPColor", {
+	Default = Color3.fromRGB(255, 255, 255),
+	Title = "Box ESP Color",
+})
 
 VisualLeft:AddCheckbox("PlayerHealthBar", {
 	Text = "Health Bar",
@@ -10917,6 +10950,7 @@ local function removePlayerESP(player)
 	if entry then
 		if entry.billboard then pcall(function() entry.billboard:Destroy() end) end
 		if entry.highlight then pcall(function() entry.highlight:Destroy() end) end
+		if entry.box then pcall(function() entry.box:Destroy() end) end
 		if entry.charCon then pcall(function() entry.charCon:Disconnect() end) end
 		espObjects[player] = nil
 	end
@@ -10932,6 +10966,25 @@ local function clearESP()
 	end
 end
 
+-- Box ESP uses the executor's Drawing API: no Instances and rendered in C++,
+-- so it stays extremely cheap even with many players on screen.
+local hasDrawing = (typeof(Drawing) == "table" and typeof(Drawing.new) == "function")
+
+local function createBoxDrawing()
+	if not hasDrawing then return nil end
+	local box
+	local ok = pcall(function()
+		box = Drawing.new("Square")
+		box.Thickness = 1
+		box.Filled = false
+		box.Transparency = 1
+		box.Visible = false
+		box.Color = (Options and Options.BoxESPColor and Options.BoxESPColor.Value) or Color3.fromRGB(255, 255, 255)
+	end)
+	if ok then return box end
+	return nil
+end
+
 local function getOrCreateESP(player)
 	if player == LocalPlayer then return nil end
 	local entry = espObjects[player]
@@ -10940,6 +10993,7 @@ local function getOrCreateESP(player)
 		if entry then
 			if entry.billboard then entry.billboard.Enabled = false end
 			if entry.highlight then entry.highlight.Enabled = false end
+			if entry.box then entry.box.Visible = false end
 		end
 		return nil
 	end
@@ -10950,6 +11004,7 @@ local function getOrCreateESP(player)
 		if entry then
 			if entry.billboard then entry.billboard.Enabled = false end
 			if entry.highlight then entry.highlight.Enabled = false end
+			if entry.box then entry.box.Visible = false end
 		end
 		return nil
 	end
@@ -10958,6 +11013,7 @@ local function getOrCreateESP(player)
 		if entry then
 			if entry.billboard then pcall(function() entry.billboard:Destroy() end) end
 			if entry.highlight then pcall(function() entry.highlight:Destroy() end) end
+			if entry.box then pcall(function() entry.box:Destroy() end) end
 		end
 
 		local maxDist = (Options and Options.ESPDistance and Options.ESPDistance.Value) or 500
@@ -11103,6 +11159,7 @@ local function updateAllESP()
 	local showHealth = (Toggles and Toggles.PlayerHealthBar and Toggles.PlayerHealthBar.Value) or false
 	local showHpText = (Toggles and Toggles.ShowHealthText and Toggles.ShowHealthText.Value) or false
 	local outlineEnabled = (Toggles.OutlineESP and Toggles.OutlineESP.Value) or false
+	local boxEnabled = (Toggles and Toggles.BoxESP and Toggles.BoxESP.Value) or false
 
 	for _, player in ipairs(Players:GetPlayers()) do
 		if player ~= LocalPlayer then
@@ -11121,6 +11178,34 @@ local function updateAllESP()
 					if entry.highlight.Enabled ~= shouldHl then
 						entry.highlight.Enabled = shouldHl
 					end
+				end
+
+				-- Box ESP: lightweight 2D bounding box drawn via the Drawing API
+				if boxEnabled then
+					if not entry.box then
+						entry.box = createBoxDrawing()
+					end
+					local box = entry.box
+					local camera = workspace.CurrentCamera
+					if box then
+						if camera and inRange then
+							local top = camera:WorldToViewportPoint(entry.root.Position + Vector3.new(0, 3, 0))
+							local bottom = camera:WorldToViewportPoint(entry.root.Position - Vector3.new(0, 3, 0))
+							if top.Z > 0 and bottom.Z > 0 then
+								local height = math.max(math.abs(bottom.Y - top.Y), 1)
+								local width = height * 0.6
+								box.Size = Vector2.new(width, height)
+								box.Position = Vector2.new(top.X - width / 2, top.Y)
+								box.Visible = true
+							else
+								box.Visible = false
+							end
+						else
+							box.Visible = false
+						end
+					end
+				elseif entry.box then
+					entry.box.Visible = false
 				end
 
 				-- Throttled text and health updates (0 FPS drop)
@@ -11176,6 +11261,7 @@ local function updateAllESP()
 			else
 				if entry and entry.billboard and entry.billboard.Enabled then entry.billboard.Enabled = false end
 				if entry and entry.highlight and entry.highlight.Enabled then entry.highlight.Enabled = false end
+				if entry and entry.box and entry.box.Visible then entry.box.Visible = false end
 			end
 		end
 	end
@@ -11230,6 +11316,28 @@ Toggles.OutlineESP:OnChanged(function()
 		if entry.highlight then
 			entry.highlight.OutlineTransparency = enabled and 0 or 1
 			entry.highlight.Enabled = enabled
+		end
+	end
+end)
+
+Toggles.BoxESP:OnChanged(function()
+	if not Toggles.BoxESP.Value then
+		for _, entry in pairs(espObjects) do
+			if entry.box then
+				pcall(function() entry.box:Destroy() end)
+				entry.box = nil
+			end
+		end
+	elseif not hasDrawing then
+		Library:Notify({ Title = "Box ESP", Description = "Drawing API is not supported by this executor.", Time = 3 })
+	end
+end)
+
+Options.BoxESPColor:OnChanged(function()
+	local color = Options.BoxESPColor.Value
+	for _, entry in pairs(espObjects) do
+		if entry.box then
+			entry.box.Color = color
 		end
 	end
 end)
