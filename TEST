@@ -1491,6 +1491,36 @@ Xeno_PlayHitSound = function()
 	end)
 end
 
+-- Play the custom hit sound on the player's own tool swings only.
+-- This is fully local and never touches the attack remote, so it
+-- cannot interfere with hit registration.
+do
+	local hitSoundHooked = {}
+	local function hookHitSoundTool(tool)
+		if not (tool and tool:IsA("Tool")) then return end
+		if hitSoundHooked[tool] then return end
+		hitSoundHooked[tool] = true
+		tool.Activated:Connect(function()
+			if Xeno_PlayHitSound then
+				Xeno_PlayHitSound()
+			end
+		end)
+	end
+
+	local function hookHitSoundCharacter(char)
+		if not char then return end
+		for _, child in ipairs(char:GetChildren()) do
+			hookHitSoundTool(child)
+		end
+		char.ChildAdded:Connect(hookHitSoundTool)
+	end
+
+	if LocalPlayer.Character then
+		hookHitSoundCharacter(LocalPlayer.Character)
+	end
+	LocalPlayer.CharacterAdded:Connect(hookHitSoundCharacter)
+end
+
 do
 	-- Which wear colours are active is chosen from one shared multi-select
 	-- dropdown ("Head Wear", "Body Wear", "Pants Wear", "Back Wear")
@@ -3934,7 +3964,7 @@ track("CharacterModuleRespawn", LocalPlayer.CharacterAdded:Connect(function()
 	end
 end))
 
--- Boss damage blocking and the melee hit sound share one __namecall hook.
+-- Boss damage blocking hook.
 local BossDamageEvent = resolvePath(ReplicatedStorage, "remoteInterface", "character", "hurtByAIAttack")
 if hookmetamethod then
 	local namecallOriginal
@@ -3942,19 +3972,9 @@ if hookmetamethod then
 		local self = ...
 		local method = getnamecallmethod()
 
-		if method == "FireServer" then
-			if BossDamageEvent and rawequal(self, BossDamageEvent) then
-				if Toggles.NoBossDamage and Toggles.NoBossDamage.Value then
-					return -- Block the attack to prevent damage
-				end
-			elseif TSG.MeleePlayerRemote and rawequal(self, TSG.MeleePlayerRemote) then
-				local fn = Xeno_PlayHitSound
-				if fn then task.defer(function() pcall(fn) end) end
-			end
-		elseif method == "InvokeServer" then
-			if TSG.MeleePlayerRemote and rawequal(self, TSG.MeleePlayerRemote) then
-				local fn = Xeno_PlayHitSound
-				if fn then task.defer(function() pcall(fn) end) end
+		if method == "FireServer" and BossDamageEvent and rawequal(self, BossDamageEvent) then
+			if Toggles.NoBossDamage and Toggles.NoBossDamage.Value then
+				return -- Block the attack to prevent damage
 			end
 		end
 
@@ -6756,7 +6776,7 @@ local function applySpearSwordSlot(slot)
 			Options.CamlockStuds:SetValue(17)
 		end
 		if Options.OutlineStuds then
-			Options.OutlineStuds:SetValue(2)
+			Options.OutlineStuds:SetValue(1)
 		end
 	end
 end
@@ -8254,40 +8274,6 @@ if LocalPlayer.Character then
 end
 
 -- ==========================================
-local FarmAI = Tabs.OreFactory:AddLeftGroupbox("AI Aura", "bot")
-
-FarmAI:AddToggle("AiAura", {
-	Text = "AI Aura",
-	Default = false,
-})
-
-FarmAI:AddDropdown("AiAuraSlot", {
-	Text = "Attack Slot",
-	Values = {"1","2","3","4","5","6","7","8","9","10"},
-	Default = "1",
-})
-
-FarmAI:AddCheckbox("AiAuraSlotSystem", {
-	Text = "Slot System",
-	Default = false,
-})
-
-FarmAI:AddDropdown("AiAuraSlotSystemSlot", {
-	Text = "Tool Slot",
-	Values = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"},
-	Default = {"1"},
-	Multi = true,
-})
-
-FarmAI:AddSlider("AiAuraRange", {
-	Text = "Range",
-	Default = 30,
-	Min = 5,
-	Max = 60,
-	Rounding = 1,
-	Compact = true,
-})
-
 function getAiAuraNames()
 	local names, seen = {}, {}
 	local function scan(container)
@@ -8323,6 +8309,19 @@ function passesAiAuraNameFilter(ai)
 	return true
 end
 
+local FarmAI = Tabs.OreFactory:AddLeftGroupbox("AI Aura", "bot")
+
+FarmAI:AddToggle("AiAura", {
+	Text = "AI Aura",
+	Default = false,
+})
+
+FarmAI:AddDropdown("AiAuraSlot", {
+	Text = "Attack Slot",
+	Values = {"1","2","3","4","5","6","7","8","9","10"},
+	Default = "1",
+})
+
 FarmAI:AddDivider()
 
 FarmAI:AddDropdown("AiAuraNameFilter", {
@@ -8346,6 +8345,27 @@ FarmAI:AddButton({
 			Options.AiAuraNameList:SetValues(getAiAuraNames())
 		end
 	end,
+})
+
+FarmAI:AddCheckbox("AiAuraSlotSystem", {
+	Text = "Slot System",
+	Default = false,
+})
+
+FarmAI:AddDropdown("AiAuraSlotSystemSlot", {
+	Text = "Tool Slot",
+	Values = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"},
+	Default = {"1"},
+	Multi = true,
+})
+
+FarmAI:AddSlider("AiAuraRange", {
+	Text = "Range",
+	Default = 30,
+	Min = 5,
+	Max = 60,
+	Rounding = 1,
+	Compact = true,
 })
 
 local function updateAiAuraNameFilterVisibility()
