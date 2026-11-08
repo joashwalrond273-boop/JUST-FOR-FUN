@@ -7779,6 +7779,18 @@ local noclipCorePartNames = {
 	["Torso"] = true,
 	["UpperTorso"] = true,
 	["LowerTorso"] = true,
+	["Left Arm"] = true,
+	["Right Arm"] = true,
+	["Left Leg"] = true,
+	["Right Leg"] = true,
+	["LeftUpperArm"] = true,
+	["LeftLowerArm"] = true,
+	["RightUpperArm"] = true,
+	["RightLowerArm"] = true,
+	["LeftUpperLeg"] = true,
+	["LeftLowerLeg"] = true,
+	["RightUpperLeg"] = true,
+	["RightLowerLeg"] = true,
 }
 local noclipCoreParts = {}
 
@@ -7805,9 +7817,38 @@ local function restoreCharacterCollisions(character)
 	end
 end
 
+-- Noclip is event-based: collisions are disabled once, then only re-disabled
+-- if the game tries to turn a part's CanCollide back on. No per-frame loop.
+local noclipCanCollideConns = {}
+
+local function stopNoclip()
+	for i = #noclipCanCollideConns, 1, -1 do
+		local conn = noclipCanCollideConns[i]
+		if conn then conn:Disconnect() end
+		noclipCanCollideConns[i] = nil
+	end
+end
+
+local function startNoclip()
+	stopNoclip()
+	local character = getCharacter()
+	updateNoclipParts(character)
+	for _, part in ipairs(noclipCoreParts) do
+		part.CanCollide = false
+		local conn = part:GetPropertyChangedSignal("CanCollide"):Connect(function()
+			if Toggles.Noclip and Toggles.Noclip.Value and part.CanCollide then
+				part.CanCollide = false
+			end
+		end)
+		table.insert(noclipCanCollideConns, conn)
+	end
+end
+
 LocalPlayer.CharacterAdded:Connect(function(char)
 	updateNoclipParts(char)
-	if not (Toggles.Noclip and Toggles.Noclip.Value) then
+	if Toggles.Noclip and Toggles.Noclip.Value then
+		startNoclip()
+	else
 		restoreCharacterCollisions(char)
 	end
 end)
@@ -7819,17 +7860,10 @@ if LocalPlayer.Character then
 end
 
 Toggles.Noclip:OnChanged(function()
-	disconnect("Noclip")
 	if Toggles.Noclip.Value then
-		updateNoclipParts(getCharacter())
-		track("Noclip", RunService.Stepped:Connect(function()
-			for _, part in ipairs(noclipCoreParts) do
-				if part and part.CanCollide then
-					part.CanCollide = false
-				end
-			end
-		end))
+		startNoclip()
 	else
+		stopNoclip()
 		restoreCharacterCollisions(getCharacter())
 	end
 end)
