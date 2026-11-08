@@ -4685,11 +4685,6 @@ end)
 
 local CombatShieldSystem = Tabs.Combat:AddLeftGroupbox("SHIELD SYSTEM", "swords")
 
-CombatShieldSystem:AddCheckbox("ShieldHud", {
-	Text = "Shield Indicator",
-	Default = false,
-})
-
 CombatShieldSystem:AddToggle("ShieldOnDamage", {
 	Text = "Advance Shield",
 	Default = false,
@@ -4698,6 +4693,27 @@ CombatShieldSystem:AddToggle("ShieldOnDamage", {
 CombatShieldSystem:AddCheckbox("ImmortalMode", {
 	Text = "Inf Shield",
 	Default = false,
+})
+
+CombatShieldSystem:AddCheckbox("Advance", {
+	Text = "Slot System",
+	Default = false,
+})
+
+CombatShieldSystem:AddDropdown("AdvanceSlot", {
+	Text = "ADV Slot System",
+	Values = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"},
+	Default = {"1"},
+	Multi = true,
+})
+
+CombatShieldSystem:AddSlider("ShieldTriggerStuds", {
+	Text = "Shield Trigger Distance",
+	Default = 5,
+	Min = 1,
+	Max = 50,
+	Rounding = 0,
+	Compact = true,
 })
 
 CombatShieldSystem:AddSlider("ShieldDamageHold", {
@@ -4718,8 +4734,8 @@ CombatShieldSystem:AddSlider("ShieldDamageRefire", {
 	Compact = true,
 })
 
-CombatShieldSystem:AddCheckbox("Advance", {
-	Text = "Slot System",
+CombatShieldSystem:AddCheckbox("ShieldHud", {
+	Text = "Shield Indicator",
 	Default = false,
 })
 
@@ -4731,13 +4747,6 @@ CombatShieldSystem:AddCheckbox("BypassShield", {
 CombatShieldSystem:AddCheckbox("ImmortalIgnoreTeam", {
 	Text = "Ignore Team",
 	Default = true,
-})
-
-CombatShieldSystem:AddDropdown("AdvanceSlot", {
-	Text = "ADV Slot System",
-	Values = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"},
-	Default = {"1"},
-	Multi = true,
 })
 
 CombatShieldSystem:AddSlider("ImmortalModeStuds", {
@@ -5364,7 +5373,6 @@ do
 	local shieldOnDamageHolding = false
 	local shieldOnDamageUntil = 0
 	local lastShieldDamageRefire = 0
-	local SHIELD_DAMAGE_TRIGGER_STUDS = 5
 
 	local function getShieldHold()
 		return (Options.ShieldDamageHold and Options.ShieldDamageHold.Value) or 1
@@ -5452,13 +5460,14 @@ do
 		if not root then return false end
 
 		local myPos = root.Position
+		local triggerStuds = (Options.ShieldTriggerStuds and Options.ShieldTriggerStuds.Value) or 5
 		for _, player in ipairs(Players:GetPlayers()) do
 			if player ~= LocalPlayer then
 				local otherChar = player.Character
 				local otherRoot = otherChar and otherChar:FindFirstChild("HumanoidRootPart")
 				local otherHum = otherChar and otherChar:FindFirstChildOfClass("Humanoid")
 				if otherRoot and otherHum and otherHum.Health > 0 then
-					if (otherRoot.Position - myPos).Magnitude <= SHIELD_DAMAGE_TRIGGER_STUDS then
+					if (otherRoot.Position - myPos).Magnitude <= triggerStuds then
 						return true
 					end
 				end
