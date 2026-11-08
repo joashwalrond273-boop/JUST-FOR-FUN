@@ -8385,42 +8385,6 @@ local function makeAuraHighlight(defaultColor)
 	return h
 end
 
-function getResourceNames(folderName)
-	local names, seen = {}, {}
-	local wr = workspace:FindFirstChild("worldResources")
-	local folder = wr and wr:FindFirstChild(folderName)
-	if folder then
-		for _, subfolder in ipairs(folder:GetChildren()) do
-			if subfolder:IsA("Folder") then
-				for _, obj in ipairs(subfolder:GetChildren()) do
-					if not seen[obj.Name] then
-						seen[obj.Name] = true
-						table.insert(names, obj.Name)
-					end
-				end
-			end
-		end
-	end
-	table.sort(names)
-	return names
-end
-
-function passesResourceNameFilter(obj, filterOption, listOption)
-	local mode = filterOption and filterOption.Value
-	if not mode or mode == "Disabled" then return true end
-
-	local list = listOption and listOption.Value
-	if not list then return true end
-
-	local inList = list[obj.Name] == true
-	if mode == "Whitelist" then
-		return inList
-	elseif mode == "Blacklist" then
-		return not inList
-	end
-	return true
-end
-
 -- ==========================================
 local FarmMine = Tabs.OreFactory:AddRightGroupbox("Auto Mine", "gem")
 
@@ -8475,50 +8439,6 @@ FarmMine:AddCheckbox("HighlightMine", {
 
 FarmMine:AddDivider()
 
-FarmMine:AddDropdown("AutoMineNameFilter", {
-	Text = "Name Filter",
-	Values = {"Disabled", "Whitelist", "Blacklist"},
-	Default = "Disabled",
-})
-
-FarmMine:AddDropdown("AutoMineNameList", {
-	Text = "Resource Names",
-	Values = getResourceNames("mineable"),
-	Default = {},
-	Multi = true,
-	Searchable = true,
-})
-
-FarmMine:AddButton({
-	Text = "Refresh Names",
-	Func = function()
-		if Options.AutoMineNameList then
-			Options.AutoMineNameList:SetValues(getResourceNames("mineable"))
-		end
-	end,
-})
-
-local function updateAutoMineNameFilterVisibility()
-	local enabled = Options.AutoMineNameFilter and Options.AutoMineNameFilter.Value ~= "Disabled"
-	if Options.AutoMineNameList then
-		Options.AutoMineNameList.Visible = enabled
-		if Options.AutoMineNameList.Holder then
-			Options.AutoMineNameList.Holder.Visible = enabled
-		end
-	end
-	FarmMine:Resize()
-end
-
-Options.AutoMineNameFilter:OnChanged(function()
-	updateAutoMineNameFilterVisibility()
-end)
-
-updateAutoMineNameFilterVisibility()
-task.spawn(function()
-	task.wait(0.05)
-	updateAutoMineNameFilterVisibility()
-end)
-
 -- ==========================================
 local FarmChop = Tabs.OreFactory:AddRightGroupbox("Auto Chop", "axe")
 
@@ -8572,50 +8492,6 @@ FarmChop:AddCheckbox("HighlightChop", {
 })
 
 FarmChop:AddDivider()
-
-FarmChop:AddDropdown("AutoChopNameFilter", {
-	Text = "Name Filter",
-	Values = {"Disabled", "Whitelist", "Blacklist"},
-	Default = "Disabled",
-})
-
-FarmChop:AddDropdown("AutoChopNameList", {
-	Text = "Resource Names",
-	Values = getResourceNames("choppable"),
-	Default = {},
-	Multi = true,
-	Searchable = true,
-})
-
-FarmChop:AddButton({
-	Text = "Refresh Names",
-	Func = function()
-		if Options.AutoChopNameList then
-			Options.AutoChopNameList:SetValues(getResourceNames("choppable"))
-		end
-	end,
-})
-
-local function updateAutoChopNameFilterVisibility()
-	local enabled = Options.AutoChopNameFilter and Options.AutoChopNameFilter.Value ~= "Disabled"
-	if Options.AutoChopNameList then
-		Options.AutoChopNameList.Visible = enabled
-		if Options.AutoChopNameList.Holder then
-			Options.AutoChopNameList.Holder.Visible = enabled
-		end
-	end
-	FarmChop:Resize()
-end
-
-Options.AutoChopNameFilter:OnChanged(function()
-	updateAutoChopNameFilterVisibility()
-end)
-
-updateAutoChopNameFilterVisibility()
-task.spawn(function()
-	task.wait(0.05)
-	updateAutoChopNameFilterVisibility()
-end)
 
 local goldOreFarmRunning = false
 
@@ -9044,7 +8920,7 @@ local function autoMine()
 	for _, subfolder in ipairs(folder:GetChildren()) do
 		if subfolder:IsA("Folder") then
 			for _, obj in ipairs(subfolder:GetChildren()) do
-				if obj.PrimaryPart and passesResourceNameFilter(obj, Options.AutoMineNameFilter, Options.AutoMineNameList) then
+				if obj.PrimaryPart then
 					local d = (root.Position - obj.PrimaryPart.Position).Magnitude
 					if d < dist then
 						closest, dist = obj, d
@@ -9110,7 +8986,7 @@ local function autoChop()
 		if subfolder:IsA("Folder") then
 			for _, obj in ipairs(subfolder:GetChildren()) do
 				local part = getChopTargetPart(obj)
-				if part and passesResourceNameFilter(obj, Options.AutoChopNameFilter, Options.AutoChopNameList) then
+				if part then
 					local d = getFlatDistance(root.Position, part.Position)
 					if d < dist then
 						closest, dist = obj, d
