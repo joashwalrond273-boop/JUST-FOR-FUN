@@ -5366,7 +5366,7 @@ do
 	local shieldOnDamageHolding = false
 	local shieldOnDamageUntil = 0
 	local lastShieldDamageRefire = 0
-	local lastShieldDamageHealth = nil
+	local SHIELD_DAMAGE_TRIGGER_STUDS = 5
 
 	local function getShieldHold()
 		return (Options.ShieldDamageHold and Options.ShieldDamageHold.Value) or 1
@@ -5448,41 +5448,44 @@ do
 		end)
 	end
 
-	local function bindShieldOnDamage()
-		disconnect("ShieldOnDamage_Health")
-
+	local function isPlayerNearby()
 		local character = getCharacter()
-		local hum = character and character:FindFirstChildOfClass("Humanoid")
-		if not hum then
-			lastShieldDamageHealth = nil
-			return
-		end
+		local root = character and character:FindFirstChild("HumanoidRootPart")
+		if not root then return false end
 
-		lastShieldDamageHealth = hum.Health
-		track("ShieldOnDamage_Health", hum.HealthChanged:Connect(function(newHealth)
-			if not (Toggles.ShieldOnDamage and Toggles.ShieldOnDamage.Value) then
-				lastShieldDamageHealth = newHealth
-				return
-			end
-
-			if lastShieldDamageHealth and newHealth < lastShieldDamageHealth then
-				if not shieldOnDamageHolding then
-					fireShieldRemote(true)
-					setShieldAnim(true)
+		local myPos = root.Position
+		for _, player in ipairs(Players:GetPlayers()) do
+			if player ~= LocalPlayer then
+				local otherChar = player.Character
+				local otherRoot = otherChar and otherChar:FindFirstChild("HumanoidRootPart")
+				local otherHum = otherChar and otherChar:FindFirstChildOfClass("Humanoid")
+				if otherRoot and otherHum and otherHum.Health > 0 then
+					if (otherRoot.Position - myPos).Magnitude <= SHIELD_DAMAGE_TRIGGER_STUDS then
+						return true
+					end
 				end
-				shieldOnDamageHolding = true
-				shieldOnDamageUntil = tick() + getShieldHold()
 			end
-
-			lastShieldDamageHealth = newHealth
-		end))
+		end
+		return false
 	end
 
 	local function updateShieldOnDamage()
-		if not shieldOnDamageHolding then return end
+		if not (Toggles.ShieldOnDamage and Toggles.ShieldOnDamage.Value) then return end
+		if not isAlive() then return end
 
 		local now = tick()
-		if (Toggles.ShieldOnDamage and Toggles.ShieldOnDamage.Value) and isAlive() and now < shieldOnDamageUntil then
+		if isPlayerNearby() then
+			if not shieldOnDamageHolding then
+				fireShieldRemote(true)
+				setShieldAnim(true)
+			end
+			shieldOnDamageHolding = true
+			shieldOnDamageUntil = now + getShieldHold()
+		end
+
+		if not shieldOnDamageHolding then return end
+
+		if now < shieldOnDamageUntil then
 			if now - lastShieldDamageRefire >= getShieldRefire() then
 				lastShieldDamageRefire = now
 				fireShieldRemote(true)
@@ -5498,7 +5501,6 @@ do
 	Toggles.ShieldOnDamage:OnChanged(function()
 		disconnect("ShieldOnDamage_Loop")
 		disconnect("ShieldOnDamage_CharacterAdded")
-		disconnect("ShieldOnDamage_Health")
 
 		if shieldOnDamageHolding then
 			shieldOnDamageHolding = false
@@ -5508,12 +5510,10 @@ do
 
 		if not Toggles.ShieldOnDamage.Value then return end
 
-		bindShieldOnDamage()
 		track("ShieldOnDamage_CharacterAdded", LocalPlayer.CharacterAdded:Connect(function()
+			shieldOnDamageHolding = false
+			shieldAnimActive = false
 			task.wait(0.1)
-			if Toggles.ShieldOnDamage and Toggles.ShieldOnDamage.Value then
-				bindShieldOnDamage()
-			end
 		end))
 		track("ShieldOnDamage_Loop", RunService.Heartbeat:Connect(updateShieldOnDamage))
 	end)
@@ -8247,7 +8247,7 @@ if LocalPlayer.Character then
 end
 
 -- ==========================================
-local FarmAI = Tabs.OreFactory:AddLeftGroupbox("AI Aura", "target")
+local FarmAI = Tabs.OreFactory:AddLeftGroupbox("AI Aura", "bot")
 
 FarmAI:AddToggle("AiAura", {
 	Text = "AI Aura",
@@ -10373,7 +10373,7 @@ local function setPlayerShadows(castShadow)
 	end
 end
 
-VisualFPS:AddToggle("UncapFPS", {
+VisualFPS:AddCheckbox("UncapFPS", {
 	Text = "Uncap FPS",
 	Default = false,
 	Callback = function(state)
@@ -10420,7 +10420,7 @@ VisualFPS:AddToggle("UncapFPS", {
 	end,
 })
 
-VisualFPS:AddToggle("DisableRenderFog", {
+VisualFPS:AddCheckbox("DisableRenderFog", {
 	Text = "Disable Render Fog",
 	Default = false,
 	Callback = function(state)
@@ -10483,7 +10483,7 @@ VisualFPS:AddToggle("DisableRenderFog", {
 	end,
 })
 
-VisualFPS:AddToggle("NoWaterBlur", {
+VisualFPS:AddCheckbox("NoWaterBlur", {
 	Text = "No Water Blur",
 	Default = false,
 	Callback = function(state)
@@ -10541,7 +10541,7 @@ VisualFPS:AddToggle("NoWaterBlur", {
 	end,
 })
 
-VisualFPS:AddToggle("NoGrass", {
+VisualFPS:AddCheckbox("NoGrass", {
 	Text = "No Grass",
 	Default = false,
 	Callback = function(state)
@@ -10564,7 +10564,7 @@ VisualFPS:AddToggle("NoGrass", {
 	end,
 })
 
-VisualFPS:AddToggle("FullBright", {
+VisualFPS:AddCheckbox("FullBright", {
 	Text = "Full Bright",
 	Default = false,
 	Callback = function(state)
@@ -10613,7 +10613,7 @@ do
 		end
 	end
 
-	VisualFPS:AddToggle("LowTextures", {
+	VisualFPS:AddCheckbox("LowTextures", {
 		Text = "Low Textures PBR",
 		Default = false,
 		Callback = function(state)
@@ -10645,7 +10645,7 @@ do
 	})
 end
 
-VisualFPS:AddToggle("DisableEffects", {
+VisualFPS:AddCheckbox("DisableEffects", {
 	Text = "Disable Effects",
 	Default = false,
 	Callback = function(state)
@@ -10688,7 +10688,7 @@ do
 		end)
 	end
 
-	VisualFPS:AddToggle("RemoveParticles", {
+	VisualFPS:AddCheckbox("RemoveParticles", {
 		Text = "Remove Particles",
 		Default = false,
 		Callback = function(state)
@@ -10785,7 +10785,7 @@ do
 		end
 	end
 
-	VisualFPS:AddToggle("KillHeavyPostEffects", {
+	VisualFPS:AddCheckbox("KillHeavyPostEffects", {
 		Text = "Kill Heavy Post FX",
 		Default = false,
 		Callback = function(state)
@@ -10833,7 +10833,7 @@ do
 	local qualityOriginal = nil
 	local meshOriginal = nil
 
-	VisualFPS:AddToggle("LowQualityLevel", {
+	VisualFPS:AddCheckbox("LowQualityLevel", {
 		Text = "Low Quality Level",
 		Default = false,
 		Callback = function(state)
@@ -10873,7 +10873,7 @@ do
 		end
 	end
 
-	VisualFPS:AddToggle("SkyboxFreezeTime", {
+	VisualFPS:AddCheckbox("SkyboxFreezeTime", {
 		Text = "Kill Skybox + Freeze Time",
 		Default = false,
 		Callback = function(state)
