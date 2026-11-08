@@ -1205,11 +1205,6 @@ AdvanceHealGroup:AddDropdown("AutoEatSlot", {
 	Multi = true,
 })
 
-AdvanceHealGroup:AddCheckbox("QuickSwap", {
-	Text = "Multi Consume",
-	Default = false,
-})
-
 AdvanceHealGroup:AddDropdown("AutoEatFood", {
 	Text = "Food Type",
 	Values = {"Cabbage", "Banana", "Spicy Meal", "Hearty Stew", "Cabbage Meal", "Rib Meal", "Sandwich", "Egg", "Delicious Stew", "Carrot", "Berries", "Delicious Meal", "Spicy Fish Meal"},
@@ -4186,26 +4181,14 @@ local function tryEatCustom()
 
 	if shouldEat then
 		lastEatCustom = tick()
-		-- Quick Swap: eat bananas and cabbages together
-		if Toggles.QuickSwap and Toggles.QuickSwap.Value then
-			for _, foodId in ipairs({ 210, 367 }) do
-				pcall(function()
-					local args = {
-						foodId
-					}
-					game:GetService("ReplicatedStorage"):WaitForChild("remoteInterface"):WaitForChild("interactions"):WaitForChild("eat"):FireServer(unpack(args))
-				end)
-			end
-		else
-			local selectedFood = Options and Options.AutoEatFood and Options.AutoEatFood.Value
-			local foodId = FoodIdMap[selectedFood] or 210
-			pcall(function()
-				local args = {
-					foodId
-				}
-				game:GetService("ReplicatedStorage"):WaitForChild("remoteInterface"):WaitForChild("interactions"):WaitForChild("eat"):FireServer(unpack(args))
-			end)
-		end
+		local selectedFood = Options and Options.AutoEatFood and Options.AutoEatFood.Value
+		local foodId = FoodIdMap[selectedFood] or 210
+		pcall(function()
+			local args = {
+				foodId
+			}
+			game:GetService("ReplicatedStorage"):WaitForChild("remoteInterface"):WaitForChild("interactions"):WaitForChild("eat"):FireServer(unpack(args))
+		end)
 	end
 end
 
@@ -4986,6 +4969,228 @@ CombatAutoPVP:AddButton({
 		Library:Notify({ Title = "Hotbar Presets", Description = string.format("Loaded %d item(s) from slot %d", applied, presetSlot), Time = 2 })
 	end,
 })
+
+-- ==========================================
+-- Arrow Aim: any player inside the FOV circle has the next projectile aimed at them
+-- ==========================================
+local PROJ_AIM_KEYWORDS = { "arrow", "bow", "shoot", "projectile", "throw", "cast", "bolt", "ranged" }
+local projAimCircle = nil
+local projAimHasDrawing = (typeof(Drawing) == "table" and typeof(Drawing.new) == "function")
+
+local function scanAllRemotes()
+	local names, seen = {}, {}
+	pcall(function()
+		for _, d in ipairs(ReplicatedStorage:GetDescendants()) do
+			if (d:IsA("RemoteEvent") or d:IsA("RemoteFunction")) and not seen[d.Name] then
+				seen[d.Name] = true
+				table.insert(names, d.Name)
+			end
+		end
+	end)
+	table.sort(names)
+	return names
+end
+
+CombatAutoPVP:AddDivider()
+
+CombatAutoPVP:AddCheckbox("ProjAim", {
+	Text = "Arrow Aim",
+	Default = false,
+})
+
+CombatAutoPVP:AddSlider("ProjAimFov", {
+	Text = "FOV Radius",
+	Default = 150,
+	Min = 20,
+	Max = 500,
+	Rounding = 0,
+	Compact = true,
+})
+
+CombatAutoPVP:AddCheckbox("ProjAimShowFov", {
+	Text = "Show FOV Circle",
+	Default = true,
+})
+
+CombatAutoPVP:AddDropdown("ProjAimMode", {
+	Text = "Target Mode",
+	Values = { "Crosshair", "Lowest HP", "Highest HP" },
+	Default = "Crosshair",
+})
+
+CombatAutoPVP:AddSlider("ProjAimPrediction", {
+	Text = "Prediction",
+	Default = 0.1,
+	Min = 0,
+	Max = 0.5,
+	Rounding = 2,
+	Compact = true,
+})
+
+CombatAutoPVP:AddDropdown("ProjAimRemotes", {
+	Text = "Extra Remotes",
+	Values = scanAllRemotes(),
+	Default = {},
+	Multi = true,
+	Searchable = true,
+})
+
+CombatAutoPVP:AddButton({
+	Text = "Refresh Remotes",
+	Func = function()
+		if Options.ProjAimRemotes then
+			Options.ProjAimRemotes:SetValues(scanAllRemotes())
+		end
+	end,
+})
+
+local function projAimIsTarget(remote)
+	if not remote or typeof(remote) ~= "Instance" then return false end
+	local sel = Options.ProjAimRemotes and Options.ProjAimRemotes.Value
+	if typeof(sel) == "table" and sel[remote.Name] then
+		return true
+	end
+	local lower = remote.Name:lower()
+	for _, kw in ipairs(PROJ_AIM_KEYWORDS) do
+		if lower:find(kw, 1, true) then
+			return true
+		end
+	end
+	return false
+end
+
+local function projAimPickTarget()
+	local cam = workspace.CurrentCamera
+	if not cam then return nil end
+	local viewport = cam.ViewportSize
+	local center = Vector2.new(viewport.X / 2, viewport.Y / 2)
+	local fov = (Options.ProjAimFov and Options.ProjAimFov.Value) or 150
+	local mode = (Options.ProjAimMode and Options.ProjAimMode.Value) or "Crosshair"
+	local best, bestMetric = nil, nil
+	for _, otherPlayer in ipairs(Players:GetPlayers()) do
+		if otherPlayer ~= LocalPlayer and otherPlayer.Character then
+			local hum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
+			local hrp = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
+			if hum and hum.Health > 0 and hrp then
+				local screenPos, onScreen = cam:WorldToViewportPoint(hrp.Position)
+				if onScreen then
+					local screenDist = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
+					if screenDist <= fov then
+						local metric
+						if mode == "Lowest HP" then
+							metric = hum.Health
+						elseif mode == "Highest HP" then
+							metric = -hum.Health
+						else
+							metric = screenDist
+						end
+						if not bestMetric or metric < bestMetric then
+							best, bestMetric = hrp, metric
+						end
+					end
+				end
+			end
+		end
+	end
+	return best
+end
+
+local function projAimRedirect(value, origin, aimPos)
+	if typeof(value) == "Vector3" then
+		if value.Magnitude <= 1.5 then
+			local dir = aimPos - origin
+			if dir.Magnitude > 0 then
+				dir = dir.Unit
+			end
+			return dir
+		end
+		return aimPos
+	elseif typeof(value) == "CFrame" then
+		return CFrame.lookAt(origin, aimPos)
+	elseif typeof(value) == "table" then
+		for k, v in pairs(value) do
+			local t = typeof(v)
+			if t == "Vector3" or t == "CFrame" or t == "table" then
+				value[k] = projAimRedirect(v, origin, aimPos)
+			end
+		end
+		return value
+	end
+	return value
+end
+
+if hookmetamethod then
+	local projAimOriginal
+	projAimOriginal = hookmetamethod(game, "__namecall", function(...)
+		local self = ...
+		local method = getnamecallmethod()
+		if (method == "FireServer" or method == "InvokeServer")
+			and (not checkcaller or not checkcaller())
+			and Toggles.ProjAim and Toggles.ProjAim.Value
+			and projAimIsTarget(self) then
+			local target = projAimPickTarget()
+			local root = getRootPart()
+			local cam = workspace.CurrentCamera
+			local origin = (root and root.Position) or (cam and cam.CFrame.Position)
+			if target and origin then
+				local aimPos = target.Position
+				local pred = (Options.ProjAimPrediction and Options.ProjAimPrediction.Value) or 0
+				if pred > 0 then
+					aimPos = aimPos + target.AssemblyLinearVelocity * pred
+				end
+				local args = table.pack(...)
+				for i = 2, args.n do
+					args[i] = projAimRedirect(args[i], origin, aimPos)
+				end
+				return projAimOriginal(table.unpack(args, 1, args.n))
+			end
+		end
+		return projAimOriginal(...)
+	end)
+end
+
+local function updateProjAimCircle()
+	if not projAimCircle then return end
+	local cam = workspace.CurrentCamera
+	local show = Toggles.ProjAim and Toggles.ProjAim.Value and Toggles.ProjAimShowFov and Toggles.ProjAimShowFov.Value
+	if not show or not cam then
+		projAimCircle.Visible = false
+		return
+	end
+	local viewport = cam.ViewportSize
+	projAimCircle.Position = Vector2.new(viewport.X / 2, viewport.Y / 2)
+	projAimCircle.Radius = (Options.ProjAimFov and Options.ProjAimFov.Value) or 150
+	projAimCircle.Visible = true
+end
+
+Toggles.ProjAim:OnChanged(function()
+	disconnect("ProjAim")
+	if not Toggles.ProjAim.Value then
+		if projAimCircle then
+			projAimCircle.Visible = false
+		end
+		return
+	end
+	if projAimHasDrawing and not projAimCircle then
+		pcall(function()
+			projAimCircle = Drawing.new("Circle")
+			projAimCircle.Thickness = 1
+			projAimCircle.NumSides = 60
+			projAimCircle.Filled = false
+			projAimCircle.Transparency = 1
+			projAimCircle.Color = Color3.fromRGB(0, 244, 255)
+			projAimCircle.Visible = false
+		end)
+	end
+	track("ProjAim", RunService.RenderStepped:Connect(updateProjAimCircle))
+	Library:Notify({ Title = "Arrow Aim", Description = "Enabled", Time = 2 })
+end)
+
+if Toggles.ProjAimShowFov then
+	Toggles.ProjAimShowFov:OnChanged(function()
+		updateProjAimCircle()
+	end)
+end
 
 updatePVPModulesVisibility = function()
 	local isCam = (Toggles.Camlock and Toggles.Camlock.Value) or false
