@@ -1491,36 +1491,6 @@ Xeno_PlayHitSound = function()
 	end)
 end
 
--- Play the custom hit sound on the player's own tool swings only.
--- This is fully local and never touches the attack remote, so it
--- cannot interfere with hit registration.
-do
-	local hitSoundHooked = {}
-	local function hookHitSoundTool(tool)
-		if not (tool and tool:IsA("Tool")) then return end
-		if hitSoundHooked[tool] then return end
-		hitSoundHooked[tool] = true
-		tool.Activated:Connect(function()
-			if Xeno_PlayHitSound then
-				Xeno_PlayHitSound()
-			end
-		end)
-	end
-
-	local function hookHitSoundCharacter(char)
-		if not char then return end
-		for _, child in ipairs(char:GetChildren()) do
-			hookHitSoundTool(child)
-		end
-		char.ChildAdded:Connect(hookHitSoundTool)
-	end
-
-	if LocalPlayer.Character then
-		hookHitSoundCharacter(LocalPlayer.Character)
-	end
-	LocalPlayer.CharacterAdded:Connect(hookHitSoundCharacter)
-end
-
 do
 	-- Which wear colours are active is chosen from one shared multi-select
 	-- dropdown ("Head Wear", "Body Wear", "Pants Wear", "Back Wear")
@@ -1924,7 +1894,7 @@ do
 			followHead()
 
 			local now = os.clock()
-			if now - lastCheck < 0.5 then return end
+			if now - lastCheck < 1 then return end
 			lastCheck = now
 
 			syncAvatarHair()
@@ -2410,7 +2380,7 @@ do
 			local lastCheck = 0
 			track(cfg.attribute .. "_Loop", RunService.Heartbeat:Connect(function()
 				local now = os.clock()
-				if now - lastCheck < 0.5 then return end
+				if now - lastCheck < 1 then return end
 				lastCheck = now
 				refreshGlowBloom()
 				if not activeIsClothing then
@@ -3964,7 +3934,7 @@ track("CharacterModuleRespawn", LocalPlayer.CharacterAdded:Connect(function()
 	end
 end))
 
--- Boss damage blocking hook.
+-- Boss damage blocking + hit sound hook.
 local BossDamageEvent = resolvePath(ReplicatedStorage, "remoteInterface", "character", "hurtByAIAttack")
 if hookmetamethod then
 	local namecallOriginal
@@ -3975,6 +3945,21 @@ if hookmetamethod then
 		if method == "FireServer" and BossDamageEvent and rawequal(self, BossDamageEvent) then
 			if Toggles.NoBossDamage and Toggles.NoBossDamage.Value then
 				return -- Block the attack to prevent damage
+			end
+		end
+
+		if (method == "FireServer" or method == "InvokeServer") then
+			local isMeleeHit = rawequal(self, TSG.MeleePlayerRemote)
+				or rawequal(self, TSG.MeleeAI)
+				or rawequal(self, TSG.MeleeAnimalRemote)
+			if isMeleeHit then
+				task.defer(function()
+					pcall(function()
+						if Xeno_PlayHitSound then
+							Xeno_PlayHitSound()
+						end
+					end)
+				end)
 			end
 		end
 
@@ -5919,16 +5904,6 @@ Toggles.BypassShield:OnChanged(function()
 		end
 	end
 end)
-
-local function updateHighlight(hl, target, toggleValue)
-	if target and toggleValue then
-		hl.Adornee = target
-		hl.Enabled = true
-	else
-		hl.Adornee = nil
-		hl.Enabled = false
-	end
-end
 
 local function getBestMeleeWeapon()
 	if not TSG.ClientData or not TSG.Items then
@@ -8322,8 +8297,6 @@ FarmAI:AddDropdown("AiAuraSlot", {
 	Default = "1",
 })
 
-FarmAI:AddDivider()
-
 FarmAI:AddDropdown("AiAuraNameFilter", {
 	Text = "Name Filter",
 	Values = {"Disabled", "Whitelist", "Blacklist"},
@@ -8394,17 +8367,6 @@ end)
 -- ==========================================
 local OreFarm = Tabs.OreFactory:AddLeftGroupbox("Ore Factory", "drill")
 
-local function makeAuraHighlight(defaultColor)
-	local h = Instance.new("Highlight")
-	h.FillColor = defaultColor or Color3.fromRGB(255, 0, 0)
-	h.OutlineColor = Color3.fromRGB(255, 255, 255)
-	h.FillTransparency = 0.65
-	h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-	h.Enabled = false
-	h.Parent = workspace
-	return h
-end
-
 -- ==========================================
 local FarmMine = Tabs.OreFactory:AddRightGroupbox("Auto Mine", "gem")
 
@@ -8447,14 +8409,6 @@ FarmMine:AddSlider("AutoMineSpeed", {
 	Max = 20,
 	Rounding = 0,
 	Compact = true,
-})
-
-FarmMine:AddCheckbox("HighlightMine", {
-	Text = "Highlight Target",
-	Default = true,
-}):AddColorPicker("HighlightMineColor", {
-	Default = Color3.fromRGB(255, 0, 0),
-	Title = "Highlight Target Color",
 })
 
 FarmMine:AddDivider()
@@ -8501,14 +8455,6 @@ FarmChop:AddSlider("AutoChopSpeed", {
 	Max = 20,
 	Rounding = 0,
 	Compact = true,
-})
-
-FarmChop:AddCheckbox("HighlightChop", {
-	Text = "Highlight Target",
-	Default = true,
-}):AddColorPicker("HighlightChopColor", {
-	Default = Color3.fromRGB(255, 0, 0),
-	Title = "Highlight Target Color",
 })
 
 FarmChop:AddDivider()
@@ -8876,39 +8822,6 @@ OreFarm:AddSlider("OreESPDistance", {
 })
 
 -- ==========================================
--- Aura highlights (one per resource type, created after makeAuraHighlight is defined)
-local hlMine = makeAuraHighlight(Options.HighlightMineColor and Options.HighlightMineColor.Value)
-local hlChop = makeAuraHighlight(Options.HighlightChopColor and Options.HighlightChopColor.Value)
-
-if Options.HighlightMineColor then
-	Options.HighlightMineColor:OnChanged(function()
-		if hlMine then
-			hlMine.FillColor = Options.HighlightMineColor.Value
-		end
-	end)
-end
-
-if Options.HighlightChopColor then
-	Options.HighlightChopColor:OnChanged(function()
-		if hlChop then
-			hlChop.FillColor = Options.HighlightChopColor.Value
-		end
-	end)
-end
-
-Toggles.HighlightMine:OnChanged(function()
-	if not Toggles.HighlightMine.Value then
-		updateHighlight(hlMine, nil, false)
-	end
-end)
-
-Toggles.HighlightChop:OnChanged(function()
-	if not Toggles.HighlightChop.Value then
-		updateHighlight(hlChop, nil, false)
-	end
-end)
-
--- ==========================================
 local isAutoMineRunning = false
 local isAutoChopRunning = false
 local isAiAuraRunning   = false
@@ -8918,7 +8831,6 @@ local lastAutoChopHit   = 0
 local function mineObject(obj)
 	local slot = tonumber(Options.AutoMineSlot.Value) or 1
 	if obj and obj.PrimaryPart then
-		updateHighlight(hlMine, obj, Toggles.HighlightMine.Value)
 		pcall(function()
 			TSG.MineRemote:FireServer(slot, obj, CFrame.new(obj.PrimaryPart.Position))
 		end)
@@ -8952,14 +8864,11 @@ local function autoMine()
 	if closest then
 		lastAutoMineHit = tick()
 		mineObject(closest)
-	else
-		updateHighlight(hlMine, nil, false)
 	end
 end
 
 Toggles.AutoMine:OnChanged(function()
 	disconnect("AutoMine")
-	updateHighlight(hlMine, nil, false)
 	if Toggles.AutoMine.Value then
 		if not TSG.MineRemote then
 			Library:Notify({ Title = "Auto Mine", Description = "Mine remote not found.", Time = 4 })
@@ -8974,7 +8883,6 @@ Toggles.AutoMine:OnChanged(function()
 		Library:Notify({ Title = "Auto Mine", Description = "Enabled", Time = 2 })
 	else
 		isAutoMineRunning = false
-		updateHighlight(hlMine, nil, false)
 	end
 end)
 
@@ -8983,7 +8891,6 @@ local function chopObject(obj)
 	local slot = tonumber(Options.AutoChopSlot.Value) or 1
 	local part = getChopTargetPart(obj)
 	if part then
-		updateHighlight(hlChop, obj, Toggles.HighlightChop.Value)
 		pcall(function()
 			TSG.ChopRemote:FireServer(slot, obj, part.CFrame)
 		end)
@@ -9018,14 +8925,11 @@ local function autoChop()
 	if closest then
 		lastAutoChopHit = tick()
 		chopObject(closest)
-	else
-		updateHighlight(hlChop, nil, false)
 	end
 end
 
 Toggles.AutoChop:OnChanged(function()
 	disconnect("AutoChop")
-	updateHighlight(hlChop, nil, false)
 	if Toggles.AutoChop.Value then
 		if not TSG.ChopRemote then
 			Library:Notify({ Title = "Auto Chop", Description = "Chop remote not found.", Time = 4 })
@@ -9040,7 +8944,6 @@ Toggles.AutoChop:OnChanged(function()
 		Library:Notify({ Title = "Auto Chop", Description = "Enabled", Time = 2 })
 	else
 		isAutoChopRunning = false
-		updateHighlight(hlChop, nil, false)
 	end
 end)
 
