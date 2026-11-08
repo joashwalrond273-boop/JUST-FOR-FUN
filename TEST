@@ -7258,83 +7258,13 @@ MoveRight:AddDropdown("BearTrapSlotSystemSlot", {
 	Multi = true,
 })
 
-MoveRight:AddDivider()
-
-MoveRight:AddToggle("SpikeTrapClown", {
-	Text = "Spike Trap a Clown",
-	Default = false,
-})
-
-MoveRight:AddSlider("SpikeTrapSpeed", {
-	Text = "Speed",
-	Default = 2,
-	Min = 1,
-	Max = 10,
-	Rounding = 0,
-	Compact = true,
-})
-
-MoveRight:AddCheckbox("SpikeTrapSlotSystem", {
-	Text = "Slot System",
-	Default = false,
-})
-
-MoveRight:AddDropdown("SpikeTrapSlotSystemSlot", {
-	Text = "Tool Slot",
-	Values = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" },
-	Default = { "1" },
-	Multi = true,
-})
-
-MoveRight:AddDivider()
-
-MoveRight:AddToggle("JailCellBully", {
-	Text = "Jail Cell a Bully",
-	Default = false,
-})
-
-MoveRight:AddSlider("JailCellSpeed", {
-	Text = "Speed",
-	Default = 2,
-	Min = 1,
-	Max = 10,
-	Rounding = 0,
-	Compact = true,
-})
-
-MoveRight:AddCheckbox("JailCellSlotSystem", {
-	Text = "Slot System",
-	Default = false,
-})
-
-MoveRight:AddDropdown("JailCellSlotSystemSlot", {
-	Text = "Tool Slot",
-	Values = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" },
-	Default = { "1" },
-	Multi = true,
-})
-
 updateTrapBullyVisibility = function()
 	local isBearTrapSlot = (Toggles.BearTrapSlotSystem and Toggles.BearTrapSlotSystem.Value) or false
-	local isSpikeTrapSlot = (Toggles.SpikeTrapSlotSystem and Toggles.SpikeTrapSlotSystem.Value) or false
-	local isJailCellSlot = (Toggles.JailCellSlotSystem and Toggles.JailCellSlotSystem.Value) or false
 
 	if Options.BearTrapSlotSystemSlot then
 		Options.BearTrapSlotSystemSlot.Visible = isBearTrapSlot
 		if Options.BearTrapSlotSystemSlot.Holder then
 			Options.BearTrapSlotSystemSlot.Holder.Visible = isBearTrapSlot
-		end
-	end
-	if Options.SpikeTrapSlotSystemSlot then
-		Options.SpikeTrapSlotSystemSlot.Visible = isSpikeTrapSlot
-		if Options.SpikeTrapSlotSystemSlot.Holder then
-			Options.SpikeTrapSlotSystemSlot.Holder.Visible = isSpikeTrapSlot
-		end
-	end
-	if Options.JailCellSlotSystemSlot then
-		Options.JailCellSlotSystemSlot.Visible = isJailCellSlot
-		if Options.JailCellSlotSystemSlot.Holder then
-			Options.JailCellSlotSystemSlot.Holder.Visible = isJailCellSlot
 		end
 	end
 	if MoveRight and MoveRight.Resize then
@@ -7348,27 +7278,18 @@ Toggles.BearTrapSlotSystem:OnChanged(function()
 	end
 end)
 
-Toggles.SpikeTrapSlotSystem:OnChanged(function()
-	if updateTrapBullyVisibility then
-		updateTrapBullyVisibility()
-	end
-end)
-
-Toggles.JailCellSlotSystem:OnChanged(function()
-	if updateTrapBullyVisibility then
-		updateTrapBullyVisibility()
-	end
-end)
-
 -- Trap a Clown: auto-activates while a chosen tool slot is held
 local BEAR_TRAP_ID = 432
-local SPIKE_TRAP_ID = 431
-local JAIL_CELL_ID = 82
 local TRAP_RANGE = 25
 local TRAP_AHEAD = 9
 
 local function createTrapAheadLoop(trapId, toggleName, slotToggleName, slotOptionName, speedOptionName)
 	local lastPlaced = {}
+	local lastScan = 0
+	local rayParams = RaycastParams.new()
+	pcall(function()
+		rayParams.FilterType = Enum.RaycastFilterType.Exclude
+	end)
 	return RunService.Heartbeat:Connect(function()
 		local useSlot = Toggles[slotToggleName] and Toggles[slotToggleName].Value
 		local active
@@ -7383,16 +7304,20 @@ local function createTrapAheadLoop(trapId, toggleName, slotToggleName, slotOptio
 		if not active then return end
 		local speed = (Options[speedOptionName] and Options[speedOptionName].Value) or 2
 		local delay = 1 / math.max(0.1, speed)
+		local now = os.clock()
+		-- No point scanning players faster than we are allowed to place traps.
+		if now - lastScan < delay then return end
+		lastScan = now
 		local buildRemote = TSG.BuildRemote
 		local root = getRootPart()
 		if not buildRemote or not root then return end
-		local now = os.clock()
+		local rootPos = root.Position
 		for _, player in ipairs(Players:GetPlayers()) do
 			if player ~= LocalPlayer and player.Character then
 				local targetRoot = player.Character:FindFirstChild("HumanoidRootPart")
 				local hum = player.Character:FindFirstChildOfClass("Humanoid")
 				if targetRoot and hum and hum.Health > 0 then
-					if (targetRoot.Position - root.Position).Magnitude <= TRAP_RANGE then
+					if (targetRoot.Position - rootPos).Magnitude <= TRAP_RANGE then
 						if now - (lastPlaced[player] or 0) >= delay then
 							lastPlaced[player] = now
 							local look = targetRoot.CFrame.LookVector
@@ -7402,10 +7327,6 @@ local function createTrapAheadLoop(trapId, toggleName, slotToggleName, slotOptio
 							end
 							local pos = targetRoot.Position + dir * TRAP_AHEAD
 							local groundY = pos.Y - 3
-							local rayParams = RaycastParams.new()
-							pcall(function()
-								rayParams.FilterType = Enum.RaycastFilterType.Exclude
-							end)
 							rayParams.FilterDescendantsInstances = { LocalPlayer.Character, player.Character }
 							local ok, result = pcall(function()
 								return workspace:Raycast(Vector3.new(pos.X, pos.Y + 5, pos.Z), Vector3.new(0, -200, 0), rayParams)
@@ -7430,8 +7351,6 @@ local function createTrapAheadLoop(trapId, toggleName, slotToggleName, slotOptio
 end
 
 track("BearTrapClown", createTrapAheadLoop(BEAR_TRAP_ID, "BearTrapClown", "BearTrapSlotSystem", "BearTrapSlotSystemSlot", "BearTrapSpeed"))
-track("SpikeTrapClown", createTrapAheadLoop(SPIKE_TRAP_ID, "SpikeTrapClown", "SpikeTrapSlotSystem", "SpikeTrapSlotSystemSlot", "SpikeTrapSpeed"))
-track("JailCellBully", createTrapAheadLoop(JAIL_CELL_ID, "JailCellBully", "JailCellSlotSystem", "JailCellSlotSystemSlot", "JailCellSpeed"))
 
 updateTrapBullyVisibility()
 task.spawn(function()
@@ -12410,18 +12329,6 @@ Library:OnUnload(function()
 	end
 	if Toggles.BearTrapSlotSystem and Toggles.BearTrapSlotSystem.Value then
 		Toggles.BearTrapSlotSystem:SetValue(false)
-	end
-	if Toggles.SpikeTrapClown and Toggles.SpikeTrapClown.Value then
-		Toggles.SpikeTrapClown:SetValue(false)
-	end
-	if Toggles.SpikeTrapSlotSystem and Toggles.SpikeTrapSlotSystem.Value then
-		Toggles.SpikeTrapSlotSystem:SetValue(false)
-	end
-	if Toggles.JailCellBully and Toggles.JailCellBully.Value then
-		Toggles.JailCellBully:SetValue(false)
-	end
-	if Toggles.JailCellSlotSystem and Toggles.JailCellSlotSystem.Value then
-		Toggles.JailCellSlotSystem:SetValue(false)
 	end
 
 	if Toggles.PlusSpeedBoost and Toggles.PlusSpeedBoost.Value then
