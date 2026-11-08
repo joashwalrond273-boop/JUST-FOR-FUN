@@ -11633,6 +11633,14 @@ local function touchFlingLoop()
 			movel = -movel
 		end
 	end
+
+	-- Cancel any leftover fling velocity so disabling never launches the player
+	local c = LocalPlayer.Character
+	local hrp = c and c:FindFirstChild("HumanoidRootPart")
+	if hrp then
+		hrp.AssemblyLinearVelocity = Vector3.zero
+		hrp.AssemblyAngularVelocity = Vector3.zero
+	end
 end
 
 Toggles.TouchFling:OnChanged(function()
