@@ -8288,6 +8288,85 @@ FarmAI:AddSlider("AiAuraRange", {
 	Compact = true,
 })
 
+function getAiAuraNames()
+	local names, seen = {}, {}
+	local function scan(container)
+		if not container then return end
+		for _, ai in ipairs(container:GetChildren()) do
+			if ai:IsA("Model") and ai:FindFirstChildOfClass("Humanoid") then
+				if not seen[ai.Name] then
+					seen[ai.Name] = true
+					table.insert(names, ai.Name)
+				end
+			end
+		end
+	end
+	scan(workspace:FindFirstChild("AI_Server"))
+	scan(workspace:FindFirstChild("AI_Client"))
+	table.sort(names)
+	return names
+end
+
+function passesAiAuraNameFilter(ai)
+	local mode = Options.AiAuraNameFilter and Options.AiAuraNameFilter.Value
+	if not mode or mode == "Disabled" then return true end
+
+	local list = Options.AiAuraNameList and Options.AiAuraNameList.Value
+	if not list then return true end
+
+	local inList = list[ai.Name] == true
+	if mode == "Whitelist" then
+		return inList
+	elseif mode == "Blacklist" then
+		return not inList
+	end
+	return true
+end
+
+FarmAI:AddDropdown("AiAuraNameFilter", {
+	Text = "Name Filter",
+	Values = {"Disabled", "Whitelist", "Blacklist"},
+	Default = "Disabled",
+})
+
+FarmAI:AddDropdown("AiAuraNameList", {
+	Text = "AI Names",
+	Values = getAiAuraNames(),
+	Default = {},
+	Multi = true,
+	Searchable = true,
+})
+
+FarmAI:AddButton({
+	Text = "Refresh AI Names",
+	Func = function()
+		if Options.AiAuraNameList then
+			Options.AiAuraNameList:SetValues(getAiAuraNames())
+		end
+	end,
+})
+
+local function updateAiAuraNameFilterVisibility()
+	local enabled = Options.AiAuraNameFilter and Options.AiAuraNameFilter.Value ~= "Disabled"
+	if Options.AiAuraNameList then
+		Options.AiAuraNameList.Visible = enabled
+		if Options.AiAuraNameList.Holder then
+			Options.AiAuraNameList.Holder.Visible = enabled
+		end
+	end
+	FarmAI:Resize()
+end
+
+Options.AiAuraNameFilter:OnChanged(function()
+	updateAiAuraNameFilterVisibility()
+end)
+
+updateAiAuraNameFilterVisibility()
+task.spawn(function()
+	task.wait(0.05)
+	updateAiAuraNameFilterVisibility()
+end)
+
 -- ==========================================
 -- ORE FACTORY
 -- ==========================================
@@ -9141,7 +9220,7 @@ local function aiAuraLoop()
 		for _, ai in ipairs(aiServer:GetChildren()) do
 			local aiHRP = ai:FindFirstChild("HumanoidRootPart") or ai.PrimaryPart
 			local hum = ai:FindFirstChildOfClass("Humanoid")
-			if ai:IsA("Model") and aiHRP and (not hum or hum.Health > 0) then
+			if ai:IsA("Model") and aiHRP and (not hum or hum.Health > 0) and passesAiAuraNameFilter(ai) then
 				local d = (aiHRP.Position - pos).Magnitude
 				if d < dist then
 					closest, dist = ai, d
@@ -9156,7 +9235,7 @@ local function aiAuraLoop()
 		for _, ai in ipairs(aiClient:GetChildren()) do
 			local aiHRP = ai:FindFirstChild("HumanoidRootPart") or ai.PrimaryPart
 			local hum = ai:FindFirstChildOfClass("Humanoid")
-			if ai:IsA("Model") and aiHRP and (not hum or hum.Health > 0) then
+			if ai:IsA("Model") and aiHRP and (not hum or hum.Health > 0) and passesAiAuraNameFilter(ai) then
 				local d = (aiHRP.Position - pos).Magnitude
 				if d < dist then
 					closest, dist = ai, d
@@ -9184,6 +9263,9 @@ Toggles.AiAura:OnChanged(function()
 			return
 		end
 		isAiAuraRunning = true
+		if Options.AiAuraNameList then
+			Options.AiAuraNameList:SetValues(getAiAuraNames())
+		end
 		track("AiAura", RunService.Heartbeat:Connect(function()
 			if not isAlive() or not isAiAuraRunning then return end
 			aiAuraLoop()
