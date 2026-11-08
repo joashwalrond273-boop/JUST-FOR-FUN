@@ -10427,11 +10427,22 @@ VisualFPS:AddCheckbox("UncapFPS", {
 		-- Trigger immediately on toggle enable
 		triggerUncap()
 
-		-- Re-trigger every 7 seconds to stop the game from resetting back to 60 FPS
-		local lastTrigger = os.clock()
+		-- Only re-apply the 120 FPS cap when the FPS has actually dropped back
+		-- to ~60 (the game reset the cap), instead of re-triggering blindly.
+		local uncapFrames = 0
+		local uncapSampleStart = os.clock()
 		track("UncapFPS_Timer", RunService.Heartbeat:Connect(function()
-			if os.clock() - lastTrigger >= 7 then
-				lastTrigger = os.clock()
+			uncapFrames = uncapFrames + 1
+			local now = os.clock()
+			local elapsed = now - uncapSampleStart
+			if elapsed < 1 then return end
+
+			local fps = uncapFrames / elapsed
+			uncapFrames = 0
+			uncapSampleStart = now
+
+			-- Detected the 60 FPS cap again -> re-apply 120 FPS
+			if fps >= 55 and fps <= 62 then
 				triggerUncap()
 			end
 		end))
