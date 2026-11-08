@@ -8298,37 +8298,32 @@ local function makeAuraHighlight(defaultColor)
 end
 
 -- ==========================================
-local FarmMine = Tabs.OreFactory:AddRightGroupbox("Resource Farm", "gem")
+local FarmMine = Tabs.OreFactory:AddRightGroupbox("Auto Mine", "gem")
 
 FarmMine:AddToggle("AutoMine", {
 	Text = "Auto Mine",
 	Default = false,
 })
 
-FarmMine:AddToggle("AutoChop", {
-	Text = "Auto Chop",
-	Default = false,
-})
-
-FarmMine:AddDropdown("FarmSlot", {
+FarmMine:AddDropdown("AutoMineSlot", {
 	Text = "Attack Slot",
 	Values = {"1","2","3","4","5","6","7","8","9","10"},
 	Default = "1",
 })
 
-FarmMine:AddCheckbox("FarmSlotSystem", {
+FarmMine:AddCheckbox("AutoMineSlotSystem", {
 	Text = "Slot System",
 	Default = false,
 })
 
-FarmMine:AddDropdown("FarmSlotSystemSlot", {
+FarmMine:AddDropdown("AutoMineSlotSystemSlot", {
 	Text = "Tool Slot",
 	Values = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"},
 	Default = {"1"},
 	Multi = true,
 })
 
-FarmMine:AddSlider("FarmRange", {
+FarmMine:AddSlider("AutoMineRange", {
 	Text = "Range",
 	Default = 30,
 	Min = 5,
@@ -8337,7 +8332,7 @@ FarmMine:AddSlider("FarmRange", {
 	Compact = true,
 })
 
-FarmMine:AddSlider("FarmSpeed", {
+FarmMine:AddSlider("AutoMineSpeed", {
 	Text = "Speed",
 	Default = 5,
 	Min = 1,
@@ -8346,83 +8341,65 @@ FarmMine:AddSlider("FarmSpeed", {
 	Compact = true,
 })
 
-FarmMine:AddCheckbox("HighlightFarm", {
+FarmMine:AddCheckbox("HighlightMine", {
 	Text = "Highlight Target",
 	Default = true,
-}):AddColorPicker("HighlightFarmColor", {
+}):AddColorPicker("HighlightMineColor", {
 	Default = Color3.fromRGB(255, 0, 0),
 	Title = "Highlight Target Color",
 })
 
-FarmMine:AddDropdown("FarmMode", {
-	Text = "Select Farm",
-	Values = { "Auto Mine", "Auto Chop" },
-	Default = "Auto Mine",
+-- ==========================================
+local FarmChop = Tabs.OreFactory:AddRightGroupbox("Auto Chop", "axe")
+
+FarmChop:AddToggle("AutoChop", {
+	Text = "Auto Chop",
+	Default = false,
 })
 
--- Auto Mine and Auto Chop share one set of widgets, but each mode keeps its own
--- saved values. Switching the mode above shows its toggle and restores its own
--- Attack Slot / Slot System / Tool Slot / Range / Speed / Highlight settings.
-local farmModeStore = {}
-local currentFarmMode = (Options.FarmMode and Options.FarmMode.Value) or "Auto Mine"
+FarmChop:AddDropdown("AutoChopSlot", {
+	Text = "Attack Slot",
+	Values = {"1","2","3","4","5","6","7","8","9","10"},
+	Default = "1",
+})
 
-local function setFarmVisible(option, visible)
-	if not option then return end
-	option.Visible = visible
-	if option.Holder then
-		option.Holder.Visible = visible
-	end
-end
+FarmChop:AddCheckbox("AutoChopSlotSystem", {
+	Text = "Slot System",
+	Default = false,
+})
 
-local function updateFarmModeVisibility()
-	local mode = (Options.FarmMode and Options.FarmMode.Value) or "Auto Mine"
-	setFarmVisible(Toggles.AutoMine, mode == "Auto Mine")
-	setFarmVisible(Toggles.AutoChop, mode == "Auto Chop")
-	FarmMine:Resize()
-end
+FarmChop:AddDropdown("AutoChopSlotSystemSlot", {
+	Text = "Tool Slot",
+	Values = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"},
+	Default = {"1"},
+	Multi = true,
+})
 
-local function snapshotFarmWidgets()
-	return {
-		slot = (Options.FarmSlot and Options.FarmSlot.Value) or "1",
-		slotSystem = (Toggles.FarmSlotSystem and Toggles.FarmSlotSystem.Value) or false,
-		slotSystemSlot = (Options.FarmSlotSystemSlot and Options.FarmSlotSystemSlot.Value) or {"1"},
-		range = (Options.FarmRange and Options.FarmRange.Value) or 30,
-		speed = (Options.FarmSpeed and Options.FarmSpeed.Value) or 5,
-		highlight = (Toggles.HighlightFarm and Toggles.HighlightFarm.Value) or true,
-		highlightColor = (Options.HighlightFarmColor and Options.HighlightFarmColor.Value) or Color3.fromRGB(255, 0, 0),
-	}
-end
+FarmChop:AddSlider("AutoChopRange", {
+	Text = "Range",
+	Default = 30,
+	Min = 5,
+	Max = 60,
+	Rounding = 1,
+	Compact = true,
+})
 
-local function applyFarmWidgets(data)
-	if not data then return end
-	if Options.FarmSlot then Options.FarmSlot:SetValue(data.slot) end
-	if Toggles.FarmSlotSystem then Toggles.FarmSlotSystem:SetValue(data.slotSystem) end
-	if Options.FarmSlotSystemSlot then Options.FarmSlotSystemSlot:SetValue(data.slotSystemSlot) end
-	if Options.FarmRange then Options.FarmRange:SetValue(data.range) end
-	if Options.FarmSpeed then Options.FarmSpeed:SetValue(data.speed) end
-	if Toggles.HighlightFarm then Toggles.HighlightFarm:SetValue(data.highlight) end
-	if Options.HighlightFarmColor then Options.HighlightFarmColor:SetValue(data.highlightColor) end
-end
+FarmChop:AddSlider("AutoChopSpeed", {
+	Text = "Speed",
+	Default = 5,
+	Min = 1,
+	Max = 20,
+	Rounding = 0,
+	Compact = true,
+})
 
-if Options.FarmMode then
-	Options.FarmMode:OnChanged(function()
-		local newMode = Options.FarmMode.Value
-		if newMode ~= currentFarmMode then
-			farmModeStore[currentFarmMode] = snapshotFarmWidgets()
-			-- The widgets are shared, so only one farm mode can run at a time.
-			if currentFarmMode == "Auto Mine" then
-				if Toggles.AutoMine and Toggles.AutoMine.Value then Toggles.AutoMine:SetValue(false) end
-			else
-				if Toggles.AutoChop and Toggles.AutoChop.Value then Toggles.AutoChop:SetValue(false) end
-			end
-			currentFarmMode = newMode
-			applyFarmWidgets(farmModeStore[newMode])
-		end
-		updateFarmModeVisibility()
-	end)
-end
-
-updateFarmModeVisibility()
+FarmChop:AddCheckbox("HighlightChop", {
+	Text = "Highlight Target",
+	Default = true,
+}):AddColorPicker("HighlightChopColor", {
+	Default = Color3.fromRGB(255, 0, 0),
+	Title = "Highlight Target Color",
+})
 
 local goldOreFarmRunning = false
 
@@ -8452,7 +8429,6 @@ OreFarm:AddSlider("GoldFarmDelay", {
 Toggles.TeleportAllGold:OnChanged(function()
 	local on = Toggles.TeleportAllGold.Value
 
-	if on and Options.FarmMode then Options.FarmMode:SetValue("Auto Mine") end
 	if Toggles.AutoMine then Toggles.AutoMine:SetValue(on) end
 	if Toggles.FastPickup then Toggles.FastPickup:SetValue(on) end
 	if Toggles.VacuumPickup then Toggles.VacuumPickup:SetValue(on) end
@@ -8632,7 +8608,6 @@ OreFarm:AddDropdown("FarmSelector", {
 Toggles.TeleportAllCoal:OnChanged(function()
 	local on = Toggles.TeleportAllCoal.Value
 
-	if on and Options.FarmMode then Options.FarmMode:SetValue("Auto Mine") end
 	if Toggles.AutoMine then Toggles.AutoMine:SetValue(on) end
 	if Toggles.FastPickup then Toggles.FastPickup:SetValue(on) end
 	if Toggles.VacuumPickup then Toggles.VacuumPickup:SetValue(on) end
@@ -8790,23 +8765,33 @@ OreFarm:AddSlider("OreESPDistance", {
 
 -- ==========================================
 -- Aura highlights (one per resource type, created after makeAuraHighlight is defined)
-local hlMine = makeAuraHighlight(Options.HighlightFarmColor and Options.HighlightFarmColor.Value)
-local hlChop = makeAuraHighlight(Options.HighlightFarmColor and Options.HighlightFarmColor.Value)
+local hlMine = makeAuraHighlight(Options.HighlightMineColor and Options.HighlightMineColor.Value)
+local hlChop = makeAuraHighlight(Options.HighlightChopColor and Options.HighlightChopColor.Value)
 
-if Options.HighlightFarmColor then
-	Options.HighlightFarmColor:OnChanged(function()
+if Options.HighlightMineColor then
+	Options.HighlightMineColor:OnChanged(function()
 		if hlMine then
-			hlMine.FillColor = Options.HighlightFarmColor.Value
-		end
-		if hlChop then
-			hlChop.FillColor = Options.HighlightFarmColor.Value
+			hlMine.FillColor = Options.HighlightMineColor.Value
 		end
 	end)
 end
 
-Toggles.HighlightFarm:OnChanged(function()
-	if not Toggles.HighlightFarm.Value then
+if Options.HighlightChopColor then
+	Options.HighlightChopColor:OnChanged(function()
+		if hlChop then
+			hlChop.FillColor = Options.HighlightChopColor.Value
+		end
+	end)
+end
+
+Toggles.HighlightMine:OnChanged(function()
+	if not Toggles.HighlightMine.Value then
 		updateHighlight(hlMine, nil, false)
+	end
+end)
+
+Toggles.HighlightChop:OnChanged(function()
+	if not Toggles.HighlightChop.Value then
 		updateHighlight(hlChop, nil, false)
 	end
 end)
@@ -8819,9 +8804,9 @@ local lastAutoMineHit   = 0
 local lastAutoChopHit   = 0
 
 local function mineObject(obj)
-	local slot = tonumber(Options.FarmSlot.Value) or 1
+	local slot = tonumber(Options.AutoMineSlot.Value) or 1
 	if obj and obj.PrimaryPart then
-		updateHighlight(hlMine, obj, Toggles.HighlightFarm.Value)
+		updateHighlight(hlMine, obj, Toggles.HighlightMine.Value)
 		pcall(function()
 			TSG.MineRemote:FireServer(slot, obj, CFrame.new(obj.PrimaryPart.Position))
 		end)
@@ -8830,7 +8815,7 @@ end
 
 local function autoMine()
 	if not isAlive() or not isAutoMineRunning then return end
-	local mineSpeed = (Options.FarmSpeed and Options.FarmSpeed.Value) or 5
+	local mineSpeed = (Options.AutoMineSpeed and Options.AutoMineSpeed.Value) or 5
 	local mineCooldown = 1 / math.max(0.1, mineSpeed)
 	if tick() - lastAutoMineHit < mineCooldown then return end
 
@@ -8838,7 +8823,7 @@ local function autoMine()
 	if not root then return end
 	local folder = workspace:FindFirstChild("worldResources") and workspace.worldResources:FindFirstChild("mineable")
 	if not folder then return end
-	local maxRange = (Options.FarmRange and Options.FarmRange.Value) or 30
+	local maxRange = (Options.AutoMineRange and Options.AutoMineRange.Value) or 30
 	local closest, dist = nil, maxRange
 	for _, subfolder in ipairs(folder:GetChildren()) do
 		if subfolder:IsA("Folder") then
@@ -8883,10 +8868,10 @@ end)
 
 -- ==========================================
 local function chopObject(obj)
-	local slot = tonumber(Options.FarmSlot.Value) or 1
+	local slot = tonumber(Options.AutoChopSlot.Value) or 1
 	local part = getChopTargetPart(obj)
 	if part then
-		updateHighlight(hlChop, obj, Toggles.HighlightFarm.Value)
+		updateHighlight(hlChop, obj, Toggles.HighlightChop.Value)
 		pcall(function()
 			TSG.ChopRemote:FireServer(slot, obj, part.CFrame)
 		end)
@@ -8895,7 +8880,7 @@ end
 
 local function autoChop()
 	if not isAlive() or not isAutoChopRunning then return end
-	local chopSpeed = (Options.FarmSpeed and Options.FarmSpeed.Value) or 5
+	local chopSpeed = (Options.AutoChopSpeed and Options.AutoChopSpeed.Value) or 5
 	local chopCooldown = 1 / math.max(0.1, chopSpeed)
 	if tick() - lastAutoChopHit < chopCooldown then return end
 
@@ -8903,7 +8888,7 @@ local function autoChop()
 	if not root then return end
 	local folder = workspace:FindFirstChild("worldResources") and workspace.worldResources:FindFirstChild("choppable")
 	if not folder then return end
-	local maxRange = (Options.FarmRange and Options.FarmRange.Value) or 30
+	local maxRange = (Options.AutoChopRange and Options.AutoChopRange.Value) or 30
 	local closest, dist = nil, maxRange
 	for _, subfolder in ipairs(folder:GetChildren()) do
 		if subfolder:IsA("Folder") then
@@ -8948,105 +8933,185 @@ Toggles.AutoChop:OnChanged(function()
 end)
 
 do
-	local farmSlotSaved = { value = nil }
-	local fromFarmSlotSystem = false
+	local mineSlotSaved = { value = nil }
+	local fromMineSlotSystem = false
 
-	local function currentFarmToggle()
-		local mode = (Options.FarmMode and Options.FarmMode.Value) or "Auto Mine"
-		if mode == "Auto Chop" then
-			return Toggles.AutoChop
-		end
-		return Toggles.AutoMine
-	end
-
-	local function updateFarmSlotSystemState()
-		if not (Toggles.FarmSlotSystem and Toggles.FarmSlotSystem.Value) then return end
+	local function updateMineSlotSystemState()
+		if not (Toggles.AutoMineSlotSystem and Toggles.AutoMineSlotSystem.Value) then return end
 		if not isAlive() then return end
 
-		local toggle = currentFarmToggle()
-		if not toggle then return end
-
-		local holding = isAdvanceSlotAllowed(Options.FarmSlotSystemSlot)
+		local holding = isAdvanceSlotAllowed(Options.AutoMineSlotSystemSlot)
 
 		if holding then
-			if farmSlotSaved.value == nil then
-				farmSlotSaved.value = toggle.Value
+			if mineSlotSaved.value == nil then
+				mineSlotSaved.value = Toggles.AutoMine and Toggles.AutoMine.Value or false
 			end
 
-			if not toggle.Value then
-				fromFarmSlotSystem = true
-				toggle:SetValue(true)
-				fromFarmSlotSystem = false
+			if Toggles.AutoMine and not Toggles.AutoMine.Value then
+				fromMineSlotSystem = true
+				Toggles.AutoMine:SetValue(true)
+				fromMineSlotSystem = false
 			end
 		else
-			if farmSlotSaved.value ~= nil then
-				if toggle.Value ~= farmSlotSaved.value then
-					fromFarmSlotSystem = true
-					toggle:SetValue(farmSlotSaved.value)
-					fromFarmSlotSystem = false
+			if mineSlotSaved.value ~= nil then
+				if Toggles.AutoMine and Toggles.AutoMine.Value ~= mineSlotSaved.value then
+					fromMineSlotSystem = true
+					Toggles.AutoMine:SetValue(mineSlotSaved.value)
+					fromMineSlotSystem = false
 				end
-				farmSlotSaved.value = nil
+				mineSlotSaved.value = nil
 			end
 		end
 	end
 
-	if Toggles.FarmSlotSystem then
-		Toggles.FarmSlotSystem:OnChanged(function()
-			disconnect("FarmSlotSystem_Poll")
-			disconnect("FarmSlotSystem_ChildAdded")
-			disconnect("FarmSlotSystem_ChildRemoved")
-			disconnect("FarmSlotSystem_CharAdded")
+	if Toggles.AutoMineSlotSystem then
+		Toggles.AutoMineSlotSystem:OnChanged(function()
+			disconnect("AutoMineSlotSystem_Poll")
+			disconnect("AutoMineSlotSystem_ChildAdded")
+			disconnect("AutoMineSlotSystem_ChildRemoved")
+			disconnect("AutoMineSlotSystem_CharAdded")
 
-			if Toggles.FarmSlotSystem.Value then
-				local function hookFarmSlotChar(char)
+			if Toggles.AutoMineSlotSystem.Value then
+				local function hookMineSlotChar(char)
 					if not char then return end
-					disconnect("FarmSlotSystem_ChildAdded")
-					disconnect("FarmSlotSystem_ChildRemoved")
-					track("FarmSlotSystem_ChildAdded", char.ChildAdded:Connect(function(child)
+					disconnect("AutoMineSlotSystem_ChildAdded")
+					disconnect("AutoMineSlotSystem_ChildRemoved")
+					track("AutoMineSlotSystem_ChildAdded", char.ChildAdded:Connect(function(child)
 						if child:IsA("Tool") then
 							task.wait()
-							updateFarmSlotSystemState()
+							updateMineSlotSystemState()
 						end
 					end))
-					track("FarmSlotSystem_ChildRemoved", char.ChildRemoved:Connect(function(child)
+					track("AutoMineSlotSystem_ChildRemoved", char.ChildRemoved:Connect(function(child)
 						if child:IsA("Tool") then
 							task.wait()
-							updateFarmSlotSystemState()
+							updateMineSlotSystemState()
 						end
 					end))
 				end
 
 				if LocalPlayer.Character then
-					hookFarmSlotChar(LocalPlayer.Character)
+					hookMineSlotChar(LocalPlayer.Character)
 				end
-				track("FarmSlotSystem_CharAdded", LocalPlayer.CharacterAdded:Connect(hookFarmSlotChar))
+				track("AutoMineSlotSystem_CharAdded", LocalPlayer.CharacterAdded:Connect(hookMineSlotChar))
 
-				track("FarmSlotSystem_Poll", RunService.Heartbeat:Connect(function()
-					updateFarmSlotSystemState()
+				track("AutoMineSlotSystem_Poll", RunService.Heartbeat:Connect(function()
+					updateMineSlotSystemState()
 				end))
 
-				updateFarmSlotSystemState()
+				updateMineSlotSystemState()
 
-				Library:Notify({ Title = "Farm Slot System", Description = "Enabled", Time = 2 })
+				Library:Notify({ Title = "Auto Mine Slot System", Description = "Enabled", Time = 2 })
 			else
-				if farmSlotSaved.value ~= nil then
-					local toggle = currentFarmToggle()
-					if toggle and toggle.Value ~= farmSlotSaved.value then
-						fromFarmSlotSystem = true
-						toggle:SetValue(farmSlotSaved.value)
-						fromFarmSlotSystem = false
+				if mineSlotSaved.value ~= nil then
+					if Toggles.AutoMine and Toggles.AutoMine.Value ~= mineSlotSaved.value then
+						fromMineSlotSystem = true
+						Toggles.AutoMine:SetValue(mineSlotSaved.value)
+						fromMineSlotSystem = false
 					end
-					farmSlotSaved.value = nil
+					mineSlotSaved.value = nil
 				end
 
-				Library:Notify({ Title = "Farm Slot System", Description = "Disabled", Time = 2 })
+				Library:Notify({ Title = "Auto Mine Slot System", Description = "Disabled", Time = 2 })
 			end
 		end)
 	end
 
-	if Options.FarmSlotSystemSlot then
-		Options.FarmSlotSystemSlot:OnChanged(function()
-			updateFarmSlotSystemState()
+	if Options.AutoMineSlotSystemSlot then
+		Options.AutoMineSlotSystemSlot:OnChanged(function()
+			updateMineSlotSystemState()
+		end)
+	end
+end
+
+do
+	local chopSlotSaved = { value = nil }
+	local fromChopSlotSystem = false
+
+	local function updateChopSlotSystemState()
+		if not (Toggles.AutoChopSlotSystem and Toggles.AutoChopSlotSystem.Value) then return end
+		if not isAlive() then return end
+
+		local holding = isAdvanceSlotAllowed(Options.AutoChopSlotSystemSlot)
+
+		if holding then
+			if chopSlotSaved.value == nil then
+				chopSlotSaved.value = Toggles.AutoChop and Toggles.AutoChop.Value or false
+			end
+
+			if Toggles.AutoChop and not Toggles.AutoChop.Value then
+				fromChopSlotSystem = true
+				Toggles.AutoChop:SetValue(true)
+				fromChopSlotSystem = false
+			end
+		else
+			if chopSlotSaved.value ~= nil then
+				if Toggles.AutoChop and Toggles.AutoChop.Value ~= chopSlotSaved.value then
+					fromChopSlotSystem = true
+					Toggles.AutoChop:SetValue(chopSlotSaved.value)
+					fromChopSlotSystem = false
+				end
+				chopSlotSaved.value = nil
+			end
+		end
+	end
+
+	if Toggles.AutoChopSlotSystem then
+		Toggles.AutoChopSlotSystem:OnChanged(function()
+			disconnect("AutoChopSlotSystem_Poll")
+			disconnect("AutoChopSlotSystem_ChildAdded")
+			disconnect("AutoChopSlotSystem_ChildRemoved")
+			disconnect("AutoChopSlotSystem_CharAdded")
+
+			if Toggles.AutoChopSlotSystem.Value then
+				local function hookChopSlotChar(char)
+					if not char then return end
+					disconnect("AutoChopSlotSystem_ChildAdded")
+					disconnect("AutoChopSlotSystem_ChildRemoved")
+					track("AutoChopSlotSystem_ChildAdded", char.ChildAdded:Connect(function(child)
+						if child:IsA("Tool") then
+							task.wait()
+							updateChopSlotSystemState()
+						end
+					end))
+					track("AutoChopSlotSystem_ChildRemoved", char.ChildRemoved:Connect(function(child)
+						if child:IsA("Tool") then
+							task.wait()
+							updateChopSlotSystemState()
+						end
+					end))
+				end
+
+				if LocalPlayer.Character then
+					hookChopSlotChar(LocalPlayer.Character)
+				end
+				track("AutoChopSlotSystem_CharAdded", LocalPlayer.CharacterAdded:Connect(hookChopSlotChar))
+
+				track("AutoChopSlotSystem_Poll", RunService.Heartbeat:Connect(function()
+					updateChopSlotSystemState()
+				end))
+
+				updateChopSlotSystemState()
+
+				Library:Notify({ Title = "Auto Chop Slot System", Description = "Enabled", Time = 2 })
+			else
+				if chopSlotSaved.value ~= nil then
+					if Toggles.AutoChop and Toggles.AutoChop.Value ~= chopSlotSaved.value then
+						fromChopSlotSystem = true
+						Toggles.AutoChop:SetValue(chopSlotSaved.value)
+						fromChopSlotSystem = false
+					end
+					chopSlotSaved.value = nil
+				end
+
+				Library:Notify({ Title = "Auto Chop Slot System", Description = "Disabled", Time = 2 })
+			end
+		end)
+	end
+
+	if Options.AutoChopSlotSystemSlot then
+		Options.AutoChopSlotSystemSlot:OnChanged(function()
+			updateChopSlotSystemState()
 		end)
 	end
 end
