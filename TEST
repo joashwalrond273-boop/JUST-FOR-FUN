@@ -3929,6 +3929,224 @@ track("CharacterModuleRespawn", LocalPlayer.CharacterAdded:Connect(function()
 	end
 end))
 
+-- ==========================================
+-- Silent Aim core: redirects raycast-based attacks toward the selected target.
+-- Methods: "Raycast", "FindPartOnRay", "FindPartOnRayWithIgnoreList",
+-- "FindPartOnRayWithWhitelist" (workspace namecalls) and "Target", "Hit", "X", "Y",
+-- "UnitRay" (Mouse __index reads).
+-- ==========================================
+local SILENT_AIM_METHODS = {
+	"Raycast",
+	"FindPartOnRay",
+	"FindPartOnRayWithIgnoreList",
+	"FindPartOnRayWithWhitelist",
+	"Target",
+	"Hit",
+	"X",
+	"Y",
+	"UnitRay",
+}
+
+local SILENT_AIM_NAMECALL_ARGS = {
+	Raycast = { "Instance", "Vector3", "Vector3", "RaycastParams" },
+	FindPartOnRay = { "Instance", "Ray", "Instance", "boolean", "boolean" },
+	FindPartOnRayWithIgnoreList = { "Instance", "Ray", "table", "boolean", "boolean" },
+	FindPartOnRayWithWhitelist = { "Instance", "Ray", "table", "boolean" },
+}
+
+local SILENT_AIM_MOUSE_METHODS = {
+	Target = true,
+	Hit = true,
+	X = true,
+	Y = true,
+	UnitRay = true,
+}
+
+local silentAimCachePart = nil
+local silentAimCacheTime = 0
+local silentAimBusy = false
+local silentAimIndexHooked = false
+local silentAimIndexOriginal
+local silentAimRayParams = RaycastParams.new()
+pcall(function()
+	silentAimRayParams.FilterType = Enum.RaycastFilterType.Exclude
+end)
+
+local function silentAimEnabled()
+	return Toggles.SilentAim and Toggles.SilentAim.Value
+end
+
+local function silentAimMethodSelected(name)
+	local selected = Options.SilentAimMethods and Options.SilentAimMethods.Value
+	return typeof(selected) == "table" and selected[name] == true
+end
+
+local function silentAimUsesMouseMethods()
+	local selected = Options.SilentAimMethods and Options.SilentAimMethods.Value
+	if typeof(selected) == "table" then
+		for name in pairs(SILENT_AIM_MOUSE_METHODS) do
+			if selected[name] then
+				return true
+			end
+		end
+	end
+	return false
+end
+
+local function silentAimGetTarget()
+	if not silentAimEnabled() then return nil end
+
+	local now = os.clock()
+	if now - silentAimCacheTime < 0.03 then
+		return silentAimCachePart
+	end
+	silentAimCacheTime = now
+
+	local cam = workspace.CurrentCamera
+	if not cam then
+		silentAimCachePart = nil
+		return nil
+	end
+
+	silentAimBusy = true
+
+	local viewport = cam.ViewportSize
+	local center = Vector2.new(viewport.X / 2, viewport.Y / 2)
+	local fov = (Options.SilentAimFov and Options.SilentAimFov.Value) or 150
+	local mode = (Options.SilentAimTarget and Options.SilentAimTarget.Value) or "Crosshair"
+	local ignoreTeam = Toggles.SilentAimIgnoreTeam and Toggles.SilentAimIgnoreTeam.Value
+	local visibleOnly = Toggles.SilentAimVisible and Toggles.SilentAimVisible.Value
+	local cameraPos = cam.CFrame.Position
+	local myChar = getCharacter()
+
+	local bestPart, bestMetric = nil, nil
+	for _, otherPlayer in ipairs(Players:GetPlayers()) do
+		local skip = otherPlayer == LocalPlayer or (ignoreTeam and isTeammate and isTeammate(otherPlayer))
+		if not skip then
+			local char = otherPlayer.Character
+			local hum = char and char:FindFirstChildOfClass("Humanoid")
+			local hrp = char and char:FindFirstChild("HumanoidRootPart")
+			if hum and hum.Health > 0 and hrp then
+				local screenPos, onScreen = cam:WorldToViewportPoint(hrp.Position)
+				if onScreen then
+					local screenDist = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
+					if fov <= 0 or screenDist <= fov then
+						local visible = true
+						if visibleOnly then
+							local filter = {}
+							if char then table.insert(filter, char) end
+							if myChar then table.insert(filter, myChar) end
+							silentAimRayParams.FilterDescendantsInstances = filter
+							visible = workspace:Raycast(cameraPos, hrp.Position - cameraPos, silentAimRayParams) == nil
+						end
+						if visible then
+							local metric
+							if mode == "Lowest HP" then
+								metric = hum.Health
+							elseif mode == "Highest HP" then
+								metric = -hum.Health
+							elseif mode == "Closest" then
+								metric = (hrp.Position - cameraPos).Magnitude
+							else
+								metric = screenDist
+							end
+							if not bestMetric or metric < bestMetric then
+								bestPart, bestMetric = hrp, metric
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+
+	silentAimBusy = false
+	silentAimCachePart = bestPart
+	return bestPart
+end
+
+local function silentAimDirection(origin, part)
+	local pred = (Options.SilentAimPrediction and Options.SilentAimPrediction.Value) or 0
+	local dest = part.Position
+	if pred > 0 then
+		dest = dest + part.AssemblyLinearVelocity * pred
+	end
+	local dir = dest - origin
+	if dir.Magnitude <= 0 then
+		return nil
+	end
+	return dir.Unit * 1000
+end
+
+local function silentAimProcessNamecall(method, args)
+	local expected = SILENT_AIM_NAMECALL_ARGS[method]
+	if not expected or not silentAimMethodSelected(method) then
+		return false
+	end
+
+	local matches = 0
+	for i = 1, args.n do
+		if expected[i] and typeof(args[i]) == expected[i] then
+			matches = matches + 1
+		end
+	end
+	if matches ~= args.n then
+		return false
+	end
+
+	local part = silentAimGetTarget()
+	if not part then
+		return false
+	end
+
+	if method == "Raycast" then
+		local direction = silentAimDirection(args[2], part)
+		if not direction then return false end
+		args[3] = direction
+		return true
+	end
+
+	local ray = args[2]
+	if typeof(ray) ~= "Ray" then
+		return false
+	end
+	local direction = silentAimDirection(ray.Origin, part)
+	if not direction then return false end
+	args[2] = Ray.new(ray.Origin, direction)
+	return true
+end
+
+local function silentAimEnsureIndexHook()
+	if silentAimIndexHooked or not hookmetamethod then return end
+	silentAimIndexHooked = true
+
+	silentAimIndexOriginal = hookmetamethod(game, "__index", function(t, k)
+		if silentAimEnabled() and (not checkcaller or not checkcaller()) and typeof(t) == "Instance" and t:IsA("Mouse") and SILENT_AIM_MOUSE_METHODS[k] and silentAimMethodSelected(k) then
+			local part = silentAimGetTarget()
+			if part then
+				if k == "Target" then
+					return part
+				elseif k == "Hit" then
+					return part.CFrame
+				elseif k == "X" or k == "Y" then
+					local cam = workspace.CurrentCamera
+					if cam then
+						local screenPos = cam:WorldToViewportPoint(part.Position)
+						return k == "X" and screenPos.X or screenPos.Y
+					end
+				elseif k == "UnitRay" then
+					local ray = silentAimIndexOriginal(t, k)
+					local direction = silentAimDirection(ray.Origin, part)
+					if direction then
+						return Ray.new(ray.Origin, direction)
+					end
+				end
+			end
+		end
+		return silentAimIndexOriginal(t, k)
+	end)
+end
+
 -- Boss damage blocking + hit sound hook.
 local BossDamageEvent = resolvePath(ReplicatedStorage, "remoteInterface", "character", "hurtByAIAttack")
 if hookmetamethod then
@@ -3955,6 +4173,17 @@ if hookmetamethod then
 						end
 					end)
 				end)
+			end
+		end
+
+		if not silentAimBusy
+			and Toggles.SilentAim and Toggles.SilentAim.Value
+			and (not checkcaller or not checkcaller())
+			and rawequal(self, workspace)
+			and SILENT_AIM_NAMECALL_ARGS[method] then
+			local args = table.pack(...)
+			if silentAimProcessNamecall(method, args) then
+				return namecallOriginal(table.unpack(args, 1, args.n))
 			end
 		end
 
@@ -4803,172 +5032,116 @@ task.spawn(function()
 	end
 end)
 
-local function updateShieldButtonVisibility()
-	local moveShield = (Toggles.ShieldButtonMove and Toggles.ShieldButtonMove.Value) or false
-	local moveJump = (Toggles.JumpButtonMove and Toggles.JumpButtonMove.Value) or false
-
-	local function setVisible(option, visible)
-		if not option then return end
-		option.Visible = visible
-		if option.Holder then
-			option.Holder.Visible = visible
-		end
-	end
-
-	setVisible(Options.ShieldButtonX, moveShield)
-	setVisible(Options.ShieldButtonY, moveShield)
-	setVisible(Options.ShieldButtonSize, moveShield)
-	setVisible(Options.JumpButtonX, moveJump)
-	setVisible(Options.JumpButtonY, moveJump)
-	setVisible(Options.JumpButtonSize, moveJump)
-
-	if CombatAutoPVP then
-		CombatAutoPVP:Resize()
-	end
-end
-
-updateShieldButtonVisibility()
-task.spawn(function()
-	task.wait(0.05)
-	updateShieldButtonVisibility()
-end)
-
 CombatAutoPVP = Tabs.Combat:AddRightGroupbox("PVP Modules", "swords")
 
-HotbarPresets = {}
+CombatAutoPVP:AddDivider()
 
-CombatAutoPVP:AddCheckbox("ShieldButtonMove", {
-	Text = "Move Shield",
+CombatAutoPVP:AddCheckbox("SilentAim", {
+	Text = "Silent Aim",
 	Default = false,
 })
 
-CombatAutoPVP:AddSlider("ShieldButtonX", {
-	Text = "Shield Button Horizontal",
-	Default = 0,
-	Min = -1000,
-	Max = 1000,
+CombatAutoPVP:AddSlider("SilentAimFov", {
+	Text = "Silent Aim FOV",
+	Default = 150,
+	Min = 0,
+	Max = 800,
 	Rounding = 0,
 	Compact = true,
 })
 
-CombatAutoPVP:AddSlider("ShieldButtonY", {
-	Text = "Shield Button Vertical",
-	Default = 0,
-	Min = -1000,
-	Max = 1000,
-	Rounding = 0,
-	Compact = true,
+CombatAutoPVP:AddDropdown("SilentAimTarget", {
+	Text = "Target Mode",
+	Values = { "Crosshair", "Closest", "Lowest HP", "Highest HP" },
+	Default = "Crosshair",
 })
 
-CombatAutoPVP:AddSlider("ShieldButtonSize", {
-	Text = "Shield Button Size",
-	Default = 1,
-	Min = 0.5,
-	Max = 3,
+CombatAutoPVP:AddDropdown("SilentAimMethods", {
+	Text = "Methods",
+	Values = SILENT_AIM_METHODS,
+	Default = { "Raycast", "FindPartOnRay", "FindPartOnRayWithIgnoreList", "FindPartOnRayWithWhitelist" },
+	Multi = true,
+})
+
+CombatAutoPVP:AddSlider("SilentAimPrediction", {
+	Text = "Prediction",
+	Default = 0,
+	Min = 0,
+	Max = 0.5,
 	Rounding = 2,
 	Compact = true,
 })
 
-CombatAutoPVP:AddCheckbox("JumpButtonMove", {
-	Text = "Move Jump",
+CombatAutoPVP:AddCheckbox("SilentAimIgnoreTeam", {
+	Text = "Ignore Team",
+	Default = true,
+})
+
+CombatAutoPVP:AddCheckbox("SilentAimVisible", {
+	Text = "Visible Only",
 	Default = false,
 })
 
-CombatAutoPVP:AddSlider("JumpButtonX", {
-	Text = "Jump Button Horizontal",
-	Default = 0,
-	Min = -1000,
-	Max = 1000,
-	Rounding = 0,
-	Compact = true,
+CombatAutoPVP:AddCheckbox("SilentAimShowFov", {
+	Text = "Show FOV Circle",
+	Default = true,
 })
 
-CombatAutoPVP:AddSlider("JumpButtonY", {
-	Text = "Jump Button Vertical",
-	Default = 0,
-	Min = -1000,
-	Max = 1000,
-	Rounding = 0,
-	Compact = true,
-})
+local silentAimCircle = nil
+local silentAimHasDrawing = (typeof(Drawing) == "table" and typeof(Drawing.new) == "function")
 
-CombatAutoPVP:AddSlider("JumpButtonSize", {
-	Text = "Jump Button Size",
-	Default = 1,
-	Min = 0.5,
-	Max = 3,
-	Rounding = 2,
-	Compact = true,
-})
+local function silentAimUpdateCircle()
+	if not silentAimCircle then return end
+	local cam = workspace.CurrentCamera
+	if not (silentAimEnabled() and Toggles.SilentAimShowFov and Toggles.SilentAimShowFov.Value and cam) then
+		silentAimCircle.Visible = false
+		return
+	end
+	local viewport = cam.ViewportSize
+	silentAimCircle.Position = Vector2.new(viewport.X / 2, viewport.Y / 2)
+	silentAimCircle.Radius = (Options.SilentAimFov and Options.SilentAimFov.Value) or 150
+	silentAimCircle.Visible = true
+end
 
-CombatAutoPVP:AddSlider("HotbarPresetSlot", {
-	Text = "Hotbar Preset Slot",
-	Default = 1,
-	Min = 1,
-	Max = 5,
-	Rounding = 0,
-	Compact = true,
-})
+Toggles.SilentAim:OnChanged(function()
+	if silentAimEnabled() and silentAimUsesMouseMethods() then
+		silentAimEnsureIndexHook()
+	end
 
-CombatAutoPVP:AddButton({
-	Text = "Save Hotbar",
-	Func = function()
-		local presetSlot = math.floor((Options.HotbarPresetSlot and Options.HotbarPresetSlot.Value) or 1)
-		local loadout = {}
-		local backpack = LocalPlayer:FindFirstChild("Backpack")
-		local character = LocalPlayer.Character
+	disconnect("SilentAim_Fov")
+	if silentAimCircle then
+		silentAimCircle.Visible = false
+	end
 
-		for slot = 1, 10 do
-			local slotStr = tostring(slot)
-			local tool = (backpack and backpack:FindFirstChild(slotStr)) or (character and character:FindFirstChild(slotStr))
-			if tool and tool:FindFirstChild("toolModel") then
-				local itemId = tool.toolModel:GetAttribute("itemId")
-				if itemId then
-					loadout[slot] = itemId
-				end
-			end
+	if not silentAimEnabled() then
+		silentAimCachePart = nil
+		Library:Notify({ Title = "Silent Aim", Description = "Disabled", Time = 2 })
+		return
+	end
+
+	if silentAimHasDrawing and not silentAimCircle then
+		pcall(function()
+			silentAimCircle = Drawing.new("Circle")
+			silentAimCircle.Thickness = 1
+			silentAimCircle.NumSides = 60
+			silentAimCircle.Filled = false
+			silentAimCircle.Transparency = 1
+			silentAimCircle.Color = Color3.fromRGB(0, 244, 255)
+			silentAimCircle.Visible = false
+		end)
+	end
+
+	track("SilentAim_Fov", RunService.RenderStepped:Connect(silentAimUpdateCircle))
+	Library:Notify({ Title = "Silent Aim", Description = "Enabled", Time = 2 })
+end)
+
+if Options.SilentAimMethods then
+	Options.SilentAimMethods:OnChanged(function()
+		if silentAimEnabled() and silentAimUsesMouseMethods() then
+			silentAimEnsureIndexHook()
 		end
-
-		HotbarPresets[presetSlot] = loadout
-
-		local count = 0
-		for _ in pairs(loadout) do
-			count = count + 1
-		end
-		Library:Notify({ Title = "Hotbar Presets", Description = string.format("Saved %d item(s) to slot %d", count, presetSlot), Time = 2 })
-	end,
-})
-
-CombatAutoPVP:AddButton({
-	Text = "Load Hotbar",
-	Func = function()
-		local presetSlot = math.floor((Options.HotbarPresetSlot and Options.HotbarPresetSlot.Value) or 1)
-		local loadout = HotbarPresets[presetSlot]
-		if not loadout or next(loadout) == nil then
-			Library:Notify({ Title = "Hotbar Presets", Description = string.format("Hotbar slot %d is empty", presetSlot), Time = 2 })
-			return
-		end
-
-		local equipHotbarRemote = TSG.EquipHotbarRemote
-		if not equipHotbarRemote then
-			Library:Notify({ Title = "Hotbar Presets", Description = "Equip remote not found", Time = 2 })
-			return
-		end
-
-		local applied = 0
-		for slot, itemId in pairs(loadout) do
-			local ok = pcall(function()
-				equipHotbarRemote:InvokeServer("inventory", slot, itemId)
-			end)
-			if ok then
-				applied = applied + 1
-			end
-			task.wait(0.05)
-		end
-
-		Library:Notify({ Title = "Hotbar Presets", Description = string.format("Loaded %d item(s) from slot %d", applied, presetSlot), Time = 2 })
-	end,
-})
+	end)
+end
 
 updatePVPModulesVisibility = function()
 	local isCam = (Toggles.Camlock and Toggles.Camlock.Value) or false
@@ -5621,200 +5794,6 @@ do
 		Library:Notify({ Title = "Shield HUD", Description = "Enabled", Time = 2 })
 	end)
 
-	-- ==========================================
-	-- MOVABLE TOUCH BUTTONS
-	-- ==========================================
-	local function createButtonController(cfg)
-		local offsetX = 0
-		local offsetY = 0
-		local origPos = nil
-		local origSize = nil
-		local scale = 1
-		local syncing = false
-		local beganConn = nil
-		local moveConn = nil
-
-		local function apply()
-			local btn = cfg.getButton and cfg.getButton()
-			if not btn then return end
-			if origPos == nil then origPos = btn.Position end
-			if origSize == nil then origSize = btn.Size end
-			btn.Position = UDim2.new(
-				origPos.X.Scale,
-				origPos.X.Offset + offsetX,
-				origPos.Y.Scale,
-				origPos.Y.Offset + offsetY
-			)
-			btn.Size = UDim2.new(
-				origSize.X.Scale * scale,
-				origSize.X.Offset * scale,
-				origSize.Y.Scale * scale,
-				origSize.Y.Offset * scale
-			)
-		end
-
-		local function unbind()
-			if beganConn then
-				beganConn:Disconnect()
-				beganConn = nil
-			end
-			if moveConn then
-				moveConn:Disconnect()
-				moveConn = nil
-			end
-		end
-
-		local function bind()
-			unbind()
-
-			local btn = cfg.getButton and cfg.getButton()
-			if not btn then return false end
-			if origPos == nil then origPos = btn.Position end
-			if origSize == nil then origSize = btn.Size end
-
-			beganConn = btn.InputBegan:Connect(function(input)
-				if not (cfg.toggle and cfg.toggle.Value) then return end
-				if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
-
-				local dragStart = input.Position
-				local startOffX, startOffY = offsetX, offsetY
-
-				if moveConn then
-					moveConn:Disconnect()
-					moveConn = nil
-				end
-
-				moveConn = input.Changed:Connect(function()
-					if input.UserInputState == Enum.UserInputState.End then
-						if moveConn then
-							moveConn:Disconnect()
-							moveConn = nil
-						end
-						return
-					end
-					if input.UserInputType ~= Enum.UserInputType.MouseMovement and input.UserInputType ~= Enum.UserInputType.Touch then return end
-
-					local delta = input.Position - dragStart
-					offsetX = startOffX + delta.X
-					offsetY = startOffY + delta.Y
-					apply()
-
-					syncing = true
-					if cfg.x then
-						cfg.x:SetValue(math.clamp(math.floor(offsetX + 0.5), -1000, 1000))
-					end
-					if cfg.y then
-						cfg.y:SetValue(math.clamp(math.floor(offsetY + 0.5), -1000, 1000))
-					end
-					syncing = false
-				end)
-			end)
-
-			return true
-		end
-
-		local function refresh()
-			if cfg.getButton and cfg.getButton() then
-				bind()
-				apply()
-				return
-			end
-			task.spawn(function()
-				for _ = 1, 120 do
-					if cfg.getButton and cfg.getButton() then break end
-					task.wait(0.25)
-				end
-				if cfg.toggle and cfg.toggle.Value then
-					bind()
-					apply()
-				end
-			end)
-		end
-
-		if cfg.toggle then
-			cfg.toggle:OnChanged(function()
-				unbind()
-				updateShieldButtonVisibility()
-
-				if not cfg.toggle.Value then
-					Library:Notify({ Title = cfg.title, Description = cfg.label .. " Disabled", Time = 2 })
-					return
-				end
-
-				offsetX = (cfg.x and cfg.x.Value) or 0
-				offsetY = (cfg.y and cfg.y.Value) or 0
-				scale = (cfg.size and cfg.size.Value) or 1
-				refresh()
-
-				Library:Notify({ Title = cfg.title, Description = cfg.label .. " Enabled", Time = 2 })
-			end)
-		end
-
-		if cfg.x then
-			cfg.x:OnChanged(function(value)
-				if syncing then return end
-				offsetX = value
-				if cfg.toggle and cfg.toggle.Value then
-					apply()
-				end
-			end)
-		end
-
-		if cfg.y then
-			cfg.y:OnChanged(function(value)
-				if syncing then return end
-				offsetY = value
-				if cfg.toggle and cfg.toggle.Value then
-					apply()
-				end
-			end)
-		end
-
-		if cfg.size then
-			cfg.size:OnChanged(function(value)
-				scale = value
-				if cfg.toggle and cfg.toggle.Value then
-					apply()
-				end
-			end)
-		end
-	end
-
-	local function getShieldButton()
-		local pg = LocalPlayer and LocalPlayer:FindFirstChild("PlayerGui")
-		local gui = pg and pg:FindFirstChild("ShieldButton")
-		if not gui then return nil end
-		local tcf = gui:FindFirstChild("TouchControlFrame")
-		local sbf = tcf and tcf:FindFirstChild("ShieldButtonFrame")
-		return sbf and sbf:FindFirstChild("ShieldButton") or nil
-	end
-
-	local function getJumpButton()
-		local pg = LocalPlayer and LocalPlayer:FindFirstChild("PlayerGui")
-		local gui = pg and pg:FindFirstChild("TouchGui")
-		local tcf = gui and gui:FindFirstChild("TouchControlFrame")
-		return tcf and tcf:FindFirstChild("JumpButton") or nil
-	end
-
-	createButtonController({
-		getButton = getShieldButton,
-		toggle = Toggles.ShieldButtonMove,
-		x = Options.ShieldButtonX,
-		y = Options.ShieldButtonY,
-		size = Options.ShieldButtonSize,
-		title = "Shield Button",
-		label = "Move Shield",
-	})
-
-	createButtonController({
-		getButton = getJumpButton,
-		toggle = Toggles.JumpButtonMove,
-		x = Options.JumpButtonX,
-		y = Options.JumpButtonY,
-		size = Options.JumpButtonSize,
-		title = "Jump Button",
-		label = "Move Jump",
-	})
 end
 
 local function updateAdvanceState()
@@ -12338,11 +12317,8 @@ Library:OnUnload(function()
 	if Toggles.SmartSwing and Toggles.SmartSwing.Value then
 		Toggles.SmartSwing:SetValue(false)
 	end
-	if Toggles.ShieldButtonMove and Toggles.ShieldButtonMove.Value then
-		Toggles.ShieldButtonMove:SetValue(false)
-	end
-	if Toggles.JumpButtonMove and Toggles.JumpButtonMove.Value then
-		Toggles.JumpButtonMove:SetValue(false)
+	if Toggles.SilentAim and Toggles.SilentAim.Value then
+		Toggles.SilentAim:SetValue(false)
 	end
 	if Toggles.ShieldOnDamage and Toggles.ShieldOnDamage.Value then
 		Toggles.ShieldOnDamage:SetValue(false)
