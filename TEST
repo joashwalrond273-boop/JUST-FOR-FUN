@@ -10411,23 +10411,23 @@ VisualFPS:AddCheckbox("UncapFPS", {
 		local function triggerUncap()
 			pcall(function()
 				if typeof(setfpscap) == "function" then
-					setfpscap(120)
+					setfpscap(90)
 				elseif typeof(set_fps_cap) == "function" then
-					set_fps_cap(120)
+					set_fps_cap(90)
 				elseif typeof(setfps) == "function" then
-					setfps(120)
+					setfps(90)
 				end
 			end)
 
 			pcall(function()
-				setfflag("TaskSchedulerTargetFps", 120)
+				setfflag("TaskSchedulerTargetFps", 90)
 			end)
 		end
 
 		-- Trigger immediately on toggle enable
 		triggerUncap()
 
-		-- Only re-apply the 120 FPS cap when the FPS has actually dropped back
+		-- Only re-apply the 90 FPS cap when the FPS has actually dropped back
 		-- to ~60 (the game reset the cap), instead of re-triggering blindly.
 		local uncapFrames = 0
 		local uncapSampleStart = os.clock()
@@ -10441,7 +10441,7 @@ VisualFPS:AddCheckbox("UncapFPS", {
 			uncapFrames = 0
 			uncapSampleStart = now
 
-			-- Detected the 60 FPS cap again -> re-apply 120 FPS
+			-- Detected the 60 FPS cap again -> re-apply 90 FPS
 			if fps >= 55 and fps <= 62 then
 				triggerUncap()
 			end
