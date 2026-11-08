@@ -7817,37 +7817,24 @@ local function restoreCharacterCollisions(character)
 	end
 end
 
--- Noclip is event-based: collisions are disabled once, then only re-disabled
--- if the game tries to turn a part's CanCollide back on. No per-frame loop.
-local noclipCanCollideConns = {}
+-- Lean noclip: collisions are cleared once when enabled/respawned, then a
+-- throttled guard over the cached part list keeps them off. This avoids the
+-- costly per-frame GetDescendants scan that caused lag.
+local noclipAccum = 0
 
-local function stopNoclip()
-	for i = #noclipCanCollideConns, 1, -1 do
-		local conn = noclipCanCollideConns[i]
-		if conn then conn:Disconnect() end
-		noclipCanCollideConns[i] = nil
-	end
-end
-
-local function startNoclip()
-	stopNoclip()
-	local character = getCharacter()
-	updateNoclipParts(character)
-	for _, part in ipairs(noclipCoreParts) do
-		part.CanCollide = false
-		local conn = part:GetPropertyChangedSignal("CanCollide"):Connect(function()
-			if Toggles.Noclip and Toggles.Noclip.Value and part.CanCollide then
-				part.CanCollide = false
-			end
-		end)
-		table.insert(noclipCanCollideConns, conn)
+local function clearNoclipCollisions()
+	for i = 1, #noclipCoreParts do
+		local part = noclipCoreParts[i]
+		if part and part.CanCollide then
+			part.CanCollide = false
+		end
 	end
 end
 
 LocalPlayer.CharacterAdded:Connect(function(char)
 	updateNoclipParts(char)
 	if Toggles.Noclip and Toggles.Noclip.Value then
-		startNoclip()
+		clearNoclipCollisions()
 	else
 		restoreCharacterCollisions(char)
 	end
@@ -7860,10 +7847,18 @@ if LocalPlayer.Character then
 end
 
 Toggles.Noclip:OnChanged(function()
+	disconnect("Noclip")
+	noclipAccum = 0
 	if Toggles.Noclip.Value then
-		startNoclip()
+		updateNoclipParts(getCharacter())
+		clearNoclipCollisions()
+		track("Noclip", RunService.Heartbeat:Connect(function(dt)
+			noclipAccum = noclipAccum + dt
+			if noclipAccum < 0.05 then return end
+			noclipAccum = 0
+			clearNoclipCollisions()
+		end))
 	else
-		stopNoclip()
 		restoreCharacterCollisions(getCharacter())
 	end
 end)
