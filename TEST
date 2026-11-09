@@ -4947,8 +4947,17 @@ CombatAutoPVP:AddButton({
 })
 
 CombatAutoPVP:AddCheckbox("BreakStructures", {
-	Text = "Break Structures",
+	Text = "Structure Break Aura",
 	Default = false,
+})
+
+CombatAutoPVP:AddSlider("BreakStructuresRange", {
+	Text = "Range (Studs)",
+	Default = 20,
+	Min = 1,
+	Max = 200,
+	Rounding = 0,
+	Compact = true,
 })
 
 updatePVPModulesVisibility = function()
@@ -5783,9 +5792,8 @@ do
 end
 
 -- ==========================================
--- BREAK STRUCTURES
+-- STRUCTURE BREAK AURA
 -- ==========================================
-local BREAK_STRUCTURES_RANGE = 20
 local breakStructuresThread = nil
 
 local function stopBreakStructures()
@@ -5819,12 +5827,13 @@ local function startBreakStructures()
 			local root = getRootPart()
 			if root and isAlive() then
 				local origin = root.Position
+				local range = (Options.BreakStructuresRange and Options.BreakStructuresRange.Value) or 20
 				local folder = workspace:FindFirstChild("placedStructures")
 				if folder then
 					for _, area in ipairs(folder:GetChildren()) do
 						for _, structure in ipairs(area:GetChildren()) do
 							local pos = getStructurePosition(structure)
-							if pos and (pos - origin).Magnitude <= BREAK_STRUCTURES_RANGE then
+							if pos and (pos - origin).Magnitude <= range then
 								pcall(function()
 									remote:FireServer(5, structure, CFrame.new(pos))
 								end)
@@ -5833,7 +5842,7 @@ local function startBreakStructures()
 					end
 				end
 			end
-			task.wait(1)
+			task.wait(0.2)
 		end
 	end)
 end
@@ -5841,10 +5850,10 @@ end
 Toggles.BreakStructures:OnChanged(function()
 	if Toggles.BreakStructures.Value then
 		startBreakStructures()
-		Library:Notify({ Title = "Break Structures", Description = "Enabled", Time = 2 })
+		Library:Notify({ Title = "Structure Break Aura", Description = "Enabled", Time = 2 })
 	else
 		stopBreakStructures()
-		Library:Notify({ Title = "Break Structures", Description = "Disabled", Time = 2 })
+		Library:Notify({ Title = "Structure Break Aura", Description = "Disabled", Time = 2 })
 	end
 end)
 
