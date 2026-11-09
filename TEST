@@ -4804,73 +4804,9 @@ task.spawn(function()
 	end
 end)
 
-CombatAutoPVP = Tabs.Combat:AddRightGroupbox("PVP Modules", "swords")
+CombatAutoPVP = Tabs.Combat:AddRightGroupbox("UTILITIES", "swords")
 
 CombatAutoPVP:AddDivider()
-
-CombatAutoPVP:AddCheckbox("ShieldButtonMove", {
-	Text = "Move Shield",
-	Default = false,
-})
-
-CombatAutoPVP:AddSlider("ShieldButtonX", {
-	Text = "Horizontal",
-	Default = 0,
-	Min = -500,
-	Max = 500,
-	Rounding = 0,
-	Compact = true,
-})
-
-CombatAutoPVP:AddSlider("ShieldButtonY", {
-	Text = "Vertical",
-	Default = 0,
-	Min = -500,
-	Max = 500,
-	Rounding = 0,
-	Compact = true,
-})
-
-CombatAutoPVP:AddSlider("ShieldButtonSize", {
-	Text = "Size",
-	Default = 1,
-	Min = 0.5,
-	Max = 3,
-	Rounding = 2,
-	Compact = true,
-})
-
-CombatAutoPVP:AddCheckbox("JumpButtonMove", {
-	Text = "Move Jump",
-	Default = false,
-})
-
-CombatAutoPVP:AddSlider("JumpButtonX", {
-	Text = "Horizontal",
-	Default = 0,
-	Min = -500,
-	Max = 500,
-	Rounding = 0,
-	Compact = true,
-})
-
-CombatAutoPVP:AddSlider("JumpButtonY", {
-	Text = "Vertical",
-	Default = 0,
-	Min = -500,
-	Max = 500,
-	Rounding = 0,
-	Compact = true,
-})
-
-CombatAutoPVP:AddSlider("JumpButtonSize", {
-	Text = "Size",
-	Default = 1,
-	Min = 0.5,
-	Max = 3,
-	Rounding = 2,
-	Compact = true,
-})
 
 CombatAutoPVP:AddSlider("HotbarPresetSlot", {
 	Text = "Hotbar Preset Slot",
@@ -4952,7 +4888,7 @@ CombatAutoPVP:AddCheckbox("BreakStructures", {
 })
 
 CombatAutoPVP:AddDropdown("BreakStructuresToolSlot", {
-	Text = "Tool Slot",
+	Text = "Attack Slot",
 	Values = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" },
 	Default = "5",
 })
@@ -5143,44 +5079,6 @@ updatePVPModulesVisibility = function()
 		Options.AutoJumpDelay.Visible = isAutoJump
 		if Options.AutoJumpDelay.Holder then
 			Options.AutoJumpDelay.Holder.Visible = isAutoJump
-		end
-	end
-	local isShieldBtn = (Toggles.ShieldButtonMove and Toggles.ShieldButtonMove.Value) or false
-	local isJumpBtn = (Toggles.JumpButtonMove and Toggles.JumpButtonMove.Value) or false
-	if Options.ShieldButtonX then
-		Options.ShieldButtonX.Visible = isShieldBtn
-		if Options.ShieldButtonX.Holder then
-			Options.ShieldButtonX.Holder.Visible = isShieldBtn
-		end
-	end
-	if Options.ShieldButtonY then
-		Options.ShieldButtonY.Visible = isShieldBtn
-		if Options.ShieldButtonY.Holder then
-			Options.ShieldButtonY.Holder.Visible = isShieldBtn
-		end
-	end
-	if Options.ShieldButtonSize then
-		Options.ShieldButtonSize.Visible = isShieldBtn
-		if Options.ShieldButtonSize.Holder then
-			Options.ShieldButtonSize.Holder.Visible = isShieldBtn
-		end
-	end
-	if Options.JumpButtonX then
-		Options.JumpButtonX.Visible = isJumpBtn
-		if Options.JumpButtonX.Holder then
-			Options.JumpButtonX.Holder.Visible = isJumpBtn
-		end
-	end
-	if Options.JumpButtonY then
-		Options.JumpButtonY.Visible = isJumpBtn
-		if Options.JumpButtonY.Holder then
-			Options.JumpButtonY.Holder.Visible = isJumpBtn
-		end
-	end
-	if Options.JumpButtonSize then
-		Options.JumpButtonSize.Visible = isJumpBtn
-		if Options.JumpButtonSize.Holder then
-			Options.JumpButtonSize.Holder.Visible = isJumpBtn
 		end
 	end
 	CombatAutoPVP:Resize()
@@ -5646,146 +5544,6 @@ do
 		Library:Notify({ Title = "Shield HUD", Description = "Enabled", Time = 2 })
 	end)
 
-	-- ==========================================
-	-- MOVABLE TOUCH BUTTONS (Shield / Jump)
-	-- ==========================================
-	local function createButtonController(cfg)
-		local button, originalSize, originalPosition = nil, nil, nil
-		local dragging, dragStart, dragPos = false, nil, nil
-		local dragBeginConn, dragChangeConn = nil, nil
-		local active = false
-
-		local function applyPosition()
-			if not active or not button or not originalPosition then return end
-			local ox = math.floor((cfg.x and cfg.x.Value) or 0)
-			local oy = math.floor((cfg.y and cfg.y.Value) or 0)
-			button.Position = UDim2.new(originalPosition.X.Scale, originalPosition.X.Offset + ox, originalPosition.Y.Scale, originalPosition.Y.Offset + oy)
-		end
-
-		local function applySize()
-			if not active or not button or not originalSize then return end
-			local scale = (cfg.size and cfg.size.Value) or 1
-			button.Size = UDim2.new(originalSize.X.Scale * scale, originalSize.X.Offset * scale, originalSize.Y.Scale * scale, originalSize.Y.Offset * scale)
-		end
-
-		local function stop()
-			active = false
-			dragging = false
-			if dragBeginConn then
-				pcall(function() dragBeginConn:Disconnect() end)
-				dragBeginConn = nil
-			end
-			if dragChangeConn then
-				pcall(function() dragChangeConn:Disconnect() end)
-				dragChangeConn = nil
-			end
-			if button then
-				if originalSize then button.Size = originalSize end
-				if originalPosition then button.Position = originalPosition end
-			end
-			button, originalSize, originalPosition = nil, nil, nil
-		end
-
-		local function start()
-			stop()
-			active = true
-			task.spawn(function()
-				local ok, resolved = pcall(cfg.resolve)
-				if not ok or not active or not resolved then return end
-				button = resolved
-				originalSize = button.Size
-				originalPosition = button.Position
-
-				dragBeginConn = button.InputBegan:Connect(function(input)
-					if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-						dragging = true
-						dragStart = input.Position
-						dragPos = button.Position
-						input.Changed:Connect(function()
-							if input.UserInputState == Enum.UserInputState.End then
-								dragging = false
-							end
-						end)
-					end
-				end)
-				dragChangeConn = button.InputChanged:Connect(function(input)
-					if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-						local delta = input.Position - dragStart
-						local newX = dragPos.X.Offset + delta.X
-						local newY = dragPos.Y.Offset + delta.Y
-						button.Position = UDim2.new(dragPos.X.Scale, newX, dragPos.Y.Scale, newY)
-						if cfg.x then cfg.x:SetValue(newX - originalPosition.X.Offset) end
-						if cfg.y then cfg.y:SetValue(newY - originalPosition.Y.Offset) end
-					end
-				end)
-
-				applyPosition()
-				applySize()
-			end)
-		end
-
-		if cfg.x then cfg.x:OnChanged(applyPosition) end
-		if cfg.y then cfg.y:OnChanged(applyPosition) end
-		if cfg.size then cfg.size:OnChanged(applySize) end
-
-		cfg.toggle:OnChanged(function()
-			if cfg.toggle.Value then
-				start()
-			else
-				stop()
-			end
-		end)
-	end
-
-	local function resolveButtonPath(playerGui, names)
-		local node = playerGui
-		for _, name in ipairs(names) do
-			if not node then return nil end
-			node = node:FindFirstChild(name) or node:WaitForChild(name, 30)
-		end
-		return node
-	end
-
-	local function getShieldButton()
-		local playerGui = LocalPlayer:FindFirstChildOfClass("PlayerGui")
-		if not playerGui then return nil end
-		return resolveButtonPath(playerGui, { "ShieldButton", "TouchControlFrame", "ShieldButtonFrame", "ShieldButton" })
-	end
-
-	local function getJumpButton()
-		local playerGui = LocalPlayer:FindFirstChildOfClass("PlayerGui")
-		if not playerGui then return nil end
-		return resolveButtonPath(playerGui, { "TouchGui", "TouchControlFrame", "JumpButton" })
-	end
-
-	createButtonController({
-		toggle = Toggles.ShieldButtonMove,
-		x = Options.ShieldButtonX,
-		y = Options.ShieldButtonY,
-		size = Options.ShieldButtonSize,
-		resolve = getShieldButton,
-	})
-
-	createButtonController({
-		toggle = Toggles.JumpButtonMove,
-		x = Options.JumpButtonX,
-		y = Options.JumpButtonY,
-		size = Options.JumpButtonSize,
-		resolve = getJumpButton,
-	})
-
-	Toggles.ShieldButtonMove:OnChanged(function()
-		if updatePVPModulesVisibility then
-			updatePVPModulesVisibility()
-		end
-	end)
-
-	Toggles.JumpButtonMove:OnChanged(function()
-		if updatePVPModulesVisibility then
-			updatePVPModulesVisibility()
-		end
-	end)
-
 end
 
 -- ==========================================
@@ -5840,7 +5598,7 @@ local function startBreakStructures()
 					end
 				end
 			end
-			task.wait(0.5)
+			task.wait(0.2)
 		end
 	end)
 end
@@ -12404,12 +12162,6 @@ Library:OnUnload(function()
 	end
 	if Toggles.SmartSwing and Toggles.SmartSwing.Value then
 		Toggles.SmartSwing:SetValue(false)
-	end
-	if Toggles.ShieldButtonMove and Toggles.ShieldButtonMove.Value then
-		Toggles.ShieldButtonMove:SetValue(false)
-	end
-	if Toggles.JumpButtonMove and Toggles.JumpButtonMove.Value then
-		Toggles.JumpButtonMove:SetValue(false)
 	end
 	if Toggles.BreakStructures and Toggles.BreakStructures.Value then
 		Toggles.BreakStructures:SetValue(false)
