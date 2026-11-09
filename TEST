@@ -8658,8 +8658,8 @@ end)
 
 OreFarm:AddDivider()
 
-OreFarm:AddToggle("OreESPToggle", {
-	Text = "Ore ESP",
+OreFarm:AddCheckbox("OreESPToggle", {
+	Text = "Mineable ESP",
 	Default = false,
 })
 
@@ -8681,6 +8681,35 @@ OreFarm:AddSlider("OreESPDistance", {
 	Rounding = 10,
 	Compact = true,
 })
+
+local updateOreESPVisibility = function()
+	local espOn = (Toggles.OreESPToggle and Toggles.OreESPToggle.Value) or false
+
+	local function setVisible(option, visible)
+		if not option then return end
+		option.Visible = visible
+		if option.Holder then
+			option.Holder.Visible = visible
+		end
+	end
+
+	setVisible(Toggles.OreESPRemoveNames, espOn)
+	setVisible(Toggles.OreESPHighlights, espOn)
+
+	OreFarm:Resize()
+end
+
+if Toggles.OreESPToggle then
+	Toggles.OreESPToggle:OnChanged(function()
+		updateOreESPVisibility()
+	end)
+end
+
+updateOreESPVisibility()
+task.spawn(function()
+	task.wait(0.05)
+	updateOreESPVisibility()
+end)
 
 -- ==========================================
 local isAutoMineRunning = false
@@ -9923,7 +9952,7 @@ Toggles.OreESPToggle:OnChanged(function()
 		oreESPLoop()
 	end))
 
-	Library:Notify({ Title = "Ore ESP", Description = "Enabled", Time = 2 })
+	Library:Notify({ Title = "Mineable ESP", Description = "Enabled", Time = 2 })
 end)
 
 -- ==========================================
