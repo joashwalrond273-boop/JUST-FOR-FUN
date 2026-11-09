@@ -4893,11 +4893,6 @@ CombatAutoPVP:AddDropdown("BreakStructuresToolSlot", {
 	Default = "5",
 })
 
-CombatAutoPVP:AddCheckbox("HoldKatanaShield", {
-	Text = "Hold Katana Shield",
-	Default = false,
-})
-
 updatePVPModulesVisibility = function()
 	local isCam = (Toggles.Camlock and Toggles.Camlock.Value) or false
 	local isCamLerp = (Toggles.CamlockCameraLerp and Toggles.CamlockCameraLerp.Value) or false
@@ -5617,76 +5612,6 @@ Toggles.BreakStructures:OnChanged(function()
 		Library:Notify({ Title = "Structure Break Aura", Description = "Disabled", Time = 2 })
 	end
 end)
-
--- ==========================================
--- HOLD KATANA SHIELD (Animation)
--- ==========================================
-local katanaShieldTrack = nil
-
-local function resolveKatanaShieldAnimation()
-	local candidates = {}
-	local starterPlayer = game:GetService("StarterPlayer")
-	if starterPlayer then
-		table.insert(candidates, starterPlayer:FindFirstChild("StarterPlayerScripts"))
-	end
-	table.insert(candidates, LocalPlayer:FindFirstChild("PlayerScripts"))
-
-	for _, container in ipairs(candidates) do
-		local shieldScript = container and container:FindFirstChild("shield")
-		local node = shieldScript and shieldScript:FindFirstChild("HoldKatanaShield")
-		if node then
-			if node:IsA("Animation") then
-				return node
-			end
-			local nested = node:FindFirstChildWhichIsA("Animation", true)
-			if nested then
-				return nested
-			end
-		end
-	end
-	return nil
-end
-
-local function stopKatanaShield()
-	if katanaShieldTrack then
-		pcall(function() katanaShieldTrack:Stop() end)
-		katanaShieldTrack = nil
-	end
-end
-
-local function playKatanaShield()
-	stopKatanaShield()
-	if not (Toggles.HoldKatanaShield and Toggles.HoldKatanaShield.Value) then return end
-	local anim = resolveKatanaShieldAnimation()
-	if not anim then
-		Library:Notify({ Title = "Katana Shield", Description = "Animation not found", Time = 2 })
-		return
-	end
-	local char = getCharacter()
-	local hum = char and char:FindFirstChildOfClass("Humanoid")
-	local animator = hum and hum:FindFirstChild("Animator")
-	if not animator then return end
-	katanaShieldTrack = animator:LoadAnimation(anim)
-	katanaShieldTrack.Priority = Enum.AnimationPriority.Action
-	pcall(function() katanaShieldTrack:Play() end)
-end
-
-Toggles.HoldKatanaShield:OnChanged(function()
-	if Toggles.HoldKatanaShield.Value then
-		playKatanaShield()
-		Library:Notify({ Title = "Katana Shield", Description = "Enabled", Time = 2 })
-	else
-		stopKatanaShield()
-		Library:Notify({ Title = "Katana Shield", Description = "Disabled", Time = 2 })
-	end
-end)
-
-track("KatanaShield_CharAdded", LocalPlayer.CharacterAdded:Connect(function()
-	if Toggles.HoldKatanaShield and Toggles.HoldKatanaShield.Value then
-		task.wait(0.5)
-		playKatanaShield()
-	end
-end))
 
 local function updateAdvanceState()
 	if not (Toggles.Advance and Toggles.Advance.Value) then return end
@@ -12240,9 +12165,6 @@ Library:OnUnload(function()
 	end
 	if Toggles.BreakStructures and Toggles.BreakStructures.Value then
 		Toggles.BreakStructures:SetValue(false)
-	end
-	if Toggles.HoldKatanaShield and Toggles.HoldKatanaShield.Value then
-		Toggles.HoldKatanaShield:SetValue(false)
 	end
 	if Toggles.ShieldOnDamage and Toggles.ShieldOnDamage.Value then
 		Toggles.ShieldOnDamage:SetValue(false)
