@@ -4951,13 +4951,10 @@ CombatAutoPVP:AddCheckbox("BreakStructures", {
 	Default = false,
 })
 
-CombatAutoPVP:AddSlider("BreakStructuresRange", {
-	Text = "Range (Studs)",
-	Default = 20,
-	Min = 1,
-	Max = 200,
-	Rounding = 0,
-	Compact = true,
+CombatAutoPVP:AddDropdown("BreakStructuresToolSlot", {
+	Text = "Tool Slot",
+	Values = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" },
+	Default = "5",
 })
 
 updatePVPModulesVisibility = function()
@@ -5827,7 +5824,8 @@ local function startBreakStructures()
 			local root = getRootPart()
 			if root and isAlive() then
 				local origin = root.Position
-				local range = (Options.BreakStructuresRange and Options.BreakStructuresRange.Value) or 20
+				local range = 50
+				local toolSlot = tonumber(Options.BreakStructuresToolSlot and Options.BreakStructuresToolSlot.Value) or 5
 				local folder = workspace:FindFirstChild("placedStructures")
 				if folder then
 					for _, area in ipairs(folder:GetChildren()) do
@@ -5835,14 +5833,14 @@ local function startBreakStructures()
 							local pos = getStructurePosition(structure)
 							if pos and (pos - origin).Magnitude <= range then
 								pcall(function()
-									remote:FireServer(5, structure, CFrame.new(pos))
+									remote:FireServer(toolSlot, structure, CFrame.new(pos))
 								end)
 							end
 						end
 					end
 				end
 			end
-			task.wait(0.2)
+			task.wait(0.5)
 		end
 	end)
 end
