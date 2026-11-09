@@ -288,6 +288,7 @@ TSG.MeleeAI = interactionsFolder and interactionsFolder:FindFirstChild("meleeAI"
 TSG.BuildRemote = (keyedRemotes and rawget(keyedRemotes, "build")) or (interactionsFolder and interactionsFolder:FindFirstChild("build"))
 TSG.CraftRemote = (keyedRemotes and rawget(keyedRemotes, "craft")) or (interactionsFolder and interactionsFolder:FindFirstChild("craft"))
 TSG.DeleteStructureRemote = (keyedRemotes and rawget(keyedRemotes, "deleteStructure")) or (interactionsFolder and interactionsFolder:FindFirstChild("deleteStructure"))
+TSG.HitStructureRemote = (keyedRemotes and rawget(keyedRemotes, "hitStructure")) or (interactionsFolder and interactionsFolder:FindFirstChild("hitStructure")) or resolvePath(ReplicatedStorage, "remoteInterface", "interactions", "hitStructure")
 
 -- No Bear Trap DMG remote (intercepted via the __namecall hook below)
 local TrapRunEvent = resolvePath(ReplicatedStorage, "remoteInterface", "traps", "Run") or (ReplicatedStorage:FindFirstChild("remoteInterface") and ReplicatedStorage.remoteInterface:FindFirstChild("traps") and ReplicatedStorage.remoteInterface.traps:FindFirstChild("Run"))
@@ -4945,6 +4946,11 @@ CombatAutoPVP:AddButton({
 	end,
 })
 
+CombatAutoPVP:AddCheckbox("BreakStructures", {
+	Text = "Break Structures",
+	Default = false,
+})
+
 updatePVPModulesVisibility = function()
 	local isCam = (Toggles.Camlock and Toggles.Camlock.Value) or false
 	local isCamLerp = (Toggles.CamlockCameraLerp and Toggles.CamlockCameraLerp.Value) or false
@@ -5775,6 +5781,72 @@ do
 	end)
 
 end
+
+-- ==========================================
+-- BREAK STRUCTURES
+-- ==========================================
+local BREAK_STRUCTURES_RANGE = 20
+local breakStructuresThread = nil
+
+local function stopBreakStructures()
+	if breakStructuresThread then
+		pcall(task.cancel, breakStructuresThread)
+		breakStructuresThread = nil
+	end
+end
+
+local function getStructurePosition(structure)
+	if structure:IsA("BasePart") then
+		return structure.Position
+	end
+	local primary = structure.PrimaryPart or structure:FindFirstChildWhichIsA("BasePart")
+	if primary then
+		return primary.Position
+	end
+	return nil
+end
+
+local function startBreakStructures()
+	stopBreakStructures()
+	if not (Toggles.BreakStructures and Toggles.BreakStructures.Value) then return end
+	local remote = TSG.HitStructureRemote
+	if not remote then
+		Library:Notify({ Title = "Break Structures", Description = "hitStructure remote not found", Time = 2 })
+		return
+	end
+	breakStructuresThread = task.spawn(function()
+		while Toggles.BreakStructures and Toggles.BreakStructures.Value do
+			local root = getRootPart()
+			if root and isAlive() then
+				local origin = root.Position
+				local folder = workspace:FindFirstChild("placedStructures")
+				if folder then
+					for _, area in ipairs(folder:GetChildren()) do
+						for _, structure in ipairs(area:GetChildren()) do
+							local pos = getStructurePosition(structure)
+							if pos and (pos - origin).Magnitude <= BREAK_STRUCTURES_RANGE then
+								pcall(function()
+									remote:FireServer(5, structure, CFrame.new(pos))
+								end)
+							end
+						end
+					end
+				end
+			end
+			task.wait(1)
+		end
+	end)
+end
+
+Toggles.BreakStructures:OnChanged(function()
+	if Toggles.BreakStructures.Value then
+		startBreakStructures()
+		Library:Notify({ Title = "Break Structures", Description = "Enabled", Time = 2 })
+	else
+		stopBreakStructures()
+		Library:Notify({ Title = "Break Structures", Description = "Disabled", Time = 2 })
+	end
+end)
 
 local function updateAdvanceState()
 	if not (Toggles.Advance and Toggles.Advance.Value) then return end
@@ -12331,6 +12403,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.JumpButtonMove and Toggles.JumpButtonMove.Value then
 		Toggles.JumpButtonMove:SetValue(false)
+	end
+	if Toggles.BreakStructures and Toggles.BreakStructures.Value then
+		Toggles.BreakStructures:SetValue(false)
 	end
 	if Toggles.ShieldOnDamage and Toggles.ShieldOnDamage.Value then
 		Toggles.ShieldOnDamage:SetValue(false)
