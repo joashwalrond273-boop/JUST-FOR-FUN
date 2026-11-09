@@ -11925,6 +11925,157 @@ Options.SpectatePlayerList:OnChanged(function()
 	end
 end)
 
+-- ==========================================
+-- Spectate HUD (Prev / Next target buttons)
+-- ==========================================
+local spectateHudGui = nil
+local spectateHudLabel = nil
+
+local function getSpectatePlayers()
+	local list = {}
+	for _, player in ipairs(Players:GetPlayers()) do
+		if player ~= LocalPlayer then
+			table.insert(list, player.Name)
+		end
+	end
+	return list
+end
+
+local function cycleSpectate(step)
+	local list = getSpectatePlayers()
+	if #list == 0 then return end
+	local current = Options.SpectatePlayerList.Value
+	local index = table.find(list, current) or 0
+	index = index + step
+	if index < 1 then index = #list end
+	if index > #list then index = 1 end
+	Options.SpectatePlayerList:SetValue(list[index])
+end
+
+local function updateSpectateHud()
+	if not spectateHudLabel then return end
+	local current = Options.SpectatePlayerList.Value
+	spectateHudLabel.Text = (current and current ~= "") and current or "None"
+end
+
+local function buildSpectateHud()
+	local playerGui = LocalPlayer:FindFirstChildOfClass("PlayerGui")
+	if not playerGui then return end
+
+	local gui = Instance.new("ScreenGui")
+	gui.Name = "XenoSpectateHud"
+	gui.ResetOnSpawn = false
+	gui.IgnoreGuiInset = true
+	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+	gui.Parent = playerGui
+
+	local frame = Instance.new("Frame")
+	frame.Name = "Panel"
+	frame.Position = UDim2.new(0.5, -85, 0, 12)
+	frame.Size = UDim2.new(0, 170, 0, 32)
+	frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+	frame.BackgroundTransparency = 0.25
+	frame.BorderSizePixel = 0
+	frame.Active = true
+	frame.Parent = gui
+
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 5)
+	corner.Parent = frame
+
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = Color3.fromRGB(0, 244, 255)
+	stroke.Transparency = 0.4
+	stroke.Thickness = 1
+	stroke.Parent = frame
+
+	local function makeButton(name, text, position, onClick)
+		local button = Instance.new("TextButton")
+		button.Name = name
+		button.Position = position
+		button.Size = UDim2.new(0, 50, 0, 24)
+		button.BackgroundColor3 = Color3.fromRGB(36, 36, 36)
+		button.BorderSizePixel = 0
+		button.Font = Enum.Font.Code
+		button.TextSize = 12
+		button.TextColor3 = Color3.fromRGB(0, 244, 255)
+		button.Text = text
+		button.Parent = frame
+
+		local buttonCorner = Instance.new("UICorner")
+		buttonCorner.CornerRadius = UDim.new(0, 4)
+		buttonCorner.Parent = button
+
+		button.MouseButton1Click:Connect(onClick)
+		return button
+	end
+
+	makeButton("Prev", "Prev", UDim2.new(0, 6, 0, 4), function()
+		cycleSpectate(-1)
+	end)
+
+	spectateHudLabel = Instance.new("TextLabel")
+	spectateHudLabel.Name = "Target"
+	spectateHudLabel.Position = UDim2.new(0, 60, 0, 4)
+	spectateHudLabel.Size = UDim2.new(0, 50, 0, 24)
+	spectateHudLabel.BackgroundTransparency = 1
+	spectateHudLabel.Font = Enum.Font.Code
+	spectateHudLabel.TextSize = 11
+	spectateHudLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+	spectateHudLabel.TextTruncate = Enum.TextTruncate.AtEnd
+	spectateHudLabel.Text = "None"
+	spectateHudLabel.Parent = frame
+
+	makeButton("Next", "Next", UDim2.new(0, 114, 0, 4), function()
+		cycleSpectate(1)
+	end)
+
+	local dragging, dragStart, dragPos = false, nil, nil
+	frame.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			dragging = true
+			dragStart = input.Position
+			dragPos = frame.Position
+			input.Changed:Connect(function()
+				if input.UserInputState == Enum.UserInputState.End then
+					dragging = false
+				end
+			end)
+		end
+	end)
+	frame.InputChanged:Connect(function(input)
+		if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+			local delta = input.Position - dragStart
+			frame.Position = UDim2.new(dragPos.X.Scale, dragPos.X.Offset + delta.X, dragPos.Y.Scale, dragPos.Y.Offset + delta.Y)
+		end
+	end)
+
+	spectateHudGui = gui
+	gui.Enabled = (Toggles.SpectateToggle and Toggles.SpectateToggle.Value) or false
+	updateSpectateHud()
+end
+
+Toggles.SpectateToggle:OnChanged(function()
+	if not spectateHudGui then
+		buildSpectateHud()
+	end
+	if spectateHudGui then
+		spectateHudGui.Enabled = Toggles.SpectateToggle.Value
+	end
+	updateSpectateHud()
+end)
+
+Options.SpectatePlayerList:OnChanged(function()
+	updateSpectateHud()
+end)
+
+task.spawn(function()
+	task.wait(0.1)
+	if Toggles.SpectateToggle.Value then
+		buildSpectateHud()
+	end
+end)
+
 -- Invisible Fly Script Logic
 local invisibleFlyVars = {
 	invisiblefly = false,
@@ -12282,6 +12433,11 @@ Library:OnUnload(function()
 
 	if Toggles.SpectateToggle and Toggles.SpectateToggle.Value then
 		Toggles.SpectateToggle:SetValue(false)
+	end
+	if spectateHudGui then
+		spectateHudGui:Destroy()
+		spectateHudGui = nil
+		spectateHudLabel = nil
 	end
 	if Toggles.TouchFling and Toggles.TouchFling.Value then
 		Toggles.TouchFling:SetValue(false)
