@@ -4420,7 +4420,7 @@ CombatCamlockConfig:AddSlider("CamlockPrediction", {
 	Text = "Aim Prediction",
 	Default = 0,
 	Min = 0,
-	Max = 2,
+	Max = 5,
 	Rounding = 2,
 	Compact = true,
 })
@@ -11287,60 +11287,82 @@ Options.ControlTheHours:OnChanged(function()
 	applyClockTime(Options.ControlTheHours.Value)
 end)
 
+local clearWeatherActive = false
+local clearWeatherToken = 0
+
+local function isWeatherObject(name)
+	name = name:lower()
+	return name:find("rain") or name:find("snow") or name:find("storm") or name:find("fog") or name:find("cloud") or name:find("weather") or name:find("drop")
+end
+
+local function clearWeatherTick()
+	local lighting = game:GetService("Lighting")
+
+	local atmo = lighting:FindFirstChildOfClass("Atmosphere")
+	if atmo then
+		pcall(function()
+			atmo.Density = 0
+			atmo.Haze = 0
+			atmo.Glare = 0
+		end)
+	end
+
+	local terrain = workspace:FindFirstChildOfClass("Terrain")
+	if terrain then
+		local clouds = terrain:FindFirstChildOfClass("Clouds")
+		if clouds then
+			pcall(function() clouds.Enabled = false end)
+		end
+	end
+
+	pcall(function()
+		lighting.FogEnd = 100000
+		lighting.FogStart = 0
+	end)
+
+	local function sweep(parent)
+		if not parent then return end
+		for _, obj in ipairs(parent:GetDescendants()) do
+			if obj:IsA("ParticleEmitter") and isWeatherObject(obj.Name) then
+				pcall(function() obj.Enabled = false end)
+			end
+		end
+	end
+
+	sweep(workspace)
+	if workspace.CurrentCamera then
+		sweep(workspace.CurrentCamera)
+	end
+end
+
 local function applyClearWeather(state)
 	local lighting = game:GetService("Lighting")
 
+	clearWeatherActive = state
+	-- Invalidate any running enforcement loop so only one can ever be active
+	clearWeatherToken = clearWeatherToken + 1
+	disconnect("ClearWeather_DescendantAdded")
+
 	if state then
-		local atmo = lighting:FindFirstChildOfClass("Atmosphere")
-		if atmo then
-			pcall(function()
-				atmo.Density = 0
-				atmo.Haze = 0
-				atmo.Glare = 0
-			end)
-		end
+		clearWeatherTick()
 
-		local terrain = workspace:FindFirstChildOfClass("Terrain")
-		if terrain then
-			local clouds = terrain:FindFirstChildOfClass("Clouds")
-			if clouds then
-				pcall(function() clouds.Enabled = false end)
-			end
-		end
-
-		pcall(function()
-			lighting.FogEnd = 100000
-			lighting.FogStart = 0
-		end)
-
-		local function disableWeatherParticles(parent)
-			if not parent then return end
-			for _, obj in ipairs(parent:GetDescendants()) do
-				if obj:IsA("ParticleEmitter") then
-					local name = obj.Name:lower()
-					if name:find("rain") or name:find("snow") or name:find("storm") or name:find("fog") or name:find("cloud") or name:find("weather") or name:find("drop") then
-						pcall(function() obj.Enabled = false end)
-					end
-				end
-			end
-		end
-
-		disableWeatherParticles(workspace)
-		if workspace.CurrentCamera then
-			disableWeatherParticles(workspace.CurrentCamera)
-		end
-
-		disconnect("ClearWeather_DescendantAdded")
 		track("ClearWeather_DescendantAdded", workspace.DescendantAdded:Connect(function(desc)
-			if Toggles.ClearWeather and Toggles.ClearWeather.Value and desc:IsA("ParticleEmitter") then
-				local name = desc.Name:lower()
-				if name:find("rain") or name:find("snow") or name:find("storm") or name:find("fog") or name:find("cloud") or name:find("weather") or name:find("drop") then
-					pcall(function() desc.Enabled = false end)
-				end
+			if not clearWeatherActive then return end
+			if desc:IsA("ParticleEmitter") and isWeatherObject(desc.Name) then
+				pcall(function() desc.Enabled = false end)
 			end
 		end))
+
+		-- Keep clear weather applied: games often re-enable clouds/emitters or
+		-- reset the Atmosphere after we change it, so re-apply continuously.
+		local myToken = clearWeatherToken
+		task.spawn(function()
+			while clearWeatherActive and clearWeatherToken == myToken do
+				clearWeatherTick()
+				task.wait(0.5)
+			end
+		end)
 	else
-		disconnect("ClearWeather_DescendantAdded")
 		local atmo = lighting:FindFirstChildOfClass("Atmosphere")
 		if atmo then
 			pcall(function()
