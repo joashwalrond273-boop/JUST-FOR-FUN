@@ -9935,101 +9935,80 @@ track("TeleportResetRespawn", LocalPlayer.CharacterAdded:Connect(function()
 	pendingTeleportLabel = nil
 	pendingTeleportGlue = nil
 
+	disconnect("TeleportGlue")
+
+	-- Non-glue teleports keep the original short pause.
+	if not glue then
+		task.wait(1)
+	end
+
+	-- Grab the fresh character the moment its root exists (~1 frame).
+	local root = getRootPart()
+	local waitStart = tick()
+	while not root and tick() - waitStart < 3 do
+		task.wait()
+		root = getRootPart()
+	end
+	if not root then
+		Library:Notify({ Title = "Reset & Teleport", Description = "Character not found.", Time = 2 })
+		return
+	end
+
+	local cf = resolve()
+	if not cf then return end
+
+	-- Warp to the destination immediately on spawn instead of waiting behind.
+	root.CFrame = cf
+	root.AssemblyLinearVelocity = Vector3.zero
+	root.AssemblyAngularVelocity = Vector3.zero
+
 	if glue then
-		disconnect("TeleportGlue")
-		local holdCFrame = nil
-		local glueStart = nil
-		-- Stepped runs before the physics step, so the character is already held in
-		-- place (with no velocity) before the solver runs each frame.
+		-- Then glue us at the destination for 5 seconds. Pinning inside Stepped
+		-- (which runs before the physics step) means the solver never gets to
+		-- build up the ejection impulse that shows up as a fling.
+		local hum = getHumanoid()
+		if hum then
+			pcall(function()
+				hum.PlatformStand = true
+			end)
+		end
+
+		local glueStart = tick()
+		local releasedPos = false
+		local releaseTime = 0
 		track("TeleportGlue", RunService.Stepped:Connect(function()
-			local root = getRootPart()
-			if not root then return end
-			if not holdCFrame then
-				holdCFrame = root.CFrame
-				glueStart = tick()
-			end
-			if tick() - glueStart >= 5 then
-				disconnect("TeleportGlue")
+			local glueRoot = getRootPart()
+			if not glueRoot then return end
+
+			-- Always cancel motion first
+			glueRoot.AssemblyLinearVelocity = Vector3.zero
+			glueRoot.AssemblyAngularVelocity = Vector3.zero
+
+			if not releasedPos then
+				-- Phase 1: hold the destination for the full 5 seconds.
+				glueRoot.CFrame = cf
+				if tick() - glueStart >= 5 then
+					releasedPos = true
+					releaseTime = tick()
+				end
 				return
 			end
-			root.CFrame = holdCFrame
-			root.AssemblyLinearVelocity = Vector3.zero
-			root.AssemblyAngularVelocity = Vector3.zero
+
+			-- Phase 2: stop forcing the position but keep killing velocity for
+			-- another 0.5s so any overlap resolves gently instead of flinging us.
+			if tick() - releaseTime >= 0.5 then
+				disconnect("TeleportGlue")
+				local glueHum = getHumanoid()
+				if glueHum then
+					pcall(function()
+						glueHum.PlatformStand = false
+					end)
+				end
+			end
 		end))
 	end
 
-	task.wait(glue and 5 or 1)
-	disconnect("TeleportGlue")
-	local root = getRootPart()
-	if root then
-		local cf = resolve()
-		if cf then
-			root.CFrame = cf
-			root.AssemblyLinearVelocity = Vector3.zero
-			root.AssemblyAngularVelocity = Vector3.zero
-
-			if glue then
-				-- Anti-fling settle. Re-pinning inside Stepped matters: Stepped runs
-				-- BEFORE the physics step, so the character is already at the landing
-				-- CFrame with zero velocity when the solver runs -- the solver never
-				-- gets to build up the ejection impulse that launches us (that impulse
-				-- is what a "fling" actually is).
-				local hum = getHumanoid()
-				if hum then
-					pcall(function()
-						-- Stop the humanoid's own state machine from fighting the pin
-						hum.PlatformStand = true
-					end)
-				end
-
-				local settleStart = tick()
-				local grounded = 0
-				local releasedPos = false
-				local releaseTime = 0
-				track("TeleportLandSettle", RunService.Stepped:Connect(function()
-					local settleRoot = getRootPart()
-					if not settleRoot then return end
-					local elapsed = tick() - settleStart
-
-					-- Always cancel motion first
-					settleRoot.AssemblyLinearVelocity = Vector3.zero
-					settleRoot.AssemblyAngularVelocity = Vector3.zero
-
-					local settleHum = getHumanoid()
-					if settleHum and settleHum.FloorMaterial ~= Enum.Material.Air then
-						grounded = grounded + 1
-					else
-						grounded = 0
-					end
-
-					-- Phase 1: hard-pin the landing CFrame until we are standing on
-					-- something (max 1s) so no ejection impulse can accumulate.
-					if not releasedPos then
-						settleRoot.CFrame = cf
-						if grounded >= 5 or elapsed >= 1 then
-							releasedPos = true
-							releaseTime = tick()
-						end
-						return
-					end
-
-					-- Phase 2: stop forcing the position but keep killing velocity for
-					-- another 0.5s. If we are overlapping anything, the solver slides us
-					-- out gently instead of rocketing us away.
-					if tick() - releaseTime >= 0.5 then
-						disconnect("TeleportLandSettle")
-						if settleHum then
-							pcall(function()
-								settleHum.PlatformStand = false
-							end)
-						end
-					end
-				end))
-			end
-
-			Library:Notify({ Title = "Reset & Teleport", Description = "Teleported to " .. label, Time = 2 })
-		end
-	end
+	Library:Notify({ Title = "Reset & Teleport", Description = "Teleported to " .. label, Time = 2 })
 end))
 
 resetAndTeleport = function(targetPos, label, glue)
