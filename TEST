@@ -144,12 +144,6 @@ local function isHoldingSelectedSlot(selectedSlot)
 	return false
 end
 
-local function getSpearSwordSlots()
-	local spear = tonumber(tostring((Options.SpearSlot and Options.SpearSlot.Value) or "3")) or 3
-	local sword = tonumber(tostring((Options.SwordSlot and Options.SwordSlot.Value) or "5")) or 5
-	return spear, sword
-end
-
 local function isAdvanceSlotAllowed(slotOption)
 	if not slotOption then return false end
 	local val = slotOption.Value
@@ -4301,20 +4295,8 @@ CombatCamlock:AddToggle("Camlock", {
 })
 
 CombatCamlock:AddCheckbox("SpearSword", {
-	Text = "Spear/Sword",
+	Text = "Spear/Sword(Slot 3/5)",
 	Default = false,
-})
-
-CombatCamlock:AddDropdown("SpearSlot", {
-	Text = "Spear",
-	Values = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"},
-	Default = "3",
-})
-
-CombatCamlock:AddDropdown("SwordSlot", {
-	Text = "Sword",
-	Values = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"},
-	Default = "5",
 })
 
 CombatCamlock:AddSlider("Slot3AngleOffset", {
@@ -5024,18 +5006,6 @@ updatePVPModulesVisibility = function()
 		end
 	end
 	local isSpear = isCam and ((Toggles.SpearSword and Toggles.SpearSword.Value) or false)
-	if Options.SpearSlot then
-		Options.SpearSlot.Visible = isSpear
-		if Options.SpearSlot.Holder then
-			Options.SpearSlot.Holder.Visible = isSpear
-		end
-	end
-	if Options.SwordSlot then
-		Options.SwordSlot.Visible = isSpear
-		if Options.SwordSlot.Holder then
-			Options.SwordSlot.Holder.Visible = isSpear
-		end
-	end
 	if Options.Slot3AngleOffset then
 		Options.Slot3AngleOffset.Visible = isSpear
 		if Options.Slot3AngleOffset.Holder then
@@ -6218,8 +6188,7 @@ Toggles.Camlock:OnChanged(function()
 						hum.AutoRotate = false
 
 						local angleOffset = 0
-						local spearSlot = getSpearSwordSlots()
-						if isHoldingSelectedSlot(spearSlot) then
+						if isHoldingSelectedSlot(3) or isHoldingSelectedSlot("3") then
 							local deg = (Options.Slot3AngleOffset and Options.Slot3AngleOffset.Value) or 8
 							angleOffset = -math.rad(deg)
 						end
@@ -6477,16 +6446,16 @@ do
 	end
 end
 
-local function applySpearSwordSlot(kind)
+local function applySpearSwordSlot(slot)
 	if not (Toggles.SpearSword and Toggles.SpearSword.Value) then return end
-	if kind == "spear" then
+	if slot == 3 or slot == "3" then
 		if Options.CamlockStuds then
 			Options.CamlockStuds:SetValue(17)
 		end
 		if Options.OutlineStuds then
 			Options.OutlineStuds:SetValue(8)
 		end
-	elseif kind == "sword" then
+	elseif slot == 5 or slot == "5" then
 		if Options.CamlockStuds then
 			Options.CamlockStuds:SetValue(17)
 		end
@@ -6498,38 +6467,14 @@ end
 
 local function checkCurrentSpearSwordHeld()
 	if not (Toggles.SpearSword and Toggles.SpearSword.Value) then return end
-	local spearSlot, swordSlot = getSpearSwordSlots()
-	if isHoldingSelectedSlot(spearSlot) then
-		applySpearSwordSlot("spear")
-	elseif isHoldingSelectedSlot(swordSlot) then
-		applySpearSwordSlot("sword")
+	if isHoldingSelectedSlot(3) then
+		applySpearSwordSlot(3)
+	elseif isHoldingSelectedSlot(5) then
+		applySpearSwordSlot(5)
 	end
 end
 
 if Toggles.SpearSword then
-	local spearSwordKeySlots = {
-		[Enum.KeyCode.One] = 1,
-		[Enum.KeyCode.Two] = 2,
-		[Enum.KeyCode.Three] = 3,
-		[Enum.KeyCode.Four] = 4,
-		[Enum.KeyCode.Five] = 5,
-		[Enum.KeyCode.Six] = 6,
-		[Enum.KeyCode.Seven] = 7,
-		[Enum.KeyCode.Eight] = 8,
-		[Enum.KeyCode.Nine] = 9,
-		[Enum.KeyCode.Zero] = 10,
-		[Enum.KeyCode.KeypadOne] = 1,
-		[Enum.KeyCode.KeypadTwo] = 2,
-		[Enum.KeyCode.KeypadThree] = 3,
-		[Enum.KeyCode.KeypadFour] = 4,
-		[Enum.KeyCode.KeypadFive] = 5,
-		[Enum.KeyCode.KeypadSix] = 6,
-		[Enum.KeyCode.KeypadSeven] = 7,
-		[Enum.KeyCode.KeypadEight] = 8,
-		[Enum.KeyCode.KeypadNine] = 9,
-		[Enum.KeyCode.KeypadZero] = 10,
-	}
-
 	Toggles.SpearSword:OnChanged(function()
 		disconnect("SpearSword_Input")
 		disconnect("SpearSword_ChildAdded")
@@ -6543,16 +6488,12 @@ if Toggles.SpearSword then
 			track("SpearSword_Input", UserInputService.InputBegan:Connect(function(input, gameProcessed)
 				if not (Toggles.SpearSword and Toggles.SpearSword.Value) then return end
 				if not gameProcessed and not UserInputService:GetFocusedTextBox() then
-					local pressedSlot = spearSwordKeySlots[input.KeyCode]
-					if pressedSlot then
-						local spearSlot, swordSlot = getSpearSwordSlots()
-						if pressedSlot == spearSlot then
-							applySpearSwordSlot("spear")
-							return
-						elseif pressedSlot == swordSlot then
-							applySpearSwordSlot("sword")
-							return
-						end
+					if input.KeyCode == Enum.KeyCode.Three or input.KeyCode == Enum.KeyCode.KeypadThree then
+						applySpearSwordSlot(3)
+						return
+					elseif input.KeyCode == Enum.KeyCode.Five or input.KeyCode == Enum.KeyCode.KeypadFive then
+						applySpearSwordSlot(5)
+						return
 					end
 				end
 				task.delay(0.05, function()
@@ -6576,18 +6517,6 @@ if Toggles.SpearSword then
 			end
 			track("SpearSword_CharAdded", LocalPlayer.CharacterAdded:Connect(hookChar))
 		end
-	end)
-end
-
-if Options.SpearSlot then
-	Options.SpearSlot:OnChanged(function()
-		checkCurrentSpearSwordHeld()
-	end)
-end
-
-if Options.SwordSlot then
-	Options.SwordSlot:OnChanged(function()
-		checkCurrentSpearSwordHeld()
 	end)
 end
 
