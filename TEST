@@ -9963,7 +9963,7 @@ track("TeleportResetRespawn", LocalPlayer.CharacterAdded:Connect(function()
 	root.AssemblyAngularVelocity = Vector3.zero
 
 	if glue then
-		-- Then glue us at the destination for 5 seconds. Pinning inside Stepped
+		-- Then glue us at the destination for 2 seconds. Pinning inside Stepped
 		-- (which runs before the physics step) means the solver never gets to
 		-- build up the ejection impulse that shows up as a fling.
 		local hum = getHumanoid()
@@ -9985,9 +9985,9 @@ track("TeleportResetRespawn", LocalPlayer.CharacterAdded:Connect(function()
 			glueRoot.AssemblyAngularVelocity = Vector3.zero
 
 			if not releasedPos then
-				-- Phase 1: hold the destination for the full 5 seconds.
+				-- Phase 1: hold the destination for the full 2 seconds.
 				glueRoot.CFrame = cf
-				if tick() - glueStart >= 5 then
+				if tick() - glueStart >= 2 then
 					releasedPos = true
 					releaseTime = tick()
 				end
