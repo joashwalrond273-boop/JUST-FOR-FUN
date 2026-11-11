@@ -7135,6 +7135,11 @@ setupReachTracking()
 local MoveLeft = Tabs.Movement:AddLeftGroupbox("Speed", "gauge")
 local MoveRight = Tabs.Movement:AddRightGroupbox("Advance Fly Script", "plane")
 
+MoveRight:AddCheckbox("InvisibleFlyToggle", {
+	Text = "Invis Fly",
+	Default = false,
+})
+
 MoveRight:AddCheckbox("Fly", {
 	Text = "FLY",
 	Default = false,
@@ -7145,11 +7150,6 @@ MoveRight:AddCheckbox("Fly", {
 			end)
 		end
 	end,
-})
-
-MoveRight:AddCheckbox("InvisibleFlyToggle", {
-	Text = "Invis Fly",
-	Default = false,
 })
 
 MoveRight:AddSlider("InvisibleFlySpeedSlider", {
