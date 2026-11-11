@@ -7354,6 +7354,24 @@ MoveSwimBoost:AddSlider("SwimBoostValue", {
 	Compact = true,
 })
 
+MoveSwimBoost:AddDropdown("SwimBoostPreset", {
+	Text = "Speed Preset",
+	Values = { "Slow (16)", "Normal (30)", "Fast (40)", "Max (50)" },
+	Default = "Normal (30)",
+	Callback = function(value)
+		local presets = {
+			["Slow (16)"] = 16,
+			["Normal (30)"] = 30,
+			["Fast (40)"] = 40,
+			["Max (50)"] = 50,
+		}
+		local presetValue = presets[value]
+		if presetValue and Options.SwimBoostValue then
+			Options.SwimBoostValue:SetValue(presetValue)
+		end
+	end,
+})
+
 MoveSwimBoost:AddDivider()
 
 MoveSwimBoost:AddDropdown("FastPVPDirection", {
