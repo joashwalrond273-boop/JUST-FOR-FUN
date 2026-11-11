@@ -3625,6 +3625,11 @@ do
 	Players.PlayerRemoving:Connect(function(plr)
 		if isAdmin(plr) then
 			removeCham(plr.Character)
+			Library:Notify({
+				Title = "ADMIN LEFT",
+				Description = getAdminName(plr) .. " LEFT THE SERVER",
+				Time = 5,
+			})
 		end
 	end)
 
@@ -11992,6 +11997,21 @@ local function onInvisibleFlyToggle(state)
 			hl.Enabled = true
 			hl.Parent = workspace
 			invisibleFlyVars.highlight = hl
+
+			-- Freeze the clone's humanoid. It is only a puppet that we position by
+			-- hand, but with the humanoid still running it kept re-balancing the
+			-- RootJoint against the anchored root (constantly re-solving HipHeight),
+			-- which is what made the character bob up and down. PlatformStand stops
+			-- the humanoid from driving the rig at all, so the torso/limbs stay rigid
+			-- on the anchored root. (Do NOT anchor the other parts: moving the root
+			-- would then leave the body behind.)
+			local cloneHum = invisibleFlyVars.playerClone:FindFirstChildOfClass("Humanoid")
+			if cloneHum then
+				pcall(function()
+					cloneHum.PlatformStand = true
+					cloneHum:ChangeState(Enum.HumanoidStateType.Physics)
+				end)
+			end
 
 			while invisibleFlyVars.invisiblefly do
 				RunService.Heartbeat:Wait()
