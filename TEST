@@ -9963,6 +9963,33 @@ track("TeleportResetRespawn", LocalPlayer.CharacterAdded:Connect(function()
 		local cf = resolve()
 		if cf then
 			root.CFrame = cf
+			root.AssemblyLinearVelocity = Vector3.zero
+			root.AssemblyAngularVelocity = Vector3.zero
+
+			-- Landing stabilization: when the spot is inside/near terrain the
+			-- collision solver can eject the character (reads as a fling). Hold the
+			-- landing CFrame with zeroed velocity for a few frames so it settles.
+			if glue then
+				local hum = getHumanoid()
+				if hum then
+					pcall(function()
+						hum:ChangeState(Enum.HumanoidStateType.Landing)
+					end)
+				end
+
+				local settleStart = tick()
+				track("TeleportLandSettle", RunService.Heartbeat:Connect(function()
+					local settleRoot = getRootPart()
+					if not settleRoot then return end
+					settleRoot.CFrame = cf
+					settleRoot.AssemblyLinearVelocity = Vector3.zero
+					settleRoot.AssemblyAngularVelocity = Vector3.zero
+					if tick() - settleStart >= 0.4 then
+						disconnect("TeleportLandSettle")
+					end
+				end))
+			end
+
 			Library:Notify({ Title = "Reset & Teleport", Description = "Teleported to " .. label, Time = 2 })
 		end
 	end
