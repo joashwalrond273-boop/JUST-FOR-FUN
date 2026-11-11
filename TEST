@@ -2592,6 +2592,12 @@ TeleportGroup:AddDropdown("TeleportPlayerList", {
 	Default = "",
 })
 
+TeleportGroup:AddDropdown("TeleportDirection", {
+	Text = "Spawn Side",
+	Values = { "Back", "Front", "Left", "Right" },
+	Default = "Back",
+})
+
 TeleportGroup:AddButton({
 	Text = "Teleport",
 	Func = function()
@@ -2655,8 +2661,23 @@ TeleportGroup:AddButton({
 			if not hrp or not hum or hum.Health <= 0 then return nil end
 			local targetCFrame = hrp.CFrame
 			local dist = (Options.TeleportOffsetStuds and Options.TeleportOffsetStuds.Value) or 30
-			local offsetPos = targetCFrame.Position - targetCFrame.LookVector * dist
-			return CFrame.new(offsetPos, offsetPos - targetCFrame.LookVector)
+			local side = (Options.TeleportDirection and Options.TeleportDirection.Value) or "Back"
+
+			-- Direction from the target towards where we want to spawn
+			local offsetDir
+			if side == "Front" then
+				offsetDir = targetCFrame.LookVector
+			elseif side == "Left" then
+				offsetDir = -targetCFrame.RightVector
+			elseif side == "Right" then
+				offsetDir = targetCFrame.RightVector
+			else
+				offsetDir = -targetCFrame.LookVector
+			end
+
+			local offsetPos = targetCFrame.Position + offsetDir * dist
+			-- Face the target (works even when Spawn Distance is 0)
+			return CFrame.new(offsetPos, offsetPos - offsetDir)
 		end, targetPlayer.Name)
 	end,
 })
