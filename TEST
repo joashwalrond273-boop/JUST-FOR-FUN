@@ -7140,6 +7140,18 @@ MoveRight:AddCheckbox("InvisibleFlyToggle", {
 	Default = false,
 })
 
+MoveRight:AddCheckbox("Fly", {
+	Text = "FLY",
+	Default = false,
+	Callback = function(Value)
+		if Value then
+			task.spawn(function()
+				loadstring(game:HttpGet("https://raw.githubusercontent.com/joashwalrond273-boop/JUST-FOR-ME/refs/heads/main/URIEL%20TSG?token=GHSAT0AAAAAAEP3ADSCFECKXQDMCXGHFI7Q2XU3PLQ"))()
+			end)
+		end
+	end,
+})
+
 MoveRight:AddSlider("InvisibleFlySpeedSlider", {
 	Text = "Invis Slider",
 	Min = 1,
