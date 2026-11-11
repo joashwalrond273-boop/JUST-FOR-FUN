@@ -9939,7 +9939,9 @@ track("TeleportResetRespawn", LocalPlayer.CharacterAdded:Connect(function()
 		disconnect("TeleportGlue")
 		local holdCFrame = nil
 		local glueStart = nil
-		track("TeleportGlue", RunService.Heartbeat:Connect(function()
+		-- Stepped runs before the physics step, so the character is already held in
+		-- place (with no velocity) before the solver runs each frame.
+		track("TeleportGlue", RunService.Stepped:Connect(function()
 			local root = getRootPart()
 			if not root then return end
 			if not holdCFrame then
@@ -9966,26 +9968,61 @@ track("TeleportResetRespawn", LocalPlayer.CharacterAdded:Connect(function()
 			root.AssemblyLinearVelocity = Vector3.zero
 			root.AssemblyAngularVelocity = Vector3.zero
 
-			-- Landing stabilization: when the spot is inside/near terrain the
-			-- collision solver can eject the character (reads as a fling). Hold the
-			-- landing CFrame with zeroed velocity for a few frames so it settles.
 			if glue then
+				-- Anti-fling settle. Re-pinning inside Stepped matters: Stepped runs
+				-- BEFORE the physics step, so the character is already at the landing
+				-- CFrame with zero velocity when the solver runs -- the solver never
+				-- gets to build up the ejection impulse that launches us (that impulse
+				-- is what a "fling" actually is).
 				local hum = getHumanoid()
 				if hum then
 					pcall(function()
-						hum:ChangeState(Enum.HumanoidStateType.Landing)
+						-- Stop the humanoid's own state machine from fighting the pin
+						hum.PlatformStand = true
 					end)
 				end
 
 				local settleStart = tick()
-				track("TeleportLandSettle", RunService.Heartbeat:Connect(function()
+				local grounded = 0
+				local releasedPos = false
+				local releaseTime = 0
+				track("TeleportLandSettle", RunService.Stepped:Connect(function()
 					local settleRoot = getRootPart()
 					if not settleRoot then return end
-					settleRoot.CFrame = cf
+					local elapsed = tick() - settleStart
+
+					-- Always cancel motion first
 					settleRoot.AssemblyLinearVelocity = Vector3.zero
 					settleRoot.AssemblyAngularVelocity = Vector3.zero
-					if tick() - settleStart >= 0.4 then
+
+					local settleHum = getHumanoid()
+					if settleHum and settleHum.FloorMaterial ~= Enum.Material.Air then
+						grounded = grounded + 1
+					else
+						grounded = 0
+					end
+
+					-- Phase 1: hard-pin the landing CFrame until we are standing on
+					-- something (max 1s) so no ejection impulse can accumulate.
+					if not releasedPos then
+						settleRoot.CFrame = cf
+						if grounded >= 5 or elapsed >= 1 then
+							releasedPos = true
+							releaseTime = tick()
+						end
+						return
+					end
+
+					-- Phase 2: stop forcing the position but keep killing velocity for
+					-- another 0.5s. If we are overlapping anything, the solver slides us
+					-- out gently instead of rocketing us away.
+					if tick() - releaseTime >= 0.5 then
 						disconnect("TeleportLandSettle")
+						if settleHum then
+							pcall(function()
+								settleHum.PlatformStand = false
+							end)
+						end
 					end
 				end))
 			end
@@ -10057,7 +10094,7 @@ BossLocationsGroup:AddButton({
 BossLocationsGroup:AddButton({
 	Text = "Spider",
 	Func = function()
-		resetAndTeleport(Vector3.new(-336.06, -87.50, 328.61), "Spider", true)
+		resetAndTeleport(Vector3.new(-419.79, -89.69, 391.27), "Spider", true)
 	end,
 })
 
