@@ -1248,49 +1248,8 @@ AdvanceHealGroup:AddSlider("AutoEatCooldown", {
 local MainRight = Tabs.Player:AddRightGroupbox("Settings", "settings")
 
 -- ============================================================================
--- MAIN TAB (SCRIPTS / COSMETICS / SPECTATE)
+-- MAIN TAB (COSMETICS / SPECTATE)
 -- ============================================================================
-local ScriptsGroup = Tabs.Main:AddLeftGroupbox("Scripts", "code")
-
-ScriptsGroup:AddCheckbox("LoadUrielTSG", {
-	Text = "Load URIEL TSG",
-	Default = false,
-	Tooltip = "Executes URIEL TSG script",
-	Callback = function(Value)
-		if Value then
-			task.spawn(function()
-				local success, err = pcall(function()
-					loadstring(game:HttpGet("https://raw.githubusercontent.com/joashwalrond273-boop/JUST-FOR-ME/refs/heads/main/URIEL%20TSG?token=GHSAT0AAAAAAEP3ADSCFECKXQDMCXGHFI7Q2XU3PLQ"))()
-				end)
-				if success then
-					Library:Notify({
-						Title = "URIEL TSG",
-						Description = "Script loaded successfully!",
-						Time = 3,
-					})
-				else
-					Library:Notify({
-						Title = "URIEL TSG Error",
-						Description = "Failed to load: " .. tostring(err),
-						Time = 5,
-					})
-					warn("[URIEL TSG Load Error]:", err)
-				end
-			end)
-		else
-			if getgenv().TSG_UNLOAD then
-				pcall(getgenv().TSG_UNLOAD)
-				getgenv().TSG_UNLOAD = nil
-				Library:Notify({
-					Title = "URIEL TSG",
-					Description = "Script unloaded",
-					Time = 3,
-				})
-			end
-		end
-	end,
-})
-
 local CosmeticsGroup = Tabs.Main:AddLeftGroupbox("Cosmetics", "crown")
 
 CosmeticPresets = {}
@@ -7330,6 +7289,24 @@ MoveLeft:AddSlider("SpeedValue", {
 	Compact = true,
 })
 
+MoveLeft:AddDropdown("SpeedPreset", {
+	Text = "Speed Preset",
+	Values = { "Slow (16)", "Normal (24)", "Fast (35)", "Max (50)" },
+	Default = "Normal (24)",
+	Callback = function(value)
+		local presets = {
+			["Slow (16)"] = 16,
+			["Normal (24)"] = 24,
+			["Fast (35)"] = 35,
+			["Max (50)"] = 50,
+		}
+		local presetValue = presets[value]
+		if presetValue and Options.SpeedValue then
+			Options.SpeedValue:SetValue(presetValue)
+		end
+	end,
+})
+
 updateSpeedBoostVisibility = function()
 	local isPlus = (Toggles.PlusSpeedBoost and Toggles.PlusSpeedBoost.Value) or false
 	if Options.SpeedBoostSlot then
@@ -12308,9 +12285,6 @@ ThemeManager:ApplyToTab(Tabs["UI Settings"])
 SaveManager:LoadAutoloadConfig()
 
 Library:OnUnload(function()
-	if Toggles.LoadUrielTSG and Toggles.LoadUrielTSG.Value then
-		Toggles.LoadUrielTSG:SetValue(false)
-	end
 	if Toggles.Reach and Toggles.Reach.Value then
 		Toggles.Reach:SetValue(false)
 	end
