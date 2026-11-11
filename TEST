@@ -2571,7 +2571,20 @@ FunAttach:AddDropdown("AttachPlayerList", {
 	Default = "",
 })
 
-local TeleportGroup = Tabs.Main:AddRightGroupbox("TELEPORT", "map-pin")
+local SpectateGroup = Tabs.Main:AddRightGroupbox("SPECTATE", "eye")
+
+SpectateGroup:AddToggle("SpectateToggle", {
+	Text = "Spectate",
+	Default = false,
+})
+
+SpectateGroup:AddDropdown("SpectatePlayerList", {
+	Text = "Select Player",
+	Values = {},
+	Default = "",
+})
+
+local TeleportGroup = Tabs.Main:AddRightGroupbox("TELEPORT", "navigation")
 
 TeleportGroup:AddDropdown("TeleportPlayerList", {
 	Text = "Select Player",
@@ -2615,10 +2628,22 @@ TeleportGroup:AddButton({
 		end
 
 		local targetPlayer = matchedPlayers[1]
+
+		-- With StreamingEnabled the target's character may not be replicated to us
+		-- yet (very common right after joining / when the target is far away).
+		-- Wait a moment for it to stream in before giving up.
 		local targetCharacter = targetPlayer.Character
+		local waitStart = tick()
+		while tick() - waitStart < 3 do
+			targetCharacter = targetPlayer.Character
+			if targetCharacter and targetCharacter:FindFirstChild("Humanoid") and targetCharacter:FindFirstChild("HumanoidRootPart") then
+				break
+			end
+			task.wait(0.1)
+		end
 
 		if not targetCharacter or not targetCharacter:FindFirstChild("Humanoid") or targetCharacter:FindFirstChild("Humanoid").Health <= 0 then
-			notify("Tp Error", "This player is not alive.", 5)
+			notify("Tp Error", "Player not loaded on your client yet (streaming). Get closer or retry.", 5)
 			return
 		end
 
@@ -2643,19 +2668,6 @@ TeleportGroup:AddSlider("TeleportOffsetStuds", {
 	Max = 100,
 	Rounding = 0,
 	Compact = true,
-})
-
-local SpectateGroup = Tabs.Main:AddRightGroupbox("SPECTATE", "scan-eye")
-
-SpectateGroup:AddToggle("SpectateToggle", {
-	Text = "Spectate",
-	Default = false,
-})
-
-SpectateGroup:AddDropdown("SpectatePlayerList", {
-	Text = "Select Player",
-	Values = {},
-	Default = "",
 })
 
 local FunLeft = Tabs.Main:AddRightGroupbox("FLING A BULLY", "swords")
@@ -8511,12 +8523,8 @@ local updateOreESPVisibility = function()
 	OreFarm:Resize()
 end
 
-if Toggles.OreESPToggle then
-	Toggles.OreESPToggle:OnChanged(function()
-		updateOreESPVisibility()
-	end)
-end
-
+-- NOTE: Do not register a second OnChanged here - Obsidian overwrites the
+-- callback, so the main handler (further below) calls updateOreESPVisibility().
 updateOreESPVisibility()
 task.spawn(function()
 	task.wait(0.05)
@@ -9485,6 +9493,8 @@ end
 -- Ore ESP (reads ore names from workspace.worldResources.mineable, per-ore filters)
 local oreESP = {
 	highlights = {},
+	hlName = "URIEL_OreESP_Highlight",
+	billName = "URIEL_OreESP_Label",
 	oreToggles = {},
 	oreColors = {},
 	oreColorPickers = {},
@@ -9536,6 +9546,14 @@ local function clearOreESPHighlights()
 		pcall(function() entry.bill:Destroy() end)
 	end
 	table.clear(oreESP.highlights)
+
+	-- Safety sweep: remove any leftover ESP instances that lost their table entry,
+	-- so turning the toggle off ALWAYS hides the mineables.
+	for _, child in ipairs(workspace:GetChildren()) do
+		if child.Name == oreESP.hlName or child.Name == oreESP.billName then
+			pcall(function() child:Destroy() end)
+		end
+	end
 end
 
 local function isOreFilterEnabled(oreName)
@@ -9593,6 +9611,7 @@ local function oreESPLoop()
 				local lbl = nil
 				if anchor then
 					bill = Instance.new("BillboardGui")
+					bill.Name = oreESP.billName
 					bill.Size = UDim2.fromOffset(160, 28)
 					bill.AlwaysOnTop = true
 					bill.Adornee = anchor
@@ -9658,6 +9677,7 @@ local function oreESPLoop()
 		if i <= 3 then
 			if not entry.hl then
 				local hl = Instance.new("Highlight")
+				hl.Name = oreESP.hlName
 				hl.FillColor = item.color
 				hl.OutlineColor = Color3.fromRGB(255, 255, 255)
 				hl.FillTransparency = 0.65
@@ -9745,8 +9765,10 @@ end
 Toggles.OreESPToggle:OnChanged(function()
 	disconnect("OreESP")
 	disconnect("OreESPScan")
+	updateOreESPVisibility()
 	if not Toggles.OreESPToggle.Value then
 		clearOreESPHighlights()
+		Library:Notify({ Title = "Mineable ESP", Description = "Disabled", Time = 2 })
 		return
 	end
 
