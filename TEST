@@ -9946,7 +9946,7 @@ track("TeleportResetRespawn", LocalPlayer.CharacterAdded:Connect(function()
 				holdCFrame = root.CFrame
 				glueStart = tick()
 			end
-			if tick() - glueStart >= 2 then
+			if tick() - glueStart >= 5 then
 				disconnect("TeleportGlue")
 				return
 			end
@@ -9956,7 +9956,7 @@ track("TeleportResetRespawn", LocalPlayer.CharacterAdded:Connect(function()
 		end))
 	end
 
-	task.wait(glue and 2 or 1)
+	task.wait(glue and 5 or 1)
 	disconnect("TeleportGlue")
 	local root = getRootPart()
 	if root then
@@ -10057,7 +10057,7 @@ BossLocationsGroup:AddButton({
 BossLocationsGroup:AddButton({
 	Text = "Spider",
 	Func = function()
-		resetAndTeleport(Vector3.new(-577.39, -98.80, 334.28), "Spider", true)
+		resetAndTeleport(Vector3.new(-336.06, -87.50, 328.61), "Spider", true)
 	end,
 })
 
