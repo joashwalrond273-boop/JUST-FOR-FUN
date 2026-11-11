@@ -2594,8 +2594,8 @@ TeleportGroup:AddDropdown("TeleportPlayerList", {
 
 TeleportGroup:AddDropdown("TeleportDirection", {
 	Text = "Spawn Side",
-	Values = { "Back", "Front", "Left", "Right" },
-	Default = "Back",
+	Values = { "Behind", "Front", "Left", "Right" },
+	Default = "Behind",
 })
 
 TeleportGroup:AddButton({
@@ -2661,7 +2661,7 @@ TeleportGroup:AddButton({
 			if not hrp or not hum or hum.Health <= 0 then return nil end
 			local targetCFrame = hrp.CFrame
 			local dist = (Options.TeleportOffsetStuds and Options.TeleportOffsetStuds.Value) or 30
-			local side = (Options.TeleportDirection and Options.TeleportDirection.Value) or "Back"
+			local side = (Options.TeleportDirection and Options.TeleportDirection.Value) or "Behind"
 
 			-- Direction from the target towards where we want to spawn
 			local offsetDir
@@ -10244,11 +10244,22 @@ local function setPlayerShadows(castShadow)
 	end
 end
 
+VisualFPS:AddSlider("UncapFPSValue", {
+	Text = "FPS Target",
+	Default = 90,
+	Min = 60,
+	Max = 120,
+	Rounding = 0,
+	Compact = true,
+})
+
 VisualFPS:AddCheckbox("UncapFPS", {
 	Text = "Uncap FPS",
 	Default = false,
 	Callback = function(state)
 		disconnect("UncapFPS_Timer")
+
+		local targetFps = math.clamp(math.floor(((Options.UncapFPSValue and Options.UncapFPSValue.Value) or 90) + 0.5), 60, 120)
 
 		if not state then
 			pcall(function()
@@ -10264,23 +10275,23 @@ VisualFPS:AddCheckbox("UncapFPS", {
 		local function triggerUncap()
 			pcall(function()
 				if typeof(setfpscap) == "function" then
-					setfpscap(90)
+					setfpscap(targetFps)
 				elseif typeof(set_fps_cap) == "function" then
-					set_fps_cap(90)
+					set_fps_cap(targetFps)
 				elseif typeof(setfps) == "function" then
-					setfps(90)
+					setfps(targetFps)
 				end
 			end)
 
 			pcall(function()
-				setfflag("TaskSchedulerTargetFps", 90)
+				setfflag("TaskSchedulerTargetFps", targetFps)
 			end)
 		end
 
 		-- Trigger immediately on toggle enable
 		triggerUncap()
 
-		-- Only re-apply the 90 FPS cap when the FPS has actually dropped back
+		-- Only re-apply the target FPS when the FPS has actually dropped back
 		-- to ~60 (the game reset the cap), instead of re-triggering blindly.
 		local uncapFrames = 0
 		local uncapSampleStart = os.clock()
@@ -10294,13 +10305,23 @@ VisualFPS:AddCheckbox("UncapFPS", {
 			uncapFrames = 0
 			uncapSampleStart = now
 
-			-- Detected the 60 FPS cap again -> re-apply 90 FPS
+			-- Detected the 60 FPS cap again -> re-apply the target FPS
 			if fps >= 55 and fps <= 62 then
 				triggerUncap()
 			end
 		end))
 	end,
 })
+
+if Options.UncapFPSValue then
+	Options.UncapFPSValue:OnChanged(function()
+		-- Live-apply a new target while Uncap FPS is already on
+		if Toggles.UncapFPS and Toggles.UncapFPS.Value then
+			Toggles.UncapFPS:SetValue(false)
+			Toggles.UncapFPS:SetValue(true)
+		end
+	end)
+end
 
 VisualFPS:AddCheckbox("DisableRenderFog", {
 	Text = "Disable Render Fog",
