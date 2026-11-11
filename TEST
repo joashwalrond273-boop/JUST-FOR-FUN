@@ -12420,9 +12420,6 @@ Library:OnUnload(function()
 	if Toggles.InvisibleFlyToggle and Toggles.InvisibleFlyToggle.Value then
 		Toggles.InvisibleFlyToggle:SetValue(false)
 	end
-	if Toggles.UrielFlyMenu and Toggles.UrielFlyMenu.Value then
-		Toggles.UrielFlyMenu:SetValue(false)
-	end
 	if Toggles.QuickVanish and Toggles.QuickVanish.Value then
 		Toggles.QuickVanish:SetValue(false)
 	end
@@ -12452,9 +12449,6 @@ Library:OnUnload(function()
 	pcall(function()
 		if fovCircle then fovCircle:Remove() end
 	end)
-	if urielFlyCleanup then
-		pcall(urielFlyCleanup)
-	end
 	for name in pairs(Connections) do
 		disconnect(name)
 	end
