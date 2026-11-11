@@ -2725,6 +2725,35 @@ FunLeft:AddCheckbox("AntiFling", {
 	Default = false,
 })
 
+FunLeft:AddDivider()
+
+-- Moved here from the old "Trap a Bully" groupbox
+FunLeft:AddToggle("BearTrapClown", {
+	Text = "Bear Trap a Clown",
+	Default = false,
+})
+
+FunLeft:AddSlider("BearTrapSpeed", {
+	Text = "Speed",
+	Default = 2,
+	Min = 1,
+	Max = 10,
+	Rounding = 0,
+	Compact = true,
+})
+
+FunLeft:AddCheckbox("BearTrapSlotSystem", {
+	Text = "Slot System",
+	Default = false,
+})
+
+FunLeft:AddDropdown("BearTrapSlotSystemSlot", {
+	Text = "Tool Slot",
+	Values = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" },
+	Default = { "1" },
+	Multi = true,
+})
+
 updateTouchFlingVisibility = function()
 	if Options.TouchFlingPower then
 		Options.TouchFlingPower.Visible = true
@@ -7130,33 +7159,71 @@ setupReachTracking()
 -- MOVEMENT
 -- ==========================================
 local MoveLeft = Tabs.Movement:AddLeftGroupbox("Speed", "gauge")
-local MoveRight = Tabs.Movement:AddRightGroupbox("Trap a Bully", "crosshair")
+local MoveRight = Tabs.Movement:AddRightGroupbox("Advance Fly Script", "plane")
 
-MoveRight:AddToggle("BearTrapClown", {
-	Text = "Bear Trap a Clown",
+-- ==========================================
+-- ADVANCE FLY (standalone URIEL Fly GUI)
+-- ==========================================
+local FLY_GUI_URL = "https://raw.githubusercontent.com/sobachgroi67-cpu/idkgscripts/refs/heads/main/Fly.txt"
+
+local flyGuiInstance
+
+local function loadFlyGui()
+	if flyGuiInstance and flyGuiInstance.Parent then
+		flyGuiInstance.Enabled = true
+		return true
+	end
+
+	local source
+	pcall(function()
+		if isfile and isfile("Fly.txt") then
+			source = readfile("Fly.txt")
+		end
+	end)
+	if not source or source == "" then
+		pcall(function()
+			source = game:HttpGet(FLY_GUI_URL)
+		end)
+	end
+	if not source or source == "" then
+		return false, "Fly script not found."
+	end
+
+	local chunk = loadstring(source)
+	if not chunk then
+		return false, "Fly script failed to compile."
+	end
+
+	local ok, gui = pcall(chunk)
+	if not ok then
+		return false, "Fly script error."
+	end
+	if typeof(gui) == "Instance" then
+		flyGuiInstance = gui
+	end
+	return true
+end
+
+MoveRight:AddToggle("AdvanceFly", {
+	Text = "URIEL Fly",
 	Default = false,
 })
 
-MoveRight:AddSlider("BearTrapSpeed", {
-	Text = "Speed",
-	Default = 2,
-	Min = 1,
-	Max = 10,
-	Rounding = 0,
-	Compact = true,
-})
-
-MoveRight:AddCheckbox("BearTrapSlotSystem", {
-	Text = "Slot System",
-	Default = false,
-})
-
-MoveRight:AddDropdown("BearTrapSlotSystemSlot", {
-	Text = "Tool Slot",
-	Values = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" },
-	Default = { "1" },
-	Multi = true,
-})
+Toggles.AdvanceFly:OnChanged(function()
+	if Toggles.AdvanceFly.Value then
+		local ok, err = loadFlyGui()
+		if not ok then
+			Library:Notify({ Title = "Advance Fly", Description = err or "Failed to load.", Time = 3 })
+			task.defer(function()
+				Toggles.AdvanceFly:SetValue(false)
+			end)
+		end
+	else
+		if flyGuiInstance and flyGuiInstance.Parent then
+			flyGuiInstance.Enabled = false
+		end
+	end
+end)
 
 updateTrapBullyVisibility = function()
 	local isBearTrapSlot = (Toggles.BearTrapSlotSystem and Toggles.BearTrapSlotSystem.Value) or false
@@ -7167,8 +7234,8 @@ updateTrapBullyVisibility = function()
 			Options.BearTrapSlotSystemSlot.Holder.Visible = isBearTrapSlot
 		end
 	end
-	if MoveRight and MoveRight.Resize then
-		pcall(function() MoveRight:Resize() end)
+	if FunLeft and FunLeft.Resize then
+		pcall(function() FunLeft:Resize() end)
 	end
 end
 
@@ -12352,6 +12419,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.BearTrapSlotSystem and Toggles.BearTrapSlotSystem.Value then
 		Toggles.BearTrapSlotSystem:SetValue(false)
+	end
+	if Toggles.AdvanceFly and Toggles.AdvanceFly.Value then
+		Toggles.AdvanceFly:SetValue(false)
 	end
 
 	if Toggles.PlusSpeedBoost and Toggles.PlusSpeedBoost.Value then
