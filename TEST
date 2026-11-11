@@ -7140,11 +7140,6 @@ MoveRight:AddCheckbox("InvisibleFlyToggle", {
 	Default = false,
 })
 
-MoveRight:AddCheckbox("UrielFlyToggle", {
-	Text = "FLY",
-	Default = false,
-})
-
 MoveRight:AddSlider("InvisibleFlySpeedSlider", {
 	Text = "Invis Slider",
 	Min = 1,
@@ -7165,20 +7160,6 @@ invisOutlineLabel:AddColorPicker("InvisibleFlyOutlineColor", {
 	Default = Color3.fromRGB(255, 255, 255),
 	Title = "Invisible Fly Highlight Outline Color",
 })
-
--- "FLY" checkbox: loads the URIEL fly script the first time it is enabled
-local urielFlyLoaded = false
-
-Toggles.UrielFlyToggle:OnChanged(function()
-	if not Toggles.UrielFlyToggle.Value then return end
-	if urielFlyLoaded then return end
-	urielFlyLoaded = true
-	task.spawn(function()
-		pcall(function()
-			loadstring(game:HttpGet("https://raw.githubusercontent.com/joashwalrond273-boop/THE-ONLY-WORKING-URIEL/refs/heads/main/URIEL?token=GHSAT0AAAAAAEP3ADSCI5DVC73J2GJCUROO2XUU3UQ"))()
-		end)
-	end)
-end)
 
 updateTrapBullyVisibility = function()
 	local isBearTrapSlot = (Toggles.BearTrapSlotSystem and Toggles.BearTrapSlotSystem.Value) or false
