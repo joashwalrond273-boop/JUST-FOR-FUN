@@ -173,14 +173,6 @@ local function isAdvanceSlotAllowed(slotOption)
 	return false
 end
 
-local function getSpearSlot()
-	return (Options.SpearSlot and Options.SpearSlot.Value) or "3"
-end
-
-local function getSwordSlot()
-	return (Options.SwordSlot and Options.SwordSlot.Value) or "5"
-end
-
 local function getCharacterFolder()
 	local characters = workspace:FindFirstChild("Characters")
 	return characters and characters:FindFirstChild(LocalPlayer.Name)
@@ -2541,42 +2533,42 @@ end
 local FunAttach = Tabs.Main:AddLeftGroupbox("ATTACH", "link")
 
 FunAttach:AddToggle("AttachToggle", {
-        Text = "Attach",
-        Default = false,
+	Text = "Attach",
+	Default = false,
 })
 
 FunAttach:AddCheckbox("ResetFirst", {
-        Text = "Reset First",
-        Default = false,
+	Text = "Reset First",
+	Default = false,
 })
 
 local PlusKillPlayerToggle = FunAttach:AddCheckbox("PlusKillPlayerToggle", {
-        Text = "Kill Player",
-        Default = false,
+	Text = "Kill Player",
+	Default = false,
 })
 if PlusKillPlayerToggle.TextLabel then
-        PlusKillPlayerToggle.TextLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
+	PlusKillPlayerToggle.TextLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
 end
 
 FunAttach:AddSlider("AttachDistance", {
-        Text = "Attach Distance",
-        Default = 2.5,
-        Min = 0,
-        Max = 20,
-        Rounding = 1,
-        Compact = true,
+	Text = "Attach Distance",
+	Default = 2.5,
+	Min = 0,
+	Max = 20,
+	Rounding = 1,
+	Compact = true,
 })
 
 FunAttach:AddDropdown("AttachPosition", {
-        Text = "Attach Position",
-        Values = { "Behind", "Front", "Float Over", "Hide Beneath", "Orbit" },
-        Default = "Behind",
+	Text = "Attach Position",
+	Values = { "Behind", "Front", "Float Over", "Hide Beneath", "Orbit" },
+	Default = "Behind",
 })
 
 FunAttach:AddDropdown("AttachPlayerList", {
-        Text = "Target Player",
-        Values = {},
-        Default = "",
+	Text = "Target Player",
+	Values = {},
+	Default = "",
 })
 
 local TeleportGroup = Tabs.Main:AddRightGroupbox("TELEPORT", "map-pin")
@@ -4303,20 +4295,8 @@ CombatCamlock:AddToggle("Camlock", {
 })
 
 CombatCamlock:AddCheckbox("SpearSword", {
-	Text = "Spear/Sword",
+	Text = "Spear/Sword(Slot 3/5)",
 	Default = false,
-})
-
-CombatCamlock:AddDropdown("SpearSlot", {
-	Text = "Spear",
-	Values = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"},
-	Default = "3",
-})
-
-CombatCamlock:AddDropdown("SwordSlot", {
-	Text = "Sword",
-	Values = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"},
-	Default = "5",
 })
 
 CombatCamlock:AddSlider("Slot3AngleOffset", {
@@ -5026,18 +5006,6 @@ updatePVPModulesVisibility = function()
 		end
 	end
 	local isSpear = isCam and ((Toggles.SpearSword and Toggles.SpearSword.Value) or false)
-	if Options.SpearSlot then
-		Options.SpearSlot.Visible = isSpear
-		if Options.SpearSlot.Holder then
-			Options.SpearSlot.Holder.Visible = isSpear
-		end
-	end
-	if Options.SwordSlot then
-		Options.SwordSlot.Visible = isSpear
-		if Options.SwordSlot.Holder then
-			Options.SwordSlot.Holder.Visible = isSpear
-		end
-	end
 	if Options.Slot3AngleOffset then
 		Options.Slot3AngleOffset.Visible = isSpear
 		if Options.Slot3AngleOffset.Holder then
@@ -5325,72 +5293,6 @@ do
 		return (Options.ShieldDamageRefire and Options.ShieldDamageRefire.Value) or 1
 	end
 
-	local shieldAnimActive = false
-	local shieldAnimNode = nil
-
-	local function findShieldAnimNode()
-		local characterFolder = ReplicatedStorage:FindFirstChild("remoteInterface")
-		characterFolder = characterFolder and characterFolder:FindFirstChild("character")
-		if not characterFolder then return nil end
-
-		local node = characterFolder:FindFirstChild("shieldReload")
-		for _, name in ipairs({ "shield", "HoldShield", "HoldKatanaShield" }) do
-			node = node and node:FindFirstChild(name)
-		end
-		if node then return node end
-
-		for _, desc in ipairs(characterFolder:GetDescendants()) do
-			if desc.Name == "HoldKatanaShield" then
-				return desc
-			end
-		end
-		return nil
-	end
-
-	local function getShieldAnimNode()
-		if shieldAnimNode and shieldAnimNode.Parent then
-			return shieldAnimNode
-		end
-		shieldAnimNode = findShieldAnimNode()
-		return shieldAnimNode
-	end
-
-	local function triggerShieldAnim(obj)
-		if not obj then return end
-		if not (obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") or obj:IsA("BindableEvent") or obj:IsA("BindableFunction")) then
-			return
-		end
-		task.spawn(function()
-			pcall(function()
-				if obj:IsA("RemoteEvent") then
-					obj:FireServer()
-				elseif obj:IsA("RemoteFunction") then
-					obj:InvokeServer()
-				elseif obj:IsA("BindableEvent") then
-					obj:Fire()
-				elseif obj:IsA("BindableFunction") then
-					obj:Invoke()
-				end
-			end)
-		end)
-	end
-
-	local function setShieldAnim(active)
-		if active == shieldAnimActive then return end
-		shieldAnimActive = active
-
-		local node = getShieldAnimNode()
-		if not node then return end
-
-		local keyword = active and "load" or "stop"
-		for _, child in ipairs(node:GetChildren()) do
-			if string.lower(child.Name):find(keyword, 1, true) then
-				triggerShieldAnim(child)
-				break
-			end
-		end
-	end
-
 	local function fireShieldRemote(state)
 		pcall(function()
 			game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(state)
@@ -5427,7 +5329,6 @@ do
 		if isPlayerNearby() then
 			if not shieldOnDamageHolding then
 				fireShieldRemote(true)
-				setShieldAnim(true)
 			end
 			shieldOnDamageHolding = true
 			shieldOnDamageUntil = now + getShieldHold()
@@ -5445,7 +5346,6 @@ do
 
 		shieldOnDamageHolding = false
 		fireShieldRemote(false)
-		setShieldAnim(false)
 	end
 
 	Toggles.ShieldOnDamage:OnChanged(function()
@@ -5456,13 +5356,11 @@ do
 			shieldOnDamageHolding = false
 			fireShieldRemote(false)
 		end
-		setShieldAnim(false)
 
 		if not Toggles.ShieldOnDamage.Value then return end
 
 		track("ShieldOnDamage_CharacterAdded", LocalPlayer.CharacterAdded:Connect(function()
 			shieldOnDamageHolding = false
-			shieldAnimActive = false
 			task.wait(0.1)
 		end))
 		track("ShieldOnDamage_Loop", RunService.Heartbeat:Connect(updateShieldOnDamage))
@@ -6290,7 +6188,7 @@ Toggles.Camlock:OnChanged(function()
 						hum.AutoRotate = false
 
 						local angleOffset = 0
-						if isHoldingSelectedSlot(getSpearSlot()) then
+						if isHoldingSelectedSlot(3) or isHoldingSelectedSlot("3") then
 							local deg = (Options.Slot3AngleOffset and Options.Slot3AngleOffset.Value) or 8
 							angleOffset = -math.rad(deg)
 						end
@@ -6550,15 +6448,14 @@ end
 
 local function applySpearSwordSlot(slot)
 	if not (Toggles.SpearSword and Toggles.SpearSword.Value) then return end
-	if slot == nil then return end
-	if slot == getSpearSlot() then
+	if slot == 3 or slot == "3" then
 		if Options.CamlockStuds then
 			Options.CamlockStuds:SetValue(17)
 		end
 		if Options.OutlineStuds then
 			Options.OutlineStuds:SetValue(8)
 		end
-	elseif slot == getSwordSlot() then
+	elseif slot == 5 or slot == "5" then
 		if Options.CamlockStuds then
 			Options.CamlockStuds:SetValue(17)
 		end
@@ -6570,12 +6467,10 @@ end
 
 local function checkCurrentSpearSwordHeld()
 	if not (Toggles.SpearSword and Toggles.SpearSword.Value) then return end
-	local spearSlot = getSpearSlot()
-	local swordSlot = getSwordSlot()
-	if isHoldingSelectedSlot(spearSlot) then
-		applySpearSwordSlot(spearSlot)
-	elseif isHoldingSelectedSlot(swordSlot) then
-		applySpearSwordSlot(swordSlot)
+	if isHoldingSelectedSlot(3) then
+		applySpearSwordSlot(3)
+	elseif isHoldingSelectedSlot(5) then
+		applySpearSwordSlot(5)
 	end
 end
 
@@ -6592,8 +6487,15 @@ if Toggles.SpearSword then
 
 			track("SpearSword_Input", UserInputService.InputBegan:Connect(function(input, gameProcessed)
 				if not (Toggles.SpearSword and Toggles.SpearSword.Value) then return end
-				if gameProcessed or UserInputService:GetFocusedTextBox() then return end
-				if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
+				if not gameProcessed and not UserInputService:GetFocusedTextBox() then
+					if input.KeyCode == Enum.KeyCode.Three or input.KeyCode == Enum.KeyCode.KeypadThree then
+						applySpearSwordSlot(3)
+						return
+					elseif input.KeyCode == Enum.KeyCode.Five or input.KeyCode == Enum.KeyCode.KeypadFive then
+						applySpearSwordSlot(5)
+						return
+					end
+				end
 				task.delay(0.05, function()
 					checkCurrentSpearSwordHeld()
 				end)
@@ -6616,15 +6518,6 @@ if Toggles.SpearSword then
 			track("SpearSword_CharAdded", LocalPlayer.CharacterAdded:Connect(hookChar))
 		end
 	end)
-end
-
-for _, slotOptionName in ipairs({ "SpearSlot", "SwordSlot" }) do
-	local slotOption = Options[slotOptionName]
-	if slotOption then
-		slotOption:OnChanged(function()
-			checkCurrentSpearSwordHeld()
-		end)
-	end
 end
 
 if Toggles.AutoJumpSlotSystem then
