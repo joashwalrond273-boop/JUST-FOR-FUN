@@ -173,6 +173,14 @@ local function isAdvanceSlotAllowed(slotOption)
 	return false
 end
 
+local function getSpearSlot()
+	return (Options.SpearSlot and Options.SpearSlot.Value) or "3"
+end
+
+local function getSwordSlot()
+	return (Options.SwordSlot and Options.SwordSlot.Value) or "5"
+end
+
 local function getCharacterFolder()
 	local characters = workspace:FindFirstChild("Characters")
 	return characters and characters:FindFirstChild(LocalPlayer.Name)
@@ -315,8 +323,8 @@ Library.CornerRadius = 20
 
 -- Window
 local Window = Library:CreateWindow({
-	Title = "♠ XENO",
-	Footer = "♠ XENO - Powered by Shin",
+	Title = "♛ URIEL",
+	Footer = "♛ URIEL - Powered by Shin",
 	Icon = nil,
 	Center = true,
 	AutoShow = true,
@@ -4295,8 +4303,20 @@ CombatCamlock:AddToggle("Camlock", {
 })
 
 CombatCamlock:AddCheckbox("SpearSword", {
-	Text = "Spear/Sword(Slot 3/5)",
+	Text = "Spear/Sword",
 	Default = false,
+})
+
+CombatCamlock:AddDropdown("SpearSlot", {
+	Text = "Spear",
+	Values = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"},
+	Default = "3",
+})
+
+CombatCamlock:AddDropdown("SwordSlot", {
+	Text = "Sword",
+	Values = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"},
+	Default = "5",
 })
 
 CombatCamlock:AddSlider("Slot3AngleOffset", {
@@ -5006,6 +5026,18 @@ updatePVPModulesVisibility = function()
 		end
 	end
 	local isSpear = isCam and ((Toggles.SpearSword and Toggles.SpearSword.Value) or false)
+	if Options.SpearSlot then
+		Options.SpearSlot.Visible = isSpear
+		if Options.SpearSlot.Holder then
+			Options.SpearSlot.Holder.Visible = isSpear
+		end
+	end
+	if Options.SwordSlot then
+		Options.SwordSlot.Visible = isSpear
+		if Options.SwordSlot.Holder then
+			Options.SwordSlot.Holder.Visible = isSpear
+		end
+	end
 	if Options.Slot3AngleOffset then
 		Options.Slot3AngleOffset.Visible = isSpear
 		if Options.Slot3AngleOffset.Holder then
@@ -6258,7 +6290,7 @@ Toggles.Camlock:OnChanged(function()
 						hum.AutoRotate = false
 
 						local angleOffset = 0
-						if isHoldingSelectedSlot(3) or isHoldingSelectedSlot("3") then
+						if isHoldingSelectedSlot(getSpearSlot()) then
 							local deg = (Options.Slot3AngleOffset and Options.Slot3AngleOffset.Value) or 8
 							angleOffset = -math.rad(deg)
 						end
@@ -6518,14 +6550,15 @@ end
 
 local function applySpearSwordSlot(slot)
 	if not (Toggles.SpearSword and Toggles.SpearSword.Value) then return end
-	if slot == 3 or slot == "3" then
+	if slot == nil then return end
+	if slot == getSpearSlot() then
 		if Options.CamlockStuds then
 			Options.CamlockStuds:SetValue(17)
 		end
 		if Options.OutlineStuds then
 			Options.OutlineStuds:SetValue(8)
 		end
-	elseif slot == 5 or slot == "5" then
+	elseif slot == getSwordSlot() then
 		if Options.CamlockStuds then
 			Options.CamlockStuds:SetValue(17)
 		end
@@ -6537,10 +6570,12 @@ end
 
 local function checkCurrentSpearSwordHeld()
 	if not (Toggles.SpearSword and Toggles.SpearSword.Value) then return end
-	if isHoldingSelectedSlot(3) then
-		applySpearSwordSlot(3)
-	elseif isHoldingSelectedSlot(5) then
-		applySpearSwordSlot(5)
+	local spearSlot = getSpearSlot()
+	local swordSlot = getSwordSlot()
+	if isHoldingSelectedSlot(spearSlot) then
+		applySpearSwordSlot(spearSlot)
+	elseif isHoldingSelectedSlot(swordSlot) then
+		applySpearSwordSlot(swordSlot)
 	end
 end
 
@@ -6557,15 +6592,8 @@ if Toggles.SpearSword then
 
 			track("SpearSword_Input", UserInputService.InputBegan:Connect(function(input, gameProcessed)
 				if not (Toggles.SpearSword and Toggles.SpearSword.Value) then return end
-				if not gameProcessed and not UserInputService:GetFocusedTextBox() then
-					if input.KeyCode == Enum.KeyCode.Three or input.KeyCode == Enum.KeyCode.KeypadThree then
-						applySpearSwordSlot(3)
-						return
-					elseif input.KeyCode == Enum.KeyCode.Five or input.KeyCode == Enum.KeyCode.KeypadFive then
-						applySpearSwordSlot(5)
-						return
-					end
-				end
+				if gameProcessed or UserInputService:GetFocusedTextBox() then return end
+				if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
 				task.delay(0.05, function()
 					checkCurrentSpearSwordHeld()
 				end)
@@ -6588,6 +6616,15 @@ if Toggles.SpearSword then
 			track("SpearSword_CharAdded", LocalPlayer.CharacterAdded:Connect(hookChar))
 		end
 	end)
+end
+
+for _, slotOptionName in ipairs({ "SpearSlot", "SwordSlot" }) do
+	local slotOption = Options[slotOptionName]
+	if slotOption then
+		slotOption:OnChanged(function()
+			checkCurrentSpearSwordHeld()
+		end)
+	end
 end
 
 if Toggles.AutoJumpSlotSystem then
@@ -12031,9 +12068,9 @@ ThemeManager:SetLibrary(Library)
 -- Set default accent and outline color
 ThemeManager:SetDefaultTheme({
 	AccentColor = "00f4ff", -- RGB(0, 244, 255)
-	OutlineColor = "242424", -- RGB(36, 36, 36)
-	MainColor = "131717", -- RGB(19, 23, 23)
-	BackgroundColor = "0c0e0e" -- RGB(12, 14, 14)
+	OutlineColor = "232929", -- RGB(35, 41, 41)
+	MainColor = "1a2222", -- RGB(26, 34, 34)
+	BackgroundColor = "0d1717" -- RGB(13, 23, 23)
 })
 SaveManager:SetLibrary(Library)
 SaveManager:IgnoreThemeSettings()
@@ -12238,7 +12275,7 @@ Library:OnUnload(function()
 end)
 
 Library:Notify({
-	Title = "♠ XENO",
+	Title = "♛ URIEL",
 	Description = "Script loaded successfully!",
 	Time = 2,
 })
