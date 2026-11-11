@@ -4295,7 +4295,7 @@ CombatCamlock:AddToggle("Camlock", {
 })
 
 CombatCamlock:AddCheckbox("SpearSword", {
-	Text = "Spear/Sword(Slot 3/5)",
+	Text = "Spear/Sword PRESET",
 	Default = false,
 })
 
@@ -9905,9 +9905,9 @@ BossLocationsGroup:AddButton({
 })
 
 BossLocationsGroup:AddButton({
-	Text = "Hacker Platform",
+	Text = "Hacker",
 	Func = function()
-		resetAndTeleport(Vector3.new(3811.73, 1546.83, -977.48), "Hacker Platform")
+		resetAndTeleport(Vector3.new(3811.73, 1546.83, -977.48), "Hacker")
 	end,
 })
 
@@ -10315,6 +10315,8 @@ VisualFPS:AddCheckbox("FullBright", {
 		end)
 	end,
 })
+
+VisualFPS:AddDivider()
 
 pcall(function()
 	local lighting = game:GetService("Lighting")
@@ -11432,6 +11434,8 @@ local function startTargetFling()
 		myHum.PlatformStand = true
 	end
 
+	local spin = 0
+
 	track("TargetFlingLoop", RunService.Heartbeat:Connect(function()
 		if not Toggles.HelicopterTroll.Value then return end
 
@@ -11449,9 +11453,10 @@ local function startTargetFling()
 			offset = Vector3.new(0, 1, 0)
 		end
 
-		-- Ram into the target with extreme velocity and rotation so the
-		-- collision solver launches their character off.
-		myRoot.CFrame = targetRoot.CFrame * CFrame.new(0, 0.5, 0)
+		-- Spin/turn our character while forcing it directly inside the target's
+		-- body (no offset) so the collision solver launches them off.
+		spin = spin + 1.5
+		myRoot.CFrame = targetRoot.CFrame * CFrame.Angles(0, spin, spin * 0.5)
 		myRoot.AssemblyLinearVelocity = offset.Unit * 1e5 + Vector3.new(0, 1e5, 0)
 		myRoot.AssemblyAngularVelocity = Vector3.new(1e5, 1e5, 1e5)
 	end))
