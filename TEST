@@ -2946,6 +2946,11 @@ MainRight:AddCheckbox("BossSpawnPredictor", {
 	Default = false,
 })
 
+MainRight:AddCheckbox("PositionReaderHud", {
+	Text = "Position Reader HUD",
+	Default = false,
+})
+
 MainRight:AddDivider()
 
 MainRight:AddCheckbox("AdminCham", {
@@ -3198,6 +3203,109 @@ do
 		end))
 
 		Library:Notify({ Title = "Ping / FPS HUD", Description = "Enabled", Time = 2 })
+	end)
+end
+
+do
+	local posRunning = false
+	local posGui = nil
+	local posLabel = nil
+
+	local function buildPosHud()
+		local playerGui = LocalPlayer:FindFirstChildOfClass("PlayerGui")
+		if not playerGui then return end
+
+		posGui = Instance.new("ScreenGui")
+		posGui.Name = "XenoPositionHud"
+		posGui.ResetOnSpawn = false
+		posGui.IgnoreGuiInset = true
+		posGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+		posGui.Parent = playerGui
+
+		local frame = Instance.new("Frame")
+		frame.Name = "Panel"
+		frame.Position = UDim2.new(0, 16, 0, 84)
+		frame.Size = UDim2.new(0, 190, 0, 20)
+		frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+		frame.BackgroundTransparency = 0.25
+		frame.BorderSizePixel = 0
+		frame.Active = true
+		frame.Parent = posGui
+
+		local corner = Instance.new("UICorner")
+		corner.CornerRadius = UDim.new(0, 5)
+		corner.Parent = frame
+
+		local stroke = Instance.new("UIStroke")
+		stroke.Color = Color3.fromRGB(0, 244, 255)
+		stroke.Transparency = 0.4
+		stroke.Thickness = 1
+		stroke.Parent = frame
+
+		posLabel = Instance.new("TextLabel")
+		posLabel.Size = UDim2.new(1, -12, 1, 0)
+		posLabel.Position = UDim2.new(0, 6, 0, 0)
+		posLabel.BackgroundTransparency = 1
+		posLabel.Font = Enum.Font.Code
+		posLabel.TextSize = 11
+		posLabel.TextColor3 = Color3.fromRGB(0, 244, 255)
+		posLabel.TextXAlignment = Enum.TextXAlignment.Left
+		posLabel.Text = "POS X --   Y --   Z --"
+		posLabel.Parent = frame
+
+		local dragging, dragStart, dragPos = false, nil, nil
+		frame.InputBegan:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+				dragging = true
+				dragStart = input.Position
+				dragPos = frame.Position
+				input.Changed:Connect(function()
+					if input.UserInputState == Enum.UserInputState.End then
+						dragging = false
+					end
+				end)
+			end
+		end)
+		frame.InputChanged:Connect(function(input)
+			if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+				local delta = input.Position - dragStart
+				frame.Position = UDim2.new(dragPos.X.Scale, dragPos.X.Offset + delta.X, dragPos.Y.Scale, dragPos.Y.Offset + delta.Y)
+			end
+		end)
+	end
+
+	Toggles.PositionReaderHud:OnChanged(function()
+		posRunning = false
+		disconnect("PositionReaderHud_Render")
+
+		if posGui then
+			posGui:Destroy()
+			posGui = nil
+			posLabel = nil
+		end
+
+		if not Toggles.PositionReaderHud.Value then
+			Library:Notify({ Title = "Position Reader HUD", Description = "Disabled", Time = 2 })
+			return
+		end
+
+		buildPosHud()
+		posRunning = true
+
+		track("PositionReaderHud_Render", RunService.RenderStepped:Connect(function()
+			if not posRunning or not posLabel then return end
+
+			local root = getRootPart()
+			if not root then
+				posLabel.Text = "POS X --   Y --   Z --"
+				return
+			end
+
+			local p = root.Position
+			posLabel.Text = string.format("POS X %.1f   Y %.1f   Z %.1f", p.X, p.Y, p.Z)
+		end))
+
+		Library:Notify({ Title = "Position Reader HUD", Description = "Enabled", Time = 2 })
 	end)
 end
 
