@@ -7140,6 +7140,11 @@ MoveRight:AddCheckbox("InvisibleFlyToggle", {
 	Default = false,
 })
 
+MoveRight:AddCheckbox("UrielFlyToggle", {
+	Text = "FLY",
+	Default = false,
+})
+
 MoveRight:AddSlider("InvisibleFlySpeedSlider", {
 	Text = "Invis Slider",
 	Min = 1,
@@ -7160,6 +7165,811 @@ invisOutlineLabel:AddColorPicker("InvisibleFlyOutlineColor", {
 	Default = Color3.fromRGB(255, 255, 255),
 	Title = "Invisible Fly Highlight Outline Color",
 })
+
+-- ==========================================
+-- URIEL FLY MENU (converted from Fly.txt)
+-- Built lazily by the "FLY" checkbox and kept hidden until it is toggled on.
+-- ==========================================
+local urielFly = {
+	gui = nil,
+	setFlyState = nil,
+	isFlying = nil,
+}
+
+local function buildUrielFlyMenu()
+	if urielFly.gui and urielFly.gui.Parent then
+		return urielFly.gui
+	end
+
+	local TweenService = game:GetService("TweenService")
+	local GuiService = game:GetService("GuiService")
+	local player = Players.LocalPlayer
+	local camera = workspace.CurrentCamera
+
+	local G2L = {}
+
+	G2L["1"] = Instance.new("ScreenGui", game.CoreGui)
+	G2L["1"]["IgnoreGuiInset"] = true
+	G2L["1"]["DisplayOrder"] = 1000000
+	G2L["1"]["ScreenInsets"] = Enum.ScreenInsets.DeviceSafeInsets
+	G2L["1"]["Name"] = [[flygui]]
+	G2L["1"]["ZIndexBehavior"] = Enum.ZIndexBehavior.Sibling
+	G2L["1"]["ResetOnSpawn"] = false
+	G2L["1"].Enabled = false
+
+	local screenGui = G2L["1"]
+	urielFly.gui = screenGui
+
+	-- main
+	G2L["6"] = Instance.new("Frame", G2L["1"])
+	G2L["6"]["Active"] = true
+	G2L["6"]["BorderSizePixel"] = 0
+	G2L["6"]["BackgroundColor3"] = Color3.fromRGB(13, 23, 23)
+	G2L["6"]["AnchorPoint"] = Vector2.new(0.5, 0.5)
+	G2L["6"]["Size"] = UDim2.new(0, 306, 0, 149)
+	G2L["6"]["Position"] = UDim2.new(0.5, 0, 0.5, 0)
+	G2L["6"]["BorderColor3"] = Color3.fromRGB(0, 0, 0)
+	G2L["6"]["Name"] = [[main]]
+
+	G2L["7"] = Instance.new("UICorner", G2L["6"])
+	G2L["7"]["CornerRadius"] = UDim.new(0, 10)
+
+	G2L["6stroke"] = Instance.new("UIStroke", G2L["6"])
+	G2L["6stroke"]["Color"] = Color3.fromRGB(35, 41, 41)
+	G2L["6stroke"]["Thickness"] = 1
+	G2L["6stroke"]["Transparency"] = 0.15
+
+	G2L["6scale"] = Instance.new("UIScale", G2L["6"])
+	G2L["6scale"]["Scale"] = 0.65
+
+	-- main.title
+	G2L["9"] = Instance.new("TextLabel", G2L["6"])
+	G2L["9"]["BorderSizePixel"] = 0
+	G2L["9"]["TextSize"] = 16
+	G2L["9"]["TextXAlignment"] = Enum.TextXAlignment.Left
+	G2L["9"]["BackgroundColor3"] = Color3.fromRGB(255, 255, 255)
+	G2L["9"]["FontFace"] = Font.new([[rbxassetid://12187365364]], Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+	G2L["9"]["TextColor3"] = Color3.fromRGB(0, 244, 255)
+	G2L["9"]["BackgroundTransparency"] = 1
+	G2L["9"]["Size"] = UDim2.new(0, 200, 0, 20)
+	G2L["9"]["BorderColor3"] = Color3.fromRGB(0, 0, 0)
+	G2L["9"]["Text"] = [[URIEL Fly]]
+	G2L["9"]["Name"] = [[title]]
+	G2L["9"]["Position"] = UDim2.new(0.04902, 0, 0.08725, 0)
+
+	-- main.hello
+	G2L["a"] = Instance.new("TextLabel", G2L["6"])
+	G2L["a"]["BorderSizePixel"] = 0
+	G2L["a"]["TextSize"] = 14
+	G2L["a"]["TextXAlignment"] = Enum.TextXAlignment.Left
+	G2L["a"]["BackgroundColor3"] = Color3.fromRGB(255, 255, 255)
+	G2L["a"]["FontFace"] = Font.new([[rbxassetid://12187365364]], Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+	G2L["a"]["TextColor3"] = Color3.fromRGB(122, 143, 145)
+	G2L["a"]["BackgroundTransparency"] = 1
+	G2L["a"]["Size"] = UDim2.new(0, 200, 0, 17)
+	G2L["a"]["BorderColor3"] = Color3.fromRGB(0, 0, 0)
+	G2L["a"]["Text"] = [[Fly speed]]
+	G2L["a"]["Name"] = [[hello]]
+	G2L["a"]["Position"] = UDim2.new(0.04902, 0, 0.26846, 0)
+
+	-- main.flyspeedslider
+	G2L["b"] = Instance.new("Frame", G2L["6"])
+	G2L["b"]["Active"] = true
+	G2L["b"]["BorderSizePixel"] = 0
+	G2L["b"]["BackgroundColor3"] = Color3.fromRGB(26, 34, 34)
+	G2L["b"]["AnchorPoint"] = Vector2.new(0.5, 0)
+	G2L["b"]["Size"] = UDim2.new(0, 278, 0, 10)
+	G2L["b"]["Position"] = UDim2.new(0.5, 0, 0.42953, 0)
+	G2L["b"]["BorderColor3"] = Color3.fromRGB(0, 0, 0)
+	G2L["b"]["Name"] = [[flyspeedslider]]
+
+	G2L["c"] = Instance.new("UICorner", G2L["b"])
+	G2L["c"]["CornerRadius"] = UDim.new(1, 0)
+
+	-- main.flyspeedslider.fill
+	G2L["d"] = Instance.new("Frame", G2L["b"])
+	G2L["d"]["ZIndex"] = 2
+	G2L["d"]["BorderSizePixel"] = 0
+	G2L["d"]["BackgroundColor3"] = Color3.fromRGB(0, 244, 255)
+	G2L["d"]["Size"] = UDim2.new(0, 30, 1, 0)
+	G2L["d"]["BorderColor3"] = Color3.fromRGB(0, 0, 0)
+	G2L["d"]["Name"] = [[fill]]
+
+	G2L["e"] = Instance.new("UICorner", G2L["d"])
+	G2L["e"]["CornerRadius"] = UDim.new(1, 0)
+
+	-- main.flyspeedslider.slider
+	G2L["f"] = Instance.new("Frame", G2L["b"])
+	G2L["f"]["ZIndex"] = 3
+	G2L["f"]["BorderSizePixel"] = 0
+	G2L["f"]["BackgroundColor3"] = Color3.fromRGB(255, 255, 255)
+	G2L["f"]["Size"] = UDim2.new(0, 30, 0, 15)
+	G2L["f"]["Position"] = UDim2.new(0, 0, 0.5, -7)
+	G2L["f"]["BorderColor3"] = Color3.fromRGB(0, 0, 0)
+	G2L["f"]["Name"] = [[slider]]
+
+	G2L["10"] = Instance.new("UICorner", G2L["f"])
+
+	-- main.TextLabel
+	G2L["11"] = Instance.new("TextLabel", G2L["6"])
+	G2L["11"]["BorderSizePixel"] = 0
+	G2L["11"]["TextSize"] = 14
+	G2L["11"]["TextXAlignment"] = Enum.TextXAlignment.Left
+	G2L["11"]["BackgroundColor3"] = Color3.fromRGB(255, 255, 255)
+	G2L["11"]["FontFace"] = Font.new([[rbxassetid://12187365364]], Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+	G2L["11"]["TextColor3"] = Color3.fromRGB(122, 143, 145)
+	G2L["11"]["BackgroundTransparency"] = 1
+	G2L["11"]["Size"] = UDim2.new(0, 200, 0, 17)
+	G2L["11"]["BorderColor3"] = Color3.fromRGB(0, 0, 0)
+	G2L["11"]["Text"] = [[Toggle fly]]
+	G2L["11"]["Position"] = UDim2.new(0.04902, 0, 0.55034, 0)
+
+	-- main.toggleflytoggle
+	G2L["12"] = Instance.new("Frame", G2L["6"])
+	G2L["12"]["Active"] = true
+	G2L["12"]["BorderSizePixel"] = 0
+	G2L["12"]["BackgroundColor3"] = Color3.fromRGB(26, 34, 34)
+	G2L["12"]["Size"] = UDim2.new(0, 40, 0, 20)
+	G2L["12"]["Position"] = UDim2.new(0.82353, 0, 0.53691, 0)
+	G2L["12"]["BorderColor3"] = Color3.fromRGB(0, 0, 0)
+	G2L["12"]["Name"] = [[toggleflytoggle]]
+
+	G2L["13"] = Instance.new("UICorner", G2L["12"])
+	G2L["13"]["CornerRadius"] = UDim.new(1, 0)
+
+	G2L["14"] = Instance.new("Frame", G2L["12"])
+	G2L["14"]["ZIndex"] = 3
+	G2L["14"]["BorderSizePixel"] = 0
+	G2L["14"]["BackgroundColor3"] = Color3.fromRGB(255, 255, 255)
+	G2L["14"]["Size"] = UDim2.new(0, 20, 0, 20)
+	G2L["14"]["BorderColor3"] = Color3.fromRGB(0, 0, 0)
+	G2L["14"]["Name"] = [[knob]]
+
+	G2L["15"] = Instance.new("UICorner", G2L["14"])
+	G2L["15"]["CornerRadius"] = UDim.new(1, 0)
+
+	-- main.up
+	G2L["16"] = Instance.new("Frame", G2L["6"])
+	G2L["16"]["Active"] = true
+	G2L["16"]["BorderSizePixel"] = 0
+	G2L["16"]["BackgroundColor3"] = Color3.fromRGB(26, 34, 34)
+	G2L["16"]["Size"] = UDim2.new(0, 61, 0, 26)
+	G2L["16"]["Position"] = UDim2.new(0.04575, 0, 0.71812, 0)
+	G2L["16"]["BorderColor3"] = Color3.fromRGB(0, 0, 0)
+	G2L["16"]["Name"] = [[up]]
+
+	G2L["17"] = Instance.new("UICorner", G2L["16"])
+	G2L["17"]["CornerRadius"] = UDim.new(0, 10)
+
+	G2L["18"] = Instance.new("ImageLabel", G2L["16"])
+	G2L["18"]["BorderSizePixel"] = 0
+	G2L["18"]["BackgroundColor3"] = Color3.fromRGB(255, 255, 255)
+	G2L["18"]["Image"] = [[rbxassetid://10709768939]]
+	G2L["18"]["Size"] = UDim2.new(0, 15, 0, 15)
+	G2L["18"]["BorderColor3"] = Color3.fromRGB(0, 0, 0)
+	G2L["18"]["BackgroundTransparency"] = 1
+	G2L["18"]["Name"] = [[icon]]
+	G2L["18"]["Position"] = UDim2.new(0, 7, 0.19231, 0)
+
+	G2L["19"] = Instance.new("TextLabel", G2L["16"])
+	G2L["19"]["BorderSizePixel"] = 0
+	G2L["19"]["TextSize"] = 14
+	G2L["19"]["TextXAlignment"] = Enum.TextXAlignment.Left
+	G2L["19"]["BackgroundColor3"] = Color3.fromRGB(255, 255, 255)
+	G2L["19"]["FontFace"] = Font.new([[rbxassetid://12187365364]], Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+	G2L["19"]["TextColor3"] = Color3.fromRGB(255, 255, 255)
+	G2L["19"]["BackgroundTransparency"] = 1
+	G2L["19"]["Size"] = UDim2.new(0, 70, 0, 26)
+	G2L["19"]["BorderColor3"] = Color3.fromRGB(0, 0, 0)
+	G2L["19"]["Text"] = [[Up]]
+	G2L["19"]["Name"] = [[label]]
+	G2L["19"]["Position"] = UDim2.new(0, 30, 0, 0)
+
+	G2L["1a"] = Instance.new("UIScale", G2L["16"])
+
+	-- main.down
+	G2L["1b"] = Instance.new("Frame", G2L["6"])
+	G2L["1b"]["Active"] = true
+	G2L["1b"]["BorderSizePixel"] = 0
+	G2L["1b"]["BackgroundColor3"] = Color3.fromRGB(26, 34, 34)
+	G2L["1b"]["Size"] = UDim2.new(0, 74, 0, 26)
+	G2L["1b"]["Position"] = UDim2.new(0.27451, 0, 0.71812, 0)
+	G2L["1b"]["BorderColor3"] = Color3.fromRGB(0, 0, 0)
+	G2L["1b"]["Name"] = [[down]]
+
+	G2L["1c"] = Instance.new("UICorner", G2L["1b"])
+	G2L["1c"]["CornerRadius"] = UDim.new(0, 10)
+
+	G2L["1d"] = Instance.new("ImageLabel", G2L["1b"])
+	G2L["1d"]["BorderSizePixel"] = 0
+	G2L["1d"]["BackgroundColor3"] = Color3.fromRGB(255, 255, 255)
+	G2L["1d"]["Image"] = [[rbxassetid://10709767827]]
+	G2L["1d"]["Size"] = UDim2.new(0, 15, 0, 15)
+	G2L["1d"]["BorderColor3"] = Color3.fromRGB(0, 0, 0)
+	G2L["1d"]["BackgroundTransparency"] = 1
+	G2L["1d"]["Name"] = [[icon]]
+	G2L["1d"]["Position"] = UDim2.new(0, 7, 0.19231, 0)
+
+	G2L["1e"] = Instance.new("TextLabel", G2L["1b"])
+	G2L["1e"]["BorderSizePixel"] = 0
+	G2L["1e"]["TextSize"] = 14
+	G2L["1e"]["TextXAlignment"] = Enum.TextXAlignment.Left
+	G2L["1e"]["BackgroundColor3"] = Color3.fromRGB(255, 255, 255)
+	G2L["1e"]["FontFace"] = Font.new([[rbxassetid://12187365364]], Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+	G2L["1e"]["TextColor3"] = Color3.fromRGB(255, 255, 255)
+	G2L["1e"]["BackgroundTransparency"] = 1
+	G2L["1e"]["Size"] = UDim2.new(0, 70, 0, 26)
+	G2L["1e"]["BorderColor3"] = Color3.fromRGB(0, 0, 0)
+	G2L["1e"]["Text"] = [[Down]]
+	G2L["1e"]["Name"] = [[label]]
+	G2L["1e"]["Position"] = UDim2.new(0, 30, 0, 0)
+
+	G2L["1f"] = Instance.new("UIScale", G2L["1b"])
+
+	-- main.flyspeedcount
+	G2L["20"] = Instance.new("TextBox", G2L["6"])
+	G2L["20"]["Name"] = [[flyspeedcount]]
+	G2L["20"]["TextXAlignment"] = Enum.TextXAlignment.Right
+	G2L["20"]["ZIndex"] = 2
+	G2L["20"]["TextSize"] = 14
+	G2L["20"]["TextColor3"] = Color3.fromRGB(0, 244, 255)
+	G2L["20"]["BackgroundColor3"] = Color3.fromRGB(255, 255, 255)
+	G2L["20"]["FontFace"] = Font.new([[rbxassetid://12187365364]], Enum.FontWeight.Bold, Enum.FontStyle.Normal)
+	G2L["20"]["ClearTextOnFocus"] = false
+	G2L["20"]["Size"] = UDim2.new(0, 90, 0, 17)
+	G2L["20"]["Position"] = UDim2.new(0.66013, 0, 0.26846, 0)
+	G2L["20"]["Text"] = [[1]]
+	G2L["20"]["BackgroundTransparency"] = 1
+
+	-- ===== fly behaviour =====
+	local main = screenGui:WaitForChild("main") :: Frame
+	local sliderFrame = main:WaitForChild("flyspeedslider") :: Frame
+	local sliderKnob = sliderFrame:WaitForChild("slider") :: Frame
+	local fillBar = sliderFrame:WaitForChild("fill") :: Frame
+	local toggleFrame = main:WaitForChild("toggleflytoggle") :: Frame
+	local toggleKnob = (toggleFrame:FindFirstChild("knob") or toggleFrame:FindFirstChild("Frame")) :: Frame
+	local upBtn = main:WaitForChild("up") :: Frame
+	local downBtn = main:WaitForChild("down") :: Frame
+	local speedInput = main:WaitForChild("flyspeedcount") :: GuiObject
+
+	-- URIEL theme applies a UIScale to make the whole menu smaller. Absolute
+	-- sizes are reported in screen space, but child offsets are written in the
+	-- frame's local (unscaled) space, so the slider math has to divide by it.
+	local uiScaleObj = main:FindFirstChildOfClass("UIScale")
+	local function getGuiScale(): number
+		if uiScaleObj and uiScaleObj.Scale > 0 then
+			return uiScaleObj.Scale
+		end
+		return 1
+	end
+
+	local COLOR_BG_NORMAL = Color3.fromRGB(26, 34, 34)
+	local COLOR_BG_HOVER = Color3.fromRGB(40, 52, 52)
+	local COLOR_BG_PRESS = Color3.fromRGB(56, 72, 72)
+	local COLOR_TOGGLE_ON = Color3.fromRGB(0, 244, 255)
+	local COLOR_TOGGLE_OFF = Color3.fromRGB(26, 34, 34)
+
+	local isFlying = false
+	local currentSpeed = 1
+	local minSpeed = 1
+	local maxSpeed = 10
+	local baseStudsPerSec = 45
+
+	local isDraggingWindow = false
+	local isDraggingSlider = false
+	local isUpPressed = false
+	local isDownPressed = false
+
+	local dragStart = Vector3.zero
+	local frameStartPos = UDim2.new()
+
+	local character: Model? = nil
+	local humanoid: Humanoid? = nil
+	local hrp: BasePart? = nil
+	local bodyVelocity: BodyVelocity? = nil
+	local bodyGyro: BodyGyro? = nil
+	local currentVelocity = Vector3.zero
+
+	local startFlight: () -> ()
+	local stopFlight: () -> ()
+
+	local function isMouseOver(guiObject: GuiObject, mousePos: Vector2 | Vector3): boolean
+		local pos = guiObject.AbsolutePosition
+		local size = guiObject.AbsoluteSize
+		return mousePos.X >= pos.X and mousePos.X <= pos.X + size.X and
+		       mousePos.Y >= pos.Y and mousePos.Y <= pos.Y + size.Y
+	end
+
+	local function clampWindowToScreen(pos: UDim2): UDim2
+		local vp = camera.ViewportSize
+		local frameSize = main.AbsoluteSize
+		local minX = frameSize.X * 0.5
+		local maxX = math.max(minX, vp.X - (frameSize.X * 0.5))
+		local minY = frameSize.Y * 0.5 + GuiService:GetGuiInset().Y
+		local maxY = math.max(minY, vp.Y - (frameSize.Y * 0.5))
+
+		local absX = (pos.X.Scale * vp.X) + pos.X.Offset
+		local absY = (pos.Y.Scale * vp.Y) + pos.Y.Offset
+
+		local clampedX = math.clamp(absX, minX, maxX)
+		local clampedY = math.clamp(absY, minY, maxY)
+
+		return UDim2.new(0, clampedX, 0, clampedY)
+	end
+
+	local function updateSliderVisual(speedVal: number, animate: boolean)
+		local s = getGuiScale()
+		local trackWidth = sliderFrame.AbsoluteSize.X / s
+		local knobWidth = sliderKnob.AbsoluteSize.X / s
+		local knobHeight = sliderKnob.AbsoluteSize.Y / s
+		if trackWidth <= 0 then trackWidth = 278 end
+		if knobWidth <= 0 then knobWidth = 30 end
+		if knobHeight <= 0 then knobHeight = 15 end
+		local travel = trackWidth - knobWidth
+
+		local alpha = math.clamp((speedVal - minSpeed) / (maxSpeed - minSpeed), 0, 1)
+		local targetX = alpha * travel
+		local targetFillWidth = math.clamp(targetX + knobWidth, 10, trackWidth)
+
+		local displaySpeed = math.round(speedVal * 10) / 10
+		if displaySpeed == math.round(displaySpeed) then
+			if speedInput:IsA("TextBox") or speedInput:IsA("TextLabel") then
+				(speedInput :: any).Text = tostring(math.round(displaySpeed))
+			end
+		else
+			if speedInput:IsA("TextBox") or speedInput:IsA("TextLabel") then
+				(speedInput :: any).Text = string.format("%.1f", displaySpeed)
+			end
+		end
+
+		if animate then
+			local tInfo = TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+			TweenService:Create(sliderKnob, tInfo, {
+				Position = UDim2.new(0, targetX, 0.5, -knobHeight * 0.5)
+			}):Play()
+			TweenService:Create(fillBar, tInfo, {
+				Size = UDim2.new(0, targetFillWidth, 1, 0)
+			}):Play()
+		else
+			sliderKnob.Position = UDim2.new(0, targetX, 0.5, -knobHeight * 0.5)
+			fillBar.Size = UDim2.new(0, targetFillWidth, 1, 0)
+		end
+	end
+
+	local function handleSliderInput(mouseX: number)
+		local s = getGuiScale()
+		local trackPos = sliderFrame.AbsolutePosition.X
+		local trackWidth = sliderFrame.AbsoluteSize.X
+		local knobWidth = sliderKnob.AbsoluteSize.X
+		local knobHeight = sliderKnob.AbsoluteSize.Y
+		local travel = trackWidth - knobWidth
+		if travel <= 0 then return end
+
+		local relX = mouseX - trackPos - (knobWidth * 0.5)
+		local alpha = math.clamp(relX / travel, 0, 1)
+		local rawVal = minSpeed + alpha * (maxSpeed - minSpeed)
+		currentSpeed = math.round(rawVal)
+
+		-- Convert screen-space travel back to the frame's local space.
+		local localTravel = travel / s
+		local localKnobWidth = knobWidth / s
+		local targetX = alpha * localTravel
+		sliderKnob.Position = UDim2.new(0, targetX, 0.5, -(knobHeight / s) * 0.5)
+		fillBar.Size = UDim2.new(0, math.clamp(targetX + localKnobWidth, 10, trackWidth / s), 1, 0)
+		if speedInput:IsA("TextBox") or speedInput:IsA("TextLabel") then
+			(speedInput :: any).Text = tostring(currentSpeed)
+		end
+	end
+
+	sliderFrame.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			isDraggingSlider = true
+			handleSliderInput(input.Position.X)
+		end
+	end)
+
+	sliderKnob.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			isDraggingSlider = true
+			handleSliderInput(input.Position.X)
+		end
+	end)
+
+	sliderKnob.MouseEnter:Connect(function()
+		if not isDraggingSlider then
+			TweenService:Create(sliderKnob, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+				BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+			}):Play()
+		end
+	end)
+
+	sliderKnob.MouseLeave:Connect(function()
+		if not isDraggingSlider then
+			TweenService:Create(sliderKnob, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+				BackgroundColor3 = Color3.fromRGB(240, 240, 240)
+			}):Play()
+		end
+	end)
+
+	if speedInput:IsA("TextBox") then
+		speedInput.FocusLost:Connect(function()
+			local num = tonumber(speedInput.Text)
+			if num and num > 0 then
+				currentSpeed = math.clamp(num, 1, 100)
+				updateSliderVisual(math.clamp(currentSpeed, minSpeed, maxSpeed), true)
+				speedInput.Text = tostring(currentSpeed)
+			else
+				updateSliderVisual(currentSpeed, true)
+			end
+		end)
+	end
+
+	local function setFlyState(enable: boolean)
+		if isFlying == enable then return end
+		isFlying = enable
+
+		local tInfo = TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+
+		if isFlying then
+			TweenService:Create(toggleFrame, tInfo, {
+				BackgroundColor3 = COLOR_TOGGLE_ON
+			}):Play()
+
+			TweenService:Create(toggleKnob, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+				Position = UDim2.new(1, -22, 0, 0),
+				Size = UDim2.new(0, 22, 0, 20)
+			}):Play()
+			task.delay(0.12, function()
+				if isFlying then
+					TweenService:Create(toggleKnob, TweenInfo.new(0.13, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+						Position = UDim2.new(1, -20, 0, 0),
+						Size = UDim2.new(0, 20, 0, 20)
+					}):Play()
+				end
+			end)
+
+			startFlight()
+		else
+			TweenService:Create(toggleFrame, tInfo, {
+				BackgroundColor3 = COLOR_TOGGLE_OFF
+			}):Play()
+
+			TweenService:Create(toggleKnob, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+				Position = UDim2.new(0, 0, 0, 0),
+				Size = UDim2.new(0, 22, 0, 20)
+			}):Play()
+			task.delay(0.12, function()
+				if not isFlying then
+					TweenService:Create(toggleKnob, TweenInfo.new(0.13, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+						Position = UDim2.new(0, 0, 0, 0),
+						Size = UDim2.new(0, 20, 0, 20)
+					}):Play()
+				end
+			end)
+
+			stopFlight()
+		end
+	end
+
+	toggleFrame.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			setFlyState(not isFlying)
+		end
+	end)
+
+	local function setupButton(btn: GuiObject, onHoldStart: () -> (), onHoldEnd: () -> ())
+		local scale = btn:FindFirstChildOfClass("UIScale")
+		if not scale then
+			scale = Instance.new("UIScale")
+			scale.Parent = btn
+		end
+
+		btn.MouseEnter:Connect(function()
+			TweenService:Create(btn, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+				BackgroundColor3 = COLOR_BG_HOVER
+			}):Play()
+		end)
+
+		btn.MouseLeave:Connect(function()
+			TweenService:Create(btn, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+				BackgroundColor3 = COLOR_BG_NORMAL
+			}):Play()
+			onHoldEnd()
+		end)
+
+		btn.InputBegan:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+				TweenService:Create(scale, TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+					Scale = 0.93
+				}):Play()
+				TweenService:Create(btn, TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+					BackgroundColor3 = COLOR_BG_PRESS
+				}):Play()
+
+				if not isFlying then
+					setFlyState(true)
+				end
+				onHoldStart()
+			end
+		end)
+
+		btn.InputEnded:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+				TweenService:Create(scale, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+					Scale = 1.0
+				}):Play()
+				TweenService:Create(btn, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+					BackgroundColor3 = isMouseOver(btn, input.Position) and COLOR_BG_HOVER or COLOR_BG_NORMAL
+				}):Play()
+				onHoldEnd()
+			end
+		end)
+	end
+
+	setupButton(upBtn, function()
+		isUpPressed = true
+	end, function()
+		isUpPressed = false
+	end)
+
+	setupButton(downBtn, function()
+		isDownPressed = true
+	end, function()
+		isDownPressed = false
+	end)
+
+	main.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			local pos = input.Position
+			-- Ignore clicks inside interactive children
+			if isMouseOver(sliderFrame, pos) or isMouseOver(toggleFrame, pos) or
+			   isMouseOver(upBtn, pos) or isMouseOver(downBtn, pos) or
+			   isMouseOver(speedInput, pos) then
+				return
+			end
+
+			isDraggingWindow = true
+			dragStart = input.Position
+			frameStartPos = main.Position
+		end
+	end)
+
+	UserInputService.InputChanged:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+			if isDraggingWindow then
+				local delta = input.Position - dragStart
+				local target = UDim2.new(
+					frameStartPos.X.Scale, frameStartPos.X.Offset + delta.X,
+					frameStartPos.Y.Scale, frameStartPos.Y.Offset + delta.Y
+				)
+				TweenService:Create(main, TweenInfo.new(0.06, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+					Position = target
+				}):Play()
+			elseif isDraggingSlider then
+				handleSliderInput(input.Position.X)
+			end
+		end
+	end)
+
+	UserInputService.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			if isDraggingWindow then
+				isDraggingWindow = false
+				local clamped = clampWindowToScreen(main.Position)
+				TweenService:Create(main, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+					Position = clamped
+				}):Play()
+			end
+			if isDraggingSlider then
+				isDraggingSlider = false
+				updateSliderVisual(currentSpeed, true)
+			end
+		end
+	end)
+
+	local function cleanupMovers()
+		if bodyVelocity and bodyVelocity.Parent then
+			bodyVelocity:Destroy()
+		end
+		bodyVelocity = nil
+		if bodyGyro and bodyGyro.Parent then
+			bodyGyro:Destroy()
+		end
+		bodyGyro = nil
+	end
+
+	function startFlight()
+		character = player.Character
+		if not character then return end
+		humanoid = character:FindFirstChildOfClass("Humanoid")
+		hrp = character:FindFirstChild("HumanoidRootPart") :: BasePart?
+		if not humanoid or not hrp then return end
+
+		cleanupMovers()
+
+		humanoid.PlatformStand = true
+		humanoid:ChangeState(Enum.HumanoidStateType.Physics)
+
+		local bv = Instance.new("BodyVelocity")
+		bv.Name = "FlyVelocity"
+		bv.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+		bv.Velocity = Vector3.zero
+		bv.Parent = hrp
+		bodyVelocity = bv
+
+		local bg = Instance.new("BodyGyro")
+		bg.Name = "FlyGyro"
+		bg.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
+		bg.P = 15000
+		bg.D = 600
+		bg.CFrame = hrp.CFrame
+		bg.Parent = hrp
+		bodyGyro = bg
+
+		currentVelocity = Vector3.zero
+	end
+
+	function stopFlight()
+		cleanupMovers()
+		if humanoid and humanoid.Parent then
+			humanoid.PlatformStand = false
+			humanoid:ChangeState(Enum.HumanoidStateType.Running)
+		end
+		currentVelocity = Vector3.zero
+	end
+
+	RunService.RenderStepped:Connect(function(dt)
+		if not isFlying then return end
+		if not character or not humanoid or not hrp or not hrp.Parent then
+			return
+		end
+
+		local fwd = 0
+		local side = 0
+		local vert = 0
+
+		if not UserInputService:GetFocusedTextBox() then
+			if UserInputService:IsKeyDown(Enum.KeyCode.W) or UserInputService:IsKeyDown(Enum.KeyCode.Up) then
+				fwd = fwd + 1
+			end
+			if UserInputService:IsKeyDown(Enum.KeyCode.S) or UserInputService:IsKeyDown(Enum.KeyCode.Down) then
+				fwd = fwd - 1
+			end
+			if UserInputService:IsKeyDown(Enum.KeyCode.D) or UserInputService:IsKeyDown(Enum.KeyCode.Right) then
+				side = side + 1
+			end
+			if UserInputService:IsKeyDown(Enum.KeyCode.A) or UserInputService:IsKeyDown(Enum.KeyCode.Left) then
+				side = side - 1
+			end
+			if UserInputService:IsKeyDown(Enum.KeyCode.Space) or UserInputService:IsKeyDown(Enum.KeyCode.E) then
+				vert = vert + 1
+			end
+			if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) or UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) or UserInputService:IsKeyDown(Enum.KeyCode.Q) then
+				vert = vert - 1
+			end
+		end
+
+		if isUpPressed then vert = vert + 1 end
+		if isDownPressed then vert = vert - 1 end
+
+		local camCF = camera.CFrame
+		local rawLook = camCF.LookVector
+		local rawRight = camCF.RightVector
+
+		local flatLook = Vector3.new(rawLook.X, 0, rawLook.Z)
+		if flatLook.Magnitude > 0.001 then
+			flatLook = flatLook.Unit
+		else
+			flatLook = hrp.CFrame.LookVector
+		end
+
+		local flatRight = Vector3.new(rawRight.X, 0, rawRight.Z)
+		if flatRight.Magnitude > 0.001 then
+			flatRight = flatRight.Unit
+		else
+			flatRight = hrp.CFrame.RightVector
+		end
+
+		local moveDir = Vector3.zero
+		if fwd ~= 0 then
+			moveDir = moveDir + (flatLook * fwd)
+		end
+		if side ~= 0 then
+			moveDir = moveDir + (flatRight * side)
+		end
+		if vert ~= 0 then
+			moveDir = moveDir + (Vector3.new(0, 1, 0) * vert)
+		end
+
+		if fwd == 0 and side == 0 and UserInputService.TouchEnabled and not UserInputService.MouseEnabled then
+			if humanoid.MoveDirection.Magnitude > 0.1 then
+				moveDir = moveDir + humanoid.MoveDirection
+			end
+		end
+
+		local maxSpeedStuds = currentSpeed * baseStudsPerSec
+		local targetVel = Vector3.zero
+		if moveDir.Magnitude > 0.01 then
+			targetVel = moveDir.Unit * maxSpeedStuds
+		end
+
+		local accel = (targetVel.Magnitude > 0) and 14 or 10
+		currentVelocity = currentVelocity:Lerp(targetVel, math.clamp(dt * accel, 0, 1))
+		if currentVelocity.Magnitude < 0.05 and targetVel.Magnitude == 0 then
+			currentVelocity = Vector3.zero
+		end
+
+		if bodyVelocity and bodyVelocity.Parent then
+			bodyVelocity.Velocity = currentVelocity
+		end
+
+		if bodyGyro and bodyGyro.Parent then
+			local baseCF = CFrame.lookAt(hrp.Position, hrp.Position + flatLook)
+
+			local forwardRatio = math.clamp(currentVelocity:Dot(flatLook) / math.max(maxSpeedStuds, 1), -1, 1)
+			local pitch = -math.rad(22) * forwardRatio
+
+			local strafeRatio = math.clamp(currentVelocity:Dot(flatRight) / math.max(maxSpeedStuds, 1), -1, 1)
+			local roll = -math.rad(16) * strafeRatio
+
+			local targetCF = baseCF * CFrame.Angles(pitch, 0, roll)
+			bodyGyro.CFrame = bodyGyro.CFrame:Lerp(targetCF, math.clamp(dt * 15, 0, 1))
+		end
+	end)
+
+	local function onCharacterAdded(newChar: Model)
+		character = newChar
+		humanoid = newChar:WaitForChild("Humanoid") :: Humanoid
+		hrp = newChar:WaitForChild("HumanoidRootPart") :: BasePart
+
+		if isFlying then
+			startFlight()
+		end
+
+		humanoid.Died:Connect(function()
+			cleanupMovers()
+			if isFlying then
+				setFlyState(false)
+			end
+		end)
+	end
+
+	if player.Character then
+		onCharacterAdded(player.Character)
+	end
+	player.CharacterAdded:Connect(onCharacterAdded)
+
+	updateSliderVisual(currentSpeed, false)
+	toggleFrame.BackgroundColor3 = COLOR_TOGGLE_OFF
+	toggleKnob.Position = UDim2.new(0, 0, 0, 0)
+
+	urielFly.setFlyState = setFlyState
+	urielFly.isFlying = function()
+		return isFlying
+	end
+
+	return screenGui
+end
+
+local function setUrielFlyMenuVisible(visible)
+	if visible then
+		local gui = buildUrielFlyMenu()
+		gui.Enabled = true
+	else
+		if urielFly.gui and urielFly.gui.Parent then
+			urielFly.gui.Enabled = false
+		end
+		-- Leaving the menu hidden while the internal fly toggle is still on would
+		-- strand the player mid-air with no way to turn flight off again.
+		if urielFly.setFlyState and urielFly.isFlying and urielFly.isFlying() then
+			urielFly.setFlyState(false)
+		end
+	end
+end
+
+Toggles.UrielFlyToggle:OnChanged(function()
+	setUrielFlyMenuVisible(Toggles.UrielFlyToggle.Value)
+end)
 
 updateTrapBullyVisibility = function()
 	local isBearTrapSlot = (Toggles.BearTrapSlotSystem and Toggles.BearTrapSlotSystem.Value) or false
@@ -12420,6 +13230,9 @@ Library:OnUnload(function()
 	if Toggles.InvisibleFlyToggle and Toggles.InvisibleFlyToggle.Value then
 		Toggles.InvisibleFlyToggle:SetValue(false)
 	end
+	if Toggles.UrielFlyToggle and Toggles.UrielFlyToggle.Value then
+		Toggles.UrielFlyToggle:SetValue(false)
+	end
 	if Toggles.QuickVanish and Toggles.QuickVanish.Value then
 		Toggles.QuickVanish:SetValue(false)
 	end
@@ -12454,6 +13267,9 @@ Library:OnUnload(function()
 	end
 	clearESP()
 	pcall(function() clearOreESPHighlights() end)
+	pcall(function()
+		if urielFly.gui then urielFly.gui:Destroy() end
+	end)
 	workspace.Gravity = 196.2
 	getgenv().TSG_UNLOAD = nil
 end)
