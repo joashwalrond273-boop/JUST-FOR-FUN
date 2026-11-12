@@ -1574,10 +1574,6 @@ do
 		["Admin Armor"] = true,
 		["Admin Pants"] = true,
 		["Admin Bag"] = true,
-		["Mod Helmet"] = true,
-		["Mod Armor"] = true,
-		["Mod Pants"] = true,
-		["Mod Bag"] = true,
 	}
 
 	-- Every piece that currently glows, so the bloom can be switched back off
