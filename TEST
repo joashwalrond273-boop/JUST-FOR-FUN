@@ -4622,7 +4622,7 @@ CombatCamlockConfig:AddSlider("CamlockPullStrength", {
 	Compact = true,
 })
 
-CombatCamlockConfig:AddToggle("WaterBypass", {
+CombatCamlockConfig:AddCheckbox("WaterBypass", {
 	Text = "Water Bypass",
 	Default = false,
 })
