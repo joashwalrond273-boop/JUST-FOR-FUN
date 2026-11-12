@@ -6389,7 +6389,9 @@ Toggles.Camlock:OnChanged(function()
 								local smoothness = (Options.CamlockSmoothness and Options.CamlockSmoothness.Value) or 0.2
 								local lerpFactor = math.clamp(smoothness, 0.01, 1)
 
-								if Toggles.CamlockFreePitch and Toggles.CamlockFreePitch.Value then
+								-- In water the lock is a pure aimbot: the camera follows the
+								-- target on both axes, so Free Pitch is ignored there.
+								if Toggles.CamlockFreePitch and Toggles.CamlockFreePitch.Value and not inWater then
 									-- Allow Look Down: interpolate only the yaw (horizontal aim) toward
 									-- the target so the player keeps full vertical (pitch) control
 									local curCF = camera.CFrame
@@ -6415,10 +6417,12 @@ Toggles.Camlock:OnChanged(function()
 					end
 				end
 			else
-				UserInputService.MouseBehavior = Enum.MouseBehavior.Default
-				UserInputService.MouseIconEnabled = true
+				-- In water the shiftlock is kept even with no target: the mouse stays
+				-- locked to the centre, while the body is left completely free.
+				UserInputService.MouseBehavior = inWater and Enum.MouseBehavior.LockCenter or Enum.MouseBehavior.Default
+				UserInputService.MouseIconEnabled = not inWater
 				hum.AutoRotate = true
-				if outlineActive and (root.Position - myPos).Magnitude > 0.01 then
+				if outlineActive and not inWater and (root.Position - myPos).Magnitude > 0.01 then
 					root.CFrame = CFrame.new(myPos, myPos + root.CFrame.LookVector)
 				end
 			end
