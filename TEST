@@ -8181,10 +8181,27 @@ FarmAI:AddToggle("AiAura", {
 	Default = false,
 })
 
+FarmAI:AddCheckbox("BossHighlighter", {
+	Text = "Boss Highlighter",
+	Default = false,
+})
+
 FarmAI:AddDropdown("AiAuraSlot", {
 	Text = "Attack Slot",
 	Values = {"1","2","3","4","5","6","7","8","9","10"},
 	Default = "1",
+})
+
+FarmAI:AddCheckbox("AiAuraSlotSystem", {
+	Text = "Slot System",
+	Default = false,
+})
+
+FarmAI:AddDropdown("AiAuraSlotSystemSlot", {
+	Text = "Tool Slot",
+	Values = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"},
+	Default = {"1"},
+	Multi = true,
 })
 
 FarmAI:AddDropdown("AiAuraNameFilter", {
@@ -8208,18 +8225,6 @@ FarmAI:AddButton({
 			Options.AiAuraNameList:SetValues(getAiAuraNames())
 		end
 	end,
-})
-
-FarmAI:AddCheckbox("AiAuraSlotSystem", {
-	Text = "Slot System",
-	Default = false,
-})
-
-FarmAI:AddDropdown("AiAuraSlotSystemSlot", {
-	Text = "Tool Slot",
-	Values = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"},
-	Default = {"1"},
-	Multi = true,
 })
 
 FarmAI:AddSlider("AiAuraRange", {
@@ -10968,11 +10973,6 @@ VisualLeft:AddCheckbox("BoxESP", {
 }):AddColorPicker("BoxESPColor", {
 	Default = Color3.fromRGB(255, 255, 255),
 	Title = "Box ESP Color",
-})
-
-VisualLeft:AddCheckbox("BossHighlighter", {
-	Text = "Boss Highlighter",
-	Default = false,
 })
 
 VisualLeft:AddCheckbox("PlayerHealthBar", {
