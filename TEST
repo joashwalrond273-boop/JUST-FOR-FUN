@@ -1323,28 +1323,28 @@ CosmeticsGroup:AddDivider()
 
 CosmeticsGroup:AddDropdown("CosmeticSelect", {
 	Text = "Head Wear",
-	Values = {"None", "Villainous Crown", "Saviors Crown", "Tyrants Crown", "Crown Of The Sky Dragon", "Flower Crown", "Golden Laurel", "Golden Horns Of Victory", "Royal Vizier Mask", "Admin Helmet", "Raider", "Spikes Of Chaos", "Skeleton Crown", "Imperial Hat", "Classic Crown", "Royal Knight Hat", "Golden Spartan", "Golden Valkyrie", "Plague Mask", "Magma Horned Helm", "Ancient Skull", "Shaded Warrior", "Obsidian Lion", "Golden Lion", "Horned Helm Of Loki", "Crown Of The Royal Dragon", "Arctic Cap", "Witch Hat Brown"},
+	Values = {"None", "Villainous Crown", "Saviors Crown", "Tyrants Crown", "Crown Of The Sky Dragon", "Flower Crown", "Golden Laurel", "Golden Horns Of Victory", "Royal Vizier Mask", "Admin Helmet", "Mod Helmet", "Raider", "Spikes Of Chaos", "Skeleton Crown", "Imperial Hat", "Classic Crown", "Royal Knight Hat", "Golden Spartan", "Golden Valkyrie", "Plague Mask", "Magma Horned Helm", "Ancient Skull", "Shaded Warrior", "Obsidian Lion", "Golden Lion", "Horned Helm Of Loki", "Crown Of The Royal Dragon", "Arctic Cap", "Witch Hat Brown"},
 	Default = {},
 	Multi = true,
 })
 
 CosmeticsGroup:AddDropdown("BodyWearSelect", {
 	Text = "Body Wear",
-	Values = {"None", "Admin Armor", "Target Practice"},
+	Values = {"None", "Admin Armor", "Mod Armor", "Target Practice"},
 	Default = {},
 	Multi = true,
 })
 
 CosmeticsGroup:AddDropdown("PantsWearSelect", {
 	Text = "Pants Wear",
-	Values = {"None", "Admin Pants"},
+	Values = {"None", "Admin Pants", "Mod Pants"},
 	Default = {},
 	Multi = true,
 })
 
 CosmeticsGroup:AddDropdown("BackWearSelect", {
 	Text = "Back Wear",
-	Values = {"None", "Admin Bag", "Xpie101gamers Cape", "Wolf Pelt Cape", "Grey Wolf Pelt Cape", "Royal Embroidered Cape", "Angelic Wings", "Demonic Wings"},
+	Values = {"None", "Admin Bag", "Mod Bag", "Xpie101gamers Cape", "Wolf Pelt Cape", "Grey Wolf Pelt Cape", "Royal Embroidered Cape", "Angelic Wings", "Demonic Wings"},
 	Default = {},
 	Multi = true,
 })
@@ -1534,6 +1534,7 @@ do
 	-- Cosmetics that don't live under ReplicatedStorage.game.Cosmetics.cosmetics
 	local COSMETIC_PATHS = {
 		["Admin Helmet"] = {"game", "Items", "models", "Admin Helmet"},
+		["Mod Helmet"] = {"game", "Items", "models", "Mod Helmet"},
 		["Raider"] = {"game", "AIModels", "Arena Barbarian 1", "RaiderCosmetics"},
 		["Imperial Hat"] = {"game", "AIModels", "Arena Imperial 1", "Head", "Meshes/Cosmetics_Hats.026"},
 		["Classic Crown"] = {"game", "Cosmetics", "cosmetics", "Classic Crown", "Meshes/Cosmetics_Hats.023"},
@@ -2424,6 +2425,7 @@ do
 		clothingClass = "Shirt",
 		paths = {
 			["Admin Armor"] = {"game", "Items", "models", "Admin Armor"},
+			["Mod Armor"] = {"game", "Items", "models", "Mod Armor"},
 			["Target Practice"] = {"game", "Cosmetics", "cosmetics", "Target Practice"},
 		},
 		adjust = {},
@@ -2453,6 +2455,7 @@ do
 		deformTop = { part = "LowerTorso" },
 		paths = {
 			["Admin Pants"] = {"game", "Items", "models", "Admin Pants"},
+			["Mod Pants"] = {"game", "Items", "models", "Mod Pants"},
 		},
 		adjust = {
 			["Admin Pants"] = CFrame.new(-0.1, -0.45, -0.25) * CFrame.Angles(0, math.rad(90), 0),
@@ -2499,6 +2502,7 @@ do
 		clothingClass = "Backpack",
 		paths = {
 			["Admin Bag"] = {"game", "Items", "models", "Admin Bag"},
+			["Mod Bag"] = {"game", "Items", "models", "Mod Bag"},
 			["Xpie101gamers Cape"] = {"game", "Cosmetics", "cosmetics", "Xpie101gamers Cape"},
 			["Wolf Pelt Cape"] = {"game", "Cosmetics", "cosmetics", "Wolf Pelt Cape"},
 			["Grey Wolf Pelt Cape"] = {"game", "Cosmetics", "cosmetics", "Grey Wolf Pelt Cape"},
