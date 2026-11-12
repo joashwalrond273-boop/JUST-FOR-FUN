@@ -52,7 +52,6 @@ local shouldTeleportBack = false
 local updateAutoSwingSliderVisibility
 local updatePVPModulesVisibility
 local updateTouchFlingVisibility
-local updateHelicopterVisibility
 local updateAutoPickupVisibility
 local updatePlayerESPVisibility
 local updateFlightVisibility
@@ -2724,51 +2723,11 @@ FunLeft:AddSlider("TouchFlingPower", {
 	Compact = true,
 })
 
-FunLeft:AddCheckbox("HelicopterTroll", {
-	Text = "Fling Your Victim",
-	Default = false,
-})
-
-FunLeft:AddDropdown("HelicopterPlayerList", {
-	Text = "Select Target",
-	Values = {},
-	Default = "",
-})
-
 FunLeft:AddDivider()
 
 FunLeft:AddCheckbox("AntiFling", {
 	Text = "Anti Fling",
 	Default = false,
-})
-
-FunLeft:AddDivider()
-
--- Moved here from the old "Trap a Bully" groupbox
-FunLeft:AddToggle("BearTrapClown", {
-	Text = "Bear Trap a Clown",
-	Default = false,
-})
-
-FunLeft:AddSlider("BearTrapSpeed", {
-	Text = "Speed",
-	Default = 2,
-	Min = 1,
-	Max = 10,
-	Rounding = 0,
-	Compact = true,
-})
-
-FunLeft:AddCheckbox("BearTrapSlotSystem", {
-	Text = "Slot System",
-	Default = false,
-})
-
-FunLeft:AddDropdown("BearTrapSlotSystemSlot", {
-	Text = "Tool Slot",
-	Values = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" },
-	Default = { "1" },
-	Multi = true,
 })
 
 updateTouchFlingVisibility = function()
@@ -2779,16 +2738,8 @@ updateTouchFlingVisibility = function()
 		end
 	end
 
-	if Options.HelicopterPlayerList then
-		Options.HelicopterPlayerList.Visible = true
-		if Options.HelicopterPlayerList.Holder then
-			Options.HelicopterPlayerList.Holder.Visible = true
-		end
-	end
-
 	FunLeft:Resize()
 end
-updateHelicopterVisibility = updateTouchFlingVisibility
 
 updateTouchFlingVisibility()
 task.spawn(function()
@@ -6147,13 +6098,12 @@ Toggles.Camlock:OnChanged(function()
 			local hum = getHumanoid()
 			if not root or not hum then return end
 
-			-- Never interfere with swimming: while in water the camlock would
-			-- otherwise force CFrame/velocity and make the character act weird.
-			if hum:GetState() == Enum.HumanoidStateType.Swimming then
-				UserInputService.MouseBehavior = Enum.MouseBehavior.Default
-				UserInputService.MouseIconEnabled = true
+			-- While swimming the body is left untouched - forcing its CFrame or
+			-- velocity there fights the swim state. The view still stays locked
+			-- on the target so you keep looking at them.
+			local inWater = hum:GetState() == Enum.HumanoidStateType.Swimming
+			if inWater then
 				hum.AutoRotate = true
-				return
 			end
 
 			local maxDist = Options.CamlockStuds and Options.CamlockStuds.Value or 20
@@ -6245,7 +6195,7 @@ Toggles.Camlock:OnChanged(function()
 			local outlineActive = (Toggles.Outline and Toggles.Outline.Value) or (Toggles.Cutline and Toggles.Cutline.Value)
 			local minOutlineStuds = (Options.OutlineStuds and Options.OutlineStuds.Value) or (Options.CutlineStuds and Options.CutlineStuds.Value) or 7
 
-			if outlineActive then
+			if outlineActive and not inWater then
 				local outlineTargetSetting = (Options.OutlineTarget and Options.OutlineTarget.Value) or "All"
 				for _, otherPlayer in ipairs(camlockPlayers) do
 					if otherPlayer ~= LocalPlayer and otherPlayer.Character then
@@ -6300,7 +6250,7 @@ Toggles.Camlock:OnChanged(function()
 
 			-- Slight Pull In at 8 studs: Gently pulls forward into outline distance (never closer than outline)
 			local isPullActive = (Toggles.CamlockPull and Toggles.CamlockPull.Value) or false
-			if isPullActive and closestPlayer and closestPlayer.Character then
+			if isPullActive and closestPlayer and closestPlayer.Character and not inWater then
 				local targetRoot = closestPlayer.Character:FindFirstChild("HumanoidRootPart")
 				if targetRoot then
 					local targetPos = targetRoot.Position
@@ -6374,7 +6324,7 @@ Toggles.Camlock:OnChanged(function()
 				if targetRoot then
 					local targetPos = targetRoot.Position
 					local lookDir = Vector3.new(targetPos.X - myPos.X, 0, targetPos.Z - myPos.Z).Unit
-					if lookDir.Magnitude > 0 then
+					if lookDir.Magnitude > 0 and not inWater then
 						hum.AutoRotate = false
 
 						local angleOffset = 0
@@ -6398,12 +6348,13 @@ Toggles.Camlock:OnChanged(function()
 						else
 							root.CFrame = CFrame.new(myPos) * CFrame.Angles(0, curYaw + angleOffset, 0)
 						end
-					else
+					elseif not inWater then
 						root.CFrame = CFrame.new(myPos, myPos + root.CFrame.LookVector)
 					end
 
-					-- True Camera Interpolation (Smooth Lerp)
-					if Toggles.CamlockCameraLerp and Toggles.CamlockCameraLerp.Value then
+					-- True Camera Interpolation (Smooth Lerp). In water this always
+					-- runs, since the body can't be turned to aim anymore.
+					if inWater or (Toggles.CamlockCameraLerp and Toggles.CamlockCameraLerp.Value) then
 						local camera = workspace.CurrentCamera
 						if camera then
 							local aimPartName = (Options.CamlockAimPart and Options.CamlockAimPart.Value) or "Head"
@@ -7189,108 +7140,6 @@ invisOutlineLabel:AddColorPicker("InvisibleFlyOutlineColor", {
 	Default = Color3.fromRGB(255, 255, 255),
 	Title = "Invisible Fly Highlight Outline Color",
 })
-
-updateTrapBullyVisibility = function()
-	local isBearTrapSlot = (Toggles.BearTrapSlotSystem and Toggles.BearTrapSlotSystem.Value) or false
-
-	if Options.BearTrapSlotSystemSlot then
-		Options.BearTrapSlotSystemSlot.Visible = isBearTrapSlot
-		if Options.BearTrapSlotSystemSlot.Holder then
-			Options.BearTrapSlotSystemSlot.Holder.Visible = isBearTrapSlot
-		end
-	end
-	if FunLeft and FunLeft.Resize then
-		pcall(function() FunLeft:Resize() end)
-	end
-end
-
-Toggles.BearTrapSlotSystem:OnChanged(function()
-	if updateTrapBullyVisibility then
-		updateTrapBullyVisibility()
-	end
-end)
-
--- Trap a Clown: auto-activates while a chosen tool slot is held
-local BEAR_TRAP_ID = 432
-local TRAP_RANGE = 25
-local TRAP_AHEAD = 9
-
-local function createTrapAheadLoop(trapId, toggleName, slotToggleName, slotOptionName, speedOptionName)
-	local lastPlaced = {}
-	local lastScan = 0
-	local rayParams = RaycastParams.new()
-	pcall(function()
-		rayParams.FilterType = Enum.RaycastFilterType.Exclude
-	end)
-	return RunService.Heartbeat:Connect(function()
-		local useSlot = Toggles[slotToggleName] and Toggles[slotToggleName].Value
-		local active
-		if useSlot then
-			active = isAdvanceSlotAllowed(Options[slotOptionName])
-			if Toggles[toggleName] and Toggles[toggleName].Value ~= active then
-				Toggles[toggleName]:SetValue(active)
-			end
-		else
-			active = (Toggles[toggleName] and Toggles[toggleName].Value) or false
-		end
-		if not active then return end
-		local speed = (Options[speedOptionName] and Options[speedOptionName].Value) or 2
-		local delay = 1 / math.max(0.1, speed)
-		local now = os.clock()
-		-- No point scanning players faster than we are allowed to place traps.
-		if now - lastScan < delay then return end
-		lastScan = now
-		local buildRemote = TSG.BuildRemote
-		local root = getRootPart()
-		if not buildRemote or not root then return end
-		local rootPos = root.Position
-		for _, player in ipairs(Players:GetPlayers()) do
-			if player ~= LocalPlayer and player.Character then
-				local targetRoot = player.Character:FindFirstChild("HumanoidRootPart")
-				local hum = player.Character:FindFirstChildOfClass("Humanoid")
-				if targetRoot and hum and hum.Health > 0 then
-					if (targetRoot.Position - rootPos).Magnitude <= TRAP_RANGE then
-						if now - (lastPlaced[player] or 0) >= delay then
-							lastPlaced[player] = now
-							local look = targetRoot.CFrame.LookVector
-							local dir = Vector3.new(look.X, 0, look.Z)
-							if dir.Magnitude > 0 then
-								dir = dir.Unit
-							end
-							local pos = targetRoot.Position + dir * TRAP_AHEAD
-							local groundY = pos.Y - 3
-							rayParams.FilterDescendantsInstances = { LocalPlayer.Character, player.Character }
-							local ok, result = pcall(function()
-								return workspace:Raycast(Vector3.new(pos.X, pos.Y + 5, pos.Z), Vector3.new(0, -200, 0), rayParams)
-							end)
-							if ok and result then
-								groundY = result.Position.Y
-							end
-							pcall(function()
-								buildRemote:InvokeServer(
-									trapId,
-									CFrame.new(pos.X, groundY, pos.Z),
-									0,
-									nil
-								)
-							end)
-						end
-					end
-				end
-			end
-		end
-	end)
-end
-
-track("BearTrapClown", createTrapAheadLoop(BEAR_TRAP_ID, "BearTrapClown", "BearTrapSlotSystem", "BearTrapSlotSystemSlot", "BearTrapSpeed"))
-
-updateTrapBullyVisibility()
-task.spawn(function()
-	task.wait(0.05)
-	if updateTrapBullyVisibility then
-		updateTrapBullyVisibility()
-	end
-end)
 
 MoveLeft:AddToggle("SpeedHack", {
 	Text = "Speed",
@@ -11823,78 +11672,6 @@ Toggles.AntiFling:OnChanged(function()
 	end
 end)
 
--- Fling Your Victim (continuously flings the selected player while enabled)
-local function stopTargetFling()
-	disconnect("TargetFlingLoop")
-	local hum = getHumanoid()
-	if hum then
-		hum.PlatformStand = false
-	end
-	local myRoot = getRootPart()
-	if myRoot then
-		myRoot.AssemblyLinearVelocity = Vector3.zero
-		myRoot.AssemblyAngularVelocity = Vector3.zero
-	end
-end
-
-local function startTargetFling()
-	disconnect("TargetFlingLoop")
-	if not Toggles.HelicopterTroll.Value then
-		stopTargetFling()
-		return
-	end
-
-	local myHum = getHumanoid()
-	if myHum then
-		myHum.PlatformStand = true
-	end
-
-	local spin = 0
-
-	track("TargetFlingLoop", RunService.Heartbeat:Connect(function()
-		if not Toggles.HelicopterTroll.Value then return end
-
-		local targetName = Options.HelicopterPlayerList and Options.HelicopterPlayerList.Value
-		if not targetName or targetName == "" then return end
-
-		local targetPlayer = Players:FindFirstChild(targetName)
-		local targetChar = targetPlayer and targetPlayer.Character
-		local targetRoot = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
-		local myRoot = getRootPart()
-		if not (targetRoot and myRoot and isAlive()) then return end
-
-		local offset = targetRoot.Position - myRoot.Position
-		if offset.Magnitude < 0.5 then
-			offset = Vector3.new(0, 1, 0)
-		end
-
-		-- Spin/turn our character while forcing it directly inside the target's
-		-- body (no offset) so the collision solver launches them off.
-		spin = spin + 1.5
-		myRoot.CFrame = targetRoot.CFrame * CFrame.Angles(0, spin, spin * 0.5)
-		myRoot.AssemblyLinearVelocity = offset.Unit * 1e5 + Vector3.new(0, 1e5, 0)
-		myRoot.AssemblyAngularVelocity = Vector3.new(1e5, 1e5, 1e5)
-	end))
-end
-
-Toggles.HelicopterTroll:OnChanged(function()
-	if updateHelicopterVisibility then
-		updateHelicopterVisibility()
-	end
-	startTargetFling()
-	if Toggles.HelicopterTroll.Value then
-		Library:Notify({ Title = "FLING YOUR VICTIM", Description = "Flinging: " .. tostring(Options.HelicopterPlayerList.Value), Time = 2 })
-	else
-		Library:Notify({ Title = "FLING YOUR VICTIM", Description = "Fling Disabled", Time = 2 })
-	end
-end)
-
-Options.HelicopterPlayerList:OnChanged(function()
-	if Toggles.HelicopterTroll.Value then
-		startTargetFling()
-	end
-end)
-
 -- Attach Script Logic
 local function updateAttachPlayerList()
 	local list = {}
@@ -11913,18 +11690,6 @@ local function updateAttachPlayerList()
 			end
 		else
 			Options.AttachPlayerList:SetValue("")
-		end
-	end)
-	pcall(function()
-		if Options.HelicopterPlayerList then
-			Options.HelicopterPlayerList:SetValues(list)
-			if #list > 0 then
-				if not table.find(list, Options.HelicopterPlayerList.Value) then
-					Options.HelicopterPlayerList:SetValue(list[1])
-				end
-			else
-				Options.HelicopterPlayerList:SetValue("")
-			end
 		end
 	end)
 	pcall(function()
@@ -12536,17 +12301,8 @@ Library:OnUnload(function()
 	if Toggles.AntiFling and Toggles.AntiFling.Value then
 		Toggles.AntiFling:SetValue(false)
 	end
-	if Toggles.HelicopterTroll and Toggles.HelicopterTroll.Value then
-		Toggles.HelicopterTroll:SetValue(false)
-	end
 	if Toggles.NoBearTrapDMG and Toggles.NoBearTrapDMG.Value then
 		Toggles.NoBearTrapDMG:SetValue(false)
-	end
-	if Toggles.BearTrapClown and Toggles.BearTrapClown.Value then
-		Toggles.BearTrapClown:SetValue(false)
-	end
-	if Toggles.BearTrapSlotSystem and Toggles.BearTrapSlotSystem.Value then
-		Toggles.BearTrapSlotSystem:SetValue(false)
 	end
 
 	if Toggles.PlusSpeedBoost and Toggles.PlusSpeedBoost.Value then
