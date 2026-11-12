@@ -4583,6 +4583,21 @@ CombatCamlockConfig:AddSlider("CamlockPullStrength", {
 	Compact = true,
 })
 
+CombatCamlockConfig:AddCheckbox("CamlockOffInWater", {
+	Text = "Turn Off In Water",
+	Default = false,
+})
+
+CombatCamlockConfig:AddToggle("Aimlock", {
+	Text = "Aimlock",
+	Default = false,
+})
+
+CombatCamlockConfig:AddCheckbox("AimlockIgnoreTeam", {
+	Text = "Ignore Team",
+	Default = true,
+})
+
 CombatLeft:AddToggle("KillAura", {
 	Text = "Kill Aura",
 	Default = false,
@@ -6063,6 +6078,83 @@ Toggles.SmartSwing:OnChanged(function()
 	end
 end)
 
+-- ==========================================
+-- Aimlock: locks the camera onto the closest player only.
+-- Runs before the camlock loop, so when the camlock is active it keeps
+-- control of the camera and this one simply has nothing to fight over.
+do
+	local AIMLOCK_AIM_PART = "Head"
+	local aimlockMouseLocked = false
+
+	local function aimlockReleaseMouse()
+		if not aimlockMouseLocked then return end
+		aimlockMouseLocked = false
+		UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+		UserInputService.MouseIconEnabled = true
+	end
+
+	local function aimlockPickClosest()
+		local root = getRootPart()
+		if not root then return nil end
+
+		local maxDist = (Options.CamlockStuds and Options.CamlockStuds.Value) or 20
+		local ignoreTeam = (Toggles.AimlockIgnoreTeam and Toggles.AimlockIgnoreTeam.Value) or false
+
+		local bestPlayer, bestDist = nil, maxDist
+		for _, otherPlayer in ipairs(Players:GetPlayers()) do
+			if otherPlayer ~= LocalPlayer and otherPlayer.Character then
+				local sameTeam = ignoreTeam and LocalPlayer.Team and otherPlayer.Team and LocalPlayer.Team == otherPlayer.Team
+				if not sameTeam then
+					local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
+					local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
+					if otherRoot and otherHum and otherHum.Health > 0 then
+						local dist = (otherRoot.Position - root.Position).Magnitude
+						if dist <= bestDist then
+							bestPlayer, bestDist = otherPlayer, dist
+						end
+					end
+				end
+			end
+		end
+		return bestPlayer
+	end
+
+	track("Aimlock", RunService.RenderStepped:Connect(function()
+		if not (Toggles.Aimlock and Toggles.Aimlock.Value) then
+			aimlockReleaseMouse()
+			return
+		end
+		if not isAlive() then return end
+
+		local root = getRootPart()
+		if not root then return end
+
+		local closest = aimlockPickClosest()
+		if not closest or not closest.Character then
+			aimlockReleaseMouse()
+			return
+		end
+
+		local targetRoot = closest.Character:FindFirstChild("HumanoidRootPart")
+		local aimPart = closest.Character:FindFirstChild(AIMLOCK_AIM_PART) or targetRoot
+		local camera = workspace.CurrentCamera
+		if not (aimPart and camera) then
+			aimlockReleaseMouse()
+			return
+		end
+
+		-- Shiftlock stays on: the mouse is pinned to the centre while the
+		-- camera is lerped onto the target. The body is never touched.
+		aimlockMouseLocked = true
+		UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
+		UserInputService.MouseIconEnabled = false
+
+		local smoothness = (Options.CamlockSmoothness and Options.CamlockSmoothness.Value) or 0.2
+		local lerpFactor = math.clamp(smoothness, 0.01, 1)
+		camera.CFrame = camera.CFrame:Lerp(CFrame.new(camera.CFrame.Position, aimPart.Position), lerpFactor)
+	end))
+end
+
 Toggles.Camlock:OnChanged(function()
 	disconnect("Camlock")
 	disconnect("CamlockPlayerAdded")
@@ -6120,6 +6212,16 @@ Toggles.Camlock:OnChanged(function()
 			local inWater = camlockInWater(LocalPlayer.Character, root)
 			if inWater then
 				hum.AutoRotate = true
+			end
+
+			-- Optional: in water the camlock is dropped completely (camera, mouse
+			-- and target), so nothing about it touches you while swimming.
+			if inWater and Toggles.CamlockOffInWater and Toggles.CamlockOffInWater.Value then
+				camlockTarget = nil
+				UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+				UserInputService.MouseIconEnabled = true
+				hum.AutoRotate = true
+				return
 			end
 
 			local maxDist = Options.CamlockStuds and Options.CamlockStuds.Value or 20
