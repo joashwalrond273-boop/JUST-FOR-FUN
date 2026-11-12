@@ -2710,7 +2710,7 @@ TeleportGroup:AddSlider("TeleportOffsetStuds", {
 local FunLeft = Tabs.Main:AddRightGroupbox("FLING A BULLY", "swords")
 
 FunLeft:AddCheckbox("TouchFling", {
-	Text = "Touch Fling",
+	Text = "Touch To Fling",
 	Default = false,
 })
 
