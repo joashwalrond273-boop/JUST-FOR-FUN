@@ -6092,16 +6092,32 @@ Toggles.Camlock:OnChanged(function()
 		local camlockTarget = nil
 		local camlockNextPick = 0
 
+		-- Anything water related counts as "in water": swimming, treading on the
+		-- surface, or walking/floating on it. There the camlock must leave the
+		-- body completely alone and only move the camera.
+		local camlockRayParams = RaycastParams.new()
+		camlockRayParams.FilterType = Enum.RaycastFilterType.Exclude
+
+		local function camlockInWater(character, root)
+			local h = character and character:FindFirstChildOfClass("Humanoid")
+			if h and h:GetState() == Enum.HumanoidStateType.Swimming then
+				return true
+			end
+			if not root then return false end
+			camlockRayParams.FilterDescendantsInstances = { character }
+			local below = workspace:Raycast(root.Position, Vector3.new(0, -15, 0), camlockRayParams)
+			return below ~= nil and below.Material == Enum.Material.Water
+		end
+
 		track("Camlock", RunService.RenderStepped:Connect(function(dt)
 			if not isAlive() then return end
 			local root = getRootPart()
 			local hum = getHumanoid()
 			if not root or not hum then return end
 
-			-- While swimming the body is left untouched - forcing its CFrame or
-			-- velocity there fights the swim state. The view still stays locked
-			-- on the target so you keep looking at them.
-			local inWater = hum:GetState() == Enum.HumanoidStateType.Swimming
+			-- In water the camlock only moves the camera. The body is left
+			-- untouched, so it behaves exactly as if the camlock were off.
+			local inWater = camlockInWater(LocalPlayer.Character, root)
 			if inWater then
 				hum.AutoRotate = true
 			end
@@ -9893,7 +9909,7 @@ track("TeleportResetRespawn", LocalPlayer.CharacterAdded:Connect(function()
 	root.AssemblyAngularVelocity = Vector3.zero
 
 	if glue then
-		-- Then glue us at the destination for 2 seconds. Pinning inside Stepped
+		-- Then glue us at the destination for 1 second. Pinning inside Stepped
 		-- (which runs before the physics step) means the solver never gets to
 		-- build up the ejection impulse that shows up as a fling.
 		local hum = getHumanoid()
@@ -9915,9 +9931,9 @@ track("TeleportResetRespawn", LocalPlayer.CharacterAdded:Connect(function()
 			glueRoot.AssemblyAngularVelocity = Vector3.zero
 
 			if not releasedPos then
-				-- Phase 1: hold the destination for the full 2 seconds.
+				-- Phase 1: hold the destination for the full 1 second.
 				glueRoot.CFrame = cf
-				if tick() - glueStart >= 2 then
+				if tick() - glueStart >= 1 then
 					releasedPos = true
 					releaseTime = tick()
 				end
@@ -11284,6 +11300,7 @@ do
 		"The Juggernaut",
 		"The Titan",
 		"The Samurai",
+		"The Great Spider",
 	}
 
 	local BOSS_LOOKUP = {}
