@@ -1507,6 +1507,7 @@ do
 		["Golden Horns Of Victory"] = CFrame.new(0, 0.4, 0) * CFrame.Angles(0, math.rad(90), 0),
 		["Royal Vizier Mask"] = CFrame.new(0, 1.1, -0.6) * CFrame.Angles(0, math.rad(90), 0),
 		["Admin Helmet"] = CFrame.new(0, -0.5, 0),
+		["Mod Helmet"] = CFrame.new(0, -0.5, 0),
 		["Spikes Of Chaos"] = CFrame.new(0, -0.5, 0),
 		["Raider"] = CFrame.new(0, 0.3, 0) * CFrame.Angles(0, math.rad(-90), 0),
 		["Skeleton Crown"] = CFrame.new(0, -0.5, 0),
@@ -1573,6 +1574,10 @@ do
 		["Admin Armor"] = true,
 		["Admin Pants"] = true,
 		["Admin Bag"] = true,
+		["Mod Helmet"] = true,
+		["Mod Armor"] = true,
+		["Mod Pants"] = true,
+		["Mod Bag"] = true,
 	}
 
 	-- Every piece that currently glows, so the bloom can be switched back off
@@ -1640,7 +1645,7 @@ do
 	local function syncAvatarHair()
 		local hair = findAvatarHair()
 		if not hair then return end
-		local hidden = activeCosmetics["Admin Helmet"] ~= nil
+		local hidden = activeCosmetics["Admin Helmet"] ~= nil or activeCosmetics["Mod Helmet"] ~= nil
 
 		local function applyPart(part)
 			if hidden then
@@ -2416,6 +2421,36 @@ do
 		end
 	end
 
+	-- Shared placement/sizing so the Mod pieces sit exactly like the Admin ones
+	local adminArmorStretch = function(_, t)
+		-- Lift the top (chest/shoulders) a little so it sits higher.
+		return Vector3.new(1, 1, 1), Vector3.new(0, 0.24 * t, 0)
+	end
+	local adminPantsAdjust = CFrame.new(-0.1, -0.45, -0.25) * CFrame.Angles(0, math.rad(90), 0)
+	local adminPantsStretch = function(_, t)
+		-- t = 0 at the hems, 1 at the waist: wider and deeper at the
+		-- bottom so the feet are covered, narrower at the top so the
+		-- waist fits, and the very top bends a little back.
+		local width = 1.42 - 0.47 * t
+		local lean = 0.07 * t - 0.1 * t * t * t
+		-- Keep the mid-section (around the knee) near the waist so it
+		-- doesn't pull away from it when the legs swing during jumps
+		-- and swimming, just a little lower than the top.
+		local knee = math.max(0, 1 - math.abs(t - 0.4) / 0.3)
+		-- Lift right at the mid-to-top join so the two sections
+		-- overlap and stay together at the thigh when the legs swing.
+		local seam = math.max(0, 1 - math.abs(t - 0.6) / 0.25)
+		-- Hem sits a touch higher, the knee section sits a little below
+		-- the waist and the waist drops a little more.
+		local down = 0.04 * knee - 0.10 * t + 0.04 * seam
+		return Vector3.new(width, 1, 1.15), Vector3.new(0, down, lean)
+	end
+	local adminBagAdjust = CFrame.new(0, 0.5, 0.2) * CFrame.Angles(0, math.rad(90), 0)
+	local adminBagStretch = function(_, t)
+		-- Hang the bag a bit lower so it stretches down the back.
+		return Vector3.new(1, 1, 1), Vector3.new(0, -0.3 * (1 - t), 0)
+	end
+
 	buildWearSystem({
 		dropdown = "BodyWearSelect",
 		colorKey = "BodyWearSelectColor",
@@ -2430,10 +2465,8 @@ do
 		},
 		adjust = {},
 		stretch = {
-			["Admin Armor"] = function(_, t)
-				-- Lift the top (chest/shoulders) a little so it sits higher.
-				return Vector3.new(1, 1, 1), Vector3.new(0, 0.24 * t, 0)
-			end,
+			["Admin Armor"] = adminArmorStretch,
+			["Mod Armor"] = adminArmorStretch,
 		},
 		getTarget = function()
 			local character = getCharacter()
@@ -2458,27 +2491,12 @@ do
 			["Mod Pants"] = {"game", "Items", "models", "Mod Pants"},
 		},
 		adjust = {
-			["Admin Pants"] = CFrame.new(-0.1, -0.45, -0.25) * CFrame.Angles(0, math.rad(90), 0),
+			["Admin Pants"] = adminPantsAdjust,
+			["Mod Pants"] = adminPantsAdjust,
 		},
 		stretch = {
-			["Admin Pants"] = function(_, t)
-				-- t = 0 at the hems, 1 at the waist: wider and deeper at the
-				-- bottom so the feet are covered, narrower at the top so the
-				-- waist fits, and the very top bends a little back.
-				local width = 1.42 - 0.47 * t
-				local lean = 0.07 * t - 0.1 * t * t * t
-				-- Keep the mid-section (around the knee) near the waist so it
-				-- doesn't pull away from it when the legs swing during jumps
-				-- and swimming, just a little lower than the top.
-				local knee = math.max(0, 1 - math.abs(t - 0.4) / 0.3)
-				-- Lift right at the mid-to-top join so the two sections
-				-- overlap and stay together at the thigh when the legs swing.
-				local seam = math.max(0, 1 - math.abs(t - 0.6) / 0.25)
-				-- Hem sits a touch higher, the knee section sits a little below
-				-- the waist and the waist drops a little more.
-				local down = 0.04 * knee - 0.10 * t + 0.04 * seam
-				return Vector3.new(width, 1, 1.15), Vector3.new(0, down, lean)
-			end,
+			["Admin Pants"] = adminPantsStretch,
+			["Mod Pants"] = adminPantsStretch,
 		},
 		getTarget = function()
 			local character = getCharacter()
@@ -2511,17 +2529,16 @@ do
 			["Demonic Wings"] = {"game", "Cosmetics", "cosmetics", "Demonic Wings"},
 		},
 		adjust = {
-			["Admin Bag"] = CFrame.new(0, 0.5, 0.2) * CFrame.Angles(0, math.rad(90), 0),
+			["Admin Bag"] = adminBagAdjust,
+			["Mod Bag"] = adminBagAdjust,
 			["Xpie101gamers Cape"] = CFrame.new(0, -1.0, 2.4) * CFrame.Angles(0, math.rad(90), 0),
 			["Royal Embroidered Cape"] = CFrame.new(0, -1.1, 2.0) * CFrame.Angles(0, math.rad(90), 0),
 			["Angelic Wings"] = CFrame.new(0, 0, 1.1) * CFrame.Angles(0, math.rad(90), 0),
 			["Demonic Wings"] = CFrame.new(0, 0, 1.1) * CFrame.Angles(0, math.rad(90), 0),
 		},
 		stretch = {
-			["Admin Bag"] = function(_, t)
-				-- Hang the bag a bit lower so it stretches down the back.
-				return Vector3.new(1, 1, 1), Vector3.new(0, -0.3 * (1 - t), 0)
-			end,
+			["Admin Bag"] = adminBagStretch,
+			["Mod Bag"] = adminBagStretch,
 		},
 		getTarget = function()
 			local character = getCharacter()
