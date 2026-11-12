@@ -4583,19 +4583,9 @@ CombatCamlockConfig:AddSlider("CamlockPullStrength", {
 	Compact = true,
 })
 
-CombatCamlockConfig:AddCheckbox("CamlockOffInWater", {
-	Text = "Turn Off In Water",
+CombatCamlockConfig:AddToggle("WaterBypass", {
+	Text = "Water Bypass",
 	Default = false,
-})
-
-CombatCamlockConfig:AddToggle("Aimlock", {
-	Text = "Aimlock",
-	Default = false,
-})
-
-CombatCamlockConfig:AddCheckbox("AimlockIgnoreTeam", {
-	Text = "Ignore Team",
-	Default = true,
 })
 
 CombatLeft:AddToggle("KillAura", {
@@ -6079,12 +6069,33 @@ Toggles.SmartSwing:OnChanged(function()
 end)
 
 -- ==========================================
--- Aimlock: locks the camera onto the closest player only.
--- Runs before the camlock loop, so when the camlock is active it keeps
--- control of the camera and this one simply has nothing to fight over.
+-- Water Bypass: while it is on and you are actually in the water, this loop
+-- locks the camera onto the closest enemy only (the camlock has already
+-- stepped aside in that state), keeps you shiftlocked, and switches the Slot
+-- System off. Team-mates are always skipped, so the ignore-team behaviour is
+-- built in naturally.
 do
 	local AIMLOCK_AIM_PART = "Head"
 	local aimlockMouseLocked = false
+	local waterSlotSaved = false
+
+	-- Anything water related counts as "in water": swimming, treading on the
+	-- surface, or walking/floating on it.
+	local aimlockRayParams = RaycastParams.new()
+	aimlockRayParams.FilterType = Enum.RaycastFilterType.Exclude
+
+	local function aimlockInWater()
+		local character = LocalPlayer.Character
+		local root = getRootPart()
+		local hum = character and character:FindFirstChildOfClass("Humanoid")
+		if hum and hum:GetState() == Enum.HumanoidStateType.Swimming then
+			return true
+		end
+		if not (character and root) then return false end
+		aimlockRayParams.FilterDescendantsInstances = { character }
+		local below = workspace:Raycast(root.Position, Vector3.new(0, -15, 0), aimlockRayParams)
+		return below ~= nil and below.Material == Enum.Material.Water
+	end
 
 	local function aimlockReleaseMouse()
 		if not aimlockMouseLocked then return end
@@ -6098,12 +6109,13 @@ do
 		if not root then return nil end
 
 		local maxDist = (Options.CamlockStuds and Options.CamlockStuds.Value) or 20
-		local ignoreTeam = (Toggles.AimlockIgnoreTeam and Toggles.AimlockIgnoreTeam.Value) or false
 
 		local bestPlayer, bestDist = nil, maxDist
 		for _, otherPlayer in ipairs(Players:GetPlayers()) do
 			if otherPlayer ~= LocalPlayer and otherPlayer.Character then
-				local sameTeam = ignoreTeam and LocalPlayer.Team and otherPlayer.Team and LocalPlayer.Team == otherPlayer.Team
+				-- Ignore team is built in: anyone sharing our team is never
+				-- picked, so this always locks onto enemies only.
+				local sameTeam = LocalPlayer.Team and otherPlayer.Team and LocalPlayer.Team == otherPlayer.Team
 				if not sameTeam then
 					local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
 					local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
@@ -6120,14 +6132,27 @@ do
 	end
 
 	track("Aimlock", RunService.RenderStepped:Connect(function()
-		if not (Toggles.Aimlock and Toggles.Aimlock.Value) then
+		local bypass = Toggles.WaterBypass and Toggles.WaterBypass.Value
+		local inWater = bypass and isAlive() and aimlockInWater()
+
+		-- Water Bypass also keeps the Slot System switched off while swimming.
+		if inWater then
+			if Toggles.CamlockSlotSystem and Toggles.CamlockSlotSystem.Value then
+				waterSlotSaved = true
+				Toggles.CamlockSlotSystem:SetValue(false)
+			end
+		elseif waterSlotSaved then
+			waterSlotSaved = false
+			if Toggles.CamlockSlotSystem and not Toggles.CamlockSlotSystem.Value then
+				Toggles.CamlockSlotSystem:SetValue(true)
+			end
+		end
+
+		-- Only ever locks while you are in the water.
+		if not inWater then
 			aimlockReleaseMouse()
 			return
 		end
-		if not isAlive() then return end
-
-		local root = getRootPart()
-		if not root then return end
 
 		local closest = aimlockPickClosest()
 		if not closest or not closest.Character then
@@ -6214,12 +6239,12 @@ Toggles.Camlock:OnChanged(function()
 				hum.AutoRotate = true
 			end
 
-			-- Optional: in water the camlock is dropped completely (camera, mouse
-			-- and target), so nothing about it touches you while swimming.
-			if inWater and Toggles.CamlockOffInWater and Toggles.CamlockOffInWater.Value then
+			-- Water Bypass: in water the camlock is dropped completely (camera,
+			-- mouse and target) so nothing about it touches you while swimming.
+			-- The water-only aimlock takes the camera over from here (and the
+			-- Slot System is switched off in the same loop).
+			if inWater and Toggles.WaterBypass and Toggles.WaterBypass.Value then
 				camlockTarget = nil
-				UserInputService.MouseBehavior = Enum.MouseBehavior.Default
-				UserInputService.MouseIconEnabled = true
 				hum.AutoRotate = true
 				return
 			end
