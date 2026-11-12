@@ -11445,6 +11445,7 @@ do
 	local bossHighlights = {}
 	local BOSS_HL_NAME = "URIEL_BossHighlighter_Highlight"
 	local bossLastScan = 0
+	local BOSS_MAX_DISTANCE = 500
 
 	local function clearBossHighlights()
 		for inst, hl in pairs(bossHighlights) do
@@ -11483,7 +11484,15 @@ do
 		return false
 	end
 
+	local function bossPart(inst)
+		if inst:IsA("BasePart") then return inst end
+		return inst.PrimaryPart or inst:FindFirstChildWhichIsA("BasePart")
+	end
+
 	local function updateBossHighlighter()
+		local root = getRootPart()
+		local myPos = root and root.Position
+
 		local now = tick()
 		if now - bossLastScan >= 1 then
 			bossLastScan = now
@@ -11507,6 +11516,14 @@ do
 			if isBossGone(inst) then
 				pcall(function() hl:Destroy() end)
 				bossHighlights[inst] = nil
+			else
+				-- Only show the boss while it is within range.
+				local part = bossPart(inst)
+				local inRange = true
+				if myPos and part then
+					inRange = (part.Position - myPos).Magnitude <= BOSS_MAX_DISTANCE
+				end
+				hl.Enabled = inRange
 			end
 		end
 	end
