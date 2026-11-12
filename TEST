@@ -193,6 +193,24 @@ local function isAdvanceSlotAllowed(slotOption)
 	return false
 end
 
+-- Water Bypass helpers. Globals on purpose: the main chunk is already at Luau's
+-- 200-local register limit. The module only counts as active while in the water
+-- AND holding one of the tools picked in the camlock Spear / Sword lists.
+function isHoldingWaterTool()
+	if isAdvanceSlotAllowed(Options.SpearSlot) then return true end
+	if isAdvanceSlotAllowed(Options.SwordSlot) then return true end
+	return false
+end
+
+function isWaterBypassActive(inWater)
+	if not (Toggles.WaterBypass and Toggles.WaterBypass.Value) then return false end
+	if not isHoldingWaterTool() then return false end
+	if inWater == nil then
+		inWater = isInWater()
+	end
+	return inWater
+end
+
 local function getCharacterFolder()
 	local characters = workspace:FindFirstChild("Characters")
 	return characters and characters:FindFirstChild(LocalPlayer.Name)
@@ -6129,8 +6147,9 @@ do
 	end
 
 	track("Aimlock", RunService.RenderStepped:Connect(function()
-		-- Water Bypass: the aimlock only ever works while in the water.
-		if not (Toggles.WaterBypass and Toggles.WaterBypass.Value) or not isInWater() then
+		-- Water Bypass: the aimlock (and its shiftlock) only works while in the
+		-- water AND holding one of the tools picked in the Spear / Sword lists.
+		if not isWaterBypassActive() then
 			aimlockReleaseMouse()
 			return
 		end
@@ -6139,9 +6158,15 @@ do
 		local root = getRootPart()
 		if not root then return end
 
+		-- Shiftlock: the mouse stays pinned to the centre for the whole time
+		-- Water Bypass is active, even when there is no target to aim at. The
+		-- body is never touched, so the player keeps full control of it.
+		aimlockMouseLocked = true
+		UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
+		UserInputService.MouseIconEnabled = false
+
 		local closest = aimlockPickClosest()
 		if not closest or not closest.Character then
-			aimlockReleaseMouse()
 			return
 		end
 
@@ -6149,15 +6174,8 @@ do
 		local aimPart = closest.Character:FindFirstChild(AIMLOCK_AIM_PART) or targetRoot
 		local camera = workspace.CurrentCamera
 		if not (aimPart and camera) then
-			aimlockReleaseMouse()
 			return
 		end
-
-		-- Shiftlock stays on: the mouse is pinned to the centre while the
-		-- camera is lerped onto the target. The body is never touched.
-		aimlockMouseLocked = true
-		UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
-		UserInputService.MouseIconEnabled = false
 
 		local smoothness = (Options.CamlockSmoothness and Options.CamlockSmoothness.Value) or 0.2
 		local lerpFactor = math.clamp(smoothness, 0.01, 1)
@@ -6227,7 +6245,7 @@ Toggles.Camlock:OnChanged(function()
 			-- Water Bypass: while in the water the camlock stays off completely so
 			-- the Aimlock (which only runs in water) has full control. The mouse is
 			-- left to the Aimlock loop instead of being forced back to default.
-			if inWater and Toggles.WaterBypass and Toggles.WaterBypass.Value then
+			if isWaterBypassActive(inWater) then
 				camlockTarget = nil
 				hum.AutoRotate = true
 				return
@@ -6607,9 +6625,9 @@ do
 		if not (Toggles.CamlockSlotSystem and Toggles.CamlockSlotSystem.Value) then return end
 		if not isAlive() then return end
 
-		-- Water Bypass: for as long as we are in the water the camlock slot system
-		-- stays off, so it never forces the camlock back on while swimming.
-		if Toggles.WaterBypass and Toggles.WaterBypass.Value and isInWater() then
+		-- Water Bypass: for as long as the module is active the camlock slot
+		-- system stays off, so it never forces the camlock back on while swimming.
+		if isWaterBypassActive() then
 			if Toggles.Camlock and Toggles.Camlock.Value then
 				Toggles.Camlock:SetValue(false)
 			end
