@@ -10240,45 +10240,31 @@ TeleportExtra:AddButton({
 -- Mounts Groupbox
 local MountsGroup = Tabs.Teleport:AddRightGroupbox("Mounts", "paw-print")
 
-MountsGroup:AddButton({
-	Text = "Lion",
-	Func = function()
-		resetAndTeleport(Vector3.new(1327.79, 25.26, -756.75), "Lion")
-	end,
+local mountLocations = {
+	["Lion"] = Vector3.new(1327.79, 25.26, -756.75),
+	["White Wolf"] = Vector3.new(-1447.88, 25.26, -1566.85),
+	["Horse"] = Vector3.new(-215.30, 25.26, 496.58),
+	["Grey Wolf"] = Vector3.new(84.67, 25.26, 442.49),
+	["Elephant"] = Vector3.new(1495.75, 25.26, -313.55),
+	["Snow Bear"] = Vector3.new(-879.8, 25.3, -2062.5),
+}
+
+MountsGroup:AddDropdown("MountDestination", {
+	Text = "Destination",
+	Values = { "Lion", "White Wolf", "Horse", "Grey Wolf", "Elephant", "Snow Bear" },
+	Default = "Lion",
 })
 
 MountsGroup:AddButton({
-	Text = "White Wolf",
+	Text = "Teleport",
 	Func = function()
-		resetAndTeleport(Vector3.new(-1447.88, 25.26, -1566.85), "White Wolf")
-	end,
-})
-
-MountsGroup:AddButton({
-	Text = "Horse",
-	Func = function()
-		resetAndTeleport(Vector3.new(-215.30, 25.26, 496.58), "Horse")
-	end,
-})
-
-MountsGroup:AddButton({
-	Text = "Grey Wolf",
-	Func = function()
-		resetAndTeleport(Vector3.new(84.67, 25.26, 442.49), "Grey Wolf")
-	end,
-})
-
-MountsGroup:AddButton({
-	Text = "Elephant",
-	Func = function()
-		resetAndTeleport(Vector3.new(1495.75, 25.26, -313.55), "Elephant")
-	end,
-})
-
-MountsGroup:AddButton({
-	Text = "Snow Bear",
-	Func = function()
-		resetAndTeleport(Vector3.new(-879.8, 25.3, -2062.5), "Snow Bear")
+		local selected = Options.MountDestination and Options.MountDestination.Value
+		local position = selected and mountLocations[selected]
+		if position then
+			resetAndTeleport(position, selected)
+		else
+			Library:Notify({ Title = "Mounts", Description = "Select a destination first", Time = 2 })
+		end
 	end,
 })
 
