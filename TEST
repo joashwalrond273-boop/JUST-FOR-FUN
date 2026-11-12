@@ -10970,6 +10970,11 @@ VisualLeft:AddCheckbox("BoxESP", {
 	Title = "Box ESP Color",
 })
 
+VisualLeft:AddCheckbox("BossHighlighter", {
+	Text = "Boss Highlighter",
+	Default = false,
+})
+
 VisualLeft:AddCheckbox("PlayerHealthBar", {
 	Text = "Health Bar",
 	Default = false,
@@ -11417,6 +11422,108 @@ Toggles.PlayerESP:OnChanged(function()
 
 	updateAllESP()
 end)
+
+-- ==========================================
+-- Boss Highlighter (ESP on the live boss bodies)
+-- The boss templates live in ReplicatedStorage.game.AIModels, so the live
+-- bosses are clones carrying those names - we look for them in workspace.
+do
+	local BOSS_MODELS = {
+		"Arena Kraken Eye",
+		"Arena Kraken Arm",
+		"Marvin",
+		"The Juggernaut",
+		"The Titan",
+		"The Samurai",
+	}
+
+	local BOSS_LOOKUP = {}
+	for _, name in ipairs(BOSS_MODELS) do
+		BOSS_LOOKUP[name] = true
+	end
+
+	local bossHighlights = {}
+	local BOSS_HL_NAME = "URIEL_BossHighlighter_Highlight"
+	local bossLastScan = 0
+
+	local function clearBossHighlights()
+		for inst, hl in pairs(bossHighlights) do
+			pcall(function() hl:Destroy() end)
+			bossHighlights[inst] = nil
+		end
+	end
+
+	-- Every live clone of a boss model/part, skipping nested matches so a boss
+	-- split into several named parts isn't highlighted twice.
+	local function findBosses()
+		local found = {}
+		for _, inst in ipairs(workspace:GetDescendants()) do
+			if BOSS_LOOKUP[inst.Name] and (inst:IsA("Model") or inst:IsA("BasePart")) then
+				local nested = false
+				local parent = inst.Parent
+				while parent and parent ~= workspace do
+					if BOSS_LOOKUP[parent.Name] then
+						nested = true
+						break
+					end
+					parent = parent.Parent
+				end
+				if not nested then
+					table.insert(found, inst)
+				end
+			end
+		end
+		return found
+	end
+
+	local function isBossGone(inst)
+		if not inst or not inst.Parent then return true end
+		local hum = inst:IsA("Model") and inst:FindFirstChildOfClass("Humanoid")
+		if hum and hum.Health <= 0 then return true end
+		return false
+	end
+
+	local function updateBossHighlighter()
+		local now = tick()
+		if now - bossLastScan >= 1 then
+			bossLastScan = now
+			for _, inst in ipairs(findBosses()) do
+				if not bossHighlights[inst] then
+					local hl = Instance.new("Highlight")
+					hl.Name = BOSS_HL_NAME
+					hl.FillColor = Color3.fromRGB(255, 60, 60)
+					hl.FillTransparency = 0.6
+					hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+					hl.OutlineTransparency = 0
+					hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+					hl.Adornee = inst
+					hl.Parent = getESPFolder()
+					bossHighlights[inst] = hl
+				end
+			end
+		end
+
+		for inst, hl in pairs(bossHighlights) do
+			if isBossGone(inst) then
+				pcall(function() hl:Destroy() end)
+				bossHighlights[inst] = nil
+			end
+		end
+	end
+
+	Toggles.BossHighlighter:OnChanged(function()
+		disconnect("BossHighlighter_Loop")
+		clearBossHighlights()
+		bossLastScan = 0
+
+		if not Toggles.BossHighlighter.Value then
+			return
+		end
+
+		updateBossHighlighter()
+		track("BossHighlighter_Loop", RunService.Heartbeat:Connect(updateBossHighlighter))
+	end)
+end
 
 Toggles.OutlineESP:OnChanged(function()
 	local enabled = Toggles.OutlineESP.Value
