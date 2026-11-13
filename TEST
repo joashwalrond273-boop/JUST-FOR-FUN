@@ -11044,6 +11044,19 @@ VisualEnv:AddSlider("ControlTheHours", {
 })
 
 local espObjects = {}
+-- Cached list of the other players, so the per-frame ESP loop never rebuilds it.
+-- Refreshed only when someone joins or leaves.
+-- Kept global on purpose: the main chunk is at Luau's 200-local register limit.
+espPlayerList = {}
+function refreshESPPlayerList()
+	local list = {}
+	for _, p in ipairs(Players:GetPlayers()) do
+		if p ~= LocalPlayer then
+			table.insert(list, p)
+		end
+	end
+	espPlayerList = list
+end
 local espFolder = nil
 
 local function getESPFolder()
@@ -11282,7 +11295,7 @@ local function updateAllESP()
 	local outlineEnabled = (Toggles.OutlineESP and Toggles.OutlineESP.Value) or false
 	local boxEnabled = (Toggles and Toggles.BoxESP and Toggles.BoxESP.Value) or false
 
-	for _, player in ipairs(Players:GetPlayers()) do
+	for _, player in ipairs(espPlayerList) do
 		if player ~= LocalPlayer then
 			local entry = getOrCreateESP(player)
 			if entry and entry.root and entry.hum and entry.hum.Health > 0 and entry.character.Parent then
@@ -11400,9 +11413,10 @@ Toggles.PlayerESP:OnChanged(function()
 		return
 	end
 
+	refreshESPPlayerList()
 	track("ESP_Loop", RunService.RenderStepped:Connect(updateAllESP))
 
-	for _, player in ipairs(Players:GetPlayers()) do
+	for _, player in ipairs(espPlayerList) do
 		if player ~= LocalPlayer then
 			local entry = espObjects[player] or {}
 			if entry.charCon then entry.charCon:Disconnect() end
@@ -11416,6 +11430,7 @@ Toggles.PlayerESP:OnChanged(function()
 	end
 
 	track("ESP_PlayerAdded", Players.PlayerAdded:Connect(function(player)
+		refreshESPPlayerList()
 		player.CharacterAdded:Connect(function()
 			task.wait(0.2)
 			if Toggles.PlayerESP and Toggles.PlayerESP.Value then
@@ -11425,6 +11440,7 @@ Toggles.PlayerESP:OnChanged(function()
 	end))
 
 	track("ESP_PlayerRemoving", Players.PlayerRemoving:Connect(function(player)
+		refreshESPPlayerList()
 		removePlayerESP(player)
 	end))
 
@@ -11558,8 +11574,12 @@ do
 		local root = getRootPart()
 		local myPos = root and root.Position
 
+		-- workspace:GetDescendants() builds a table of every instance in the game,
+		-- which is very costly to run every frame/second. Bosses spawn and die on
+		-- a slow cadence, so scanning every few seconds is plenty; the health and
+		-- range updates below still run every frame once a boss is tracked.
 		local now = tick()
-		if now - bossLastScan >= 1 then
+		if now - bossLastScan >= 3 then
 			bossLastScan = now
 			for _, inst in ipairs(findBosses()) do
 				if not bossESPs[inst] then
