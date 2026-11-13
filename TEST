@@ -465,7 +465,6 @@ AutoArmorDeluxeGroup:AddButton({
 		local deleteRemote = TSG.DeleteStructureRemote
 
 		if not equipHotbarRemote or not equipClothingRemote then
-			Library:Notify({ Title = "Error", Description = "Equip remotes not found", Time = 3 })
 			return
 		end
 
@@ -482,7 +481,6 @@ AutoArmorDeluxeGroup:AddButton({
 			pcall(function()
 				equipClothingRemote:InvokeServer("inventory", 3, 201)
 			end)
-			Library:Notify({ Title = "Bluesteel", Description = "Bluesteel armor equipped", Time = 2 })
 			return
 		end
 
@@ -553,7 +551,6 @@ AutoArmorDeluxeGroup:AddButton({
 				deleteRemote:FireServer(furnace)
 			end)
 
-			Library:Notify({ Title = "Bluesteel", Description = "Bluesteel armor equipped", Time = 2 })
 		else
 			Library:Notify({ Title = "Bluesteel", Description = "Furnace not found", Time = 3 })
 		end
@@ -576,7 +573,6 @@ AutoArmorDeluxeGroup:AddButton({
 		local deleteRemote = TSG.DeleteStructureRemote
 
 		if not equipHotbarRemote or not equipClothingRemote then
-			Library:Notify({ Title = "Error", Description = "Equip remotes not found", Time = 3 })
 			return
 		end
 
@@ -593,7 +589,6 @@ AutoArmorDeluxeGroup:AddButton({
 			pcall(function()
 				equipClothingRemote:InvokeServer("inventory", 3, 356)
 			end)
-			Library:Notify({ Title = "Atlantean", Description = "Atlantean armor equipped", Time = 2 })
 			return
 		end
 
@@ -658,7 +653,6 @@ AutoArmorDeluxeGroup:AddButton({
 				deleteRemote:FireServer(furnace)
 			end)
 
-			Library:Notify({ Title = "Atlantean", Description = "Atlantean armor equipped", Time = 2 })
 		else
 			Library:Notify({ Title = "Atlantean", Description = "Forge not found", Time = 3 })
 		end
@@ -681,7 +675,6 @@ AutoArmorDeluxeGroup:AddButton({
 		local deleteRemote = TSG.DeleteStructureRemote
 
 		if not equipHotbarRemote or not equipClothingRemote then
-			Library:Notify({ Title = "Error", Description = "Equip remotes not found", Time = 3 })
 			return
 		end
 
@@ -698,7 +691,6 @@ AutoArmorDeluxeGroup:AddButton({
 			pcall(function()
 				equipClothingRemote:InvokeServer("inventory", 3, 260)
 			end)
-			Library:Notify({ Title = "Darksteel", Description = "Darksteel armor equipped", Time = 2 })
 			return
 		end
 
@@ -760,7 +752,6 @@ AutoArmorDeluxeGroup:AddButton({
 				deleteRemote:FireServer(furnace)
 			end)
 
-			Library:Notify({ Title = "Darksteel", Description = "Darksteel armor equipped", Time = 2 })
 		else
 			Library:Notify({ Title = "Darksteel", Description = "Forge not found", Time = 3 })
 		end
@@ -783,7 +774,6 @@ AutoArmorDeluxeGroup:AddButton({
 		local deleteRemote = TSG.DeleteStructureRemote
 
 		if not equipHotbarRemote or not equipClothingRemote then
-			Library:Notify({ Title = "Error", Description = "Equip remotes not found", Time = 3 })
 			return
 		end
 
@@ -800,7 +790,6 @@ AutoArmorDeluxeGroup:AddButton({
 			pcall(function()
 				equipClothingRemote:InvokeServer("inventory", 3, 402)
 			end)
-			Library:Notify({ Title = "Samurai", Description = "Samurai armor equipped", Time = 2 })
 			return
 		end
 
@@ -864,7 +853,6 @@ AutoArmorDeluxeGroup:AddButton({
 				deleteRemote:FireServer(furnace)
 			end)
 
-			Library:Notify({ Title = "Samurai", Description = "Samurai armor equipped", Time = 2 })
 		else
 			Library:Notify({ Title = "Samurai", Description = "Forge not found", Time = 3 })
 		end
@@ -887,7 +875,6 @@ AutoArmorDeluxeGroup:AddButton({
 		local deleteRemote = TSG.DeleteStructureRemote
 
 		if not equipHotbarRemote or not equipClothingRemote then
-			Library:Notify({ Title = "Error", Description = "Equip remotes not found", Time = 3 })
 			return
 		end
 
@@ -904,7 +891,6 @@ AutoArmorDeluxeGroup:AddButton({
 			pcall(function()
 				equipClothingRemote:InvokeServer("inventory", 3, 543)
 			end)
-			Library:Notify({ Title = "Juggernaut", Description = "Juggernaut armor equipped", Time = 2 })
 			return
 		end
 
@@ -972,7 +958,6 @@ AutoArmorDeluxeGroup:AddButton({
 				deleteRemote:FireServer(furnace)
 			end)
 
-			Library:Notify({ Title = "Juggernaut", Description = "Juggernaut armor equipped", Time = 2 })
 		else
 			Library:Notify({ Title = "Juggernaut", Description = "Forge not found", Time = 3 })
 		end
@@ -1006,54 +991,42 @@ AutoArmorDeluxeGroup:AddCheckbox("ArmorCraftOnly", {
 	Default = false,
 })
 
--- Shared helper: equips the highest-defense Helmet / Shirt / Pants in the
--- player's inventory. Used by the button below and by Atlantean Auto Swap.
+-- Shared helper: equips the strongest Helmet / Shirt / Pants the player owns.
+-- Used by the button below and by Atlantean Auto Swap. The item-data "defense"
+-- value isn't reliable, so the known armor sets are ranked explicitly from
+-- weakest to strongest and the best piece the player owns is equipped per slot.
 function equipBestArmor()
 	local equipClothingRemote = TSG.EquipClothingRemote
-	if not equipClothingRemote then
-		Library:Notify({ Title = "Error", Description = "Equip remotes not found", Time = 3 })
-		return
-	end
-	if not TSG.ClientData or not TSG.Items then
-		Library:Notify({ Title = "Error", Description = "Item data not loaded", Time = 3 })
+	if not equipClothingRemote or not TSG.ClientData or not TSG.Items then
 		return
 	end
 
-	local best = {}
-	for itemId in pairs(TSG.ClientData.getInventory()) do
-		local data = TSG.Items.getItemData(itemId)
-		local stats = data and data.itemStats
-		if stats and stats.defense then
-			local kind = data.itemType and data.itemType[1]
-			if kind == "Helmet" or kind == "Shirt" or kind == "Pants" then
-				local current = best[kind]
-				if not current or stats.defense > current.def then
-					best[kind] = {
-						id = itemId,
-						def = stats.defense,
-						name = TSG.Items.getItemNameById(itemId) or tostring(itemId),
-					}
-				end
+	-- Weakest -> strongest.
+	local armorOrder = {
+		{ helmet = 202, shirt = 200, pants = 201 }, -- Bluesteel
+		{ helmet = 354, shirt = 355, pants = 356 }, -- Atlantean
+		{ helmet = 262, shirt = 261, pants = 260 }, -- Darksteel
+		{ helmet = 404, shirt = 403, pants = 402 }, -- Samurai
+		{ helmet = 541, shirt = 542, pants = 543 }, -- Juggernaut
+	}
+
+	local inventory = TSG.ClientData.getInventory() or {}
+	local slots = {
+		{ key = "helmet", slot = 1 },
+		{ key = "shirt", slot = 2 },
+		{ key = "pants", slot = 3 },
+	}
+
+	for _, slotInfo in ipairs(slots) do
+		for tierIndex = #armorOrder, 1, -1 do
+			local itemId = armorOrder[tierIndex][slotInfo.key]
+			if itemId and inventory[itemId] ~= nil then
+				pcall(function()
+					equipClothingRemote:InvokeServer("inventory", slotInfo.slot, itemId)
+				end)
+				break
 			end
 		end
-	end
-
-	local clothingSlots = { Helmet = 1, Shirt = 2, Pants = 3 }
-	local equipped = {}
-	for kind, slot in pairs(clothingSlots) do
-		local pick = best[kind]
-		if pick then
-			pcall(function()
-				equipClothingRemote:InvokeServer("inventory", slot, pick.id)
-			end)
-			table.insert(equipped, pick.name)
-		end
-	end
-
-	if #equipped > 0 then
-		Library:Notify({ Title = "Best Armor", Description = table.concat(equipped, ", "), Time = 3 })
-	else
-		Library:Notify({ Title = "Best Armor", Description = "No armor found in inventory", Time = 3 })
 	end
 end
 
@@ -1394,44 +1367,6 @@ CosmeticsGroup:AddDropdown("BackWearSelect", {
 	Values = {"None", "Admin Bag", "Mod Bag", "Xpie101gamers Cape", "Wolf Pelt Cape", "Grey Wolf Pelt Cape", "Royal Embroidered Cape", "Angelic Wings", "Demonic Wings"},
 	Default = {},
 	Multi = true,
-})
-
-CosmeticsGroup:AddDivider()
-
-CosmeticsGroup:AddDropdown("WearColorSelect", {
-	Text = "Use Wear Colors",
-	Values = {"Off", "Head Wear", "Body Wear", "Pants Wear", "Back Wear"},
-	Default = {},
-	Multi = true,
-})
-
-if Options.WearColorSelect then
-	Options.WearColorSelect:OnChanged(function()
-		local value = Options.WearColorSelect.Value
-		if typeof(value) == "table" and value["Off"] then
-			Options.WearColorSelect:SetValue({})
-		end
-	end)
-end
-
-CosmeticsGroup:AddLabel("Head Wear Color"):AddColorPicker("CosmeticSelectColor", {
-	Default = Color3.fromRGB(255, 255, 255),
-	Title = "Head Wear Color",
-})
-
-CosmeticsGroup:AddLabel("Body Wear Color"):AddColorPicker("BodyWearSelectColor", {
-	Default = Color3.fromRGB(255, 255, 255),
-	Title = "Body Wear Color",
-})
-
-CosmeticsGroup:AddLabel("Pants Wear Color"):AddColorPicker("PantsWearSelectColor", {
-	Default = Color3.fromRGB(255, 255, 255),
-	Title = "Pants Wear Color",
-})
-
-CosmeticsGroup:AddLabel("Back Wear Color"):AddColorPicker("BackWearSelectColor", {
-	Default = Color3.fromRGB(255, 255, 255),
-	Title = "Back Wear Color",
 })
 
 CosmeticsGroup:AddDivider()
