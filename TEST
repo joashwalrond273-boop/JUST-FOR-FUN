@@ -306,18 +306,15 @@ end
 pcall(function()
 	TSG.ClientData = require(resolvePath(ReplicatedStorage, "modules", "player", "ClientData"))
 	TSG.Items = require(resolvePath(ReplicatedStorage, "game", "Items"))
-	TSG.Sounds = require(resolvePath(ReplicatedStorage, "modules", "misc", "Sounds"))
 end)
 
 local keyedRemotes = getKeyedRemotes()
 local interactionsFolder = ReplicatedStorage:FindFirstChild("remoteInterface") and ReplicatedStorage.remoteInterface:FindFirstChild("interactions")
 
-TSG.EatRemote = resolvePath(ReplicatedStorage, "remoteInterface", "interactions", "eat")
 TSG.MeleeAnimalRemote = resolvePath(ReplicatedStorage, "remoteInterface", "interactions", "meleeAnimal")
 TSG.PickupRemote = resolvePath(ReplicatedStorage, "remoteInterface", "inventory", "pickupItem")
 TSG.EquipHotbarRemote = resolvePath(ReplicatedStorage, "remoteInterface", "inventory", "equipHotbar")
 TSG.EquipClothingRemote = resolvePath(ReplicatedStorage, "remoteInterface", "inventory", "equipClothing")
-TSG.SetHungerEvent = resolvePath(ReplicatedStorage, "remoteInterface", "playerData", "setHunger")
 
 TSG.MeleePlayerRemote = (keyedRemotes and rawget(keyedRemotes, "meleePlayer")) or (interactionsFolder and interactionsFolder:FindFirstChild("meleePlayer"))
 TSG.MineRemote = (keyedRemotes and rawget(keyedRemotes, "mine")) or (interactionsFolder and interactionsFolder:FindFirstChild("mine"))
@@ -1079,10 +1076,19 @@ AutoArmorDeluxeGroup:AddSlider("AtlanteanEquipSpeed", {
 	Compact = true,
 })
 
+-- Set while the Atlantean Slot System is the one flipping the toggle, so a
+-- forced enable doesn't fake a "just entered the water" event. Kept global on
+-- purpose: the main chunk is already at Luau's 200-local register limit.
+AtlanteanSlotSystemForcing = false
+
 Toggles.AtlanteanAutoSwap:OnChanged(function()
 	disconnect("AtlanteanAutoSwap")
 	if Toggles.AtlanteanAutoSwap.Value then
-		local wasInWater = false
+		-- When the slot system forces this on, start from the real water state so
+		-- no transition is detected. Otherwise the swap would re-equip the gear on
+		-- every forced enable, and because that equip replaces the held tool it
+		-- flips the slot system straight back, looping forever.
+		local wasInWater = AtlanteanSlotSystemForcing and isInWater() or false
 		local pendingState = nil
 		local stableTime = 0
 		local SWITCH_DEBOUNCE = 0.4
@@ -1150,7 +1156,6 @@ end)
 
 do
 	local atlanteanSlotSaved = nil
-	local fromAtlanteanSlotSystem = false
 
 	local function updateAtlanteanSlotSystemState()
 		if not (Toggles.AtlanteanSlotSystem and Toggles.AtlanteanSlotSystem.Value) then return end
@@ -1164,16 +1169,16 @@ do
 			end
 
 			if Toggles.AtlanteanAutoSwap and not Toggles.AtlanteanAutoSwap.Value then
-				fromAtlanteanSlotSystem = true
+				AtlanteanSlotSystemForcing = true
 				Toggles.AtlanteanAutoSwap:SetValue(true)
-				fromAtlanteanSlotSystem = false
+				AtlanteanSlotSystemForcing = false
 			end
 		else
 			if atlanteanSlotSaved ~= nil then
 				if Toggles.AtlanteanAutoSwap and Toggles.AtlanteanAutoSwap.Value ~= atlanteanSlotSaved then
-					fromAtlanteanSlotSystem = true
+					AtlanteanSlotSystemForcing = true
 					Toggles.AtlanteanAutoSwap:SetValue(atlanteanSlotSaved)
-					fromAtlanteanSlotSystem = false
+					AtlanteanSlotSystemForcing = false
 				end
 				atlanteanSlotSaved = nil
 			end
@@ -1221,9 +1226,9 @@ do
 			else
 				if atlanteanSlotSaved ~= nil then
 					if Toggles.AtlanteanAutoSwap and Toggles.AtlanteanAutoSwap.Value ~= atlanteanSlotSaved then
-						fromAtlanteanSlotSystem = true
+						AtlanteanSlotSystemForcing = true
 						Toggles.AtlanteanAutoSwap:SetValue(atlanteanSlotSaved)
-						fromAtlanteanSlotSystem = false
+						AtlanteanSlotSystemForcing = false
 					end
 					atlanteanSlotSaved = nil
 				end
