@@ -6121,6 +6121,23 @@ do
 	local AIMLOCK_AIM_PART = "Head"
 	local aimlockMouseLocked = false
 
+	-- Cached player list so the per-frame aim pick never has to rebuild it. Only
+	-- refreshed when someone joins or leaves. Kept as globals on purpose: the
+	-- main chunk is already at Luau's 200-local register limit.
+	AimlockPlayers = {}
+	function refreshAimlockPlayers()
+		local list = {}
+		for _, p in ipairs(Players:GetPlayers()) do
+			if p ~= LocalPlayer then
+				table.insert(list, p)
+			end
+		end
+		AimlockPlayers = list
+	end
+	refreshAimlockPlayers()
+	track("AimlockPlayerAdded", Players.PlayerAdded:Connect(refreshAimlockPlayers))
+	track("AimlockPlayerRemoving", Players.PlayerRemoving:Connect(refreshAimlockPlayers))
+
 	local function aimlockReleaseMouse()
 		if not aimlockMouseLocked then return end
 		aimlockMouseLocked = false
@@ -6135,7 +6152,7 @@ do
 		local maxDist = (Options.CamlockStuds and Options.CamlockStuds.Value) or 20
 
 		local bestPlayer, bestDist = nil, maxDist
-		for _, otherPlayer in ipairs(Players:GetPlayers()) do
+		for _, otherPlayer in ipairs(AimlockPlayers) do
 			-- The ignore-team system is always on here: teammates / clanmates are
 			-- never picked, so no separate checkbox is needed.
 			if otherPlayer ~= LocalPlayer and otherPlayer.Character and not isTeammate(otherPlayer) then
