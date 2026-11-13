@@ -1083,6 +1083,9 @@ Toggles.AtlanteanAutoSwap:OnChanged(function()
 	disconnect("AtlanteanAutoSwap")
 	if Toggles.AtlanteanAutoSwap.Value then
 		local wasInWater = false
+		local pendingState = nil
+		local stableTime = 0
+		local SWITCH_DEBOUNCE = 0.4
 		local function equipAtlantean()
 			local equipHotbarRemote = TSG.EquipHotbarRemote
 			local equipClothingRemote = TSG.EquipClothingRemote
@@ -1108,19 +1111,39 @@ Toggles.AtlanteanAutoSwap:OnChanged(function()
 				end)
 			end)
 		end
-		track("AtlanteanAutoSwap", RunService.Heartbeat:Connect(function()
+		track("AtlanteanAutoSwap", RunService.Heartbeat:Connect(function(dt)
 			if not isAlive() then return end
 			local hum = getHumanoid()
 			local char = getCharacter()
 			if not hum or not char then return end
 			local inWater = hum:GetState() == Enum.HumanoidStateType.Swimming or char:GetAttribute("inWater")
-			if inWater and not wasInWater then
-				equipAtlantean()
-			elseif wasInWater and not inWater then
-				-- Got out of the water: swap straight back to the best armor.
-				equipBestArmor()
+
+			if inWater == wasInWater then
+				-- Steady state, nothing to do.
+				pendingState = nil
+				stableTime = 0
+				return
 			end
+
+			-- The state just flipped. Wait for it to hold before swapping, so
+			-- bobbing at the water surface doesn't spam the equip remotes.
+			if pendingState ~= inWater then
+				pendingState = inWater
+				stableTime = 0
+				return
+			end
+			stableTime = stableTime + (dt or 0)
+			if stableTime < SWITCH_DEBOUNCE then return end
+
 			wasInWater = inWater
+			pendingState = nil
+			stableTime = 0
+			if inWater then
+				task.spawn(equipAtlantean)
+			else
+				-- Got out of the water: swap straight back to the best armor.
+				task.spawn(equipBestArmor)
+			end
 		end))
 	end
 end)
