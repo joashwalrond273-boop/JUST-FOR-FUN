@@ -1010,7 +1010,21 @@ function equipBestArmor()
 		{ helmet = 541, shirt = 542, pants = 543 }, -- Juggernaut
 	}
 
+	-- getInventory() lists every item id in the game, so an id simply being
+	-- present does NOT mean the player owns it. Only count entries that are
+	-- actually owned (truthy, or a count greater than zero).
 	local inventory = TSG.ClientData.getInventory() or {}
+	local function owns(itemId)
+		local entry = inventory[itemId]
+		if entry == nil or entry == false then
+			return false
+		end
+		if type(entry) == "number" then
+			return entry > 0
+		end
+		return true
+	end
+
 	local slots = {
 		{ key = "helmet", slot = 1 },
 		{ key = "shirt", slot = 2 },
@@ -1020,7 +1034,7 @@ function equipBestArmor()
 	for _, slotInfo in ipairs(slots) do
 		for tierIndex = #armorOrder, 1, -1 do
 			local itemId = armorOrder[tierIndex][slotInfo.key]
-			if itemId and inventory[itemId] ~= nil then
+			if itemId and owns(itemId) then
 				pcall(function()
 					equipClothingRemote:InvokeServer("inventory", slotInfo.slot, itemId)
 				end)
@@ -5220,6 +5234,13 @@ updatePVPModulesVisibility = function()
 			Options.AutoJumpDelay.Holder.Visible = isAutoJump
 		end
 	end
+	local isBreakAura = (Toggles.BreakStructures and Toggles.BreakStructures.Value) or false
+	if Options.BreakStructuresToolSlot then
+		Options.BreakStructuresToolSlot.Visible = isBreakAura
+		if Options.BreakStructuresToolSlot.Holder then
+			Options.BreakStructuresToolSlot.Holder.Visible = isBreakAura
+		end
+	end
 	CombatAutoPVP:Resize()
 	if MainLeft and MainLeft.Resize then
 		pcall(function() MainLeft:Resize() end)
@@ -5679,6 +5700,9 @@ Toggles.BreakStructures:OnChanged(function()
 	else
 		stopBreakStructures()
 		Library:Notify({ Title = "Structure Break Aura", Description = "Disabled", Time = 2 })
+	end
+	if updatePVPModulesVisibility then
+		updatePVPModulesVisibility()
 	end
 end)
 
