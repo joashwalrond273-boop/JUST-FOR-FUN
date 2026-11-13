@@ -425,7 +425,7 @@ AutoArmorDeluxeGroup:AddButton({
 		task.wait(delay)
 		local backDir = root.CFrame.LookVector
 		local rightDir = root.CFrame.RightVector
-		local bedPos = playerPosition - Vector3.new(backDir.X, 0, backDir.Z) * 5.5 - Vector3.new(rightDir.X, 0, rightDir.Z) * 1
+		local bedPos = playerPosition - Vector3.new(backDir.X, 0, backDir.Z) * 3.5 - Vector3.new(rightDir.X, 0, rightDir.Z) * 1
 		pcall(function()
 			buildRemote:InvokeServer(
 				85,
@@ -4617,7 +4617,7 @@ CombatCamlockConfig:AddSlider("CamlockPullStrength", {
 	Text = "Tug / Pull Strength",
 	Default = 5,
 	Min = 0.01,
-	Max = 20,
+	Max = 5,
 	Rounding = 2,
 	Compact = true,
 })
@@ -5093,6 +5093,12 @@ updatePVPModulesVisibility = function()
 		Options.CamlockSmoothness.Visible = isCamLerp
 		if Options.CamlockSmoothness.Holder then
 			Options.CamlockSmoothness.Holder.Visible = isCamLerp
+		end
+	end
+	if Options.CamlockTurnSmoothness then
+		Options.CamlockTurnSmoothness.Visible = isCamLerp
+		if Options.CamlockTurnSmoothness.Holder then
+			Options.CamlockTurnSmoothness.Holder.Visible = isCamLerp
 		end
 	end
 	if Options.CamlockAimPart then
@@ -8189,7 +8195,7 @@ FarmAI:AddToggle("AiAura", {
 })
 
 FarmAI:AddCheckbox("BossHighlighter", {
-	Text = "Boss Highlighter",
+	Text = "Boss ESP",
 	Default = false,
 })
 
@@ -11431,7 +11437,7 @@ Toggles.PlayerESP:OnChanged(function()
 end)
 
 -- ==========================================
--- Boss Highlighter (ESP on the live boss bodies)
+-- Boss ESP (highlight + health bar on the live boss bodies)
 -- The boss templates live in ReplicatedStorage.game.AIModels, so the live
 -- bosses are clones carrying those names - we look for them in workspace.
 do
@@ -11450,15 +11456,21 @@ do
 		BOSS_LOOKUP[name] = true
 	end
 
-	local bossHighlights = {}
-	local BOSS_HL_NAME = "URIEL_BossHighlighter_Highlight"
+	local bossESPs = {}
+	local BOSS_HL_NAME = "URIEL_BossESP_Highlight"
+	local BOSS_BB_NAME = "URIEL_BossESP_Billboard"
 	local bossLastScan = 0
 	local BOSS_MAX_DISTANCE = 500
 
-	local function clearBossHighlights()
-		for inst, hl in pairs(bossHighlights) do
-			pcall(function() hl:Destroy() end)
-			bossHighlights[inst] = nil
+	local function clearBossESPs()
+		for inst, entry in pairs(bossESPs) do
+			if entry.highlight then
+				pcall(function() entry.highlight:Destroy() end)
+			end
+			if entry.billboard then
+				pcall(function() entry.billboard:Destroy() end)
+			end
+			bossESPs[inst] = nil
 		end
 	end
 
@@ -11485,9 +11497,16 @@ do
 		return found
 	end
 
+	local function bossHumanoid(inst)
+		if inst:IsA("Model") then
+			return inst:FindFirstChildOfClass("Humanoid")
+		end
+		return nil
+	end
+
 	local function isBossGone(inst)
 		if not inst or not inst.Parent then return true end
-		local hum = inst:IsA("Model") and inst:FindFirstChildOfClass("Humanoid")
+		local hum = bossHumanoid(inst)
 		if hum and hum.Health <= 0 then return true end
 		return false
 	end
@@ -11497,7 +11516,50 @@ do
 		return inst.PrimaryPart or inst:FindFirstChildWhichIsA("BasePart")
 	end
 
-	local function updateBossHighlighter()
+	-- Lightweight BillboardGui health bar, same style as the player ESP.
+	local function createBossHealthBar(part)
+		local billboard = Instance.new("BillboardGui")
+		billboard.Name = BOSS_BB_NAME
+		billboard.Size = UDim2.fromOffset(100, 24)
+		billboard.StudsOffset = Vector3.new(0, 3.2, 0)
+		billboard.AlwaysOnTop = true
+		billboard.MaxDistance = BOSS_MAX_DISTANCE
+		billboard.Adornee = part
+		billboard.Parent = getESPFolder()
+
+		local hpText = Instance.new("TextLabel")
+		hpText.Name = "HPText"
+		hpText.Size = UDim2.new(1, 0, 0, 12)
+		hpText.Position = UDim2.new(0, 0, 0, 0)
+		hpText.BackgroundTransparency = 1
+		hpText.TextColor3 = Color3.fromRGB(255, 255, 255)
+		hpText.TextStrokeTransparency = 0.3
+		hpText.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+		hpText.Font = Enum.Font.GothamBold
+		hpText.TextSize = 11
+		hpText.Text = ""
+		hpText.Parent = billboard
+
+		local healthBg = Instance.new("Frame")
+		healthBg.Name = "HealthBg"
+		healthBg.Size = UDim2.new(1, 0, 0, 5)
+		healthBg.Position = UDim2.new(0, 0, 0, 14)
+		healthBg.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+		healthBg.BorderColor3 = Color3.fromRGB(0, 0, 0)
+		healthBg.BorderSizePixel = 1
+		healthBg.Parent = billboard
+
+		local healthFill = Instance.new("Frame")
+		healthFill.Name = "HealthFill"
+		healthFill.Size = UDim2.new(1, 0, 1, 0)
+		healthFill.BackgroundColor3 = Color3.fromRGB(0, 255, 100)
+		healthFill.BorderSizePixel = 0
+		healthFill.Parent = healthBg
+
+		return billboard, healthBg, healthFill, hpText
+	end
+
+	local function updateBossESPs()
 		local root = getRootPart()
 		local myPos = root and root.Position
 
@@ -11505,7 +11567,7 @@ do
 		if now - bossLastScan >= 1 then
 			bossLastScan = now
 			for _, inst in ipairs(findBosses()) do
-				if not bossHighlights[inst] then
+				if not bossESPs[inst] then
 					local hl = Instance.new("Highlight")
 					hl.Name = BOSS_HL_NAME
 					hl.FillColor = Color3.fromRGB(255, 60, 60)
@@ -11515,15 +11577,39 @@ do
 					hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
 					hl.Adornee = inst
 					hl.Parent = getESPFolder()
-					bossHighlights[inst] = hl
+
+					local entry = {
+						highlight = hl,
+						lastHealth = -1,
+					}
+
+					-- Bosses that are proper models carry a Humanoid, so they get
+					-- a health bar too; plain part bosses only get the highlight.
+					local hum = bossHumanoid(inst)
+					local part = bossPart(inst)
+					if hum and part then
+						local billboard, healthBg, healthFill, hpText = createBossHealthBar(part)
+						entry.billboard = billboard
+						entry.healthBg = healthBg
+						entry.healthFill = healthFill
+						entry.hpText = hpText
+						entry.hum = hum
+					end
+
+					bossESPs[inst] = entry
 				end
 			end
 		end
 
-		for inst, hl in pairs(bossHighlights) do
+		for inst, entry in pairs(bossESPs) do
 			if isBossGone(inst) then
-				pcall(function() hl:Destroy() end)
-				bossHighlights[inst] = nil
+				if entry.highlight then
+					pcall(function() entry.highlight:Destroy() end)
+				end
+				if entry.billboard then
+					pcall(function() entry.billboard:Destroy() end)
+				end
+				bossESPs[inst] = nil
 			else
 				-- Only show the boss while it is within range.
 				local part = bossPart(inst)
@@ -11531,22 +11617,38 @@ do
 				if myPos and part then
 					inRange = (part.Position - myPos).Magnitude <= BOSS_MAX_DISTANCE
 				end
-				hl.Enabled = inRange
+
+				entry.highlight.Enabled = inRange
+
+				if entry.billboard then
+					entry.billboard.Enabled = inRange
+					if inRange and entry.hum then
+						local curHealth = entry.hum.Health
+						if entry.lastHealth ~= curHealth then
+							entry.lastHealth = curHealth
+							local maxH = entry.hum.MaxHealth > 0 and entry.hum.MaxHealth or 100
+							local pct = math.clamp(curHealth / maxH, 0, 1)
+							entry.healthFill.Size = UDim2.new(pct, 0, 1, 0)
+							entry.healthFill.BackgroundColor3 = Color3.fromHSV(pct * 0.33, 1, 1)
+							entry.hpText.Text = tostring(math.floor(curHealth)) .. " HP"
+						end
+					end
+				end
 			end
 		end
 	end
 
 	Toggles.BossHighlighter:OnChanged(function()
 		disconnect("BossHighlighter_Loop")
-		clearBossHighlights()
+		clearBossESPs()
 		bossLastScan = 0
 
 		if not Toggles.BossHighlighter.Value then
 			return
 		end
 
-		updateBossHighlighter()
-		track("BossHighlighter_Loop", RunService.Heartbeat:Connect(updateBossHighlighter))
+		updateBossESPs()
+		track("BossHighlighter_Loop", RunService.Heartbeat:Connect(updateBossESPs))
 	end)
 end
 
