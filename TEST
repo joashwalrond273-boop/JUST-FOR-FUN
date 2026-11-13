@@ -4130,6 +4130,23 @@ end
 Toggles.NoBossDamage:OnChanged(noBossDamageToggle)
 
  -- Auto pickup (CollectionService tag DROPPED_ITEM -> inventory.pickupItem)
+-- Pickup reference point: measure from the character's feet instead of the
+-- upper body / root, so ground items at your feet are actually in range.
+function getFeetPosition()
+	local character = getCharacter()
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if not root then
+		return nil
+	end
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	local hipHeight = (humanoid and humanoid.HipHeight) or 2
+	local drop = (root.Size.Y / 2) + hipHeight
+	if drop < 1 then
+		drop = 2
+	end
+	return root.Position - Vector3.new(0, drop, 0)
+end
+
 local droppedItemSpawnTimes = {}
 local lastAutoPickup = 0
 local AUTO_PICKUP_RANGE = 20
@@ -4173,7 +4190,8 @@ local function trackDroppedItem(item)
 			end
 			task.defer(function()
 				if item and item.Parent and canAutoPickup(item, isVacuum) then
-					local dist = (item.Position - root.Position).Magnitude
+					local refPos = getFeetPosition() or root.Position
+					local dist = (item.Position - refPos).Magnitude
 					if dist <= maxRange then
 						if isVacuum then
 							pcall(function() item.CFrame = root.CFrame end)
@@ -4209,7 +4227,7 @@ local function tryAutoPickup()
 		maxRange = 100
 	end
 
-	local rootPos = root.Position
+	local rootPos = getFeetPosition() or root.Position
 	local candidateItems = {}
 
 	for _, item in ipairs(CollectionService:GetTagged("DROPPED_ITEM")) do
@@ -4551,6 +4569,11 @@ CombatCamlockConfig:AddCheckbox("CamlockFreePitch", {
 	Default = false,
 })
 
+CombatCamlockConfig:AddCheckbox("WaterBypass", {
+	Text = "Fix Swim Motion",
+	Default = false,
+})
+
 CombatCamlockConfig:AddSlider("CamlockSmoothness", {
 	Text = "Camera Smoothness",
 	Default = 0.2,
@@ -4620,11 +4643,6 @@ CombatCamlockConfig:AddSlider("CamlockPullStrength", {
 	Max = 5,
 	Rounding = 2,
 	Compact = true,
-})
-
-CombatCamlockConfig:AddCheckbox("WaterBypass", {
-	Text = "Water Bypass",
-	Default = false,
 })
 
 CombatLeft:AddToggle("KillAura", {
@@ -4852,6 +4870,24 @@ CombatShieldSystem:AddToggle("ShieldOnDamage", {
 	Default = false,
 })
 
+CombatShieldSystem:AddSlider("ShieldDamageHold", {
+	Text = "Shield Hold",
+	Default = 1,
+	Min = 0.05,
+	Max = 5,
+	Rounding = 2,
+	Compact = true,
+})
+
+CombatShieldSystem:AddSlider("ShieldDamageRefire", {
+	Text = "Shield Refire",
+	Default = 1,
+	Min = 0.05,
+	Max = 5,
+	Rounding = 2,
+	Compact = true,
+})
+
 CombatShieldSystem:AddCheckbox("ImmortalMode", {
 	Text = "Inf Shield",
 	Default = false,
@@ -4875,24 +4911,6 @@ CombatShieldSystem:AddSlider("ShieldTriggerStuds", {
 	Min = 1,
 	Max = 50,
 	Rounding = 0,
-	Compact = true,
-})
-
-CombatShieldSystem:AddSlider("ShieldDamageHold", {
-	Text = "Shield Hold",
-	Default = 1,
-	Min = 0.05,
-	Max = 5,
-	Rounding = 2,
-	Compact = true,
-})
-
-CombatShieldSystem:AddSlider("ShieldDamageRefire", {
-	Text = "Shield Refire",
-	Default = 1,
-	Min = 0.05,
-	Max = 5,
-	Rounding = 2,
 	Compact = true,
 })
 
