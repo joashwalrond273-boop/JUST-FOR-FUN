@@ -1083,6 +1083,13 @@ AutoArmorDeluxeGroup:AddButton({
 	end,
 })
 
+AutoArmorDeluxeGroup:AddButton({
+	Text = "Equip Best Sword",
+	Func = function()
+		equipBestSword()
+	end,
+})
+
 AutoArmorDeluxeGroup:AddDivider()
 
 AutoArmorDeluxeGroup:AddCheckbox("AtlanteanAutoSwap", {
