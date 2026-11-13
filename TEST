@@ -1041,6 +1041,41 @@ function equipBestArmor()
 	end
 end
 
+-- Shared helper: equips the strongest sword the player owns into the slot picked
+-- by the "Sword Slot" dropdown. Ranked with the same weakest -> strongest order
+-- as the armor sets above.
+function equipBestSword()
+	local equipHotbarRemote = TSG.EquipHotbarRemote
+	if not equipHotbarRemote or not TSG.ClientData then
+		return
+	end
+
+	local armorSlot = tonumber(Options.AutoArmorSlot and Options.AutoArmorSlot.Value) or 5
+
+	-- Weakest -> strongest.
+	local swordOrder = {
+		197, -- Bluesteel
+		357, -- Atlantean
+		267, -- Darksteel
+		406, -- Samurai
+		545, -- Juggernaut
+	}
+
+	-- Same ownership rule as equipBestArmor: getInventory() lists every item id
+	-- in the game, so an id simply being present does NOT mean the player owns it.
+	local inventory = TSG.ClientData.getInventory() or {}
+	for tierIndex = #swordOrder, 1, -1 do
+		local itemId = swordOrder[tierIndex]
+		local entry = inventory[itemId]
+		if entry ~= nil and entry ~= false and (type(entry) ~= "number" or entry > 0) then
+			pcall(function()
+				equipHotbarRemote:InvokeServer("inventory", armorSlot, itemId)
+			end)
+			break
+		end
+	end
+end
+
 AutoArmorDeluxeGroup:AddButton({
 	Text = "Equip Best Armor",
 	Func = function()
@@ -1147,8 +1182,11 @@ Toggles.AtlanteanAutoSwap:OnChanged(function()
 			if inWater then
 				task.spawn(equipAtlantean)
 			else
-				-- Got out of the water: swap straight back to the best armor.
-				task.spawn(equipBestArmor)
+				-- Got out of the water: swap straight back to the best armor and sword.
+				task.spawn(function()
+					equipBestArmor()
+					equipBestSword()
+				end)
 			end
 		end))
 	end
