@@ -6472,6 +6472,12 @@ do
 		aimlockMouseLocked = false
 		UserInputService.MouseBehavior = Enum.MouseBehavior.Default
 		UserInputService.MouseIconEnabled = true
+		-- The water shiftlock may have turned AutoRotate off; always hand the body
+		-- back to the player when the lock is dropped.
+		local hum = getHumanoid()
+		if hum then
+			hum.AutoRotate = true
+		end
 	end
 
 	local function aimlockPickClosest()
@@ -6498,7 +6504,7 @@ do
 		return bestPlayer
 	end
 
-	track("Aimlock", RunService.RenderStepped:Connect(function()
+	track("Aimlock", RunService.RenderStepped:Connect(function(dt)
 		-- Water Bypass: the aimlock (and its shiftlock) only works while in the
 		-- water AND holding one of the tools picked in the Spear / Sword lists.
 		if not isWaterBypassActive() then
@@ -6511,27 +6517,66 @@ do
 		if not root then return end
 
 		-- Shiftlock: the mouse stays pinned to the centre for the whole time
-		-- Water Bypass is active, even when there is no target to aim at. The
-		-- body is never touched, so the player keeps full control of it.
+		-- Water Bypass is active, even when there is no target to aim at.
 		aimlockMouseLocked = true
 		UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
 		UserInputService.MouseIconEnabled = false
 
 		local closest = aimlockPickClosest()
-		if not closest or not closest.Character then
+		local hum = getHumanoid()
+		local camera = workspace.CurrentCamera
+
+		local targetRoot, aimPart
+		if closest and closest.Character then
+			targetRoot = closest.Character:FindFirstChild("HumanoidRootPart")
+			aimPart = closest.Character:FindFirstChild(AIMLOCK_AIM_PART) or targetRoot
+		end
+
+		-- No enemy in range: leave the body completely alone so the player keeps
+		-- turning and swimming normally. Nothing here is driven by movement input.
+		if not (targetRoot and aimPart and hum and camera) then
+			if hum then hum.AutoRotate = true end
 			return
 		end
 
-		local targetRoot = closest.Character:FindFirstChild("HumanoidRootPart")
-		local aimPart = closest.Character:FindFirstChild(AIMLOCK_AIM_PART) or targetRoot
-		local camera = workspace.CurrentCamera
-		if not (aimPart and camera) then
-			return
+		-- Enemy in range -> shiftlock the body onto them. AutoRotate is switched off
+		-- so the movement stick / keys can no longer swing the body; only the smooth
+		-- turn below decides which way it faces.
+		hum.AutoRotate = false
+
+		local rootPos = root.Position
+		local flatDir = Vector3.new(targetRoot.Position.X - rootPos.X, 0, targetRoot.Position.Z - rootPos.Z)
+
+		local curLook = root.CFrame.LookVector
+		local bodyYaw = math.atan2(-curLook.X, -curLook.Z)
+		if flatDir.Magnitude > 0.001 then
+			local targetYaw = math.atan2(-flatDir.X, -flatDir.Z)
+			local yawDelta = ((targetYaw - bodyYaw + math.pi) % (2 * math.pi)) - math.pi
+			local turnSpeed = (Options.CamlockTurnSmoothness and Options.CamlockTurnSmoothness.Value) or 0.2
+			local turnAlpha = 1 - math.exp(-math.clamp(turnSpeed, 0.01, 1) * 60 * dt)
+			bodyYaw = bodyYaw + yawDelta * turnAlpha
+			root.CFrame = CFrame.new(rootPos) * CFrame.Angles(0, bodyYaw, 0)
+		end
+
+		-- The camera follows the turning of the body: its yaw mirrors the body while
+		-- its pitch keeps tracking the target, so the view swings round with the body.
+		local camCF = camera.CFrame
+		local camLook = camCF.LookVector
+		local camYaw = math.atan2(-camLook.X, -camLook.Z)
+		local camPitch = math.asin(math.clamp(camLook.Y, -1, 1))
+
+		local toTarget = aimPart.Position - camCF.Position
+		local targetPitch = camPitch
+		if toTarget.Magnitude > 0.001 then
+			targetPitch = math.asin(math.clamp(toTarget.Y / toTarget.Magnitude, -1, 1))
 		end
 
 		local smoothness = (Options.CamlockSmoothness and Options.CamlockSmoothness.Value) or 0.2
 		local lerpFactor = math.clamp(smoothness, 0.01, 1)
-		camera.CFrame = camera.CFrame:Lerp(CFrame.new(camera.CFrame.Position, aimPart.Position), lerpFactor)
+		local yawDelta = ((bodyYaw - camYaw + math.pi) % (2 * math.pi)) - math.pi
+		local newYaw = camYaw + yawDelta * lerpFactor
+		local newPitch = camPitch + (targetPitch - camPitch) * lerpFactor
+		camera.CFrame = CFrame.new(camCF.Position) * CFrame.fromOrientation(newPitch, newYaw, 0)
 	end))
 end
 
@@ -6590,17 +6635,17 @@ Toggles.Camlock:OnChanged(function()
 			-- In water the camlock only moves the camera. The body is left
 			-- untouched, so it behaves exactly as if the camlock were off.
 			local inWater = camlockInWater(LocalPlayer.Character, root)
-			if inWater then
-				hum.AutoRotate = true
-			end
 
 			-- Water Bypass: while in the water the camlock stays off completely so
-			-- the Aimlock (which only runs in water) has full control. The mouse is
-			-- left to the Aimlock loop instead of being forced back to default.
+			-- the Aimlock (which only runs in water) has full control. The mouse and
+			-- AutoRotate are both left to the Aimlock loop instead of being forced here.
 			if isWaterBypassActive(inWater) then
 				camlockTarget = nil
-				hum.AutoRotate = true
 				return
+			end
+
+			if inWater then
+				hum.AutoRotate = true
 			end
 
 			local maxDist = Options.CamlockStuds and Options.CamlockStuds.Value or 20
