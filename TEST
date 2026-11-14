@@ -6472,6 +6472,10 @@ do
 		aimlockMouseLocked = false
 		UserInputService.MouseBehavior = Enum.MouseBehavior.Default
 		UserInputService.MouseIconEnabled = true
+		local hum = getHumanoid()
+		if hum then
+			hum.AutoRotate = true
+		end
 	end
 
 	local function aimlockPickClosest()
@@ -6498,7 +6502,7 @@ do
 		return bestPlayer
 	end
 
-	track("Aimlock", RunService.RenderStepped:Connect(function()
+	track("Aimlock", RunService.RenderStepped:Connect(function(dt)
 		-- Water Bypass: the aimlock (and its shiftlock) only works while in the
 		-- water AND holding one of the tools picked in the Spear / Sword lists.
 		if not isWaterBypassActive() then
@@ -6508,30 +6512,62 @@ do
 		if not isAlive() then return end
 
 		local root = getRootPart()
+		local hum = getHumanoid()
 		if not root then return end
 
 		-- Shiftlock: the mouse stays pinned to the centre for the whole time
-		-- Water Bypass is active, even when there is no target to aim at. The
-		-- body is never touched, so the player keeps full control of it.
+		-- Water Bypass is active, even when there is no target to aim at.
 		aimlockMouseLocked = true
 		UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
 		UserInputService.MouseIconEnabled = false
 
 		local closest = aimlockPickClosest()
-		if not closest or not closest.Character then
-			return
+		local aimPart
+		if closest and closest.Character then
+			local targetRoot = closest.Character:FindFirstChild("HumanoidRootPart")
+			aimPart = closest.Character:FindFirstChild(AIMLOCK_AIM_PART) or targetRoot
 		end
 
-		local targetRoot = closest.Character:FindFirstChild("HumanoidRootPart")
-		local aimPart = closest.Character:FindFirstChild(AIMLOCK_AIM_PART) or targetRoot
+		-- The body turns to face the target (smoothly, using Turn Smoothness), so
+		-- the camera can then simply follow the body. With no target the body is
+		-- left completely free for the player to steer.
+		if aimPart then
+			if hum then hum.AutoRotate = false end
+			local curLook = root.CFrame.LookVector
+			local curYaw = math.atan2(-curLook.X, -curLook.Z)
+			local toTarget = aimPart.Position - root.Position
+			local flatDir = Vector3.new(toTarget.X, 0, toTarget.Z)
+			local targetYaw = curYaw
+			if flatDir.Magnitude > 0.001 then
+				targetYaw = math.atan2(-flatDir.X, -flatDir.Z)
+			end
+			local yawDelta = ((targetYaw - curYaw + math.pi) % (2 * math.pi)) - math.pi
+			local turnSpeed = (Options.CamlockTurnSmoothness and Options.CamlockTurnSmoothness.Value) or 0.2
+			local turnAlpha = 1 - math.exp(-math.clamp(turnSpeed, 0.01, 1) * 60 * dt)
+			local newYaw = curYaw + yawDelta * turnAlpha
+			root.CFrame = CFrame.new(root.Position) * CFrame.Angles(0, newYaw, 0)
+		elseif hum then
+			hum.AutoRotate = true
+		end
+
+		-- Camera follows the turning of the body while shiftlocked: the camera
+		-- keeps its own position and pitch, but takes the body's yaw so the view
+		-- stays aligned with the swim direction as the character turns. With a
+		-- target the pitch still locks onto it, so the aim stays on the enemy.
 		local camera = workspace.CurrentCamera
-		if not (aimPart and camera) then
-			return
+		if camera then
+			local bodyLook = root.CFrame.LookVector
+			local bodyYaw = math.atan2(-bodyLook.X, -bodyLook.Z)
+			local camCF = camera.CFrame
+			local pitch = math.asin(math.clamp(camCF.LookVector.Y, -1, 1))
+			if aimPart then
+				local toAim = aimPart.Position - camCF.Position
+				if toAim.Magnitude > 0.001 then
+					pitch = math.asin(math.clamp(toAim.Unit.Y, -1, 1))
+				end
+			end
+			camera.CFrame = CFrame.new(camCF.Position) * CFrame.fromOrientation(pitch, bodyYaw, 0)
 		end
-
-		local smoothness = (Options.CamlockSmoothness and Options.CamlockSmoothness.Value) or 0.2
-		local lerpFactor = math.clamp(smoothness, 0.01, 1)
-		camera.CFrame = camera.CFrame:Lerp(CFrame.new(camera.CFrame.Position, aimPart.Position), lerpFactor)
 	end))
 end
 
@@ -6587,20 +6623,20 @@ Toggles.Camlock:OnChanged(function()
 			local hum = getHumanoid()
 			if not root or not hum then return end
 
-			-- In water the camlock only moves the camera. The body is left
-			-- untouched, so it behaves exactly as if the camlock were off.
 			local inWater = camlockInWater(LocalPlayer.Character, root)
-			if inWater then
-				hum.AutoRotate = true
-			end
 
 			-- Water Bypass: while in the water the camlock stays off completely so
-			-- the Aimlock (which only runs in water) has full control. The mouse is
-			-- left to the Aimlock loop instead of being forced back to default.
+			-- the Aimlock (which only runs in water) has full control. The mouse and
+			-- the body are left to the Aimlock loop instead of being forced here.
 			if isWaterBypassActive(inWater) then
 				camlockTarget = nil
-				hum.AutoRotate = true
 				return
+			end
+
+			-- In water the camlock only moves the camera. The body is left
+			-- untouched, so it behaves exactly as if the camlock were off.
+			if inWater then
+				hum.AutoRotate = true
 			end
 
 			local maxDist = Options.CamlockStuds and Options.CamlockStuds.Value or 20
@@ -8074,7 +8110,7 @@ end)
 local MoveMountAura = Tabs.Movement:AddRightGroupbox("Mount Aura", "paw-print")
 
 MoveMountAura:AddCheckbox("MountSpeedBoost", {
-	Text = "Mount Speed",
+	Text = "Mount Boost",
 	Default = false,
 })
 
@@ -8084,7 +8120,7 @@ MoveMountAura:AddCheckbox("MountFly", {
 })
 
 MoveMountAura:AddSlider("MountSpeedValue", {
-	Text = "Mount Speed Value",
+	Text = "Mount Boost Value",
 	Default = 35,
 	Min = 16,
 	Max = 300,
@@ -8186,7 +8222,7 @@ end
 Toggles.MountSpeedBoost:OnChanged(function()
 	disconnect("MountSpeedBoost")
 	if Toggles.MountSpeedBoost.Value then
-		Library:Notify({ Title = "Mount Speed", Description = "Enabled", Time = 2 })
+		Library:Notify({ Title = "Mount Boost", Description = "Enabled", Time = 2 })
 		track("MountSpeedBoost", RunService.Heartbeat:Connect(function(dt)
 			if not isAlive() then return end
 			local humanoid = getHumanoid()
@@ -8228,7 +8264,7 @@ Toggles.MountSpeedBoost:OnChanged(function()
 			end
 		end
 		table.clear(originalMountSpeeds)
-		Library:Notify({ Title = "Mount Speed", Description = "Disabled", Time = 2 })
+		Library:Notify({ Title = "Mount Boost", Description = "Disabled", Time = 2 })
 	end
 end)
 
