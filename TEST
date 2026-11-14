@@ -3186,7 +3186,7 @@ MainLeft:AddCheckbox("InfiniteBackpack", {
 })
 
 MainLeft:AddCheckbox("InfiniteStamina", {
-	Text = "Infinite Stamina",
+	Text = "Unlimited Stamina",
 	Default = false,
 })
 
@@ -4292,20 +4292,26 @@ end
 
 Toggles.InfiniteStamina:OnChanged(function()
 	disconnect("InfiniteStamina")
+	disconnect("InfiniteStaminaPoll")
 	if Toggles.InfiniteStamina.Value then
 		applyCharacterModuleToggles()
 		hookCharFolderBehaviors()
-		task.spawn(function()
-			for _ = 1, 4 do
-				task.wait(0.25)
-				if not (Toggles.InfiniteStamina and Toggles.InfiniteStamina.Value) then break end
+		-- Keep re-asserting instead of doing a short burst of retries: the game
+		-- re-creates the character folder on respawn and can flip the behavior
+		-- back on its own, which is what made stamina "stop" mid-game.
+		local lastApply = 0
+		track("InfiniteStaminaPoll", RunService.Heartbeat:Connect(function()
+			local now = os.clock()
+			if now - lastApply < 0.25 then return end
+			lastApply = now
+			if Toggles.InfiniteStamina and Toggles.InfiniteStamina.Value then
 				applyCharacterModuleToggles()
 			end
-		end)
-		Library:Notify({ Title = "Infinite Stamina", Description = "Enabled", Time = 2 })
+		end))
+		Library:Notify({ Title = "Unlimited Stamina", Description = "Enabled", Time = 2 })
 	else
 		setBehaviorDisabled(getCharacterBehavior("stamina"), false)
-		Library:Notify({ Title = "Infinite Stamina", Description = "Disabled", Time = 2 })
+		Library:Notify({ Title = "Unlimited Stamina", Description = "Disabled", Time = 2 })
 	end
 end)
 
@@ -5557,6 +5563,12 @@ updatePVPModulesVisibility = function()
 		Options.CamlockStuds.Visible = isCam
 		if Options.CamlockStuds.Holder then
 			Options.CamlockStuds.Holder.Visible = isCam
+		end
+	end
+	if Options.CamlockPriority then
+		Options.CamlockPriority.Visible = isCam
+		if Options.CamlockPriority.Holder then
+			Options.CamlockPriority.Holder.Visible = isCam
 		end
 	end
 	if Toggles.CamlockIgnoreTeam then
