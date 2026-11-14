@@ -1493,6 +1493,12 @@ CosmeticsGroup:AddDropdown("HitSoundSelect", {
 	Default = "None",
 })
 
+CosmeticsGroup:AddDropdown("HitEffectSelect", {
+	Text = "Hit Effect",
+	Values = { "None", "Lightning", "Smoke", "Fire", "Sparkles" },
+	Default = "None",
+})
+
 CosmeticsGroup:AddDivider()
 
 CosmeticsGroup:AddButton({
@@ -1553,6 +1559,212 @@ Xeno_PlayHitSound = function()
 		end
 		sound.Ended:Connect(cleanup)
 		task.delay(6, cleanup)
+	end)
+end
+
+-- Hit effect: a short-lived cosmetic burst where the melee hit landed.
+-- Declared as a global on purpose (the main chunk is at Luau's 200-local limit).
+Xeno_PlayHitEffect = function(hitArgs)
+	pcall(function()
+		local selected = Options.HitEffectSelect and Options.HitEffectSelect.Value
+		if not selected or selected == "None" then return end
+
+		-- Cap the spawn rate so a fast kill-aura can't pile up effect folders.
+		local now = tick()
+		if now - (XenoHitEffectLast or 0) < 0.08 then return end
+		XenoHitEffectLast = now
+
+		local character = getCharacter()
+		local selfRoot = character and character:FindFirstChild("HumanoidRootPart")
+
+		-- Find where the hit landed. Player hits carry the target (a Player or a
+		-- character model) as the second argument; otherwise fall back to the
+		-- nearest other player, then to the local character.
+		local position
+		local arg = hitArgs and hitArgs[2]
+		if typeof(arg) == "Instance" then
+			local char = arg
+			if arg:IsA("Player") then
+				char = arg.Character
+			end
+			if char then
+				local root = char:FindFirstChild("HumanoidRootPart")
+					or char.PrimaryPart
+					or char:FindFirstChildWhichIsA("BasePart")
+				if root then
+					position = root.Position
+				end
+			end
+		end
+
+		if not position and selfRoot then
+			local closest, closestDist
+			for _, p in ipairs(AimlockPlayers or Players:GetPlayers()) do
+				if p ~= LocalPlayer and p.Character then
+					local r = p.Character:FindFirstChild("HumanoidRootPart")
+					if r then
+						local dist = (r.Position - selfRoot.Position).Magnitude
+						if dist <= 30 and (not closestDist or dist < closestDist) then
+							closest, closestDist = r.Position, dist
+						end
+					end
+				end
+			end
+			position = closest or selfRoot.Position
+		end
+
+		if not position then return end
+
+		local fxFolder = Instance.new("Folder")
+		fxFolder.Name = "XenoHitFX"
+
+		local anchor = Instance.new("Part")
+		anchor.Name = "XenoFXAnchor"
+		anchor.Anchored = true
+		anchor.CanCollide = false
+		anchor.CanQuery = false
+		anchor.CanTouch = false
+		anchor.CastShadow = false
+		anchor.Transparency = 1
+		anchor.Size = Vector3.new(0.1, 0.1, 0.1)
+		anchor.CFrame = CFrame.new(position)
+		anchor.Parent = fxFolder
+		fxFolder.Parent = workspace
+
+		local emitters = {}
+		local function addEmitter(props)
+			local pe = Instance.new("ParticleEmitter")
+			for key, value in pairs(props) do
+				pe[key] = value
+			end
+			pe.Parent = anchor
+			table.insert(emitters, pe)
+			return pe
+		end
+
+		local totalLife = 1.6
+
+		if selected == "Lightning" then
+			totalLife = 0.7
+
+			local flash = Instance.new("PointLight")
+			flash.Color = Color3.fromRGB(180, 220, 255)
+			flash.Range = 20
+			flash.Brightness = 3
+			flash.Parent = anchor
+
+			addEmitter({
+				Texture = "rbxasset://textures/particles/sparkles_main.dds",
+				Color = ColorSequence.new(Color3.fromRGB(200, 230, 255)),
+				Size = NumberSequence.new(1.4),
+				Transparency = NumberSequence.new(0.1),
+				Lifetime = NumberRange.new(0.3),
+				Rate = 70,
+				Speed = NumberRange.new(8, 16),
+				SpreadAngle = Vector2.new(180, 180),
+				LightEmission = 1,
+			})
+
+			-- Jagged bolt drawn from above the target down onto it.
+			local points = { position + Vector3.new(0, 9, 0) }
+			local segments = 6
+			for i = 1, segments - 1 do
+				local t = i / segments
+				local base = position + Vector3.new(0, 9, 0) * (1 - t)
+				local jitter = (1 - t) * 2.2
+				points[#points + 1] = base + Vector3.new(
+					(math.random() - 0.5) * jitter,
+					0,
+					(math.random() - 0.5) * jitter
+				)
+			end
+			points[#points + 1] = position + Vector3.new(0, 1, 0)
+
+			for i = 1, #points - 1 do
+				local fromPos = points[i]
+				local toPos = points[i + 1]
+				local delta = toPos - fromPos
+				local bolt = Instance.new("Part")
+				bolt.Anchored = true
+				bolt.CanCollide = false
+				bolt.CanQuery = false
+				bolt.CastShadow = false
+				bolt.Material = Enum.Material.Neon
+				bolt.Color = Color3.fromRGB(170, 220, 255)
+				bolt.Size = Vector3.new(0.2, 0.2, delta.Magnitude)
+				bolt.CFrame = CFrame.lookAt(fromPos + delta * 0.5, toPos)
+				bolt.Parent = fxFolder
+			end
+		elseif selected == "Smoke" then
+			totalLife = 1.9
+			addEmitter({
+				Texture = "rbxasset://textures/particles/smoke_main.dds",
+				Color = ColorSequence.new(Color3.fromRGB(90, 90, 90), Color3.fromRGB(170, 170, 170)),
+				Size = NumberSequence.new({
+					NumberSequenceKeypoint.new(0, 1),
+					NumberSequenceKeypoint.new(1, 4),
+				}),
+				Transparency = NumberSequence.new({
+					NumberSequenceKeypoint.new(0, 0.4),
+					NumberSequenceKeypoint.new(1, 1),
+				}),
+				Lifetime = NumberRange.new(1, 1.4),
+				Rate = 55,
+				Speed = NumberRange.new(2, 5),
+				SpreadAngle = Vector2.new(30, 30),
+				Rotation = NumberRange.new(0, 360),
+				RotSpeed = NumberRange.new(-60, 60),
+			})
+		elseif selected == "Fire" then
+			totalLife = 1.6
+			addEmitter({
+				Texture = "rbxasset://textures/particles/fire_main.dds",
+				Color = ColorSequence.new(Color3.fromRGB(255, 190, 60), Color3.fromRGB(255, 70, 0)),
+				Size = NumberSequence.new({
+					NumberSequenceKeypoint.new(0, 2.2),
+					NumberSequenceKeypoint.new(1, 0.6),
+				}),
+				Transparency = NumberSequence.new({
+					NumberSequenceKeypoint.new(0, 0.2),
+					NumberSequenceKeypoint.new(1, 1),
+				}),
+				Lifetime = NumberRange.new(0.5, 0.85),
+				Rate = 80,
+				Speed = NumberRange.new(4, 7),
+				SpreadAngle = Vector2.new(25, 25),
+				LightEmission = 0.6,
+			})
+		elseif selected == "Sparkles" then
+			totalLife = 1.4
+			addEmitter({
+				Texture = "rbxasset://textures/particles/sparkles_main.dds",
+				Color = ColorSequence.new(Color3.fromRGB(255, 255, 160), Color3.fromRGB(130, 200, 255)),
+				Size = NumberSequence.new({
+					NumberSequenceKeypoint.new(0, 0.9),
+					NumberSequenceKeypoint.new(1, 0),
+				}),
+				Transparency = NumberSequence.new({
+					NumberSequenceKeypoint.new(0, 0),
+					NumberSequenceKeypoint.new(1, 1),
+				}),
+				Lifetime = NumberRange.new(0.6, 1),
+				Rate = 90,
+				Speed = NumberRange.new(6, 12),
+				SpreadAngle = Vector2.new(180, 180),
+				LightEmission = 1,
+			})
+		end
+
+		-- Emit in a short burst so a fast kill-aura doesn't pile up emitters.
+		task.delay(0.25, function()
+			for _, pe in ipairs(emitters) do
+				if pe.Parent then pe.Enabled = false end
+			end
+		end)
+
+		task.delay(totalLife, function()
+			if fxFolder and fxFolder.Parent then fxFolder:Destroy() end
+		end)
 	end)
 end
 
@@ -4122,10 +4334,14 @@ if hookmetamethod then
 				or rawequal(self, TSG.MeleeAI)
 				or rawequal(self, TSG.MeleeAnimalRemote)
 			if isMeleeHit then
+				local hitArgs = table.pack(select(2, ...))
 				task.defer(function()
 					pcall(function()
 						if Xeno_PlayHitSound then
 							Xeno_PlayHitSound()
+						end
+						if Xeno_PlayHitEffect then
+							Xeno_PlayHitEffect(hitArgs)
 						end
 					end)
 				end)
