@@ -6472,12 +6472,6 @@ do
 		aimlockMouseLocked = false
 		UserInputService.MouseBehavior = Enum.MouseBehavior.Default
 		UserInputService.MouseIconEnabled = true
-		-- Hand the body back to the game once the swim-motion aimlock lets go,
-		-- otherwise AutoRotate would stay off and the character couldn't turn.
-		local hum = getHumanoid()
-		if hum then
-			hum.AutoRotate = true
-		end
 	end
 
 	local function aimlockPickClosest()
@@ -6504,7 +6498,7 @@ do
 		return bestPlayer
 	end
 
-	track("Aimlock", RunService.RenderStepped:Connect(function(dt)
+	track("Aimlock", RunService.RenderStepped:Connect(function()
 		-- Water Bypass: the aimlock (and its shiftlock) only works while in the
 		-- water AND holding one of the tools picked in the Spear / Sword lists.
 		if not isWaterBypassActive() then
@@ -6514,11 +6508,11 @@ do
 		if not isAlive() then return end
 
 		local root = getRootPart()
-		local hum = getHumanoid()
-		if not root or not hum then return end
+		if not root then return end
 
 		-- Shiftlock: the mouse stays pinned to the centre for the whole time
-		-- Water Bypass is active, even when there is no target to aim at.
+		-- Water Bypass is active, even when there is no target to aim at. The
+		-- body is never touched, so the player keeps full control of it.
 		aimlockMouseLocked = true
 		UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
 		UserInputService.MouseIconEnabled = false
@@ -6531,26 +6525,8 @@ do
 		local targetRoot = closest.Character:FindFirstChild("HumanoidRootPart")
 		local aimPart = closest.Character:FindFirstChild(AIMLOCK_AIM_PART) or targetRoot
 		local camera = workspace.CurrentCamera
-		if not (aimPart and targetRoot and camera) then
+		if not (aimPart and camera) then
 			return
-		end
-
-		-- Turn the BODY toward the enemy too, not just the camera, so the whole
-		-- character faces the target while Fix Swim Motion is active.
-		local myPos = root.Position
-		local targetPos = targetRoot.Position
-		local lookDir = Vector3.new(targetPos.X - myPos.X, 0, targetPos.Z - myPos.Z)
-		if lookDir.Magnitude > 0.001 then
-			local flatDir = lookDir.Unit
-			hum.AutoRotate = false
-			local curLook = root.CFrame.LookVector
-			local curYaw = math.atan2(-curLook.X, -curLook.Z)
-			local targetYaw = math.atan2(-flatDir.X, -flatDir.Z)
-			local yawDelta = ((targetYaw - curYaw + math.pi) % (2 * math.pi)) - math.pi
-			local turnSpeed = (Options.CamlockTurnSmoothness and Options.CamlockTurnSmoothness.Value) or 0.2
-			local turnAlpha = 1 - math.exp(-math.clamp(turnSpeed, 0.01, 1) * 60 * dt)
-			local newYaw = curYaw + yawDelta * turnAlpha
-			root.CFrame = CFrame.new(myPos) * CFrame.Angles(0, newYaw, 0)
 		end
 
 		local smoothness = (Options.CamlockSmoothness and Options.CamlockSmoothness.Value) or 0.2
@@ -6614,18 +6590,17 @@ Toggles.Camlock:OnChanged(function()
 			-- In water the camlock only moves the camera. The body is left
 			-- untouched, so it behaves exactly as if the camlock were off.
 			local inWater = camlockInWater(LocalPlayer.Character, root)
-
-			-- Water Bypass: while in the water the camlock stays off completely so
-			-- the Aimlock (which only runs in water) has full control of the
-			-- camera AND the body. The mouse is left to the Aimlock loop instead
-			-- of being forced back to default.
-			if isWaterBypassActive(inWater) then
-				camlockTarget = nil
-				return
-			end
-
 			if inWater then
 				hum.AutoRotate = true
+			end
+
+			-- Water Bypass: while in the water the camlock stays off completely so
+			-- the Aimlock (which only runs in water) has full control. The mouse is
+			-- left to the Aimlock loop instead of being forced back to default.
+			if isWaterBypassActive(inWater) then
+				camlockTarget = nil
+				hum.AutoRotate = true
+				return
 			end
 
 			local maxDist = Options.CamlockStuds and Options.CamlockStuds.Value or 20
@@ -8099,7 +8074,7 @@ end)
 local MoveMountAura = Tabs.Movement:AddRightGroupbox("Mount Aura", "paw-print")
 
 MoveMountAura:AddCheckbox("MountSpeedBoost", {
-	Text = "Mount Boost",
+	Text = "Mount Speed",
 	Default = false,
 })
 
@@ -8109,7 +8084,7 @@ MoveMountAura:AddCheckbox("MountFly", {
 })
 
 MoveMountAura:AddSlider("MountSpeedValue", {
-	Text = "Mount Boost Value",
+	Text = "Mount Speed Value",
 	Default = 35,
 	Min = 16,
 	Max = 300,
