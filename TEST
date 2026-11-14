@@ -6528,11 +6528,15 @@ do
 			aimPart = closest.Character:FindFirstChild(AIMLOCK_AIM_PART) or targetRoot
 		end
 
-		-- The body turns to face the target (smoothly, using Turn Smoothness), so
-		-- the camera can then simply follow the body. With no target the body is
-		-- left completely free for the player to steer.
+		-- Only engage when the enemy is actually in range (aimlockPickClosest uses
+		-- the Camlock Studs range). With an enemy in range the body turns onto him
+		-- (smoothly, using Turn Smoothness) and the camera locks onto him, so the
+		-- aimbot works together with the swim motion. With no enemy in range the
+		-- camera is left completely alone, so the normal right-side turn keeps
+		-- working and the view can never spin.
 		if aimPart then
 			if hum then hum.AutoRotate = false end
+
 			local curLook = root.CFrame.LookVector
 			local curYaw = math.atan2(-curLook.X, -curLook.Z)
 			local toTarget = aimPart.Position - root.Position
@@ -6544,29 +6548,26 @@ do
 			local yawDelta = ((targetYaw - curYaw + math.pi) % (2 * math.pi)) - math.pi
 			local turnSpeed = (Options.CamlockTurnSmoothness and Options.CamlockTurnSmoothness.Value) or 0.2
 			local turnAlpha = 1 - math.exp(-math.clamp(turnSpeed, 0.01, 1) * 60 * dt)
-			local newYaw = curYaw + yawDelta * turnAlpha
-			root.CFrame = CFrame.new(root.Position) * CFrame.Angles(0, newYaw, 0)
-		elseif hum then
-			hum.AutoRotate = true
-		end
+			root.CFrame = CFrame.new(root.Position) * CFrame.Angles(0, curYaw + yawDelta * turnAlpha, 0)
 
-		-- Camera follows the turning of the body while shiftlocked: the camera
-		-- keeps its own position and pitch, but takes the body's yaw so the view
-		-- stays aligned with the swim direction as the character turns. With a
-		-- target the pitch still locks onto it, so the aim stays on the enemy.
-		local camera = workspace.CurrentCamera
-		if camera then
-			local bodyLook = root.CFrame.LookVector
-			local bodyYaw = math.atan2(-bodyLook.X, -bodyLook.Z)
-			local camCF = camera.CFrame
-			local pitch = math.asin(math.clamp(camCF.LookVector.Y, -1, 1))
-			if aimPart then
-				local toAim = aimPart.Position - camCF.Position
-				if toAim.Magnitude > 0.001 then
-					pitch = math.asin(math.clamp(toAim.Unit.Y, -1, 1))
-				end
+			local camera = workspace.CurrentCamera
+			if camera then
+				local smoothness = (Options.CamlockSmoothness and Options.CamlockSmoothness.Value) or 0.2
+				local lerpFactor = math.clamp(smoothness, 0.01, 1)
+				camera.CFrame = camera.CFrame:Lerp(CFrame.new(camera.CFrame.Position, aimPart.Position), lerpFactor)
 			end
-			camera.CFrame = CFrame.new(camCF.Position) * CFrame.fromOrientation(pitch, bodyYaw, 0)
+		else
+			-- No enemy in range: turn the body to match the camera instead of the
+			-- camera to match the body. That way the right side still turns you
+			-- normally, the view can never spin, and the camera always stays
+			-- looking along the body.
+			if hum then hum.AutoRotate = false end
+			local camera = workspace.CurrentCamera
+			if camera then
+				local camLook = camera.CFrame.LookVector
+				local camYaw = math.atan2(-camLook.X, -camLook.Z)
+				root.CFrame = CFrame.new(root.Position) * CFrame.Angles(0, camYaw, 0)
+			end
 		end
 	end))
 end
