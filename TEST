@@ -1499,6 +1499,24 @@ CosmeticsGroup:AddDropdown("HitEffectSelect", {
 	Default = "None",
 })
 
+-- The hit effects are particle based, so "Remove Particles" would hide them.
+-- While an effect is selected that toggle is forced (and kept) off.
+function isHitEffectActive()
+	local selected = Options.HitEffectSelect and Options.HitEffectSelect.Value
+	return selected ~= nil and selected ~= "None"
+end
+
+Options.HitEffectSelect:OnChanged(function(value)
+	if value and value ~= "None" and Toggles.RemoveParticles and Toggles.RemoveParticles.Value then
+		Toggles.RemoveParticles:SetValue(false)
+		Library:Notify({
+			Title = "Hit Effect",
+			Description = "Remove Particles turned off so you can see the effect.",
+			Time = 3,
+		})
+	end
+end)
+
 CosmeticsGroup:AddDivider()
 
 CosmeticsGroup:AddButton({
@@ -11143,6 +11161,17 @@ do
 		Text = "Remove Particles",
 		Default = false,
 		Callback = function(state)
+			-- Hit effects are particle based; Remove Particles would hide them.
+			if state and isHitEffectActive and isHitEffectActive() then
+				Toggles.RemoveParticles:SetValue(false)
+				Library:Notify({
+					Title = "Remove Particles",
+					Description = "Set your Hit Effect to None first.",
+					Time = 3,
+				})
+				return
+			end
+
 			disconnect("RemoveParticles_Workspace")
 			disconnect("RemoveParticles_Lighting")
 
