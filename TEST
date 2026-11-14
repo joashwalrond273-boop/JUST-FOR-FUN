@@ -5000,7 +5000,7 @@ CombatCamlockConfig:AddSlider("CamlockPrediction", {
 
 CombatCamlockConfig:AddDropdown("CamlockPriority", {
 	Text = "Target Priority",
-	Values = {"Normal", "Lowest HP Kill", "Highest HP Kill"},
+	Values = {"Normal", "Lowest HP Kill", "Highest HP Kill", "Closest to Crosshair"},
 	Default = "Normal",
 })
 
@@ -6743,7 +6743,7 @@ Toggles.Camlock:OnChanged(function()
 			local camlockNow = os.clock()
 			if not camlockTarget or camlockNow >= camlockNextPick then
 				camlockNextPick = camlockNow + 0.1
-				local bestPlayer, bestDist, bestHealth = nil, math.huge, nil
+				local bestPlayer, bestDist, bestHealth, bestScore = nil, math.huge, nil, -math.huge
 				for _, otherPlayer in ipairs(camlockPlayers) do
 					local ok, otherRoot = camlockTargetValid(otherPlayer)
 					if ok then
@@ -6756,6 +6756,19 @@ Toggles.Camlock:OnChanged(function()
 									or (camlockPriority == "Lowest HP Kill" and hp < bestHealth)
 									or (camlockPriority == "Highest HP Kill" and hp > bestHealth) then
 									bestPlayer, bestHealth = otherPlayer, hp
+								end
+							elseif camlockPriority == "Closest to Crosshair" then
+								-- Highest dot product with the camera's look vector
+								-- means the player is nearest the screen centre.
+								local cam = workspace.CurrentCamera
+								if cam then
+									local toTarget = otherRoot.Position - cam.CFrame.Position
+									if toTarget.Magnitude > 0.001 then
+										local score = cam.CFrame.LookVector:Dot(toTarget.Unit)
+										if bestPlayer == nil or score > bestScore then
+											bestPlayer, bestScore = otherPlayer, score
+										end
+									end
 								end
 							elseif dist < bestDist then
 								bestDist = dist
