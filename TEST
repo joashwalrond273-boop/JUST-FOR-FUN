@@ -5027,6 +5027,20 @@ CombatCamlockConfig:AddSlider("CamlockPullStrength", {
 	Compact = true,
 })
 
+CombatCamlockConfig:AddCheckbox("CamlockJitter", {
+	Text = "Aim Jitter",
+	Default = false,
+})
+
+CombatCamlockConfig:AddSlider("CamlockJitterStrength", {
+	Text = "Jitter Strength",
+	Default = 0.2,
+	Min = 0.01,
+	Max = 1.5,
+	Rounding = 2,
+	Compact = true,
+})
+
 CombatLeft:AddToggle("KillAura", {
 	Text = "Kill Aura",
 	Default = false,
@@ -5622,6 +5636,21 @@ updatePVPModulesVisibility = function()
 		Options.CamlockPullStrength.Visible = isPull
 		if Options.CamlockPullStrength.Holder then
 			Options.CamlockPullStrength.Holder.Visible = isPull
+		end
+	end
+	local isJitter = (Toggles.CamlockJitter and Toggles.CamlockJitter.Value) or false
+	if Toggles.CamlockJitter then
+		if Toggles.CamlockJitter.Visible ~= nil then
+			Toggles.CamlockJitter.Visible = true
+		end
+		if Toggles.CamlockJitter.Holder then
+			Toggles.CamlockJitter.Holder.Visible = true
+		end
+	end
+	if Options.CamlockJitterStrength then
+		Options.CamlockJitterStrength.Visible = isJitter
+		if Options.CamlockJitterStrength.Holder then
+			Options.CamlockJitterStrength.Holder.Visible = isJitter
 		end
 	end
 	if Options.OutlineTarget then
@@ -6961,6 +6990,19 @@ Toggles.Camlock:OnChanged(function()
 									local targetVel = targetRoot.AssemblyLinearVelocity or targetRoot.Velocity or Vector3.zero
 									aimPos = aimPos + (targetVel * (pred * 0.1))
 								end
+								-- Aim Jitter / Micro-Flick: nudge the locked aim point by a
+								-- tiny random offset every frame so the crosshair never sits
+								-- perfectly still on the target.
+								if Toggles.CamlockJitter and Toggles.CamlockJitter.Value then
+									local jitterStrength = (Options.CamlockJitterStrength and Options.CamlockJitterStrength.Value) or 0.2
+									if jitterStrength > 0 then
+										aimPos = aimPos + Vector3.new(
+											(math.random() - 0.5) * jitterStrength,
+											(math.random() - 0.5) * jitterStrength,
+											(math.random() - 0.5) * jitterStrength
+										)
+									end
+								end
 								local smoothness = (Options.CamlockSmoothness and Options.CamlockSmoothness.Value) or 0.2
 								local lerpFactor = math.clamp(smoothness, 0.01, 1)
 
@@ -7038,6 +7080,14 @@ end
 
 if Toggles.CamlockPull then
 	Toggles.CamlockPull:OnChanged(function()
+		if updatePVPModulesVisibility then
+			updatePVPModulesVisibility()
+		end
+	end)
+end
+
+if Toggles.CamlockJitter then
+	Toggles.CamlockJitter:OnChanged(function()
 		if updatePVPModulesVisibility then
 			updatePVPModulesVisibility()
 		end
