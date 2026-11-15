@@ -5292,19 +5292,10 @@ CombatShieldSystem:AddToggle("ShieldOnDamage", {
 	Default = false,
 })
 
-CombatShieldSystem:AddSlider("ShieldDamageHold", {
-	Text = "Shield Hold",
-	Default = 1,
-	Min = 0.05,
-	Max = 5,
-	Rounding = 2,
-	Compact = true,
-})
-
 CombatShieldSystem:AddSlider("ShieldDamageRefire", {
 	Text = "Shield Refire",
-	Default = 1,
-	Min = 0.05,
+	Default = 2,
+	Min = 2,
 	Max = 5,
 	Rounding = 2,
 	Compact = true,
@@ -5370,8 +5361,9 @@ CombatShieldSystem:AddCheckbox("ShieldHud", {
 -- PlayerScripts.shield (HoldShield + HoldKatanaShield), as a visual only. It is
 -- driven by the Advance Shield: every setShield fire raises/lowers the pose.
 -- Getting hit while shielding drops the pose and holds the shield down for the
--- Shield Refire delay, so a swing can play before the shield comes back up. The
--- pose only shows while a Samurai Sword (406) or Juggernaut Sword (545) is held.
+-- Shield Refire delay, so a swing can play before the shield comes back up. A
+-- swing alone also hides the pose briefly without dropping the block. The pose
+-- only shows while a Samurai Sword (406) or Juggernaut Sword (545) is held.
 -- State lives in globals to stay under the main chunk's local limit.
 ShieldAnimObjects = nil
 ShieldAnimTracks = nil
@@ -5379,6 +5371,8 @@ ShieldAnimHeld = false
 -- The pose stays off until this timestamp after taking a hit (Shield Refire delay).
 ShieldAnimBreakUntil = 0
 ShieldAnimLastHealth = nil
+-- While swinging, the pose hides so the attack animation shows (blocking is untouched).
+ShieldAnimSwingUntil = 0
 
 -- Only these swords show the pose.
 ShieldAnimSwordIds = { [406] = true, [545] = true }
@@ -5456,7 +5450,7 @@ end
 
 -- How long the pose stays off after a hit: the Shield Refire delay.
 function GetShieldRefireTime()
-	return (Options.ShieldDamageRefire and Options.ShieldDamageRefire.Value) or 1
+	return (Options.ShieldDamageRefire and Options.ShieldDamageRefire.Value) or 2
 end
 
 function TriggerShieldAnimBreak()
@@ -5467,9 +5461,27 @@ function TriggerShieldAnimBreak()
 	task.delay(refire + 0.05, UpdateShieldAnimation)
 end
 
+-- Swinging hides the pose so the attack animation plays. Binding is per tool.
+function BindSwingAnimStop(tool)
+	if not tool or not tool:IsA("Tool") then return end
+	if tool:GetAttribute("ShieldAnimSwingBound") then return end
+	tool:SetAttribute("ShieldAnimSwingBound", true)
+	tool.Activated:Connect(function()
+		-- The game's shield stays up; only our pose steps aside for the swing.
+		ShieldAnimSwingUntil = tick() + 0.6
+		StopShieldAnimation()
+		task.delay(0.65, UpdateShieldAnimation)
+	end)
+end
+
 function UpdateShieldAnimation()
 	-- Shield is recharging after a hit: no pose until the refire delay has passed.
 	if tick() < ShieldAnimBreakUntil then
+		StopShieldAnimation()
+		return
+	end
+	-- Mid-swing: let the attack animation play instead of the block pose.
+	if tick() < ShieldAnimSwingUntil then
 		StopShieldAnimation()
 		return
 	end
@@ -5495,6 +5507,7 @@ end
 function BindShieldAnimRespawn(character)
 	ShieldAnimHeld = false
 	ShieldAnimBreakUntil = 0
+	ShieldAnimSwingUntil = 0
 	ShieldAnimLastHealth = nil
 	StopShieldAnimation()
 	if not character then return end
@@ -5515,6 +5528,11 @@ function BindShieldAnimRespawn(character)
 			StopShieldAnimation()
 		end)
 	end
+	-- Watch the held tool so a swing can hide the pose.
+	for _, child in ipairs(character:GetChildren()) do
+		BindSwingAnimStop(child)
+	end
+	character.ChildAdded:Connect(BindSwingAnimStop)
 end
 
 if LocalPlayer.Character then
@@ -6089,11 +6107,12 @@ do
 	local lastShieldDamageRefire = 0
 
 	local function getShieldHold()
-		return (Options.ShieldDamageHold and Options.ShieldDamageHold.Value) or 1
+		-- Built in: hold the shield for 0.5s after the last proximity trigger.
+		return 0.5
 	end
 
 	local function getShieldRefire()
-		return (Options.ShieldDamageRefire and Options.ShieldDamageRefire.Value) or 1
+		return (Options.ShieldDamageRefire and Options.ShieldDamageRefire.Value) or 2
 	end
 
 	local function fireShieldRemote(state)
