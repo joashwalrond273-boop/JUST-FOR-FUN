@@ -1172,25 +1172,14 @@ AutoArmorDeluxeGroup:AddButton({
 	end,
 })
 
-AutoArmorDeluxeGroup:AddDivider()
-
 -- Armor Presets: like the Cosmetic Presets, but it stores the Helmet / Shirt /
 -- Pants you are actually wearing so the setup can be re-equipped later.
 ArmorPresets = {}
 
-AutoArmorDeluxeGroup:AddSlider("ArmorPresetSlot", {
-	Text = "Armor Preset Slot",
-	Default = 1,
-	Min = 1,
-	Max = 5,
-	Rounding = 0,
-	Compact = true,
-})
-
 AutoArmorDeluxeGroup:AddButton({
 	Text = "Save Armor",
 	Func = function()
-		local presetSlot = math.floor((Options.ArmorPresetSlot and Options.ArmorPresetSlot.Value) or 1)
+		local presetSlot = 1
 		local character = getCharacter()
 		if not character then
 			Library:Notify({ Title = "Armor Presets", Description = "Character not found.", Time = 3 })
@@ -1254,17 +1243,17 @@ AutoArmorDeluxeGroup:AddButton({
 		end
 
 		ArmorPresets[presetSlot] = preset
-		Library:Notify({ Title = "Armor Presets", Description = string.format("Saved your armor to slot %d", presetSlot), Time = 2 })
+		Library:Notify({ Title = "Armor Presets", Description = "Saved your armor", Time = 2 })
 	end,
 })
 
 AutoArmorDeluxeGroup:AddButton({
 	Text = "Load Armor",
 	Func = function()
-		local presetSlot = math.floor((Options.ArmorPresetSlot and Options.ArmorPresetSlot.Value) or 1)
+		local presetSlot = 1
 		local preset = ArmorPresets[presetSlot]
 		if not preset or not next(preset) then
-			Library:Notify({ Title = "Armor Presets", Description = string.format("Armor slot %d is empty", presetSlot), Time = 2 })
+			Library:Notify({ Title = "Armor Presets", Description = "No saved armor yet", Time = 2 })
 			return
 		end
 
@@ -1285,7 +1274,7 @@ AutoArmorDeluxeGroup:AddButton({
 				end
 			end
 		end)
-		Library:Notify({ Title = "Armor Presets", Description = string.format("Loaded your armor from slot %d", presetSlot), Time = 2 })
+		Library:Notify({ Title = "Armor Presets", Description = "Loaded your armor", Time = 2 })
 	end,
 })
 
@@ -5065,7 +5054,7 @@ CombatCamlockConfig:AddSlider("CamlockPullStrength", {
 })
 
 CombatCamlockConfig:AddCheckbox("CamlockJitter", {
-	Text = "Aim Jitter",
+	Text = "Native Shake",
 	Default = false,
 })
 
