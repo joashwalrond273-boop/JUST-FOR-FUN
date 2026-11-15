@@ -4783,10 +4783,11 @@ CombatCamlock:AddDropdown("CamlockSlotSystemSlot", {
 })
 
 CombatCamlock:AddDropdown("CamlockPlayerList", {
-	Text = "Player List",
+	Text = "Blacklist",
 	Values = {},
 	Default = {},
 	Multi = true,
+	AllowNull = true,
 })
 
 CombatCamlock:AddCheckbox("CamlockIgnoreAlly", {
@@ -6525,8 +6526,9 @@ do
 	track("Aimlock", RunService.RenderStepped:Connect(function()
 		-- Water Bypass: the aimlock (and its shiftlock) only works while in the
 		-- water AND holding one of the tools picked in the Spear / Sword lists.
-		-- Picking names in the Player List turns it on everywhere instead.
-		if not (isWaterBypassActive() or isCamlockListActive()) then
+		-- Picking names in the Blacklist turns it on instead, but only while
+		-- holding one of the slots picked in the camlock Slot System.
+		if not (isWaterBypassActive() or (isCamlockListActive() and isAdvanceSlotAllowed(Options.CamlockSlotSystemSlot))) then
 			aimlockReleaseMouse()
 			return
 		end
