@@ -5368,15 +5368,14 @@ CombatShieldSystem:AddCheckbox("ShieldHud", {
 
 -- Shield Animation: replays the game's built-in shield hold poses, taken from
 -- PlayerScripts.shield (HoldShield + HoldKatanaShield), as a visual only. It is
--- driven by the Advance Shield: every setShield fire raises/lowers the pose, and
--- tapping the screen drops it briefly so swings play normally. Getting hit while
--- shielding drops the pose, and it only returns once the Shield Refire delay has
--- passed. The pose only shows while a Samurai Sword (406) or Juggernaut Sword
--- (545) is held. State lives in globals to stay under the main chunk's local limit.
+-- driven by the Advance Shield: every setShield fire raises/lowers the pose.
+-- Getting hit while shielding drops the pose, and it only returns once the Shield
+-- Refire delay has passed. The pose only shows while a Samurai Sword (406) or
+-- Juggernaut Sword (545) is held. State lives in globals to stay under the main
+-- chunk's local limit.
 ShieldAnimObjects = nil
 ShieldAnimTracks = nil
 ShieldAnimHeld = false
-ShieldAnimSuppressUntil = 0
 -- The pose stays off until this timestamp after taking a hit (Shield Refire delay).
 ShieldAnimBreakUntil = 0
 ShieldAnimLastHealth = nil
@@ -5469,11 +5468,6 @@ function TriggerShieldAnimBreak()
 end
 
 function UpdateShieldAnimation()
-	-- Tapping the screen briefly suppresses the pose so swings can play.
-	if tick() < ShieldAnimSuppressUntil then
-		StopShieldAnimation()
-		return
-	end
 	-- Shield is recharging after a hit: no pose until the refire delay has passed.
 	if tick() < ShieldAnimBreakUntil then
 		StopShieldAnimation()
@@ -5529,15 +5523,6 @@ end
 LocalPlayer.CharacterAdded:Connect(function(character)
 	task.spawn(BindShieldAnimRespawn, character)
 	task.delay(0.5, UpdateShieldAnimation)
-end)
-
--- Tapping / clicking drops the pose for a moment so the swing animation can play.
-UserInputService.InputBegan:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
-		ShieldAnimSuppressUntil = tick() + 0.6
-		StopShieldAnimation()
-		task.delay(0.7, UpdateShieldAnimation)
-	end
 end)
 
 -- Re-evaluate the pose whenever the held tool changes (sword equipped/unequipped).
