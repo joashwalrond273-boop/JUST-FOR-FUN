@@ -5366,16 +5366,16 @@ CombatShieldSystem:AddCheckbox("ShieldHud", {
 	Default = false,
 })
 
--- Shield Animation: replays the game's built-in shield hold pose, taken from
--- PlayerScripts.shield.HoldShield, as a visual only (no real blocking).
--- State is kept in globals to stay under the main chunk's local limit.
+-- Shield Animation: replays the game's built-in katana shield hold pose, taken
+-- from PlayerScripts.shield.HoldKatanaShield, as a visual only (no real
+-- blocking). State is kept in globals to stay under the main chunk's limit.
 ShieldAnimTrack = nil
 ShieldAnimConnection = nil
 
 function GetShieldAnimationObject()
 	local ps = LocalPlayer:FindFirstChild("PlayerScripts")
 	if not ps then return nil end
-	local anim = ps:FindFirstChild("HoldShield", true) or ps:FindFirstChild("HoldKatanaShield", true)
+	local anim = ps:FindFirstChild("HoldKatanaShield", true) or ps:FindFirstChild("HoldShield", true)
 	if anim and anim:IsA("Animation") then return anim end
 	return nil
 end
