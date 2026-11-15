@@ -4862,10 +4862,19 @@ CombatCamlockConfig:AddDropdown("WaterBypassAimPart", {
 	Text = "Swim Aim Part",
 	Values = {"Head", "HumanoidRootPart", "UpperTorso"},
 	Default = "Head",
-	Visible = function()
-		return Toggles.WaterBypass and Toggles.WaterBypass.Value
-	end,
+	Visible = false,
 })
+
+-- "Swim Aim Part" only shows while Fix Swim Motion is on.
+if Options.WaterBypassAimPart and Options.WaterBypassAimPart.SetVisible then
+	Options.WaterBypassAimPart:SetVisible(Toggles.WaterBypass.Value and true or false)
+end
+
+Toggles.WaterBypass:OnChanged(function()
+	if Options.WaterBypassAimPart and Options.WaterBypassAimPart.SetVisible then
+		Options.WaterBypassAimPart:SetVisible(Toggles.WaterBypass.Value and true or false)
+	end
+end)
 
 CombatCamlockConfig:AddSlider("CamlockSmoothness", {
 	Text = "Camera Smoothness",
