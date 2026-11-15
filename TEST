@@ -1172,6 +1172,8 @@ AutoArmorDeluxeGroup:AddButton({
 	end,
 })
 
+AutoArmorDeluxeGroup:AddDivider()
+
 -- Armor Presets: like the Cosmetic Presets, but it stores the Helmet / Shirt /
 -- Pants you are actually wearing so the setup can be re-equipped later.
 ArmorPresets = {}
@@ -1195,9 +1197,9 @@ AutoArmorDeluxeGroup:AddButton({
 			return
 		end
 
-		-- Known armor piece id -> the clothing slot it equips into, matching the
-		-- equipClothing calls used by the armor buttons above (1 helmet, 2 shirt,
-		-- 3 pants).
+		-- Known armor pieces: item id -> the clothing slot it equips into (1
+		-- helmet, 2 shirt/chestplate, 3 pants), matching the equipClothing calls
+		-- used by the armor buttons above.
 		local slotByItemId = {
 			[202] = 1, [200] = 2, [201] = 3, -- Bluesteel
 			[354] = 1, [355] = 2, [356] = 3, -- Atlantean
@@ -1205,30 +1207,43 @@ AutoArmorDeluxeGroup:AddButton({
 			[404] = 1, [403] = 2, [402] = 3, -- Samurai
 			[541] = 1, [542] = 2, [543] = 3, -- Juggernaut
 		}
+		-- The game names each worn piece after its item, so pieces that only
+		-- expose a name can still be matched.
+		local idByItemName = {
+			["Bluesteel Helmet"] = 202, ["Bluesteel Chestplate"] = 200, ["Bluesteel Pants"] = 201,
+			["Atlantean Helmet"] = 354, ["Atlantean Armor"] = 355, ["Atlantean Pants"] = 356,
+			["Darksteel Helmet"] = 262, ["Darksteel Armor"] = 261, ["Darksteel Pants"] = 260,
+			["Samurai Helmet"] = 404, ["Samurai Armor"] = 403, ["Samurai Pants"] = 402,
+			["Juggernaut Helmet"] = 541, ["Juggernaut Armor"] = 542, ["Juggernaut Pants"] = 543,
+		}
 
 		local preset = {}
-		local function consider(id)
+		local function consider(id, name)
 			id = tonumber(id)
+			if not id and name then
+				id = idByItemName[name]
+			end
 			local slot = id and slotByItemId[id]
 			if slot and preset[slot] == nil then
 				preset[slot] = id
 			end
 		end
 
-		-- The worn pieces live on the character, carrying their item id either as
-		-- an attribute or on their toolModel (same convention as equipped tools).
+		-- The pieces you are wearing sit on the character, carrying their item id
+		-- as an attribute or on a toolModel (like equipped tools), or are simply
+		-- named after the item.
 		for _, obj in ipairs(character:GetDescendants()) do
-			consider(obj:GetAttribute("itemId") or obj:GetAttribute("id") or obj:GetAttribute("ItemId") or obj:GetAttribute("Id"))
+			consider(obj:GetAttribute("itemId") or obj:GetAttribute("id") or obj:GetAttribute("ItemId") or obj:GetAttribute("Id"), obj.Name)
 		end
 
-		-- Some builds store the loadout as attributes instead.
+		-- Some builds store the worn loadout as attributes on the character.
 		for _, inst in ipairs({character, LocalPlayer}) do
 			local ok, attrs = pcall(function()
 				return inst:GetAttributes()
 			end)
 			if ok and typeof(attrs) == "table" then
 				for _, value in pairs(attrs) do
-					consider(value)
+					consider(value, value)
 				end
 			end
 		end
