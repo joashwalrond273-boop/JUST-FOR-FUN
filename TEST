@@ -5369,18 +5369,13 @@ CombatShieldSystem:AddCheckbox("ShieldHud", {
 -- Shield Animation: replays the game's built-in shield hold poses, taken from
 -- PlayerScripts.shield (HoldShield + HoldKatanaShield), as a visual only. It is
 -- driven by the Advance Shield: every setShield fire raises/lowers the pose, and
--- tapping the screen drops it briefly so swings play normally. Getting hit while
--- shielding breaks its posture, so the pose stays off until the shield refires.
--- The pose only shows while a Samurai Sword (406) or Juggernaut Sword (545) is
--- held. State lives in globals to stay under the main chunk's local limit.
+-- tapping the screen drops it briefly so swings play normally. The pose only
+-- shows while a Samurai Sword (406) or Juggernaut Sword (545) is held. State
+-- lives in globals to stay under the main chunk's local limit.
 ShieldAnimObjects = nil
 ShieldAnimTracks = nil
 ShieldAnimHeld = false
 ShieldAnimSuppressUntil = 0
--- Shield is unavailable while it is posture-broken / reloading, so the pose must
--- stay off until this timestamp.
-ShieldAnimBreakUntil = 0
-ShieldAnimLastHealth = nil
 
 -- Only these swords show the pose.
 ShieldAnimSwordIds = { [406] = true, [545] = true }
@@ -5456,35 +5451,9 @@ function PlayShieldAnimation()
 	end
 end
 
--- How long the shield stays down after a hit, taken from the held weapon's own
--- posture-break value so the pose resumes exactly when the shield refires.
-function GetShieldBreakTime()
-	local id = GetHeldToolId()
-	if id and TSG.Items then
-		local ok, data = pcall(function() return TSG.Items.getItemData(id) end)
-		if ok and data and type(data.PostureBreakTime) == "number" and data.PostureBreakTime > 0 then
-			return data.PostureBreakTime
-		end
-	end
-	return 1
-end
-
-function TriggerShieldAnimBreak()
-	local breakTime = GetShieldBreakTime()
-	ShieldAnimBreakUntil = tick() + breakTime
-	StopShieldAnimation()
-	-- Once the break finishes the shield is available again, so let the pose return.
-	task.delay(breakTime + 0.05, UpdateShieldAnimation)
-end
-
 function UpdateShieldAnimation()
 	-- Tapping the screen briefly suppresses the pose so swings can play.
 	if tick() < ShieldAnimSuppressUntil then
-		StopShieldAnimation()
-		return
-	end
-	-- Shield is posture-broken / reloading: no blocking pose until it refires.
-	if tick() < ShieldAnimBreakUntil then
 		StopShieldAnimation()
 		return
 	end
@@ -5509,25 +5478,12 @@ end
 -- the block pose even though setShield was never fired again.
 function BindShieldAnimRespawn(character)
 	ShieldAnimHeld = false
-	ShieldAnimBreakUntil = 0
-	ShieldAnimLastHealth = nil
 	StopShieldAnimation()
 	if not character then return end
 	local humanoid = character:WaitForChild("Humanoid", 5)
 	if humanoid then
-		ShieldAnimLastHealth = humanoid.Health
-		-- Taking a hit with the shield up breaks its posture: drop the pose and
-		-- keep it off until the shield has refired.
-		humanoid.HealthChanged:Connect(function(health)
-			local last = ShieldAnimLastHealth or health
-			ShieldAnimLastHealth = health
-			if health < last and health > 0 and ShieldAnimHeld then
-				TriggerShieldAnimBreak()
-			end
-		end)
 		humanoid.Died:Connect(function()
 			ShieldAnimHeld = false
-			ShieldAnimBreakUntil = 0
 			StopShieldAnimation()
 		end)
 	end
