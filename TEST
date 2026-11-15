@@ -5366,18 +5366,25 @@ CombatShieldSystem:AddCheckbox("ShieldHud", {
 	Default = false,
 })
 
--- Shield Animation: replays the game's built-in katana shield hold pose, taken
--- from PlayerScripts.shield.HoldKatanaShield, as a visual only (no real
--- blocking). State is kept in globals to stay under the main chunk's limit.
-ShieldAnimTrack = nil
+-- Shield Animation: replays the game's built-in shield hold poses, taken from
+-- PlayerScripts.shield (HoldShield + HoldKatanaShield), as a visual only (no
+-- real blocking). Both tracks play at once. State is kept in globals to stay
+-- under the main chunk's local limit.
+ShieldAnimTracks = nil
 ShieldAnimConnection = nil
 
-function GetShieldAnimationObject()
+function GetShieldAnimationObjects()
 	local ps = LocalPlayer:FindFirstChild("PlayerScripts")
 	if not ps then return nil end
-	local anim = ps:FindFirstChild("HoldKatanaShield", true) or ps:FindFirstChild("HoldShield", true)
-	if anim and anim:IsA("Animation") then return anim end
-	return nil
+	local objects = {}
+	for _, name in ipairs({ "HoldShield", "HoldKatanaShield" }) do
+		local anim = ps:FindFirstChild(name, true)
+		if anim and anim:IsA("Animation") then
+			table.insert(objects, anim)
+		end
+	end
+	if #objects == 0 then return nil end
+	return objects
 end
 
 function StopShieldAnimation()
@@ -5385,10 +5392,12 @@ function StopShieldAnimation()
 		ShieldAnimConnection:Disconnect()
 		ShieldAnimConnection = nil
 	end
-	if ShieldAnimTrack then
-		pcall(function() ShieldAnimTrack:Stop(0.1) end)
-		ShieldAnimTrack = nil
+	if ShieldAnimTracks then
+		for _, track in ipairs(ShieldAnimTracks) do
+			pcall(function() track:Stop(0.1) end)
+		end
 	end
+	ShieldAnimTracks = nil
 end
 
 function PlayShieldAnimation()
@@ -5397,19 +5406,27 @@ function PlayShieldAnimation()
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 	local animator = humanoid and humanoid:FindFirstChildOfClass("Animator")
 	if not animator then return end
-	if ShieldAnimTrack and ShieldAnimTrack.Animator ~= animator then
-		pcall(function() ShieldAnimTrack:Stop(0.1) end)
-		ShieldAnimTrack = nil
+	if ShieldAnimTracks and (#ShieldAnimTracks == 0 or ShieldAnimTracks[1].Animator ~= animator) then
+		for _, track in ipairs(ShieldAnimTracks) do
+			pcall(function() track:Stop(0.1) end)
+		end
+		ShieldAnimTracks = nil
 	end
-	if not ShieldAnimTrack then
-		local animObj = GetShieldAnimationObject()
-		if not animObj then return end
-		ShieldAnimTrack = animator:LoadAnimation(animObj)
-		ShieldAnimTrack.Priority = Enum.AnimationPriority.Action
-		ShieldAnimTrack.Looped = true
+	if not ShieldAnimTracks then
+		local objects = GetShieldAnimationObjects()
+		if not objects then return end
+		ShieldAnimTracks = {}
+		for _, animObj in ipairs(objects) do
+			local track = animator:LoadAnimation(animObj)
+			track.Priority = Enum.AnimationPriority.Action
+			track.Looped = true
+			table.insert(ShieldAnimTracks, track)
+		end
 	end
-	if not ShieldAnimTrack.IsPlaying then
-		ShieldAnimTrack:Play(0.1)
+	for _, track in ipairs(ShieldAnimTracks) do
+		if not track.IsPlaying then
+			track:Play(0.1)
+		end
 	end
 end
 
@@ -5420,7 +5437,7 @@ CombatShieldSystem:AddCheckbox("ShieldAnimation", {
 
 Toggles.ShieldAnimation:OnChanged(function()
 	if Toggles.ShieldAnimation.Value then
-		if not GetShieldAnimationObject() then
+		if not GetShieldAnimationObjects() then
 			Library:Notify({ Title = "Shield Animation", Description = "Shield animation not found.", Time = 3 })
 			Toggles.ShieldAnimation:SetValue(false)
 			return
