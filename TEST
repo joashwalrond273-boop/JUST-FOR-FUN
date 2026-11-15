@@ -4862,6 +4862,9 @@ CombatCamlockConfig:AddDropdown("WaterBypassAimPart", {
 	Text = "Swim Aim Part",
 	Values = {"Head", "HumanoidRootPart", "UpperTorso"},
 	Default = "Head",
+	Visible = function()
+		return Toggles.WaterBypass and Toggles.WaterBypass.Value
+	end,
 })
 
 CombatCamlockConfig:AddSlider("CamlockSmoothness", {
