@@ -5361,17 +5361,17 @@ CombatShieldSystem:AddCheckbox("ShieldHud", {
 -- PlayerScripts.shield (HoldShield + HoldKatanaShield), as a visual only. It is
 -- driven by the Advance Shield: every setShield fire raises/lowers the pose.
 -- Getting hit while shielding drops the pose and holds the shield down for the
--- Shield Refire delay. Swinging (manual or Auto Swing) drops the shield for the
--- swing so the attack lands, then the shield comes back up between swings. The
--- pose only shows while a Samurai Sword (406) or Juggernaut Sword (545) is held.
--- State lives in globals to stay under the main chunk's local limit.
+-- Shield Refire delay. Swinging hides the pose briefly so the attack animation
+-- shows; Auto Swing stays paused while the shield is up. The pose only shows
+-- while a Samurai Sword (406) or Juggernaut Sword (545) is held. State lives in
+-- globals to stay under the main chunk's local limit.
 ShieldAnimObjects = nil
 ShieldAnimTracks = nil
 ShieldAnimHeld = false
 -- The pose stays off until this timestamp after taking a hit (Shield Refire delay).
 ShieldAnimBreakUntil = 0
 ShieldAnimLastHealth = nil
--- While swinging, the pose hides and the Advance Shield drops so the attack lands.
+-- While swinging, the pose hides so the attack animation shows.
 ShieldAnimSwingUntil = 0
 
 -- Only these swords show the pose.
@@ -5461,8 +5461,7 @@ function TriggerShieldAnimBreak()
 	task.delay(refire + 0.05, UpdateShieldAnimation)
 end
 
--- Swinging (manual or Auto Swing) opens a short window: the pose hides and the
--- Advance Shield drops so the attack lands. Binding is per tool.
+-- A swing hides the pose so the attack animation plays. Binding is per tool.
 function BindSwingAnimStop(tool)
 	if not tool or not tool:IsA("Tool") then return end
 	if tool:GetAttribute("ShieldAnimSwingBound") then return end
@@ -6157,16 +6156,6 @@ do
 			return
 		end
 
-		-- Swinging (manual or Auto Swing): drop the shield so the attack lands, then
-		-- the shield comes back up between swings.
-		if now < ShieldAnimSwingUntil then
-			if shieldOnDamageHolding then
-				shieldOnDamageHolding = false
-				fireShieldRemote(false)
-			end
-			return
-		end
-
 		if isPlayerNearby() then
 			if not shieldOnDamageHolding then
 				fireShieldRemote(true)
@@ -6657,6 +6646,8 @@ Toggles.AutoSwing:OnChanged(function()
 		track("AutoSwing", RunService.Heartbeat:Connect(function()
 			local speedVal = Options.AutoSwingSpeed and Options.AutoSwingSpeed.Value or 10
 			local delay = 1 / math.max(0.1, speedVal)
+			-- While the shield is up, hold the swings so blocking is not broken.
+			if ShieldAnimHeld then return end
 			if _G.T and tick() - lastAutoSwing >= delay then
 				local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
 				if tool and isAutoSwingSlotAllowed(Options.AutoSwingSlot) then
