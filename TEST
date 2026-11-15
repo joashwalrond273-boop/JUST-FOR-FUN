@@ -4850,6 +4850,12 @@ CombatCamlockConfig:AddCheckbox("WaterBypass", {
 	Default = false,
 })
 
+CombatCamlockConfig:AddDropdown("WaterBypassAimPart", {
+	Text = "Swim Aim Part",
+	Values = {"Head", "HumanoidRootPart", "UpperTorso"},
+	Default = "Head",
+})
+
 CombatCamlockConfig:AddSlider("CamlockSmoothness", {
 	Text = "Camera Smoothness",
 	Default = 0.2,
@@ -6447,7 +6453,6 @@ end)
 -- Runs before the camlock loop, so when the camlock is active it keeps
 -- control of the camera and this one simply has nothing to fight over.
 do
-	local AIMLOCK_AIM_PART = "Head"
 	local aimlockMouseLocked = false
 
 	-- Cached player list so the per-frame aim pick never has to rebuild it. Only
@@ -6523,7 +6528,8 @@ do
 		end
 
 		local targetRoot = closest.Character:FindFirstChild("HumanoidRootPart")
-		local aimPart = closest.Character:FindFirstChild(AIMLOCK_AIM_PART) or targetRoot
+		local aimPartName = (Options.WaterBypassAimPart and Options.WaterBypassAimPart.Value) or "Head"
+		local aimPart = closest.Character:FindFirstChild(aimPartName) or targetRoot
 		local camera = workspace.CurrentCamera
 		if not (aimPart and camera) then
 			return
