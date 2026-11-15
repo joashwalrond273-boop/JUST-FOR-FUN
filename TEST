@@ -5368,15 +5368,20 @@ CombatShieldSystem:AddCheckbox("ShieldHud", {
 
 -- Shield Animation: replays the game's built-in shield hold poses, taken from
 -- PlayerScripts.shield (HoldShield + HoldKatanaShield), as a visual only. It is
--- driven by the Advance Shield: every setShield fire raises/lowers the pose
--- (including while a weapon is held), and taking a hit flashes the pose
--- briefly. State is kept in globals to stay under the main chunk's local limit.
+-- driven by the Advance Shield: every setShield fire raises/lowers the pose, and
+-- taking a hit flashes the pose briefly. The pose only shows while a Samurai
+-- Sword (406) or Juggernaut Sword (545) is held. State lives in globals to stay
+-- under the main chunk's local limit.
+ShieldAnimObjects = nil
 ShieldAnimTracks = nil
-ShieldAnimMonitor = nil
 ShieldAnimHeld = false
 ShieldAnimHoldUntil = 0
 
+-- Only these swords show the pose.
+ShieldAnimSwordIds = { [406] = true, [545] = true }
+
 function GetShieldAnimationObjects()
+	if ShieldAnimObjects then return ShieldAnimObjects end
 	local ps = LocalPlayer:FindFirstChild("PlayerScripts")
 	if not ps then return nil end
 	local objects = {}
@@ -5387,7 +5392,27 @@ function GetShieldAnimationObjects()
 		end
 	end
 	if #objects == 0 then return nil end
+	ShieldAnimObjects = objects
 	return objects
+end
+
+function GetHeldToolId()
+	local id = tonumber(LocalPlayer:GetAttribute("equippedTool"))
+	if id then return id end
+	local character = LocalPlayer.Character
+	local tool = character and character:FindFirstChildOfClass("Tool")
+	if not tool then return nil end
+	local toolModel = tool:FindFirstChild("toolModel")
+	if toolModel then
+		id = tonumber(toolModel:GetAttribute("itemId") or toolModel:GetAttribute("id"))
+	end
+	if id then return id end
+	return tonumber(tool:GetAttribute("itemId") or tool:GetAttribute("id"))
+end
+
+function IsHoldingShieldSword()
+	local id = GetHeldToolId()
+	return id ~= nil and ShieldAnimSwordIds[id] == true
 end
 
 function StopShieldAnimation()
@@ -5404,8 +5429,8 @@ function PlayShieldAnimation()
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 	local animator = humanoid and humanoid:FindFirstChildOfClass("Animator")
 	if not animator then return end
-	if ShieldAnimTracks and (#ShieldAnimTracks == 0 or ShieldAnimTracks[1].Animator ~= animator) then
-		StopShieldAnimation()
+	if ShieldAnimTracks and ShieldAnimTracks[1].Animator ~= animator then
+		ShieldAnimTracks = nil
 	end
 	if not ShieldAnimTracks then
 		local objects = GetShieldAnimationObjects()
@@ -5413,7 +5438,8 @@ function PlayShieldAnimation()
 		ShieldAnimTracks = {}
 		for _, animObj in ipairs(objects) do
 			local track = animator:LoadAnimation(animObj)
-			track.Priority = Enum.AnimationPriority.Action
+			-- Action4 so the pose wins over the held weapon's own animations.
+			track.Priority = Enum.AnimationPriority.Action4
 			track.Looped = true
 			table.insert(ShieldAnimTracks, track)
 		end
@@ -5426,22 +5452,11 @@ function PlayShieldAnimation()
 end
 
 function UpdateShieldAnimation()
-	if ShieldAnimHeld or ShieldAnimHoldUntil > tick() then
+	if IsHoldingShieldSword() and (ShieldAnimHeld or ShieldAnimHoldUntil > tick()) then
 		PlayShieldAnimation()
 	else
 		StopShieldAnimation()
-		if ShieldAnimMonitor then
-			ShieldAnimMonitor:Disconnect()
-			ShieldAnimMonitor = nil
-		end
 	end
-end
-
-function EnsureShieldAnimMonitor()
-	if not ShieldAnimMonitor then
-		ShieldAnimMonitor = RunService.Heartbeat:Connect(UpdateShieldAnimation)
-	end
-	UpdateShieldAnimation()
 end
 
 -- Every setShield fire now drives the pose as well as the remote.
@@ -5450,13 +5465,14 @@ function FireSetShield(state)
 		ReplicatedStorage.remoteInterface.character.setShield:FireServer(state)
 	end)
 	ShieldAnimHeld = state and true or false
-	EnsureShieldAnimMonitor()
+	UpdateShieldAnimation()
 end
 
 -- Flash the pose for a moment whenever the local player takes damage.
 function TriggerShieldAnimHit()
 	ShieldAnimHoldUntil = tick() + 0.6
-	EnsureShieldAnimMonitor()
+	UpdateShieldAnimation()
+	task.delay(0.7, UpdateShieldAnimation)
 end
 
 function BindShieldAnimHit(character)
@@ -5477,7 +5493,11 @@ if LocalPlayer.Character then
 end
 LocalPlayer.CharacterAdded:Connect(function(character)
 	task.spawn(BindShieldAnimHit, character)
+	task.delay(0.5, UpdateShieldAnimation)
 end)
+
+-- Re-evaluate the pose whenever the held tool changes (sword equipped/unequipped).
+LocalPlayer:GetAttributeChangedSignal("equippedTool"):Connect(UpdateShieldAnimation)
 
 updateImmortalModeVisibility = function()
 	local isImmortal = (Toggles.ImmortalMode and Toggles.ImmortalMode.Value) or false
