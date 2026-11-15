@@ -4955,7 +4955,7 @@ CombatCamlockConfig:AddCheckbox("CamlockCameraLerp", {
 })
 
 CombatCamlockConfig:AddCheckbox("CamlockFreePitch", {
-	Text = "Allow Rotation FOV",
+	Text = "Rotation FOV",
 	Default = false,
 })
 
@@ -6106,8 +6106,8 @@ do
 	local lastShieldDamageRefire = 0
 
 	local function getShieldHold()
-		-- Built in: hold the shield for 0.5s after the last proximity trigger.
-		return 0.5
+		-- Built in: hold the shield for 0.10s after the last proximity trigger.
+		return 0.10
 	end
 
 	local function getShieldRefire()
@@ -6758,10 +6758,9 @@ Toggles.SmartSwing:OnChanged(function()
 end)
 
 -- ==========================================
--- Aimlock: locks the camera onto a single player. It runs in the water with
--- Water Bypass, and anywhere else while names are picked in the Player List
--- (then it only locks onto those names). The camlock hands the camera over to
--- it in both cases, so the two never fight over it.
+-- Aimlock: locks the camera onto a single player while in the water with Water
+-- Bypass. The camlock hands the camera over to it while in the water, so the two
+-- never fight over it. Names picked in the Blacklist are ignored.
 do
 	local aimlockMouseLocked = false
 
@@ -6795,21 +6794,11 @@ do
 
 		local maxDist = (Options.CamlockStuds and Options.CamlockStuds.Value) or 20
 
-		-- While the Player List has picks the aimlock only looks at those names;
-		-- with an empty list it keeps its old behaviour (closest non-teammate).
-		local listActive = isCamlockListActive()
-
 		local bestPlayer, bestDist = nil, maxDist
 		for _, otherPlayer in ipairs(AimlockPlayers) do
 			-- The ignore-team system is always on here: teammates / clanmates are
-			-- never picked, so no separate checkbox is needed. A hand-picked name
-			-- overrides it, otherwise picking a teammate would do nothing.
-			local allowed
-			if listActive then
-				allowed = isCamlockForcedPlayer(otherPlayer)
-			else
-				allowed = not isTeammate(otherPlayer)
-			end
+			-- never picked. Blacklisted names are skipped too.
+			local allowed = not isTeammate(otherPlayer) and not isCamlockBlacklisted(otherPlayer)
 			if otherPlayer ~= LocalPlayer and otherPlayer.Character and allowed then
 				local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
 				local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
@@ -6827,9 +6816,8 @@ do
 	track("Aimlock", RunService.RenderStepped:Connect(function()
 		-- Water Bypass: the aimlock (and its shiftlock) only works while in the
 		-- water AND holding one of the tools picked in the Spear / Sword lists.
-		-- Picking names in the Blacklist turns it on instead, but only while
-		-- holding one of the slots picked in the camlock Slot System.
-		if not (isWaterBypassActive() or (isCamlockListActive() and isAdvanceSlotAllowed(Options.CamlockSlotSystemSlot))) then
+		-- Names picked in the Blacklist are skipped as targets.
+		if not isWaterBypassActive() then
 			aimlockReleaseMouse()
 			return
 		end
@@ -6864,23 +6852,14 @@ do
 	end))
 end
 
--- The names picked in the Camlock "Player List" are skipped by the normal
--- auto-pick and force-targeted by the lock instead. Global on purpose: the main
--- chunk is already at Luau's 200-local register limit.
-function isCamlockForcedPlayer(player)
+-- The names picked in the Camlock "Blacklist" are ignored by both the camlock
+-- and the aimlock; everyone else is targeted normally. Global on purpose: the
+-- main chunk is already at Luau's 200-local register limit.
+function isCamlockBlacklisted(player)
 	if not player then return false end
 	local list = Options.CamlockPlayerList and Options.CamlockPlayerList.Value
 	if typeof(list) ~= "table" then return false end
 	return list[player.Name] == true
-end
-
--- True while at least one name is picked in the Camlock "Player List". In that
--- state the Aimlock takes over (locked onto those names) and the camlock shuts
--- off completely.
-function isCamlockListActive()
-	local list = Options.CamlockPlayerList and Options.CamlockPlayerList.Value
-	if typeof(list) ~= "table" then return false end
-	return next(list) ~= nil
 end
 
 Toggles.Camlock:OnChanged(function()
@@ -6951,14 +6930,6 @@ Toggles.Camlock:OnChanged(function()
 				return
 			end
 
-			-- Player List: while any name is picked the camlock shuts off the same
-			-- way, so the Aimlock (locked onto those names) has full control.
-			if isCamlockListActive() then
-				camlockTarget = nil
-				hum.AutoRotate = true
-				return
-			end
-
 			local maxDist = Options.CamlockStuds and Options.CamlockStuds.Value or 20
 			local myPos = root.Position
 			local targetSetting = Options.CamlockTarget and Options.CamlockTarget.Value or "All"
@@ -6994,6 +6965,7 @@ Toggles.Camlock:OnChanged(function()
 
 			local function camlockTargetValid(p)
 				if not p or p == LocalPlayer then return false end
+				if isCamlockBlacklisted(p) then return false end
 				local c = p.Character
 				if not c then return false end
 				if ignoreTeam and isSameTeamOnly(p) then return false end
