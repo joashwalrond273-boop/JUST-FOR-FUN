@@ -5367,11 +5367,14 @@ CombatShieldSystem:AddCheckbox("ShieldHud", {
 })
 
 -- Shield Animation: replays the game's built-in shield hold poses, taken from
--- PlayerScripts.shield (HoldShield + HoldKatanaShield), as a visual only (no
--- real blocking). Both tracks play at once. State is kept in globals to stay
--- under the main chunk's local limit.
+-- PlayerScripts.shield (HoldShield + HoldKatanaShield), as a visual only. It is
+-- driven by the Advance Shield: every setShield fire raises/lowers the pose
+-- (including while a weapon is held), and taking a hit flashes the pose
+-- briefly. State is kept in globals to stay under the main chunk's local limit.
 ShieldAnimTracks = nil
-ShieldAnimConnection = nil
+ShieldAnimMonitor = nil
+ShieldAnimHeld = false
+ShieldAnimHoldUntil = 0
 
 function GetShieldAnimationObjects()
 	local ps = LocalPlayer:FindFirstChild("PlayerScripts")
@@ -5388,10 +5391,6 @@ function GetShieldAnimationObjects()
 end
 
 function StopShieldAnimation()
-	if ShieldAnimConnection then
-		ShieldAnimConnection:Disconnect()
-		ShieldAnimConnection = nil
-	end
 	if ShieldAnimTracks then
 		for _, track in ipairs(ShieldAnimTracks) do
 			pcall(function() track:Stop(0.1) end)
@@ -5401,16 +5400,12 @@ function StopShieldAnimation()
 end
 
 function PlayShieldAnimation()
-	if not (Toggles.ShieldAnimation and Toggles.ShieldAnimation.Value) then return end
 	local character = LocalPlayer.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 	local animator = humanoid and humanoid:FindFirstChildOfClass("Animator")
 	if not animator then return end
 	if ShieldAnimTracks and (#ShieldAnimTracks == 0 or ShieldAnimTracks[1].Animator ~= animator) then
-		for _, track in ipairs(ShieldAnimTracks) do
-			pcall(function() track:Stop(0.1) end)
-		end
-		ShieldAnimTracks = nil
+		StopShieldAnimation()
 	end
 	if not ShieldAnimTracks then
 		local objects = GetShieldAnimationObjects()
@@ -5430,23 +5425,58 @@ function PlayShieldAnimation()
 	end
 end
 
-CombatShieldSystem:AddCheckbox("ShieldAnimation", {
-	Text = "Shield Animation",
-	Default = false,
-})
-
-Toggles.ShieldAnimation:OnChanged(function()
-	if Toggles.ShieldAnimation.Value then
-		if not GetShieldAnimationObjects() then
-			Library:Notify({ Title = "Shield Animation", Description = "Shield animation not found.", Time = 3 })
-			Toggles.ShieldAnimation:SetValue(false)
-			return
-		end
-		ShieldAnimConnection = RunService.Heartbeat:Connect(PlayShieldAnimation)
+function UpdateShieldAnimation()
+	if ShieldAnimHeld or ShieldAnimHoldUntil > tick() then
 		PlayShieldAnimation()
 	else
 		StopShieldAnimation()
+		if ShieldAnimMonitor then
+			ShieldAnimMonitor:Disconnect()
+			ShieldAnimMonitor = nil
+		end
 	end
+end
+
+function EnsureShieldAnimMonitor()
+	if not ShieldAnimMonitor then
+		ShieldAnimMonitor = RunService.Heartbeat:Connect(UpdateShieldAnimation)
+	end
+	UpdateShieldAnimation()
+end
+
+-- Every setShield fire now drives the pose as well as the remote.
+function FireSetShield(state)
+	pcall(function()
+		ReplicatedStorage.remoteInterface.character.setShield:FireServer(state)
+	end)
+	ShieldAnimHeld = state and true or false
+	EnsureShieldAnimMonitor()
+end
+
+-- Flash the pose for a moment whenever the local player takes damage.
+function TriggerShieldAnimHit()
+	ShieldAnimHoldUntil = tick() + 0.6
+	EnsureShieldAnimMonitor()
+end
+
+function BindShieldAnimHit(character)
+	if not character then return end
+	local humanoid = character:WaitForChild("Humanoid", 5)
+	if not humanoid then return end
+	local lastHealth = humanoid.Health
+	humanoid.HealthChanged:Connect(function(health)
+		if health < lastHealth then
+			TriggerShieldAnimHit()
+		end
+		lastHealth = health
+	end)
+end
+
+if LocalPlayer.Character then
+	task.spawn(BindShieldAnimHit, LocalPlayer.Character)
+end
+LocalPlayer.CharacterAdded:Connect(function(character)
+	task.spawn(BindShieldAnimHit, character)
 end)
 
 updateImmortalModeVisibility = function()
@@ -5911,9 +5941,7 @@ local function updateImmortalMode()
 	if not isAlive() or not Toggles.ImmortalMode.Value then
 		if isShielding then
 			isShielding = false
-			pcall(function()
-				game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(false)
-			end)
+			FireSetShield(false)
 		end
 		return
 	end
@@ -5980,17 +6008,13 @@ local function updateImmortalMode()
 		local shieldSpeed = (Options.ImmortalShieldSpeed and Options.ImmortalShieldSpeed.Value) or 0.1
 		if tick() - lastShieldFire >= shieldSpeed then
 			lastShieldFire = tick()
-			pcall(function()
-				game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(true)
-			end)
+			FireSetShield(true)
 		end
 		isShielding = true
 	else
 		if isShielding then
 			isShielding = false
-			pcall(function()
-				game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(false)
-			end)
+			FireSetShield(false)
 		end
 	end
 end
@@ -6005,9 +6029,7 @@ Toggles.ImmortalMode:OnChanged(function()
 	else
 		if isShielding then
 			isShielding = false
-			pcall(function()
-				game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(false)
-			end)
+			FireSetShield(false)
 		end
 	end
 end)
@@ -6026,9 +6048,7 @@ do
 	end
 
 	local function fireShieldRemote(state)
-		pcall(function()
-			game:GetService("ReplicatedStorage").remoteInterface.character.setShield:FireServer(state)
-		end)
+		FireSetShield(state)
 	end
 
 	local function isPlayerNearby()
