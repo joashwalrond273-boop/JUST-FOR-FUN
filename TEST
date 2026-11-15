@@ -5369,13 +5369,13 @@ CombatShieldSystem:AddCheckbox("ShieldHud", {
 -- Shield Animation: replays the game's built-in shield hold poses, taken from
 -- PlayerScripts.shield (HoldShield + HoldKatanaShield), as a visual only. It is
 -- driven by the Advance Shield: every setShield fire raises/lowers the pose, and
--- taking a hit flashes the pose briefly. The pose only shows while a Samurai
--- Sword (406) or Juggernaut Sword (545) is held. State lives in globals to stay
--- under the main chunk's local limit.
+-- tapping the screen drops it briefly so swings play normally. The pose only
+-- shows while a Samurai Sword (406) or Juggernaut Sword (545) is held. State
+-- lives in globals to stay under the main chunk's local limit.
 ShieldAnimObjects = nil
 ShieldAnimTracks = nil
 ShieldAnimHeld = false
-ShieldAnimHoldUntil = 0
+ShieldAnimSuppressUntil = 0
 
 -- Only these swords show the pose.
 ShieldAnimSwordIds = { [406] = true, [545] = true }
@@ -5452,7 +5452,12 @@ function PlayShieldAnimation()
 end
 
 function UpdateShieldAnimation()
-	if IsHoldingShieldSword() and (ShieldAnimHeld or ShieldAnimHoldUntil > tick()) then
+	-- Tapping the screen briefly suppresses the pose so swings can play.
+	if tick() < ShieldAnimSuppressUntil then
+		StopShieldAnimation()
+		return
+	end
+	if IsHoldingShieldSword() and ShieldAnimHeld then
 		PlayShieldAnimation()
 	else
 		StopShieldAnimation()
@@ -5468,32 +5473,37 @@ function FireSetShield(state)
 	UpdateShieldAnimation()
 end
 
--- Flash the pose for a moment whenever the local player takes damage.
-function TriggerShieldAnimHit()
-	ShieldAnimHoldUntil = tick() + 0.6
-	UpdateShieldAnimation()
-	task.delay(0.7, UpdateShieldAnimation)
-end
-
-function BindShieldAnimHit(character)
+-- The pose is only ever shown while setShield is actually held, so clear the
+-- flag on respawn / death. Otherwise a stale flag leaves the character stuck in
+-- the block pose even though setShield was never fired again.
+function BindShieldAnimRespawn(character)
+	ShieldAnimHeld = false
+	StopShieldAnimation()
 	if not character then return end
 	local humanoid = character:WaitForChild("Humanoid", 5)
-	if not humanoid then return end
-	local lastHealth = humanoid.Health
-	humanoid.HealthChanged:Connect(function(health)
-		if health < lastHealth then
-			TriggerShieldAnimHit()
-		end
-		lastHealth = health
-	end)
+	if humanoid then
+		humanoid.Died:Connect(function()
+			ShieldAnimHeld = false
+			StopShieldAnimation()
+		end)
+	end
 end
 
 if LocalPlayer.Character then
-	task.spawn(BindShieldAnimHit, LocalPlayer.Character)
+	task.spawn(BindShieldAnimRespawn, LocalPlayer.Character)
 end
 LocalPlayer.CharacterAdded:Connect(function(character)
-	task.spawn(BindShieldAnimHit, character)
+	task.spawn(BindShieldAnimRespawn, character)
 	task.delay(0.5, UpdateShieldAnimation)
+end)
+
+-- Tapping / clicking drops the pose for a moment so the swing animation can play.
+UserInputService.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+		ShieldAnimSuppressUntil = tick() + 0.6
+		StopShieldAnimation()
+		task.delay(0.7, UpdateShieldAnimation)
+	end
 end)
 
 -- Re-evaluate the pose whenever the held tool changes (sword equipped/unequipped).
