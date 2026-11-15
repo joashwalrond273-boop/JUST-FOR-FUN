@@ -5369,10 +5369,10 @@ CombatShieldSystem:AddCheckbox("ShieldHud", {
 -- Shield Animation: replays the game's built-in shield hold poses, taken from
 -- PlayerScripts.shield (HoldShield + HoldKatanaShield), as a visual only. It is
 -- driven by the Advance Shield: every setShield fire raises/lowers the pose.
--- Getting hit while shielding drops the pose, and it only returns once the Shield
--- Refire delay has passed. The pose only shows while a Samurai Sword (406) or
--- Juggernaut Sword (545) is held. State lives in globals to stay under the main
--- chunk's local limit.
+-- Getting hit while shielding drops the pose and holds the shield down for the
+-- Shield Refire delay, so a swing can play before the shield comes back up. The
+-- pose only shows while a Samurai Sword (406) or Juggernaut Sword (545) is held.
+-- State lives in globals to stay under the main chunk's local limit.
 ShieldAnimObjects = nil
 ShieldAnimTracks = nil
 ShieldAnimHeld = false
@@ -6127,6 +6127,17 @@ do
 		if not isAlive() then return end
 
 		local now = tick()
+
+		-- Just got hit: drop the shield so the swing animation plays, and keep it down
+		-- until the Shield Refire delay has finished.
+		if now < ShieldAnimBreakUntil then
+			if shieldOnDamageHolding then
+				shieldOnDamageHolding = false
+				fireShieldRemote(false)
+			end
+			return
+		end
+
 		if isPlayerNearby() then
 			if not shieldOnDamageHolding then
 				fireShieldRemote(true)
