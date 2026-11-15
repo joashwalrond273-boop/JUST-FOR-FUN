@@ -4787,7 +4787,6 @@ CombatCamlock:AddDropdown("CamlockPlayerList", {
 	Values = {},
 	Default = {},
 	Multi = true,
-	Searchable = true,
 })
 
 CombatCamlock:AddCheckbox("CamlockIgnoreAlly", {
