@@ -5369,13 +5369,17 @@ CombatShieldSystem:AddCheckbox("ShieldHud", {
 -- Shield Animation: replays the game's built-in shield hold poses, taken from
 -- PlayerScripts.shield (HoldShield + HoldKatanaShield), as a visual only. It is
 -- driven by the Advance Shield: every setShield fire raises/lowers the pose, and
--- tapping the screen drops it briefly so swings play normally. The pose only
--- shows while a Samurai Sword (406) or Juggernaut Sword (545) is held. State
--- lives in globals to stay under the main chunk's local limit.
+-- tapping the screen drops it briefly so swings play normally. Getting hit while
+-- shielding drops the pose, and it only returns once the Shield Refire delay has
+-- passed. The pose only shows while a Samurai Sword (406) or Juggernaut Sword
+-- (545) is held. State lives in globals to stay under the main chunk's local limit.
 ShieldAnimObjects = nil
 ShieldAnimTracks = nil
 ShieldAnimHeld = false
 ShieldAnimSuppressUntil = 0
+-- The pose stays off until this timestamp after taking a hit (Shield Refire delay).
+ShieldAnimBreakUntil = 0
+ShieldAnimLastHealth = nil
 
 -- Only these swords show the pose.
 ShieldAnimSwordIds = { [406] = true, [545] = true }
@@ -5451,9 +5455,27 @@ function PlayShieldAnimation()
 	end
 end
 
+-- How long the pose stays off after a hit: the Shield Refire delay.
+function GetShieldRefireTime()
+	return (Options.ShieldDamageRefire and Options.ShieldDamageRefire.Value) or 1
+end
+
+function TriggerShieldAnimBreak()
+	local refire = GetShieldRefireTime()
+	ShieldAnimBreakUntil = tick() + refire
+	StopShieldAnimation()
+	-- Once the refire delay is up the shield is available again, so re-check the pose.
+	task.delay(refire + 0.05, UpdateShieldAnimation)
+end
+
 function UpdateShieldAnimation()
 	-- Tapping the screen briefly suppresses the pose so swings can play.
 	if tick() < ShieldAnimSuppressUntil then
+		StopShieldAnimation()
+		return
+	end
+	-- Shield is recharging after a hit: no pose until the refire delay has passed.
+	if tick() < ShieldAnimBreakUntil then
 		StopShieldAnimation()
 		return
 	end
@@ -5478,12 +5500,24 @@ end
 -- the block pose even though setShield was never fired again.
 function BindShieldAnimRespawn(character)
 	ShieldAnimHeld = false
+	ShieldAnimBreakUntil = 0
+	ShieldAnimLastHealth = nil
 	StopShieldAnimation()
 	if not character then return end
 	local humanoid = character:WaitForChild("Humanoid", 5)
 	if humanoid then
+		ShieldAnimLastHealth = humanoid.Health
+		-- Getting hit drops the pose and restarts the Shield Refire delay.
+		humanoid.HealthChanged:Connect(function(health)
+			local last = ShieldAnimLastHealth or health
+			ShieldAnimLastHealth = health
+			if health < last and health > 0 and ShieldAnimHeld then
+				TriggerShieldAnimBreak()
+			end
+		end)
 		humanoid.Died:Connect(function()
 			ShieldAnimHeld = false
+			ShieldAnimBreakUntil = 0
 			StopShieldAnimation()
 		end)
 	end
