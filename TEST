@@ -5291,8 +5291,13 @@ end)
 
 local CombatShieldSystem = Tabs.Combat:AddLeftGroupbox("SHIELD SYSTEM", "swords")
 
-CombatShieldSystem:AddToggle("ShieldOnDamage", {
-	Text = "Advance Shield",
+CombatShieldSystem:AddToggle("ShieldAutoParry", {
+	Text = "Auto Shield",
+	Default = false,
+})
+
+CombatShieldSystem:AddCheckbox("ShieldCustomRefire", {
+	Text = "Custom",
 	Default = false,
 })
 
@@ -5303,11 +5308,6 @@ CombatShieldSystem:AddSlider("ShieldDamageRefire", {
 	Max = 5,
 	Rounding = 2,
 	Compact = true,
-})
-
-CombatShieldSystem:AddToggle("ShieldAutoParry", {
-	Text = "Auto Parry",
-	Default = false,
 })
 
 CombatShieldSystem:AddSlider("ShieldParryStuds", {
@@ -5361,15 +5361,6 @@ CombatShieldSystem:AddDropdown("AdvanceSlot", {
 	Multi = true,
 })
 
-CombatShieldSystem:AddSlider("ShieldTriggerStuds", {
-	Text = "Shield Trigger Distance",
-	Default = 5,
-	Min = 1,
-	Max = 50,
-	Rounding = 0,
-	Compact = true,
-})
-
 CombatShieldSystem:AddCheckbox("ShieldHud", {
 	Text = "Shield Indicator",
 	Default = false,
@@ -5377,7 +5368,7 @@ CombatShieldSystem:AddCheckbox("ShieldHud", {
 
 -- Shield Animation: replays the game's built-in shield hold poses, taken from
 -- PlayerScripts.shield (HoldShield + HoldKatanaShield), as a visual only. It is
--- driven by the Advance Shield: every setShield fire raises/lowers the pose.
+-- driven by Auto Shield: every setShield fire raises/lowers the pose.
 -- Getting hit while shielding drops the pose and holds the shield down for the
 -- Shield Refire delay. Swinging hides the pose briefly so the attack animation
 -- shows; Auto Swing stays paused while the shield is up. The pose only shows
@@ -5392,8 +5383,8 @@ ShieldAnimLastHealth = nil
 -- While swinging, the pose hides so the attack animation shows.
 ShieldAnimSwingUntil = 0
 
--- True Auto-Parry: the shield stays down until an enemy swings, and the game's
--- own posture break (shieldReload) keeps it down while the shield recharges.
+-- Auto Shield: the shield stays down until an enemy swings, and the game's own
+-- posture break (shieldReload) keeps it down while the shield recharges.
 ShieldParryBreakUntil = 0
 
 -- Only these swords show the pose.
@@ -5470,9 +5461,13 @@ function PlayShieldAnimation()
 	end
 end
 
--- How long the pose stays off after a hit: the Shield Refire delay.
+-- How long the shield stays down after a hit. The Custom checkbox unlocks the
+-- Shield Refire slider; otherwise the built-in 2s delay is used.
 function GetShieldRefireTime()
-	return (Options.ShieldDamageRefire and Options.ShieldDamageRefire.Value) or 2
+	if Toggles.ShieldCustomRefire and Toggles.ShieldCustomRefire.Value then
+		return (Options.ShieldDamageRefire and Options.ShieldDamageRefire.Value) or 2
+	end
+	return 2
 end
 
 function TriggerShieldAnimBreak()
@@ -6123,110 +6118,6 @@ Toggles.ImmortalMode:OnChanged(function()
 end)
 
 do
-	local shieldOnDamageHolding = false
-	local shieldOnDamageUntil = 0
-	local lastShieldDamageRefire = 0
-
-	local function getShieldHold()
-		-- Built in: hold the shield for 0.10s after the last proximity trigger.
-		return 0.10
-	end
-
-	local function getShieldRefire()
-		return (Options.ShieldDamageRefire and Options.ShieldDamageRefire.Value) or 2
-	end
-
-	local function fireShieldRemote(state)
-		FireSetShield(state)
-	end
-
-	local function isPlayerNearby()
-		local character = getCharacter()
-		local root = character and character:FindFirstChild("HumanoidRootPart")
-		if not root then return false end
-
-		local myPos = root.Position
-		local triggerStuds = (Options.ShieldTriggerStuds and Options.ShieldTriggerStuds.Value) or 5
-		for _, player in ipairs(Players:GetPlayers()) do
-			if player ~= LocalPlayer then
-				local otherChar = player.Character
-				local otherRoot = otherChar and otherChar:FindFirstChild("HumanoidRootPart")
-				local otherHum = otherChar and otherChar:FindFirstChildOfClass("Humanoid")
-				if otherRoot and otherHum and otherHum.Health > 0 then
-					if (otherRoot.Position - myPos).Magnitude <= triggerStuds then
-						return true
-					end
-				end
-			end
-		end
-		return false
-	end
-
-	local function updateShieldOnDamage()
-		if not (Toggles.ShieldOnDamage and Toggles.ShieldOnDamage.Value) then return end
-		if not isAlive() then return end
-
-		-- True Auto-Parry drives the shield when it is on: do not fight it.
-		if Toggles.ShieldAutoParry and Toggles.ShieldAutoParry.Value then
-			if shieldOnDamageHolding then
-				shieldOnDamageHolding = false
-				fireShieldRemote(false)
-			end
-			return
-		end
-
-		local now = tick()
-
-		-- Just got hit: drop the shield so the swing animation plays, and keep it down
-		-- until the Shield Refire delay has finished.
-		if now < ShieldAnimBreakUntil then
-			if shieldOnDamageHolding then
-				shieldOnDamageHolding = false
-				fireShieldRemote(false)
-			end
-			return
-		end
-
-		if isPlayerNearby() then
-			if not shieldOnDamageHolding then
-				fireShieldRemote(true)
-			end
-			shieldOnDamageHolding = true
-			shieldOnDamageUntil = now + getShieldHold()
-		end
-
-		if not shieldOnDamageHolding then return end
-
-		if now < shieldOnDamageUntil then
-			if now - lastShieldDamageRefire >= getShieldRefire() then
-				lastShieldDamageRefire = now
-				fireShieldRemote(true)
-			end
-			return
-		end
-
-		shieldOnDamageHolding = false
-		fireShieldRemote(false)
-	end
-
-	Toggles.ShieldOnDamage:OnChanged(function()
-		disconnect("ShieldOnDamage_Loop")
-		disconnect("ShieldOnDamage_CharacterAdded")
-
-		if shieldOnDamageHolding then
-			shieldOnDamageHolding = false
-			fireShieldRemote(false)
-		end
-
-		if not Toggles.ShieldOnDamage.Value then return end
-
-		track("ShieldOnDamage_CharacterAdded", LocalPlayer.CharacterAdded:Connect(function()
-			shieldOnDamageHolding = false
-			task.wait(0.1)
-		end))
-		track("ShieldOnDamage_Loop", RunService.Heartbeat:Connect(updateShieldOnDamage))
-	end)
-
 	local shieldHudGui = nil
 	local shieldHudLabel = nil
 	local shieldHudRunning = false
@@ -6235,7 +6126,7 @@ do
 	local function refreshShieldHud()
 		if not shieldHudLabel then return end
 
-		local shielded = shieldOnDamageHolding or isShielding
+		local shielded = ShieldAnimHeld or isShielding
 		local text = shielded and "SHIELD ON" or "SHIELD OFF"
 		if text == shieldHudLastText then return end
 
@@ -6337,11 +6228,10 @@ do
 
 end
 
--- True Auto-Parry: the shield stays down so you attack freely, and is raised only
+-- Auto Shield: the shield stays down so you attack freely, and is raised only
 -- when an enemy within Parry Distance starts an attack. The game's own posture
 -- break (shieldReload) tells us the shield just broke and how long it recharges
--- for, so the shield stays down for that window instead of being spammed. The
--- Advance Shield proximity system above is the fallback when this is off.
+-- for, so the shield stays down for that window instead of being spammed.
 do
 	local parryHolding = false
 	local parryUntil = 0
@@ -6394,16 +6284,22 @@ do
 		end)
 	end
 
-	local function updateShieldParryVisibility()
-		local on = (Toggles.ShieldAutoParry and Toggles.ShieldAutoParry.Value) or false
-		if Options.ShieldParryStuds then
-			if Options.ShieldParryStuds.Visible ~= nil then
-				Options.ShieldParryStuds.Visible = on
+	local function updateShieldSystemVisibility()
+		local autoShield = (Toggles.ShieldAutoParry and Toggles.ShieldAutoParry.Value) or false
+		local customRefire = (Toggles.ShieldCustomRefire and Toggles.ShieldCustomRefire.Value) or false
+
+		local function setVisible(option, visible)
+			if not option then return end
+			if option.Visible ~= nil then
+				option.Visible = visible
 			end
-			if Options.ShieldParryStuds.Holder then
-				Options.ShieldParryStuds.Holder.Visible = on
+			if option.Holder then
+				option.Holder.Visible = visible
 			end
 		end
+
+		setVisible(Options.ShieldParryStuds, autoShield)
+		setVisible(Options.ShieldDamageRefire, customRefire)
 		CombatShieldSystem:Resize()
 	end
 
@@ -6461,7 +6357,7 @@ do
 		parryDrop()
 		parryUntil = 0
 
-		updateShieldParryVisibility()
+		updateShieldSystemVisibility()
 
 		if not Toggles.ShieldAutoParry.Value then return end
 
@@ -6472,7 +6368,13 @@ do
 		track("ShieldAutoParry_Loop", RunService.Heartbeat:Connect(updateAutoParry))
 	end)
 
-	updateShieldParryVisibility()
+	if Toggles.ShieldCustomRefire then
+		Toggles.ShieldCustomRefire:OnChanged(function()
+			updateShieldSystemVisibility()
+		end)
+	end
+
+	updateShieldSystemVisibility()
 end
 
 -- ==========================================
@@ -13576,8 +13478,8 @@ Library:OnUnload(function()
 	if Toggles.BreakStructures and Toggles.BreakStructures.Value then
 		Toggles.BreakStructures:SetValue(false)
 	end
-	if Toggles.ShieldOnDamage and Toggles.ShieldOnDamage.Value then
-		Toggles.ShieldOnDamage:SetValue(false)
+	if Toggles.ShieldAutoParry and Toggles.ShieldAutoParry.Value then
+		Toggles.ShieldAutoParry:SetValue(false)
 	end
 	if Toggles.ShieldHud and Toggles.ShieldHud.Value then
 		Toggles.ShieldHud:SetValue(false)
