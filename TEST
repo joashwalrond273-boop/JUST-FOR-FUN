@@ -323,6 +323,10 @@ TSG.ShieldReloadRemote = resolvePath(ReplicatedStorage, "remoteInterface", "char
 -- it), so it feeds the Shield HUD block counter.
 TSG.ShieldHitRemote = resolvePath(ReplicatedStorage, "remoteInterface", "character", "shieldHit")
 
+-- reset is the game's server-authoritative respawn RemoteFunction (see
+-- PlayerScripts.resetCallback). It returns true only when the server allows it.
+TSG.ResetRemote = resolvePath(ReplicatedStorage, "remoteInterface", "character", "reset")
+
 TSG.MeleePlayerRemote = (keyedRemotes and rawget(keyedRemotes, "meleePlayer")) or (interactionsFolder and interactionsFolder:FindFirstChild("meleePlayer"))
 TSG.MineRemote = (keyedRemotes and rawget(keyedRemotes, "mine")) or (interactionsFolder and interactionsFolder:FindFirstChild("mine"))
 TSG.ChopRemote = (keyedRemotes and rawget(keyedRemotes, "chop")) or (interactionsFolder and interactionsFolder:FindFirstChild("chop"))
@@ -5886,6 +5890,47 @@ CombatAutoPVP:AddDropdown("BreakStructuresToolSlot", {
 	Values = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" },
 	Default = "5",
 })
+
+CombatAutoPVP:AddCheckbox("InstantRespawn", {
+	Text = "Instant Respawn",
+	Default = false,
+})
+
+do
+	-- The game's own resetCallback retries reset:InvokeServer() once per second.
+	-- We hammer the same remote every 0.1s so you respawn the instant the server
+	-- allows it (e.g. right as a boss/PvP reset lockout ends).
+	InstantRespawnRunning = false
+	Toggles.InstantRespawn:OnChanged(function()
+		if not Toggles.InstantRespawn.Value then
+			InstantRespawnRunning = false
+			return
+		end
+		if InstantRespawnRunning then return end
+		if not TSG.ResetRemote then
+			Library:Notify({ Title = "Instant Respawn", Description = "Reset remote not found", Time = 2 })
+			Toggles.InstantRespawn:SetValue(false)
+			return
+		end
+		InstantRespawnRunning = true
+		Library:Notify({ Title = "Instant Respawn", Description = "Armed - will respawn as soon as allowed", Time = 2 })
+		task.spawn(function()
+			while InstantRespawnRunning and Toggles.InstantRespawn.Value do
+				local remote = TSG.ResetRemote
+				if not remote then break end
+				local ok, result = pcall(function()
+					return remote:InvokeServer()
+				end)
+				if ok and result then
+					InstantRespawnRunning = false
+					Library:Notify({ Title = "Instant Respawn", Description = "Respawn accepted", Time = 2 })
+					break
+				end
+				task.wait(0.1)
+			end
+		end)
+	end)
+end
 
 updatePVPModulesVisibility = function()
 	local isCam = (Toggles.Camlock and Toggles.Camlock.Value) or false
@@ -13768,6 +13813,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.BreakStructures and Toggles.BreakStructures.Value then
 		Toggles.BreakStructures:SetValue(false)
+	end
+	if Toggles.InstantRespawn and Toggles.InstantRespawn.Value then
+		Toggles.InstantRespawn:SetValue(false)
 	end
 	if Toggles.ShieldAutoParry and Toggles.ShieldAutoParry.Value then
 		Toggles.ShieldAutoParry:SetValue(false)
