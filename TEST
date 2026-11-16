@@ -319,6 +319,9 @@ TSG.EquipClothingRemote = resolvePath(ReplicatedStorage, "remoteInterface", "inv
 -- Shield remotes. shieldReload tells us the shield broke and is recharging, so
 -- True Auto-Parry can keep the shield down for the real posture break.
 TSG.ShieldReloadRemote = resolvePath(ReplicatedStorage, "remoteInterface", "character", "shieldReload")
+-- shieldHit fires on every blocked hit (the game spawns its sparkle emitter from
+-- it), so it feeds the Shield HUD block counter.
+TSG.ShieldHitRemote = resolvePath(ReplicatedStorage, "remoteInterface", "character", "shieldHit")
 
 TSG.MeleePlayerRemote = (keyedRemotes and rawget(keyedRemotes, "meleePlayer")) or (interactionsFolder and interactionsFolder:FindFirstChild("meleePlayer"))
 TSG.MineRemote = (keyedRemotes and rawget(keyedRemotes, "mine")) or (interactionsFolder and interactionsFolder:FindFirstChild("mine"))
@@ -4483,10 +4486,6 @@ if hookmetamethod then
 		end
 
 		if (method == "FireServer" or method == "InvokeServer") then
-			-- Stamp player melee fires so Laugh On Kill can attribute a kill.
-			if rawequal(self, TSG.MeleePlayerRemote) then
-				LaughKillLastMelee = tick()
-			end
 			local isMeleeHit = rawequal(self, TSG.MeleePlayerRemote)
 				or rawequal(self, TSG.MeleeAI)
 				or rawequal(self, TSG.MeleeAnimalRemote)
@@ -5323,6 +5322,11 @@ CombatShieldSystem:AddSlider("ShieldParryStuds", {
 	Compact = true,
 })
 
+CombatShieldSystem:AddCheckbox("ShieldParryPunish", {
+	Text = "Parry Punish",
+	Default = false,
+})
+
 CombatShieldSystem:AddDivider()
 
 CombatShieldSystem:AddCheckbox("ImmortalMode", {
@@ -5390,6 +5394,11 @@ ShieldAnimSwingUntil = 0
 -- Auto Shield: the shield stays down until an enemy swings, and the game's own
 -- posture break (shieldReload) keeps it down while the shield recharges.
 ShieldParryBreakUntil = 0
+
+-- Shield HUD 2.0 state: blocked-hit counter (fed by shieldHit) and the moment
+-- the guard last broke, so the HUD can flash BREAK before RECHARGING.
+ShieldHudBlocks = 0
+ShieldBreakStamp = 0
 
 -- Only these swords show the pose.
 ShieldAnimSwordIds = { [406] = true, [545] = true }
@@ -5694,146 +5703,6 @@ CombatAutoPVP:AddDropdown("BreakStructuresToolSlot", {
 	Values = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" },
 	Default = "5",
 })
-
-CombatAutoPVP:AddCheckbox("LaughOnKill", {
-	Text = "Laugh On Kill",
-	Default = false,
-})
-
-CombatAutoPVP:AddDropdown("LaughOnKillTargets", {
-	Text = "Laugh Target",
-	Values = {},
-	Default = {},
-	Multi = true,
-	AllowNull = true,
-})
-
--- Laugh On Kill: plays the game's laugh emote after we kill a chosen player.
--- Kept global on purpose: the main chunk is already at Luau's local variable limit.
-LaughKillLastMelee = 0
-LaughKillTracks = {}
-LaughKillBoundHumans = {}
-LaughKillAnimationId = "rbxassetid://507770818"
-
-function GetLaughTargets()
-	local list = Options.LaughOnKillTargets and Options.LaughOnKillTargets.Value
-	if typeof(list) == "table" then
-		return list
-	end
-	if type(list) == "string" and list ~= "" then
-		return { [list] = true }
-	end
-	return {}
-end
-
-function IsLaughTargetSelected(player)
-	if not player then return false end
-	local targets = GetLaughTargets()
-	if next(targets) == nil then return false end
-	return targets[player.Name] == true
-end
-
-function PlayLaughAnimation()
-	local character = getCharacter()
-	if not character then return end
-	local humanoid = character:FindFirstChildOfClass("Humanoid")
-	if not humanoid then return end
-	local animator = humanoid:FindFirstChildOfClass("Animator")
-	if not animator then
-		animator = Instance.new("Animator")
-		animator.Parent = humanoid
-	end
-	local ok, track = pcall(function()
-		local anim = Instance.new("Animation")
-		anim.AnimationId = LaughKillAnimationId
-		return animator:LoadAnimation(anim)
-	end)
-	if not ok or not track then return end
-	pcall(function()
-		track.Priority = Enum.AnimationPriority.Action4
-		track.Looped = false
-		track:Play(0.1)
-	end)
-	table.insert(LaughKillTracks, track)
-	task.delay(4, function()
-		pcall(function() track:Stop(0.2) end)
-		local idx = table.find(LaughKillTracks, track)
-		if idx then table.remove(LaughKillTracks, idx) end
-	end)
-end
-
-function OnLaughKillVictim(player)
-	if not (Toggles.LaughOnKill and Toggles.LaughOnKill.Value) then return end
-	if not IsLaughTargetSelected(player) then return end
-	local now = tick()
-	local recentMelee = (now - (LaughKillLastMelee or 0)) <= 3
-	local closeEnough = false
-	local myRoot = getRootPart()
-	local victimRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-	if myRoot and victimRoot then
-		closeEnough = (myRoot.Position - victimRoot.Position).Magnitude <= 25
-	end
-	if recentMelee or closeEnough then
-		PlayLaughAnimation()
-	end
-end
-
-function BindLaughVictim(character)
-	if not character then return end
-	local player = Players:GetPlayerFromCharacter(character)
-	if not player or player == LocalPlayer then return end
-	local humanoid = character:FindFirstChildOfClass("Humanoid")
-	if not humanoid then return end
-	if LaughKillBoundHumans[humanoid] then return end
-	LaughKillBoundHumans[humanoid] = true
-	humanoid.Died:Connect(function()
-		LaughKillBoundHumans[humanoid] = nil
-		OnLaughKillVictim(player)
-	end)
-end
-
-function RefreshLaughTargets()
-	pcall(function()
-		if not Options.LaughOnKillTargets then return end
-		local names = {}
-		for _, p in ipairs(Players:GetPlayers()) do
-			if p ~= LocalPlayer then
-				table.insert(names, p.Name)
-			end
-		end
-		local previous = Options.LaughOnKillTargets.Value
-		Options.LaughOnKillTargets:SetValues(names)
-		if typeof(previous) == "table" then
-			local preserved = {}
-			for name, selected in pairs(previous) do
-				if selected == true and table.find(names, name) then
-					preserved[name] = true
-				end
-			end
-			Options.LaughOnKillTargets:SetValue(preserved)
-		end
-	end)
-end
-
-function BindLaughPlayer(p)
-	if not p or p == LocalPlayer then return end
-	p.CharacterAdded:Connect(BindLaughVictim)
-	if p.Character then
-		BindLaughVictim(p.Character)
-	end
-end
-
-track("LaughKillPlayerAdded", Players.PlayerAdded:Connect(function(p)
-	RefreshLaughTargets()
-	BindLaughPlayer(p)
-end))
-track("LaughKillPlayerRemoving", Players.PlayerRemoving:Connect(RefreshLaughTargets))
-task.spawn(function()
-	for _, p in ipairs(Players:GetPlayers()) do
-		BindLaughPlayer(p)
-	end
-	RefreshLaughTargets()
-end)
 
 updatePVPModulesVisibility = function()
 	local isCam = (Toggles.Camlock and Toggles.Camlock.Value) or false
@@ -6264,19 +6133,57 @@ end)
 do
 	local shieldHudGui = nil
 	local shieldHudLabel = nil
+	local shieldHudCountLabel = nil
+	local shieldHudStroke = nil
 	local shieldHudRunning = false
 	local shieldHudLastText = ""
+	local shieldHudLastCount = ""
 
+	-- Shield HUD 2.0: live state readout instead of a plain on/off light.
+	--   BLOCKING        -> the block pose / setShield is currently held
+	--   BREAK           -> the guard just broke (brief red flash)
+	--   RECHARGING x.xs -> the game's shieldReload cooldown is still ticking
+	--   READY           -> the shield is available again
+	-- ShieldParryBreakUntil / ShieldAnimBreakUntil are the cooldown stamps the
+	-- rest of the shield system already keeps, so the HUD just reads them.
 	local function refreshShieldHud()
 		if not shieldHudLabel then return end
 
+		local now = tick()
 		local shielded = ShieldAnimHeld or isShielding
-		local text = shielded and "SHIELD ON" or "SHIELD OFF"
-		if text == shieldHudLastText then return end
+		local breakUntil = math.max(ShieldParryBreakUntil or 0, ShieldAnimBreakUntil or 0)
 
-		shieldHudLastText = text
-		shieldHudLabel.Text = text
-		shieldHudLabel.TextColor3 = shielded and Color3.fromRGB(0, 244, 255) or Color3.fromRGB(150, 150, 150)
+		local text, color
+		if shielded then
+			text = "BLOCKING"
+			color = Color3.fromRGB(0, 244, 255)
+		elseif now < (ShieldBreakStamp or 0) + 0.3 then
+			text = "BREAK"
+			color = Color3.fromRGB(255, 70, 70)
+		elseif now < breakUntil then
+			text = string.format("RECHARGING %.1fs", breakUntil - now)
+			color = Color3.fromRGB(255, 170, 0)
+		else
+			text = "READY"
+			color = Color3.fromRGB(120, 255, 120)
+		end
+
+		if text ~= shieldHudLastText then
+			shieldHudLastText = text
+			shieldHudLabel.Text = text
+			shieldHudLabel.TextColor3 = color
+			if shieldHudStroke then
+				shieldHudStroke.Color = color
+			end
+		end
+
+		if shieldHudCountLabel then
+			local countText = "BLOCKS " .. tostring(ShieldHudBlocks or 0)
+			if countText ~= shieldHudLastCount then
+				shieldHudLastCount = countText
+				shieldHudCountLabel.Text = countText
+			end
+		end
 	end
 
 	local function buildShieldHud()
@@ -6293,7 +6200,7 @@ do
 		local frame = Instance.new("Frame")
 		frame.Name = "Panel"
 		frame.Position = UDim2.new(0, 16, 0, 230)
-		frame.Size = UDim2.new(0, 130, 0, 20)
+		frame.Size = UDim2.new(0, 150, 0, 38)
 		frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 		frame.BackgroundTransparency = 0.25
 		frame.BorderSizePixel = 0
@@ -6304,22 +6211,33 @@ do
 		corner.CornerRadius = UDim.new(0, 5)
 		corner.Parent = frame
 
-		local stroke = Instance.new("UIStroke")
-		stroke.Color = Color3.fromRGB(0, 244, 255)
-		stroke.Transparency = 0.4
-		stroke.Thickness = 1
-		stroke.Parent = frame
+		shieldHudStroke = Instance.new("UIStroke")
+		shieldHudStroke.Color = Color3.fromRGB(0, 244, 255)
+		shieldHudStroke.Transparency = 0.4
+		shieldHudStroke.Thickness = 1
+		shieldHudStroke.Parent = frame
 
 		shieldHudLabel = Instance.new("TextLabel")
-		shieldHudLabel.Size = UDim2.new(1, -12, 1, 0)
-		shieldHudLabel.Position = UDim2.new(0, 6, 0, 0)
+		shieldHudLabel.Size = UDim2.new(1, -12, 0, 18)
+		shieldHudLabel.Position = UDim2.new(0, 6, 0, 3)
 		shieldHudLabel.BackgroundTransparency = 1
 		shieldHudLabel.Font = Enum.Font.Code
-		shieldHudLabel.TextSize = 11
+		shieldHudLabel.TextSize = 12
 		shieldHudLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
 		shieldHudLabel.TextXAlignment = Enum.TextXAlignment.Left
-		shieldHudLabel.Text = "SHIELD OFF"
+		shieldHudLabel.Text = "READY"
 		shieldHudLabel.Parent = frame
+
+		shieldHudCountLabel = Instance.new("TextLabel")
+		shieldHudCountLabel.Size = UDim2.new(1, -12, 0, 14)
+		shieldHudCountLabel.Position = UDim2.new(0, 6, 0, 21)
+		shieldHudCountLabel.BackgroundTransparency = 1
+		shieldHudCountLabel.Font = Enum.Font.Code
+		shieldHudCountLabel.TextSize = 10
+		shieldHudCountLabel.TextColor3 = Color3.fromRGB(170, 170, 170)
+		shieldHudCountLabel.TextXAlignment = Enum.TextXAlignment.Left
+		shieldHudCountLabel.Text = "BLOCKS 0"
+		shieldHudCountLabel.Parent = frame
 
 		local dragging, dragStart, dragPos = false, nil, nil
 		frame.InputBegan:Connect(function(input)
@@ -6350,8 +6268,11 @@ do
 			shieldHudGui:Destroy()
 			shieldHudGui = nil
 			shieldHudLabel = nil
+			shieldHudCountLabel = nil
+			shieldHudStroke = nil
 		end
 		shieldHudLastText = ""
+		shieldHudLastCount = ""
 
 		if not Toggles.ShieldHud.Value then
 			Library:Notify({ Title = "Shield HUD", Description = "Disabled", Time = 2 })
@@ -6404,6 +6325,35 @@ do
 		end
 	end
 
+	-- Parry Punish: the moment our guard posture breaks (shieldReload) we drop
+	-- the shield and swing into the enemy's recovery, then Auto Shield re-raises
+	-- the shield once the recharge window ends (block -> punish -> block).
+	local punishUntil = 0
+	local punishSwinging = false
+
+	local function triggerParryPunish(window)
+		if not (Toggles.ShieldParryPunish and Toggles.ShieldParryPunish.Value) then return end
+		if not parryHolding then return end
+		parryDrop()
+		local endAt = tick() + math.clamp(window, 0.2, 1.5)
+		punishUntil = endAt
+		if punishSwinging then return end
+		punishSwinging = true
+		task.spawn(function()
+			while tick() < endAt do
+				if not (Toggles.ShieldAutoParry and Toggles.ShieldAutoParry.Value) then break end
+				if not isAlive() then break end
+				local character = getCharacter()
+				local tool = character and character:FindFirstChildOfClass("Tool")
+				if tool then
+					pcall(function() tool:Activate() end)
+				end
+				task.wait(0.15)
+			end
+			punishSwinging = false
+		end)
+	end
+
 	local function isEnemySwinging(character, myPos, maxDist)
 		local root = character:FindFirstChild("HumanoidRootPart")
 		local hum = character:FindFirstChildOfClass("Humanoid")
@@ -6420,11 +6370,23 @@ do
 	end
 
 	-- shieldReload = the shield broke and is recharging; it carries a multiplier
-	-- on the weapon's PostureBreakTime. Stay down for that whole window.
+	-- on the weapon's PostureBreakTime. Stay down for that whole window, flag it
+	-- for the HUD, and run Parry Punish if enabled.
 	if TSG.ShieldReloadRemote then
 		TSG.ShieldReloadRemote.OnClientEvent:Connect(function(multiplier)
 			local mult = tonumber(multiplier) or 1
-			ShieldParryBreakUntil = tick() + math.max(0.1, getPostureBreakTime() * mult)
+			local window = math.max(0.1, getPostureBreakTime() * mult)
+			ShieldParryBreakUntil = tick() + window
+			ShieldBreakStamp = tick()
+			ShieldHudBlocks = (ShieldHudBlocks or 0) + 1
+			triggerParryPunish(window)
+		end)
+	end
+
+	-- Every blocked hit feeds the HUD's block counter.
+	if TSG.ShieldHitRemote then
+		TSG.ShieldHitRemote.OnClientEvent:Connect(function()
+			ShieldHudBlocks = (ShieldHudBlocks or 0) + 1
 		end)
 	end
 
@@ -6443,6 +6405,7 @@ do
 		end
 
 		setVisible(Options.ShieldParryStuds, autoShield)
+		setVisible(Toggles.ShieldParryPunish, autoShield)
 		setVisible(Options.ShieldDamageRefire, customRefire)
 		CombatShieldSystem:Resize()
 	end
@@ -6456,8 +6419,9 @@ do
 
 		local now = tick()
 
-		-- Shield is recharging (posture broken) or we just took a hit: stay down.
-		if now < ShieldParryBreakUntil or now < ShieldAnimBreakUntil then
+		-- Shield is recharging (posture broken), we just took a hit, or Parry
+		-- Punish is still swinging: stay down.
+		if now < ShieldParryBreakUntil or now < ShieldAnimBreakUntil or now < punishUntil then
 			parryDrop()
 			return
 		end
@@ -6500,6 +6464,7 @@ do
 		disconnect("ShieldAutoParry_CharacterAdded")
 		parryDrop()
 		parryUntil = 0
+		punishUntil = 0
 
 		updateShieldSystemVisibility()
 
@@ -13624,6 +13589,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.ShieldAutoParry and Toggles.ShieldAutoParry.Value then
 		Toggles.ShieldAutoParry:SetValue(false)
+	end
+	if Toggles.ShieldParryPunish and Toggles.ShieldParryPunish.Value then
+		Toggles.ShieldParryPunish:SetValue(false)
 	end
 	if Toggles.ShieldHud and Toggles.ShieldHud.Value then
 		Toggles.ShieldHud:SetValue(false)
