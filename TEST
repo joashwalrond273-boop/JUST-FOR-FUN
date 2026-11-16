@@ -316,6 +316,10 @@ TSG.PickupRemote = resolvePath(ReplicatedStorage, "remoteInterface", "inventory"
 TSG.EquipHotbarRemote = resolvePath(ReplicatedStorage, "remoteInterface", "inventory", "equipHotbar")
 TSG.EquipClothingRemote = resolvePath(ReplicatedStorage, "remoteInterface", "inventory", "equipClothing")
 
+-- Shield remotes. shieldReload tells us the shield broke and is recharging, so
+-- True Auto-Parry can keep the shield down for the real posture break.
+TSG.ShieldReloadRemote = resolvePath(ReplicatedStorage, "remoteInterface", "character", "shieldReload")
+
 TSG.MeleePlayerRemote = (keyedRemotes and rawget(keyedRemotes, "meleePlayer")) or (interactionsFolder and interactionsFolder:FindFirstChild("meleePlayer"))
 TSG.MineRemote = (keyedRemotes and rawget(keyedRemotes, "mine")) or (interactionsFolder and interactionsFolder:FindFirstChild("mine"))
 TSG.ChopRemote = (keyedRemotes and rawget(keyedRemotes, "chop")) or (interactionsFolder and interactionsFolder:FindFirstChild("chop"))
@@ -5301,6 +5305,20 @@ CombatShieldSystem:AddSlider("ShieldDamageRefire", {
 	Compact = true,
 })
 
+CombatShieldSystem:AddToggle("ShieldAutoParry", {
+	Text = "Auto Parry",
+	Default = false,
+})
+
+CombatShieldSystem:AddSlider("ShieldParryStuds", {
+	Text = "Parry Distance",
+	Default = 12,
+	Min = 5,
+	Max = 30,
+	Rounding = 0,
+	Compact = true,
+})
+
 CombatShieldSystem:AddDivider()
 
 CombatShieldSystem:AddCheckbox("ImmortalMode", {
@@ -5373,6 +5391,10 @@ ShieldAnimBreakUntil = 0
 ShieldAnimLastHealth = nil
 -- While swinging, the pose hides so the attack animation shows.
 ShieldAnimSwingUntil = 0
+
+-- True Auto-Parry: the shield stays down until an enemy swings, and the game's
+-- own posture break (shieldReload) keeps it down while the shield recharges.
+ShieldParryBreakUntil = 0
 
 -- Only these swords show the pose.
 ShieldAnimSwordIds = { [406] = true, [545] = true }
@@ -6144,6 +6166,15 @@ do
 		if not (Toggles.ShieldOnDamage and Toggles.ShieldOnDamage.Value) then return end
 		if not isAlive() then return end
 
+		-- True Auto-Parry drives the shield when it is on: do not fight it.
+		if Toggles.ShieldAutoParry and Toggles.ShieldAutoParry.Value then
+			if shieldOnDamageHolding then
+				shieldOnDamageHolding = false
+				fireShieldRemote(false)
+			end
+			return
+		end
+
 		local now = tick()
 
 		-- Just got hit: drop the shield so the swing animation plays, and keep it down
@@ -6304,6 +6335,144 @@ do
 		Library:Notify({ Title = "Shield HUD", Description = "Enabled", Time = 2 })
 	end)
 
+end
+
+-- True Auto-Parry: the shield stays down so you attack freely, and is raised only
+-- when an enemy within Parry Distance starts an attack. The game's own posture
+-- break (shieldReload) tells us the shield just broke and how long it recharges
+-- for, so the shield stays down for that window instead of being spammed. The
+-- Advance Shield proximity system above is the fallback when this is off.
+do
+	local parryHolding = false
+	local parryUntil = 0
+	local lastParryFire = 0
+
+	local function getParryDistance()
+		return (Options.ShieldParryStuds and Options.ShieldParryStuds.Value) or 12
+	end
+
+	local function getPostureBreakTime()
+		local id = GetHeldToolId()
+		local items = TSG.Items
+		if id and items and items.getItemData then
+			local ok, data = pcall(items.getItemData, id)
+			if ok and data and data.PostureBreakTime then
+				return data.PostureBreakTime
+			end
+		end
+		return 0.6
+	end
+
+	local function parryDrop()
+		if parryHolding then
+			parryHolding = false
+			FireSetShield(false)
+		end
+	end
+
+	local function isEnemySwinging(character, myPos, maxDist)
+		local root = character:FindFirstChild("HumanoidRootPart")
+		local hum = character:FindFirstChildOfClass("Humanoid")
+		if not root or not hum or hum.Health <= 0 then return false end
+		if (root.Position - myPos).Magnitude > maxDist then return false end
+		local animator = hum:FindFirstChildOfClass("Animator")
+		if not animator then return false end
+		for _, trackObj in ipairs(animator:GetPlayingAnimationTracks()) do
+			if trackObj.Speed > 0 and isSwingAnimation(trackObj) then
+				return true
+			end
+		end
+		return false
+	end
+
+	-- shieldReload = the shield broke and is recharging; it carries a multiplier
+	-- on the weapon's PostureBreakTime. Stay down for that whole window.
+	if TSG.ShieldReloadRemote then
+		TSG.ShieldReloadRemote.OnClientEvent:Connect(function(multiplier)
+			local mult = tonumber(multiplier) or 1
+			ShieldParryBreakUntil = tick() + math.max(0.1, getPostureBreakTime() * mult)
+		end)
+	end
+
+	local function updateShieldParryVisibility()
+		local on = (Toggles.ShieldAutoParry and Toggles.ShieldAutoParry.Value) or false
+		if Options.ShieldParryStuds then
+			if Options.ShieldParryStuds.Visible ~= nil then
+				Options.ShieldParryStuds.Visible = on
+			end
+			if Options.ShieldParryStuds.Holder then
+				Options.ShieldParryStuds.Holder.Visible = on
+			end
+		end
+		CombatShieldSystem:Resize()
+	end
+
+	local function updateAutoParry()
+		if not (Toggles.ShieldAutoParry and Toggles.ShieldAutoParry.Value) then return end
+		if not isAlive() then
+			parryDrop()
+			return
+		end
+
+		local now = tick()
+
+		-- Shield is recharging (posture broken) or we just took a hit: stay down.
+		if now < ShieldParryBreakUntil or now < ShieldAnimBreakUntil then
+			parryDrop()
+			return
+		end
+
+		local character = getCharacter()
+		local root = character and character:FindFirstChild("HumanoidRootPart")
+		if not root then
+			parryDrop()
+			return
+		end
+
+		local threat = false
+		local maxDist = getParryDistance()
+		for _, player in ipairs(Players:GetPlayers()) do
+			if player ~= LocalPlayer and player.Character and not isTeammate(player) then
+				if isEnemySwinging(player.Character, root.Position, maxDist) then
+					threat = true
+					break
+				end
+			end
+		end
+
+		if threat then
+			parryUntil = now + 0.35
+		end
+
+		if now < parryUntil then
+			if not parryHolding or now - lastParryFire >= 0.15 then
+				parryHolding = true
+				lastParryFire = now
+				FireSetShield(true)
+			end
+		else
+			parryDrop()
+		end
+	end
+
+	Toggles.ShieldAutoParry:OnChanged(function()
+		disconnect("ShieldAutoParry_Loop")
+		disconnect("ShieldAutoParry_CharacterAdded")
+		parryDrop()
+		parryUntil = 0
+
+		updateShieldParryVisibility()
+
+		if not Toggles.ShieldAutoParry.Value then return end
+
+		track("ShieldAutoParry_CharacterAdded", LocalPlayer.CharacterAdded:Connect(function()
+			parryDrop()
+			parryUntil = 0
+		end))
+		track("ShieldAutoParry_Loop", RunService.Heartbeat:Connect(updateAutoParry))
+	end)
+
+	updateShieldParryVisibility()
 end
 
 -- ==========================================
@@ -6758,9 +6927,13 @@ Toggles.SmartSwing:OnChanged(function()
 end)
 
 -- ==========================================
--- Aimlock: locks the camera onto a single player while in the water with Water
--- Bypass. The camlock hands the camera over to it while in the water, so the two
--- never fight over it. Names picked in the Blacklist are ignored.
+-- Aimlock: locks the camera onto a single player. It runs in the water with
+-- Water Bypass, and anywhere else while names are picked in the Blacklist (then
+-- it only locks onto those names). While it is locked on, the camlock stands
+-- down, so the two never fight over the camera. Blacklist names are therefore
+-- handled by the aimlock, while the camlock keeps locking onto everyone else.
+-- Global on purpose: the main chunk is already at Luau's 200-local limit.
+AimlockTargetPlayer = nil
 do
 	local aimlockMouseLocked = false
 
@@ -6794,11 +6967,22 @@ do
 
 		local maxDist = (Options.CamlockStuds and Options.CamlockStuds.Value) or 20
 
+		-- While names are picked in the Blacklist the aimlock only looks at those
+		-- names; with an empty list it keeps its old behaviour (closest
+		-- non-teammate).
+		local listActive = isCamlockListActive()
+
 		local bestPlayer, bestDist = nil, maxDist
 		for _, otherPlayer in ipairs(AimlockPlayers) do
 			-- The ignore-team system is always on here: teammates / clanmates are
-			-- never picked. Blacklisted names are skipped too.
-			local allowed = not isTeammate(otherPlayer) and not isCamlockBlacklisted(otherPlayer)
+			-- never picked. A blacklisted name overrides it, otherwise picking a
+			-- teammate would do nothing.
+			local allowed
+			if listActive then
+				allowed = isCamlockBlacklisted(otherPlayer)
+			else
+				allowed = not isTeammate(otherPlayer)
+			end
 			if otherPlayer ~= LocalPlayer and otherPlayer.Character and allowed then
 				local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
 				local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
@@ -6814,29 +6998,37 @@ do
 	end
 
 	track("Aimlock", RunService.RenderStepped:Connect(function()
-		-- Water Bypass: the aimlock (and its shiftlock) only works while in the
-		-- water AND holding one of the tools picked in the Spear / Sword lists.
-		-- Names picked in the Blacklist are skipped as targets.
-		if not isWaterBypassActive() then
+		-- Runs in the water with Water Bypass, and anywhere else while names are
+		-- picked in the Blacklist (then it only locks onto those names).
+		if not (isWaterBypassActive() or (isCamlockListActive() and isAdvanceSlotAllowed(Options.CamlockSlotSystemSlot))) then
+			AimlockTargetPlayer = nil
 			aimlockReleaseMouse()
 			return
 		end
-		if not isAlive() then return end
+		if not isAlive() then
+			AimlockTargetPlayer = nil
+			return
+		end
 
 		local root = getRootPart()
 		if not root then return end
 
-		-- Shiftlock: the mouse stays pinned to the centre for the whole time
-		-- Water Bypass is active, even when there is no target to aim at. The
-		-- body is never touched, so the player keeps full control of it.
+		-- Shiftlock: the mouse stays pinned to the centre for the whole time the
+		-- aimlock is active, even when there is no target to aim at. The body is
+		-- never touched, so the player keeps full control of it.
 		aimlockMouseLocked = true
 		UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
 		UserInputService.MouseIconEnabled = false
 
 		local closest = aimlockPickClosest()
 		if not closest or not closest.Character then
+			-- No target: the camlock is free to keep working normally.
+			AimlockTargetPlayer = nil
 			return
 		end
+		-- Locked on: the camlock stands down for this target so the two never
+		-- fight over the camera.
+		AimlockTargetPlayer = closest
 
 		local targetRoot = closest.Character:FindFirstChild("HumanoidRootPart")
 		local aimPartName = (Options.WaterBypassAimPart and Options.WaterBypassAimPart.Value) or "Head"
@@ -6852,14 +7044,22 @@ do
 	end))
 end
 
--- The names picked in the Camlock "Blacklist" are ignored by both the camlock
--- and the aimlock; everyone else is targeted normally. Global on purpose: the
--- main chunk is already at Luau's 200-local register limit.
+-- Split targeting for the Camlock "Blacklist": names picked there are handed to
+-- the Aimlock (which locks onto them), while the camlock leaves those names alone
+-- and keeps locking onto everyone else. Globals on purpose: the main chunk is
+-- already at Luau's 200-local register limit.
 function isCamlockBlacklisted(player)
 	if not player then return false end
 	local list = Options.CamlockPlayerList and Options.CamlockPlayerList.Value
 	if typeof(list) ~= "table" then return false end
 	return list[player.Name] == true
+end
+
+-- True while at least one name is picked in the Camlock "Blacklist".
+function isCamlockListActive()
+	local list = Options.CamlockPlayerList and Options.CamlockPlayerList.Value
+	if typeof(list) ~= "table" then return false end
+	return next(list) ~= nil
 end
 
 Toggles.Camlock:OnChanged(function()
@@ -6925,6 +7125,15 @@ Toggles.Camlock:OnChanged(function()
 			-- the Aimlock has full control. The mouse is left to the Aimlock loop
 			-- instead of being forced back to default.
 			if isWaterBypassActive(inWater) then
+				camlockTarget = nil
+				hum.AutoRotate = true
+				return
+			end
+
+			-- The Aimlock is locked onto a Blacklist name: hand the camera over the
+			-- same way. It only holds a target while one of those names is in range,
+			-- so the camlock keeps working normally the rest of the time.
+			if AimlockTargetPlayer then
 				camlockTarget = nil
 				hum.AutoRotate = true
 				return
@@ -9180,6 +9389,12 @@ Toggles.TeleportAllGold:OnChanged(function()
 		{ name = "Gold 62", pos = Vector3.new(840.11, -293.25, -337.24)  },
 		{ name = "Gold 63", pos = Vector3.new(-1462.39, -92.42, 215.77)  },
 		{ name = "Gold 64", pos = Vector3.new(-1459.47, -92.33, 215.86)  },
+		{ name = "Gold 65", pos = Vector3.new(662.44, -41.66, -1685.76)  },
+		{ name = "Gold 66", pos = Vector3.new(659.67, -41.54, -1699.74)  },
+		{ name = "Gold 67", pos = Vector3.new(933.98, -83.83, -1502.32)  },
+		{ name = "Gold 68", pos = Vector3.new(941.40, -85.03, -1517.60)  },
+		{ name = "Gold 69", pos = Vector3.new(-411.39, -29.02, -211.46)  },
+		{ name = "Gold 70", pos = Vector3.new(1567.19, 27.77, -936.13)   },
 	}
 
 	task.spawn(function()
