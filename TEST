@@ -1690,7 +1690,7 @@ CosmeticsGroup:AddDropdown("HitSoundSelect", {
 
 CosmeticsGroup:AddDropdown("HitEffectSelect", {
 	Text = "Hit Effect",
-	Values = { "None", "Lightning", "Smoke", "Fire", "Explosion", "Ice", "Poison" },
+	Values = { "None", "Lightning", "Smoke", "Fire", "Explosion", "Ice", "Poison", "Shockwave", "Blood", "Sakura", "Void" },
 	Default = "None",
 })
 
@@ -2091,6 +2091,157 @@ Xeno_PlayHitEffect = function(hitArgs)
 				RotSpeed = NumberRange.new(-90, 90),
 				LightEmission = 0.3,
 			})
+		elseif selected == "Shockwave" then
+			emitWindow = 0.2
+			totalLife = 1.1
+
+			local flash = Instance.new("PointLight")
+			flash.Color = Color3.fromRGB(200, 230, 255)
+			flash.Range = 22
+			flash.Brightness = 3
+			flash.Parent = anchor
+
+			-- Ground ring that expands outwards from the impact point.
+			local ring = Instance.new("Part")
+			ring.Anchored = true
+			ring.CanCollide = false
+			ring.CanQuery = false
+			ring.CanTouch = false
+			ring.CastShadow = false
+			ring.Material = Enum.Material.Neon
+			ring.Color = Color3.fromRGB(190, 225, 255)
+			ring.Shape = Enum.PartType.Cylinder
+			ring.Size = Vector3.new(0.15, 1, 1)
+			ring.CFrame = CFrame.new(position) * CFrame.Angles(0, 0, math.rad(90))
+			ring.Parent = fxFolder
+			table.insert(extras, ring)
+
+			task.spawn(function()
+				local grow = 0
+				while grow < 1 and ring.Parent do
+					grow += 0.06
+					local diameter = 1 + grow * 12
+					ring.Size = Vector3.new(0.15, diameter, diameter)
+					ring.Transparency = math.clamp(grow, 0, 1)
+					task.wait(0.02)
+				end
+			end)
+
+			addEmitter(anchor, {
+				Texture = "rbxasset://textures/particles/smoke_main.dds",
+				Color = ColorSequence.new(Color3.fromRGB(205, 215, 225), Color3.fromRGB(120, 130, 140)),
+				Size = NumberSequence.new({
+					NumberSequenceKeypoint.new(0, 1),
+					NumberSequenceKeypoint.new(1, 6),
+				}),
+				Transparency = NumberSequence.new({
+					NumberSequenceKeypoint.new(0, 0.4),
+					NumberSequenceKeypoint.new(1, 1),
+				}),
+				Lifetime = NumberRange.new(0.4, 0.7),
+				Rate = 120,
+				Speed = NumberRange.new(18, 28),
+				SpreadAngle = Vector2.new(180, 180),
+				Acceleration = Vector3.new(0, -6, 0),
+				LightEmission = 0.3,
+			})
+		elseif selected == "Blood" then
+			emitWindow = 0.1
+			totalLife = 1.2
+
+			addEmitter(anchor, {
+				Texture = "rbxasset://textures/particles/smoke_main.dds",
+				Color = ColorSequence.new(Color3.fromRGB(150, 12, 12), Color3.fromRGB(70, 0, 0)),
+				Size = NumberSequence.new({
+					NumberSequenceKeypoint.new(0, 1.4),
+					NumberSequenceKeypoint.new(1, 0.2),
+				}),
+				Transparency = NumberSequence.new({
+					NumberSequenceKeypoint.new(0, 0.1),
+					NumberSequenceKeypoint.new(1, 0.6),
+				}),
+				Lifetime = NumberRange.new(0.4, 0.8),
+				Rate = 170,
+				Speed = NumberRange.new(14, 26),
+				SpreadAngle = Vector2.new(180, 180),
+				Acceleration = Vector3.new(0, -60, 0),
+				LightEmission = 0,
+			})
+		elseif selected == "Sakura" then
+			emitWindow = 0.8
+			totalLife = 2.8
+
+			local glow = Instance.new("PointLight")
+			glow.Color = Color3.fromRGB(255, 170, 205)
+			glow.Range = 12
+			glow.Brightness = 1.5
+			glow.Parent = anchor
+			table.insert(extras, glow)
+
+			addEmitter(anchor, {
+				Texture = "rbxasset://textures/particles/sparkles_main.dds",
+				Color = ColorSequence.new(Color3.fromRGB(255, 200, 225), Color3.fromRGB(255, 130, 180)),
+				Size = NumberSequence.new({
+					NumberSequenceKeypoint.new(0, 1.6),
+					NumberSequenceKeypoint.new(1, 0.4),
+				}),
+				Transparency = NumberSequence.new({
+					NumberSequenceKeypoint.new(0, 0.05),
+					NumberSequenceKeypoint.new(1, 1),
+				}),
+				Lifetime = NumberRange.new(1.2, 1.8),
+				Rate = 90,
+				Speed = NumberRange.new(3, 8),
+				SpreadAngle = Vector2.new(180, 180),
+				Rotation = NumberRange.new(0, 360),
+				RotSpeed = NumberRange.new(-120, 120),
+				Acceleration = Vector3.new(0, -8, 0),
+				LightEmission = 0.2,
+			})
+		elseif selected == "Void" then
+			emitWindow = 0.5
+			totalLife = 1.8
+
+			local core = Instance.new("PointLight")
+			core.Color = Color3.fromRGB(160, 60, 255)
+			core.Range = 26
+			core.Brightness = 3.5
+			core.Parent = anchor
+			table.insert(extras, core)
+
+			-- Negative speed pulls the particles inwards for an imploding look.
+			addEmitter(anchor, {
+				Texture = "rbxasset://textures/particles/sparkles_main.dds",
+				Color = ColorSequence.new(Color3.fromRGB(200, 140, 255), Color3.fromRGB(70, 0, 130)),
+				Size = NumberSequence.new({
+					NumberSequenceKeypoint.new(0, 4),
+					NumberSequenceKeypoint.new(1, 0),
+				}),
+				Transparency = NumberSequence.new({
+					NumberSequenceKeypoint.new(0, 0.1),
+					NumberSequenceKeypoint.new(1, 1),
+				}),
+				Lifetime = NumberRange.new(0.4, 0.7),
+				Rate = 160,
+				Speed = NumberRange.new(-22, -10),
+				SpreadAngle = Vector2.new(180, 180),
+				LightEmission = 1,
+			})
+
+			-- Vertical beam rising out of the impact point.
+			local beam = Instance.new("Part")
+			beam.Anchored = true
+			beam.CanCollide = false
+			beam.CanQuery = false
+			beam.CanTouch = false
+			beam.CastShadow = false
+			beam.Material = Enum.Material.Neon
+			beam.Color = Color3.fromRGB(150, 60, 255)
+			beam.Transparency = 0.35
+			beam.Size = Vector3.new(0.6, 14, 0.6)
+			beam.CFrame = CFrame.new(position + Vector3.new(0, 7, 0))
+			beam.Parent = fxFolder
+			table.insert(extras, beam)
 		end
 
 		-- Stop emitting after the window, then let the particles fade out.
@@ -5329,7 +5480,7 @@ CombatShieldSystem:AddCheckbox("ShieldParryPunish", {
 
 CombatShieldSystem:AddDivider()
 
-CombatShieldSystem:AddCheckbox("ImmortalMode", {
+CombatShieldSystem:AddToggle("ImmortalMode", {
 	Text = "Infinite Shield",
 	Default = false,
 })
@@ -5503,7 +5654,24 @@ function BindSwingAnimStop(tool)
 	end)
 end
 
+-- While the shield is up, the held tool is disabled so a screen tap / click can
+-- not swing and drop the block. Auto Shield and Parry Punish only swing while
+-- the shield is down, and the tool is re-enabled the moment the shield drops.
+-- Declared as a global on purpose (the main chunk is at Luau's 200-local limit).
+function ApplySwingBlock()
+	local character = LocalPlayer.Character
+	local tool = character and character:FindFirstChildOfClass("Tool")
+	if not tool then return end
+	local blocking = ShieldAnimHeld or (LocalPlayer:GetAttribute("IsShieldingClient") == true)
+	local want = not blocking
+	if tool.Enabled ~= want then
+		tool.Enabled = want
+	end
+end
+
 function UpdateShieldAnimation()
+	-- Keep the no-swing-while-blocking state in sync with the shield.
+	ApplySwingBlock()
 	-- Shield is recharging after a hit: no pose until the refire delay has passed.
 	if tick() < ShieldAnimBreakUntil then
 		StopShieldAnimation()
@@ -5562,6 +5730,13 @@ function BindShieldAnimRespawn(character)
 		BindSwingAnimStop(child)
 	end
 	character.ChildAdded:Connect(BindSwingAnimStop)
+	-- A freshly equipped tool must inherit the no-swing-while-blocking state.
+	character.ChildAdded:Connect(function(child)
+		if child:IsA("Tool") then
+			task.defer(ApplySwingBlock)
+		end
+	end)
+	ApplySwingBlock()
 end
 
 if LocalPlayer.Character then
@@ -5574,6 +5749,14 @@ end)
 
 -- Re-evaluate the pose whenever the held tool changes (sword equipped/unequipped).
 LocalPlayer:GetAttributeChangedSignal("equippedTool"):Connect(UpdateShieldAnimation)
+
+-- Manual blocking (right-click / shield button) flips this attribute, so mirror
+-- it into the no-swing-while-blocking state too.
+LocalPlayer:GetAttributeChangedSignal("IsShieldingClient"):Connect(function()
+	if ApplySwingBlock then
+		ApplySwingBlock()
+	end
+end)
 
 updateImmortalModeVisibility = function()
 	local isImmortal = (Toggles.ImmortalMode and Toggles.ImmortalMode.Value) or false
@@ -8398,122 +8581,6 @@ task.spawn(function()
 	end
 end)
 
-local MoveBoatSpeed = Tabs.Movement:AddLeftGroupbox("Boat Speed", "anchor")
-
-MoveBoatSpeed:AddToggle("BoatSpeedToggle", {
-	Text = "Boat Speed",
-	Default = false,
-})
-
-MoveBoatSpeed:AddSlider("BoatSpeedValue", {
-	Text = "Boat Speed Value",
-	Default = 0.9,
-	Min = 0.1,
-	Max = 5,
-	Rounding = 1,
-	Compact = true,
-})
-
-do
-	local boatPlatform = nil
-
-	local function destroyBoatPlatform()
-		if boatPlatform then
-			pcall(function() boatPlatform:Destroy() end)
-			boatPlatform = nil
-		end
-	end
-
-	Toggles.BoatSpeedToggle:OnChanged(function()
-		local function getCurrentBoat()
-			local humanoid = getHumanoid()
-			if humanoid and humanoid.SeatPart then
-				local folder = humanoid.SeatPart:FindFirstAncestorOfClass("Folder")
-				if folder and folder == workspace.boats then
-					return humanoid.SeatPart:FindFirstAncestorOfClass("Model")
-				end
-			end
-		end
-
-		local originalY = nil
-		local boatCFrame = nil
-
-		local function enableBoatSpeed()
-			disconnect("boat_hover")
-			originalY = nil
-			boatCFrame = nil
-
-			pcall(function()
-				boatPlatform = Instance.new("Part")
-				boatPlatform.Name = "BoatPlatform"
-				boatPlatform.Anchored = true
-				boatPlatform.Size = Vector3.new(20, 1, 20)
-				boatPlatform.Transparency = 1
-				boatPlatform.CanCollide = true
-				boatPlatform.CanTouch = false
-				boatPlatform.CanQuery = false
-				boatPlatform.CastShadow = false
-				boatPlatform.Parent = workspace
-			end)
-
-			track("boat_hover",
-				RunService.Stepped:Connect(
-					function()
-						local humanoid = getHumanoid()
-						local boat = getCurrentBoat()
-						if not boat or not humanoid then
-							originalY = nil
-							boatCFrame = nil
-							if boatPlatform then
-								boatPlatform.Position = Vector3.new(0, -500, 0)
-							end
-							return
-						end
-						if not boatCFrame then
-							boatCFrame = boat:GetPivot()
-						end
-						if not originalY then
-							originalY = boatCFrame.Position.Y
-						end
-						for _, v in pairs(boat:GetDescendants()) do
-							if v:IsA("Part") or v:IsA("MeshPart") or v:IsA("Union") then
-								v.Velocity = Vector3.new(0, 0, 0)
-							end
-						end
-						boat:PivotTo(boatCFrame)
-						local extraY = 0
-						if humanoid.Parent:GetAttribute("inTerrain") then
-							extraY = 0
-						else
-							extraY = 0
-							boatCFrame =
-								boatCFrame - Vector3.new(0, boatCFrame.Position.Y - originalY, 0)
-						end
-						local speedMult = Options.BoatSpeedValue and Options.BoatSpeedValue.Value or 0.9
-						boatCFrame = boatCFrame + Vector3.new(0, extraY, 0) + humanoid.MoveDirection * speedMult
-
-						if boatPlatform then
-							local pos = boatCFrame.Position
-							boatPlatform.CFrame = CFrame.new(pos.X, pos.Y - 3, pos.Z)
-						end
-					end
-				)
-			)
-		end
-
-		local function disableBoatSpeed()
-			disconnect("boat_hover")
-			destroyBoatPlatform()
-		end
-
-		if Toggles.BoatSpeedToggle.Value then
-			enableBoatSpeed()
-		else
-			disableBoatSpeed()
-		end
-	end)
-end
-
 do
 	local waterPlatform = nil
 
@@ -8648,6 +8715,122 @@ MoveMountAura:AddSlider("MountFlySpeed", {
 	Rounding = 0,
 	Compact = true,
 })
+
+MoveMountAura:AddDivider()
+
+MoveMountAura:AddToggle("BoatSpeedToggle", {
+	Text = "Boat Speed",
+	Default = false,
+})
+
+MoveMountAura:AddSlider("BoatSpeedValue", {
+	Text = "Boat Speed Value",
+	Default = 0.9,
+	Min = 0.1,
+	Max = 5,
+	Rounding = 1,
+	Compact = true,
+})
+
+do
+	local boatPlatform = nil
+
+	local function destroyBoatPlatform()
+		if boatPlatform then
+			pcall(function() boatPlatform:Destroy() end)
+			boatPlatform = nil
+		end
+	end
+
+	Toggles.BoatSpeedToggle:OnChanged(function()
+		local function getCurrentBoat()
+			local humanoid = getHumanoid()
+			if humanoid and humanoid.SeatPart then
+				local folder = humanoid.SeatPart:FindFirstAncestorOfClass("Folder")
+				if folder and folder == workspace.boats then
+					return humanoid.SeatPart:FindFirstAncestorOfClass("Model")
+				end
+			end
+		end
+
+		local originalY = nil
+		local boatCFrame = nil
+
+		local function enableBoatSpeed()
+			disconnect("boat_hover")
+			originalY = nil
+			boatCFrame = nil
+
+			pcall(function()
+				boatPlatform = Instance.new("Part")
+				boatPlatform.Name = "BoatPlatform"
+				boatPlatform.Anchored = true
+				boatPlatform.Size = Vector3.new(20, 1, 20)
+				boatPlatform.Transparency = 1
+				boatPlatform.CanCollide = true
+				boatPlatform.CanTouch = false
+				boatPlatform.CanQuery = false
+				boatPlatform.CastShadow = false
+				boatPlatform.Parent = workspace
+			end)
+
+			track("boat_hover",
+				RunService.Stepped:Connect(
+					function()
+						local humanoid = getHumanoid()
+						local boat = getCurrentBoat()
+						if not boat or not humanoid then
+							originalY = nil
+							boatCFrame = nil
+							if boatPlatform then
+								boatPlatform.Position = Vector3.new(0, -500, 0)
+							end
+							return
+						end
+						if not boatCFrame then
+							boatCFrame = boat:GetPivot()
+						end
+						if not originalY then
+							originalY = boatCFrame.Position.Y
+						end
+						for _, v in pairs(boat:GetDescendants()) do
+							if v:IsA("Part") or v:IsA("MeshPart") or v:IsA("Union") then
+								v.Velocity = Vector3.new(0, 0, 0)
+							end
+						end
+						boat:PivotTo(boatCFrame)
+						local extraY = 0
+						if humanoid.Parent:GetAttribute("inTerrain") then
+							extraY = 0
+						else
+							extraY = 0
+							boatCFrame =
+								boatCFrame - Vector3.new(0, boatCFrame.Position.Y - originalY, 0)
+						end
+						local speedMult = Options.BoatSpeedValue and Options.BoatSpeedValue.Value or 0.9
+						boatCFrame = boatCFrame + Vector3.new(0, extraY, 0) + humanoid.MoveDirection * speedMult
+
+						if boatPlatform then
+							local pos = boatCFrame.Position
+							boatPlatform.CFrame = CFrame.new(pos.X, pos.Y - 3, pos.Z)
+						end
+					end
+				)
+			)
+		end
+
+		local function disableBoatSpeed()
+			disconnect("boat_hover")
+			destroyBoatPlatform()
+		end
+
+		if Toggles.BoatSpeedToggle.Value then
+			enableBoatSpeed()
+		else
+			disableBoatSpeed()
+		end
+	end)
+end
 
 
 Toggles.SpeedHack:OnChanged(function()
