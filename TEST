@@ -323,8 +323,12 @@ TSG.ShieldReloadRemote = resolvePath(ReplicatedStorage, "remoteInterface", "char
 -- it), so it feeds the Shield HUD block counter.
 TSG.ShieldHitRemote = resolvePath(ReplicatedStorage, "remoteInterface", "character", "shieldHit")
 
--- respawn is the RemoteFunction the game calls to actually put you back in the
--- world (captured via cobalt: respawn:InvokeServer(0, 20, 1, 1, <id>, <id>, false, nil)).
+-- reset is the game's server-authoritative reset RemoteFunction (see
+-- PlayerScripts.resetCallback): it returns true only when the server allows it.
+TSG.ResetRemote = resolvePath(ReplicatedStorage, "remoteInterface", "character", "reset")
+
+-- respawn is the RemoteFunction the game calls to put you back in the world
+-- (captured via cobalt: respawn:InvokeServer(0, 20, 1, 1, <id>, <id>, false, nil)).
 -- Calling it directly skips the game's spawn menu.
 TSG.RespawnRemote = resolvePath(ReplicatedStorage, "remoteInterface", "character", "respawn")
 
@@ -5898,10 +5902,25 @@ CombatAutoPVP:AddCheckbox("InstantRespawn", {
 })
 
 do
-	-- Replays the game's own respawn call so the spawn menu never has to be used.
-	-- The two numeric ids are from the captured payload; if the server rejects
-	-- them they may need re-capturing (they can be session-specific).
+	-- Instant Respawn = fire the game's own reset remote, then the respawn remote,
+	-- so you come back instantly and the spawn menu never opens.
+	-- The two numeric ids are from the captured respawn payload; if the server
+	-- rejects them they may need re-capturing (they can be session-specific).
 	InstantRespawnFiring = false
+
+	local function isFreshViable()
+		local humanoid = getHumanoid()
+		return humanoid and humanoid.Health > 0
+	end
+
+	local function fireReset()
+		local remote = TSG.ResetRemote
+		if not remote then return false end
+		local ok, result = pcall(function()
+			return remote:InvokeServer()
+		end)
+		return ok and result and true or false
+	end
 
 	local function fireRespawn()
 		local remote = TSG.RespawnRemote
@@ -5911,16 +5930,32 @@ do
 		end)
 	end
 
-	local function autoRespawnLoop()
+	local function resetAndRespawn()
+		if InstantRespawnFiring then return end
 		InstantRespawnFiring = true
+
+		-- 1) reset the character server-side (same remote the CoreGui reset button fires)
 		local tries = 0
-		while Toggles.InstantRespawn.Value and tries < 30 do
-			local humanoid = getHumanoid()
-			if humanoid and humanoid.Health > 0 then break end
-			fireRespawn()
+		while Toggles.InstantRespawn.Value and isFreshViable() and tries < 20 do
+			if fireReset() then break end
 			tries += 1
-			task.wait(0.25)
+			task.wait(0.2)
 		end
+
+		-- 2) the moment the reset lands, respawn directly - no menu
+		local observedDeath = false
+		tries = 0
+		while Toggles.InstantRespawn.Value and tries < 60 do
+			if not isFreshViable() then
+				observedDeath = true
+				fireRespawn()
+			elseif observedDeath then
+				break
+			end
+			tries += 1
+			task.wait(0.1)
+		end
+
 		InstantRespawnFiring = false
 	end
 
@@ -5930,8 +5965,8 @@ do
 			if not humanoid or not Toggles.InstantRespawn.Value then return end
 			disconnect("InstantRespawn_Died")
 			track("InstantRespawn_Died", humanoid.Died:Connect(function()
-				if Toggles.InstantRespawn.Value and not InstantRespawnFiring then
-					task.spawn(autoRespawnLoop)
+				if Toggles.InstantRespawn.Value then
+					task.spawn(resetAndRespawn)
 				end
 			end))
 		end)
@@ -5944,17 +5979,19 @@ do
 			InstantRespawnFiring = false
 			return
 		end
-		if not TSG.RespawnRemote then
-			Library:Notify({ Title = "Instant Respawn", Description = "Respawn remote not found", Time = 2 })
+		if not TSG.ResetRemote and not TSG.RespawnRemote then
+			Library:Notify({ Title = "Instant Respawn", Description = "Reset/respawn remote not found", Time = 2 })
 			Toggles.InstantRespawn:SetValue(false)
 			return
 		end
+		track("InstantRespawn_CharAdded", LocalPlayer.CharacterAdded:Connect(hookHumanoid))
 		local character = LocalPlayer.Character
 		if character then
 			hookHumanoid(character)
 		end
-		track("InstantRespawn_CharAdded", LocalPlayer.CharacterAdded:Connect(hookHumanoid))
-		Library:Notify({ Title = "Instant Respawn", Description = "On - respawns you on death, no menu", Time = 2 })
+		Library:Notify({ Title = "Instant Respawn", Description = "On - resetting and respawning now", Time = 2 })
+		-- fire it right away so a tick = instant fresh character, and stay armed for later deaths
+		task.spawn(resetAndRespawn)
 	end)
 end
 
