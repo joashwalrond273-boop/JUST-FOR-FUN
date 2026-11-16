@@ -5972,9 +5972,47 @@ do
 		end)
 	end
 
+	-- The game opens its own respawn/spawn menu when you die. While Instant
+	-- Respawn is on we keep that menu hidden so respawning is seamless.
+	local RESPAWN_GUI_HINTS = { "respawn", "spawn", "death", "died", "revive", "defeat", "gameover" }
+	InstantRespawnReportedGui = false
+
+	local function suppressRespawnGui()
+		if not Toggles.InstantRespawn.Value then return end
+		local playerGui = LocalPlayer:FindFirstChildOfClass("PlayerGui")
+		if not playerGui then return end
+
+		local unhidden = {}
+		for _, gui in ipairs(playerGui:GetChildren()) do
+			if gui:IsA("ScreenGui") and gui.Enabled then
+				local lower = string.lower(gui.Name)
+				local hidden = false
+				for _, hint in ipairs(RESPAWN_GUI_HINTS) do
+					if string.find(lower, hint, 1, true) then
+						gui.Enabled = false
+						hidden = true
+						break
+					end
+				end
+				if not hidden then
+					table.insert(unhidden, gui.Name)
+				end
+			end
+		end
+
+		-- report once what we could not identify, so the real menu can be pinned exactly
+		if not isFreshViable() and not InstantRespawnReportedGui then
+			InstantRespawnReportedGui = true
+			if #unhidden > 0 then
+				Library:Notify({ Title = "Instant Respawn", Description = "GUIs while dead: " .. table.concat(unhidden, ", "), Time = 8 })
+			end
+		end
+	end
+
 	Toggles.InstantRespawn:OnChanged(function()
 		disconnect("InstantRespawn_CharAdded")
 		disconnect("InstantRespawn_Died")
+		disconnect("InstantRespawn_GuiWatch")
 		if not Toggles.InstantRespawn.Value then
 			InstantRespawnFiring = false
 			return
@@ -5984,7 +6022,16 @@ do
 			Toggles.InstantRespawn:SetValue(false)
 			return
 		end
+		InstantRespawnReportedGui = false
+		InstantRespawnGuiStamp = 0
 		track("InstantRespawn_CharAdded", LocalPlayer.CharacterAdded:Connect(hookHumanoid))
+		track("InstantRespawn_GuiWatch", RunService.Heartbeat:Connect(function()
+			if not Toggles.InstantRespawn.Value then return end
+			local now = tick()
+			if now - InstantRespawnGuiStamp < 0.1 then return end
+			InstantRespawnGuiStamp = now
+			suppressRespawnGui()
+		end))
 		local character = LocalPlayer.Character
 		if character then
 			hookHumanoid(character)
