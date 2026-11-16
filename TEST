@@ -4483,6 +4483,10 @@ if hookmetamethod then
 		end
 
 		if (method == "FireServer" or method == "InvokeServer") then
+			-- Stamp player melee fires so Laugh On Kill can attribute a kill.
+			if rawequal(self, TSG.MeleePlayerRemote) then
+				LaughKillLastMelee = tick()
+			end
 			local isMeleeHit = rawequal(self, TSG.MeleePlayerRemote)
 				or rawequal(self, TSG.MeleeAI)
 				or rawequal(self, TSG.MeleeAnimalRemote)
@@ -5297,7 +5301,7 @@ CombatShieldSystem:AddToggle("ShieldAutoParry", {
 })
 
 CombatShieldSystem:AddCheckbox("ShieldCustomRefire", {
-	Text = "Custom",
+	Text = "REFIRE CHANGER",
 	Default = false,
 })
 
@@ -5322,7 +5326,7 @@ CombatShieldSystem:AddSlider("ShieldParryStuds", {
 CombatShieldSystem:AddDivider()
 
 CombatShieldSystem:AddCheckbox("ImmortalMode", {
-	Text = "Inf Shield",
+	Text = "Infinite Shield",
 	Default = false,
 })
 
@@ -5691,6 +5695,146 @@ CombatAutoPVP:AddDropdown("BreakStructuresToolSlot", {
 	Default = "5",
 })
 
+CombatAutoPVP:AddCheckbox("LaughOnKill", {
+	Text = "Laugh On Kill",
+	Default = false,
+})
+
+CombatAutoPVP:AddDropdown("LaughOnKillTargets", {
+	Text = "Laugh Target",
+	Values = {},
+	Default = {},
+	Multi = true,
+	AllowNull = true,
+})
+
+-- Laugh On Kill: plays the game's laugh emote after we kill a chosen player.
+-- Kept global on purpose: the main chunk is already at Luau's local variable limit.
+LaughKillLastMelee = 0
+LaughKillTracks = {}
+LaughKillBoundHumans = {}
+LaughKillAnimationId = "rbxassetid://507770818"
+
+function GetLaughTargets()
+	local list = Options.LaughOnKillTargets and Options.LaughOnKillTargets.Value
+	if typeof(list) == "table" then
+		return list
+	end
+	if type(list) == "string" and list ~= "" then
+		return { [list] = true }
+	end
+	return {}
+end
+
+function IsLaughTargetSelected(player)
+	if not player then return false end
+	local targets = GetLaughTargets()
+	if next(targets) == nil then return false end
+	return targets[player.Name] == true
+end
+
+function PlayLaughAnimation()
+	local character = getCharacter()
+	if not character then return end
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if not humanoid then return end
+	local animator = humanoid:FindFirstChildOfClass("Animator")
+	if not animator then
+		animator = Instance.new("Animator")
+		animator.Parent = humanoid
+	end
+	local ok, track = pcall(function()
+		local anim = Instance.new("Animation")
+		anim.AnimationId = LaughKillAnimationId
+		return animator:LoadAnimation(anim)
+	end)
+	if not ok or not track then return end
+	pcall(function()
+		track.Priority = Enum.AnimationPriority.Action4
+		track.Looped = false
+		track:Play(0.1)
+	end)
+	table.insert(LaughKillTracks, track)
+	task.delay(4, function()
+		pcall(function() track:Stop(0.2) end)
+		local idx = table.find(LaughKillTracks, track)
+		if idx then table.remove(LaughKillTracks, idx) end
+	end)
+end
+
+function OnLaughKillVictim(player)
+	if not (Toggles.LaughOnKill and Toggles.LaughOnKill.Value) then return end
+	if not IsLaughTargetSelected(player) then return end
+	local now = tick()
+	local recentMelee = (now - (LaughKillLastMelee or 0)) <= 3
+	local closeEnough = false
+	local myRoot = getRootPart()
+	local victimRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+	if myRoot and victimRoot then
+		closeEnough = (myRoot.Position - victimRoot.Position).Magnitude <= 25
+	end
+	if recentMelee or closeEnough then
+		PlayLaughAnimation()
+	end
+end
+
+function BindLaughVictim(character)
+	if not character then return end
+	local player = Players:GetPlayerFromCharacter(character)
+	if not player or player == LocalPlayer then return end
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if not humanoid then return end
+	if LaughKillBoundHumans[humanoid] then return end
+	LaughKillBoundHumans[humanoid] = true
+	humanoid.Died:Connect(function()
+		LaughKillBoundHumans[humanoid] = nil
+		OnLaughKillVictim(player)
+	end)
+end
+
+function RefreshLaughTargets()
+	pcall(function()
+		if not Options.LaughOnKillTargets then return end
+		local names = {}
+		for _, p in ipairs(Players:GetPlayers()) do
+			if p ~= LocalPlayer then
+				table.insert(names, p.Name)
+			end
+		end
+		local previous = Options.LaughOnKillTargets.Value
+		Options.LaughOnKillTargets:SetValues(names)
+		if typeof(previous) == "table" then
+			local preserved = {}
+			for name, selected in pairs(previous) do
+				if selected == true and table.find(names, name) then
+					preserved[name] = true
+				end
+			end
+			Options.LaughOnKillTargets:SetValue(preserved)
+		end
+	end)
+end
+
+function BindLaughPlayer(p)
+	if not p or p == LocalPlayer then return end
+	p.CharacterAdded:Connect(BindLaughVictim)
+	if p.Character then
+		BindLaughVictim(p.Character)
+	end
+end
+
+track("LaughKillPlayerAdded", Players.PlayerAdded:Connect(function(p)
+	RefreshLaughTargets()
+	BindLaughPlayer(p)
+end))
+track("LaughKillPlayerRemoving", Players.PlayerRemoving:Connect(RefreshLaughTargets))
+task.spawn(function()
+	for _, p in ipairs(Players:GetPlayers()) do
+		BindLaughPlayer(p)
+	end
+	RefreshLaughTargets()
+end)
+
 updatePVPModulesVisibility = function()
 	local isCam = (Toggles.Camlock and Toggles.Camlock.Value) or false
 	local isCamLerp = (Toggles.CamlockCameraLerp and Toggles.CamlockCameraLerp.Value) or false
@@ -6037,7 +6181,7 @@ local function updateImmortalMode()
 	local nearestEnemy = nil
 	local nearestDist = math.huge
 	local activeAttackers = {}
-	-- Ignore Team is baked into Inf Shield: teammates are never targeted.
+	-- Ignore Team is baked into Infinite Shield: teammates are never targeted.
 	local ignoreTeam = true
 
 	for _, player in ipairs(Players:GetPlayers()) do
