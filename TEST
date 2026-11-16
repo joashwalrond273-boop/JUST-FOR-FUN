@@ -5972,41 +5972,67 @@ do
 		end)
 	end
 
-	-- The game opens its own respawn/spawn menu when you die. While Instant
-	-- Respawn is on we keep that menu hidden so respawning is seamless.
-	local RESPAWN_GUI_HINTS = { "respawn", "spawn", "death", "died", "revive", "defeat", "gameover" }
+	-- The game and Roblox both open respawn / death menus when you die. While
+	-- Instant Respawn is on we hide any ScreenGui that looks like one - matched by
+	-- its own name or an ancestor's (so nested menus such as the in-experience
+	-- side sheet are caught) - and restore everything when the toggle goes off.
+	local RESPAWN_GUI_HINTS = { "respawn", "spawn", "death", "died", "revive", "defeat", "gameover", "sheet" }
+	InstantRespawnHidden = {}
 	InstantRespawnReportedGui = false
 
-	local function suppressRespawnGui()
-		if not Toggles.InstantRespawn.Value then return end
-		local playerGui = LocalPlayer:FindFirstChildOfClass("PlayerGui")
-		if not playerGui then return end
-
-		local unhidden = {}
-		for _, gui in ipairs(playerGui:GetChildren()) do
+	local function scanGuiRoot(root, unhidden)
+		if not root then return end
+		for _, gui in ipairs(root:GetDescendants()) do
 			if gui:IsA("ScreenGui") and gui.Enabled then
-				local lower = string.lower(gui.Name)
-				local hidden = false
+				local path = string.lower(gui:GetFullName())
+				local matched = false
 				for _, hint in ipairs(RESPAWN_GUI_HINTS) do
-					if string.find(lower, hint, 1, true) then
-						gui.Enabled = false
-						hidden = true
+					if string.find(path, hint, 1, true) then
+						matched = true
 						break
 					end
 				end
-				if not hidden then
+				if matched then
+					if not InstantRespawnHidden[gui] then
+						InstantRespawnHidden[gui] = true
+						pcall(function()
+							gui.Enabled = false
+						end)
+					end
+				else
 					table.insert(unhidden, gui.Name)
 				end
 			end
 		end
+	end
 
-		-- report once what we could not identify, so the real menu can be pinned exactly
+	local function suppressRespawnGui()
+		if not Toggles.InstantRespawn.Value then return end
+
+		local unhidden = {}
+		scanGuiRoot(LocalPlayer:FindFirstChildOfClass("PlayerGui"), unhidden)
+		pcall(function()
+			scanGuiRoot(game:GetService("CoreGui"), unhidden)
+		end)
+
+		-- report once what we could NOT recognise so the real menu can be pinned exactly
 		if not isFreshViable() and not InstantRespawnReportedGui then
 			InstantRespawnReportedGui = true
 			if #unhidden > 0 then
-				Library:Notify({ Title = "Instant Respawn", Description = "GUIs while dead: " .. table.concat(unhidden, ", "), Time = 8 })
+				Library:Notify({ Title = "Instant Respawn", Description = "GUIs while dead: " .. string.sub(table.concat(unhidden, ", "), 1, 200), Time = 8 })
 			end
 		end
+	end
+
+	local function restoreHiddenGuis()
+		for gui in pairs(InstantRespawnHidden) do
+			pcall(function()
+				if gui.Parent then
+					gui.Enabled = true
+				end
+			end)
+		end
+		InstantRespawnHidden = {}
 	end
 
 	Toggles.InstantRespawn:OnChanged(function()
@@ -6015,6 +6041,7 @@ do
 		disconnect("InstantRespawn_GuiWatch")
 		if not Toggles.InstantRespawn.Value then
 			InstantRespawnFiring = false
+			restoreHiddenGuis()
 			return
 		end
 		if not TSG.ResetRemote and not TSG.RespawnRemote then
@@ -6028,7 +6055,7 @@ do
 		track("InstantRespawn_GuiWatch", RunService.Heartbeat:Connect(function()
 			if not Toggles.InstantRespawn.Value then return end
 			local now = tick()
-			if now - InstantRespawnGuiStamp < 0.1 then return end
+			if now - InstantRespawnGuiStamp < 0.25 then return end
 			InstantRespawnGuiStamp = now
 			suppressRespawnGui()
 		end))
