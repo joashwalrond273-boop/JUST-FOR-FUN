@@ -323,9 +323,10 @@ TSG.ShieldReloadRemote = resolvePath(ReplicatedStorage, "remoteInterface", "char
 -- it), so it feeds the Shield HUD block counter.
 TSG.ShieldHitRemote = resolvePath(ReplicatedStorage, "remoteInterface", "character", "shieldHit")
 
--- reset is the game's server-authoritative respawn RemoteFunction (see
--- PlayerScripts.resetCallback). It returns true only when the server allows it.
-TSG.ResetRemote = resolvePath(ReplicatedStorage, "remoteInterface", "character", "reset")
+-- respawn is the RemoteFunction the game calls to actually put you back in the
+-- world (captured via cobalt: respawn:InvokeServer(0, 20, 1, 1, <id>, <id>, false, nil)).
+-- Calling it directly skips the game's spawn menu.
+TSG.RespawnRemote = resolvePath(ReplicatedStorage, "remoteInterface", "character", "respawn")
 
 TSG.MeleePlayerRemote = (keyedRemotes and rawget(keyedRemotes, "meleePlayer")) or (interactionsFolder and interactionsFolder:FindFirstChild("meleePlayer"))
 TSG.MineRemote = (keyedRemotes and rawget(keyedRemotes, "mine")) or (interactionsFolder and interactionsFolder:FindFirstChild("mine"))
@@ -5897,38 +5898,63 @@ CombatAutoPVP:AddCheckbox("InstantRespawn", {
 })
 
 do
-	-- The game's own resetCallback retries reset:InvokeServer() once per second.
-	-- We hammer the same remote every 0.1s so you respawn the instant the server
-	-- allows it (e.g. right as a boss/PvP reset lockout ends).
-	InstantRespawnRunning = false
+	-- Replays the game's own respawn call so the spawn menu never has to be used.
+	-- The two numeric ids are from the captured payload; if the server rejects
+	-- them they may need re-capturing (they can be session-specific).
+	InstantRespawnFiring = false
+
+	local function fireRespawn()
+		local remote = TSG.RespawnRemote
+		if not remote then return end
+		pcall(function()
+			remote:InvokeServer(0, 20, 1, 1, 10724005, 15382674, false, nil)
+		end)
+	end
+
+	local function autoRespawnLoop()
+		InstantRespawnFiring = true
+		local tries = 0
+		while Toggles.InstantRespawn.Value and tries < 30 do
+			local humanoid = getHumanoid()
+			if humanoid and humanoid.Health > 0 then break end
+			fireRespawn()
+			tries += 1
+			task.wait(0.25)
+		end
+		InstantRespawnFiring = false
+	end
+
+	local function hookHumanoid(character)
+		task.spawn(function()
+			local humanoid = character:WaitForChild("Humanoid", 10)
+			if not humanoid or not Toggles.InstantRespawn.Value then return end
+			disconnect("InstantRespawn_Died")
+			track("InstantRespawn_Died", humanoid.Died:Connect(function()
+				if Toggles.InstantRespawn.Value and not InstantRespawnFiring then
+					task.spawn(autoRespawnLoop)
+				end
+			end))
+		end)
+	end
+
 	Toggles.InstantRespawn:OnChanged(function()
+		disconnect("InstantRespawn_CharAdded")
+		disconnect("InstantRespawn_Died")
 		if not Toggles.InstantRespawn.Value then
-			InstantRespawnRunning = false
+			InstantRespawnFiring = false
 			return
 		end
-		if InstantRespawnRunning then return end
-		if not TSG.ResetRemote then
-			Library:Notify({ Title = "Instant Respawn", Description = "Reset remote not found", Time = 2 })
+		if not TSG.RespawnRemote then
+			Library:Notify({ Title = "Instant Respawn", Description = "Respawn remote not found", Time = 2 })
 			Toggles.InstantRespawn:SetValue(false)
 			return
 		end
-		InstantRespawnRunning = true
-		Library:Notify({ Title = "Instant Respawn", Description = "Armed - will respawn as soon as allowed", Time = 2 })
-		task.spawn(function()
-			while InstantRespawnRunning and Toggles.InstantRespawn.Value do
-				local remote = TSG.ResetRemote
-				if not remote then break end
-				local ok, result = pcall(function()
-					return remote:InvokeServer()
-				end)
-				if ok and result then
-					InstantRespawnRunning = false
-					Library:Notify({ Title = "Instant Respawn", Description = "Respawn accepted", Time = 2 })
-					break
-				end
-				task.wait(0.1)
-			end
-		end)
+		local character = LocalPlayer.Character
+		if character then
+			hookHumanoid(character)
+		end
+		track("InstantRespawn_CharAdded", LocalPlayer.CharacterAdded:Connect(hookHumanoid))
+		Library:Notify({ Title = "Instant Respawn", Description = "On - respawns you on death, no menu", Time = 2 })
 	end)
 end
 
