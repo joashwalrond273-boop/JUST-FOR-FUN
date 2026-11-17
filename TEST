@@ -5785,10 +5785,18 @@ CombatAutoPVP:AddCheckbox("CreateFarmland", {
 -- ==========================================
 -- CREATE FARMLAND
 -- ==========================================
-local FARMLAND_SLOT = 6      -- hotbar slot holding the shovel
-local FARMLAND_SPACING = 4   -- studs between farmland tiles
+-- Kept as globals on purpose: the main chunk is already at Luau's 200-local
+-- register limit, so no extra top-level locals.
+FARMLAND_SLOT = 3        -- tool slot the shovel sits in (first arg of createFarmland)
+FARMLAND_SHOVEL_ID = 6   -- item id of the shovel, used to equip it
+FARMLAND_SPACING = 4     -- studs between farmland tiles
 
-local function getFarmlandHotbarSlot(tool)
+FarmlandRayParams = RaycastParams.new()
+FarmlandRayParams.FilterType = Enum.RaycastFilterType.Exclude
+
+farmlandNextEquip = 0
+
+function getFarmlandHotbarSlot(tool)
 	local slot = tonumber(tool:GetAttribute("slot") or tool:GetAttribute("Slot") or tool:GetAttribute("HotbarSlot"))
 	if slot == nil and tool:FindFirstChild("toolModel") then
 		local tm = tool.toolModel
@@ -5800,41 +5808,33 @@ local function getFarmlandHotbarSlot(tool)
 	return slot
 end
 
-local farmlandNextEquip = 0
-
-local function ensureFarmlandTool()
+-- Equips the shovel when it is not in hand. Returns true only while the shovel
+-- is actually held, so the placement below never fires a request the server
+-- would reject for not holding the tool. Note the placement never marks a tile
+-- as done while this returns false, so standing still after enabling still
+-- places as soon as the shovel lands in your hand.
+function ensureFarmlandTool()
 	local character = getCharacter()
-	if not character then return end
+	if not character then return false end
 
 	local equipped = character:FindFirstChildOfClass("Tool")
-	if equipped and getFarmlandHotbarSlot(equipped) == FARMLAND_SLOT then
-		return
+	if equipped then
+		if getFarmlandHotbarSlot(equipped) == FARMLAND_SLOT then return true end
+		local id = equipped:GetAttribute("id") or equipped:GetAttribute("itemId") or equipped:GetAttribute("ItemId")
+		if id == FARMLAND_SHOVEL_ID then return true end
 	end
 
 	local now = tick()
-	if now < farmlandNextEquip then return end
-	farmlandNextEquip = now + 1
-
-	local tool = nil
-	for _, container in ipairs({ character, LocalPlayer:FindFirstChildOfClass("Backpack") }) do
-		if container then
-			for _, item in ipairs(container:GetChildren()) do
-				if item:IsA("Tool") and getFarmlandHotbarSlot(item) == FARMLAND_SLOT then
-					tool = item
-					break
-				end
-			end
+	if now >= farmlandNextEquip then
+		farmlandNextEquip = now + 1
+		local equipRemote = TSG.EquipHotbarRemote
+		if equipRemote then
+			pcall(function()
+				equipRemote:InvokeServer("inventory", FARMLAND_SLOT, FARMLAND_SHOVEL_ID)
+			end)
 		end
-		if tool then break end
 	end
-	if not tool then return end
-
-	local itemId = tool:GetAttribute("id") or tool:GetAttribute("itemId") or tool:GetAttribute("ItemId")
-	local equipRemote = TSG.EquipHotbarRemote
-	if not equipRemote or not itemId then return end
-	pcall(function()
-		equipRemote:InvokeServer("inventory", FARMLAND_SLOT, itemId)
-	end)
+	return false
 end
 
 Toggles.CreateFarmland:OnChanged(function()
@@ -5854,17 +5854,25 @@ Toggles.CreateFarmland:OnChanged(function()
 
 	track("CreateFarmland_Poll", RunService.Heartbeat:Connect(function()
 		local root = getRootPart()
-		if not root or not isAlive() then
+		local character = getCharacter()
+		if not root or not character or not isAlive() then
 			lastCell = nil
 			return
 		end
 
-		ensureFarmlandTool()
+		-- Wait until the shovel is actually in hand before asking the server to
+		-- place anything, otherwise every request is ignored.
+		if not ensureFarmlandTool() then return end
 
-		-- Snap to a 4 stud world grid so tiles line up as a proper grid.
-		local p = root.Position
-		local baseX = math.floor(p.X / FARMLAND_SPACING) * FARMLAND_SPACING
-		local baseZ = math.floor(p.Z / FARMLAND_SPACING) * FARMLAND_SPACING
+		-- Ground straight under the feet, ignoring the character and its tool.
+		FarmlandRayParams.FilterDescendantsInstances = { character }
+		local ground = workspace:Raycast(root.Position, Vector3.new(0, -50, 0), FarmlandRayParams)
+		if not ground then return end
+
+		-- Farmland sits on a 4 stud grid snapped to whole multiples, so tiles
+		-- line up instead of drifting with the position they were placed from.
+		local baseX = math.floor(ground.Position.X / FARMLAND_SPACING) * FARMLAND_SPACING
+		local baseZ = math.floor(ground.Position.Z / FARMLAND_SPACING) * FARMLAND_SPACING
 
 		local cell = baseX .. "," .. baseZ
 		if cell == lastCell then return end
@@ -5872,7 +5880,7 @@ Toggles.CreateFarmland:OnChanged(function()
 
 		for dx = -1, 1 do
 			for dz = -1, 1 do
-				local pos = Vector3.new(baseX + dx * FARMLAND_SPACING, p.Y, baseZ + dz * FARMLAND_SPACING)
+				local pos = Vector3.new(baseX + dx * FARMLAND_SPACING, ground.Position.Y, baseZ + dz * FARMLAND_SPACING)
 				pcall(function()
 					remote:FireServer(FARMLAND_SLOT, pos, 0)
 				end)
