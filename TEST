@@ -5787,55 +5787,11 @@ CombatAutoPVP:AddCheckbox("CreateFarmland", {
 -- ==========================================
 -- Kept as globals on purpose: the main chunk is already at Luau's 200-local
 -- register limit, so no extra top-level locals.
-FARMLAND_SLOT = 3        -- tool slot the shovel sits in (first arg of createFarmland)
-FARMLAND_SHOVEL_ID = 6   -- item id of the shovel, used to equip it
-FARMLAND_SPACING = 4     -- studs between farmland tiles
+FARMLAND_SLOT = 3       -- tool slot sent as the first arg of createFarmland
+FARMLAND_SPACING = 1    -- 1 stud steps so tiles sit flush instead of spaced out
 
 FarmlandRayParams = RaycastParams.new()
 FarmlandRayParams.FilterType = Enum.RaycastFilterType.Exclude
-
-farmlandNextEquip = 0
-
-function getFarmlandHotbarSlot(tool)
-	local slot = tonumber(tool:GetAttribute("slot") or tool:GetAttribute("Slot") or tool:GetAttribute("HotbarSlot"))
-	if slot == nil and tool:FindFirstChild("toolModel") then
-		local tm = tool.toolModel
-		slot = tonumber(tm:GetAttribute("slot") or tm:GetAttribute("Slot") or tm:GetAttribute("HotbarSlot"))
-	end
-	if slot == nil then
-		slot = tonumber(tool.Name:match("(%d+)"))
-	end
-	return slot
-end
-
--- Equips the shovel when it is not in hand. Returns true only while the shovel
--- is actually held, so the placement below never fires a request the server
--- would reject for not holding the tool. Note the placement never marks a tile
--- as done while this returns false, so standing still after enabling still
--- places as soon as the shovel lands in your hand.
-function ensureFarmlandTool()
-	local character = getCharacter()
-	if not character then return false end
-
-	local equipped = character:FindFirstChildOfClass("Tool")
-	if equipped then
-		if getFarmlandHotbarSlot(equipped) == FARMLAND_SLOT then return true end
-		local id = equipped:GetAttribute("id") or equipped:GetAttribute("itemId") or equipped:GetAttribute("ItemId")
-		if id == FARMLAND_SHOVEL_ID then return true end
-	end
-
-	local now = tick()
-	if now >= farmlandNextEquip then
-		farmlandNextEquip = now + 1
-		local equipRemote = TSG.EquipHotbarRemote
-		if equipRemote then
-			pcall(function()
-				equipRemote:InvokeServer("inventory", FARMLAND_SLOT, FARMLAND_SHOVEL_ID)
-			end)
-		end
-	end
-	return false
-end
 
 Toggles.CreateFarmland:OnChanged(function()
 	disconnect("CreateFarmland_Poll")
@@ -5860,17 +5816,13 @@ Toggles.CreateFarmland:OnChanged(function()
 			return
 		end
 
-		-- Wait until the shovel is actually in hand before asking the server to
-		-- place anything, otherwise every request is ignored.
-		if not ensureFarmlandTool() then return end
-
 		-- Ground straight under the feet, ignoring the character and its tool.
 		FarmlandRayParams.FilterDescendantsInstances = { character }
 		local ground = workspace:Raycast(root.Position, Vector3.new(0, -50, 0), FarmlandRayParams)
 		if not ground then return end
 
-		-- Farmland sits on a 4 stud grid snapped to whole multiples, so tiles
-		-- line up instead of drifting with the position they were placed from.
+		-- Snap to whole studs (FARMLAND_SPACING = 1) so the 3x3 block sits flush
+		-- under the feet instead of leaving gaps between tiles.
 		local baseX = math.floor(ground.Position.X / FARMLAND_SPACING) * FARMLAND_SPACING
 		local baseZ = math.floor(ground.Position.Z / FARMLAND_SPACING) * FARMLAND_SPACING
 
