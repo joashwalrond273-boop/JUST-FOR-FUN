@@ -9375,20 +9375,43 @@ function getMineableFolder()
 	return workspace:FindFirstChild("worldResources") and workspace.worldResources:FindFirstChild("mineable")
 end
 
-function refreshFarmSelector()
+-- Walk every ore node under worldResources.mineable. Nodes live in chunk
+-- folders, but some builds nest deeper or place them directly, so we scan any
+-- Folder descendants and treat every non-Folder object as an ore node.
+function forEachMineableNode(callback)
 	local folder = getMineableFolder()
-	if not folder or not Options.FarmSelector then return end
-
-	local found = {}
-	for _, chunkFolder in ipairs(folder:GetChildren()) do
-		if chunkFolder:IsA("Folder") then
-			for _, obj in ipairs(chunkFolder:GetChildren()) do
-				if obj.Name and obj.Name ~= "" then
-					found[obj.Name] = true
-				end
+	if not folder then return end
+	local function scan(container, depth)
+		for _, child in ipairs(container:GetChildren()) do
+			if child:IsA("Folder") then
+				if depth < 4 then scan(child, depth + 1) end
+			else
+				callback(child)
 			end
 		end
 	end
+	scan(folder, 0)
+end
+
+-- Ore nodes are sometimes Models (with a PrimaryPart) and sometimes plain
+-- BaseParts, so resolve whichever part actually exists.
+function getMineableAnchor(obj)
+	if obj:IsA("BasePart") then return obj end
+	if obj:IsA("Model") then
+		return obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
+	end
+	return nil
+end
+
+function refreshFarmSelector()
+	if not Options.FarmSelector then return end
+
+	local found = {}
+	forEachMineableNode(function(obj)
+		if obj.Name and obj.Name ~= "" then
+			found[obj.Name] = true
+		end
+	end)
 
 	local names = {}
 	for name in pairs(found) do table.insert(names, name) end
@@ -9400,21 +9423,16 @@ function refreshFarmSelector()
 end
 
 function collectMineablePositions(oreName)
-	local folder = getMineableFolder()
 	local positions = {}
-	if not folder then return positions end
-
-	for _, chunkFolder in ipairs(folder:GetChildren()) do
-		if chunkFolder:IsA("Folder") then
-			for _, obj in ipairs(chunkFolder:GetChildren()) do
-				local part = obj.PrimaryPart
-				if obj.Name == oreName and part then
-					-- Hover just above the ore instead of teleporting inside it.
-					table.insert(positions, part.Position + Vector3.new(0, part.Size.Y / 2 + 5, 0))
-				end
+	forEachMineableNode(function(obj)
+		if obj.Name == oreName then
+			local part = getMineableAnchor(obj)
+			if part then
+				-- Hover just above the ore instead of teleporting inside it.
+				table.insert(positions, part.Position + Vector3.new(0, part.Size.Y / 2 + 5, 0))
 			end
 		end
-	end
+	end)
 	return positions
 end
 
@@ -9474,8 +9492,7 @@ function startOreFarm()
 		task.wait(0.15)
 		if Options.FarmSelector.Value ~= oreName then return end
 
-		local positions = collectMineablePositions(oreName)
-		if #positions == 0 then
+		if collectMineablePositions(oreName)[1] == nil then
 			Library:Notify({ Title = "Ore Factory", Description = "No " .. oreName .. " nodes found.", Time = 3 })
 			return
 		end
@@ -9486,28 +9503,39 @@ function startOreFarm()
 		oreFarmRunning = true
 		resetAndWaitForSpawn()
 
+		-- Re-scan every pass: chunks stream in as we travel, and nodes respawn
+		-- after a reset, so a one-time snapshot always misses some of them.
+		local visited = {}
 		local count = 0
-		for _, pos in ipairs(positions) do
-			if not oreFarmRunning then break end
-
-			local target = CFrame.new(pos)
-			local stayUntil = os.clock() + teleportDelay
-			while os.clock() < stayUntil do
+		local pass = 0
+		while oreFarmRunning and pass < 25 do
+			pass = pass + 1
+			local progressed = false
+			for _, pos in ipairs(collectMineablePositions(oreName)) do
 				if not oreFarmRunning then break end
-				local root = getRootPart()
-				if root then
-					root.CFrame = target
-					root.AssemblyLinearVelocity = Vector3.zero
+				local key = math.floor(pos.X) .. ":" .. math.floor(pos.Y) .. ":" .. math.floor(pos.Z)
+				if not visited[key] then
+					visited[key] = true
+					progressed = true
+					local target = CFrame.new(pos)
+					local stayUntil = os.clock() + teleportDelay
+					while os.clock() < stayUntil do
+						if not oreFarmRunning then break end
+						local root = getRootPart()
+						if root then
+							root.CFrame = target
+							root.AssemblyLinearVelocity = Vector3.zero
+						end
+						task.wait()
+					end
+					if not oreFarmRunning then break end
+					count = count + 1
+					if count % resetEvery == 0 then resetAndWaitForSpawn() end
 				end
-				task.wait()
 			end
-
+			if not progressed then break end
 			if not oreFarmRunning then break end
-
-			count = count + 1
-			if count % resetEvery == 0 then
-				resetAndWaitForSpawn()
-			end
+			task.wait(0.2)
 		end
 
 		if not oreFarmRunning then return end
@@ -9609,9 +9637,10 @@ local lastAutoChopHit   = 0
 
 local function mineObject(obj)
 	local slot = tonumber(Options.AutoMineSlot.Value) or 1
-	if obj and obj.PrimaryPart then
+	local anchor = obj and getMineableAnchor(obj)
+	if anchor then
 		pcall(function()
-			TSG.MineRemote:FireServer(slot, obj, CFrame.new(obj.PrimaryPart.Position))
+			TSG.MineRemote:FireServer(slot, obj, CFrame.new(anchor.Position))
 		end)
 	end
 end
@@ -9624,22 +9653,17 @@ local function autoMine()
 
 	local root = getRootPart()
 	if not root then return end
-	local folder = workspace:FindFirstChild("worldResources") and workspace.worldResources:FindFirstChild("mineable")
-	if not folder then return end
 	local maxRange = (Options.AutoMineRange and Options.AutoMineRange.Value) or 30
 	local closest, dist = nil, maxRange
-	for _, subfolder in ipairs(folder:GetChildren()) do
-		if subfolder:IsA("Folder") then
-			for _, obj in ipairs(subfolder:GetChildren()) do
-				if obj.PrimaryPart then
-					local d = (root.Position - obj.PrimaryPart.Position).Magnitude
-					if d < dist then
-						closest, dist = obj, d
-					end
-				end
+	forEachMineableNode(function(obj)
+		local anchor = getMineableAnchor(obj)
+		if anchor then
+			local d = (root.Position - anchor.Position).Magnitude
+			if d < dist then
+				closest, dist = obj, d
 			end
 		end
-	end
+	end)
 	if closest then
 		lastAutoMineHit = tick()
 		mineObject(closest)
