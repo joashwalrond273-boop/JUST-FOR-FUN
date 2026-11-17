@@ -5788,7 +5788,7 @@ CombatAutoPVP:AddCheckbox("CreateFarmland", {
 -- Kept as globals on purpose: the main chunk is already at Luau's 200-local
 -- register limit, so no extra top-level locals.
 FARMLAND_SLOT = 3       -- tool slot sent as the first arg of createFarmland
-FARMLAND_SPACING = 8    -- farmland tiles are 8x8 studs, so 8 keeps them flush
+FARMLAND_STEP = 4       -- studs walked between placements (half an 8x8 tile, so no gaps)
 
 FarmlandRayParams = RaycastParams.new()
 FarmlandRayParams.FilterType = Enum.RaycastFilterType.Exclude
@@ -5806,39 +5806,28 @@ Toggles.CreateFarmland:OnChanged(function()
 		return
 	end
 
-	local lastCell = nil
-	local placedCells = {}
+	local lastSpot = nil
+	local placedSpots = {}
 
-	-- Fires one tile at an exact position, skipping spots already sent so
-	-- walking never re-sends the same place.
+	-- Sends the tile at the exact spot being stood on, skipping spots already
+	-- sent so walking does not re-fire the same stud. The position is left
+	-- unsnapped on purpose: the game snaps it onto its own farmland grid, so
+	-- handing it where the character really stands drops the tile under the
+	-- feet instead of half a tile off to the side of the line being walked.
 	local function placeTile(x, y, z)
-		local key = x .. "," .. z
-		if placedCells[key] then return end
-		placedCells[key] = true
+		local key = math.floor(x / FARMLAND_STEP) .. "," .. math.floor(z / FARMLAND_STEP)
+		if placedSpots[key] then return end
+		placedSpots[key] = true
 		pcall(function()
 			remote:FireServer(FARMLAND_SLOT, Vector3.new(x, y, z), 0)
 		end)
-	end
-
-	-- The farmland grid the game snaps to is offset from whole multiples of 8,
-	-- so each cell is covered from its corner and half a tile in, on both axes.
-	-- Whichever of those the game keeps ends up flush on the line being walked
-	-- instead of shifted half a tile to the side.
-	local function placeCell(cellX, cellZ, y)
-		local half = FARMLAND_SPACING / 2
-		local minX = cellX * FARMLAND_SPACING
-		local minZ = cellZ * FARMLAND_SPACING
-		placeTile(minX, y, minZ)
-		placeTile(minX + half, y, minZ)
-		placeTile(minX, y, minZ + half)
-		placeTile(minX + half, y, minZ + half)
 	end
 
 	track("CreateFarmland_Poll", RunService.Heartbeat:Connect(function()
 		local root = getRootPart()
 		local character = getCharacter()
 		if not root or not character or not isAlive() then
-			lastCell = nil
+			lastSpot = nil
 			return
 		end
 
@@ -5847,33 +5836,13 @@ Toggles.CreateFarmland:OnChanged(function()
 		local ground = workspace:Raycast(root.Position, Vector3.new(0, -50, 0), FarmlandRayParams)
 		if not ground then return end
 
-		-- Snap to the 8x8 grid the shovel uses, so tiles always line up.
-		local cellX = math.floor(ground.Position.X / FARMLAND_SPACING)
-		local cellZ = math.floor(ground.Position.Z / FARMLAND_SPACING)
-		local baseY = ground.Position.Y
+		-- Fires every FARMLAND_STEP studs walked, much denser than the 8x8 tile
+		-- itself, so the whole strip along the path gets covered with no gaps.
+		local spot = math.floor(ground.Position.X / FARMLAND_STEP) .. "," .. math.floor(ground.Position.Z / FARMLAND_STEP)
+		if spot == lastSpot then return end
+		lastSpot = spot
 
-		local cell = cellX .. "," .. cellZ
-		if cell == lastCell then return end
-		lastCell = cell
-
-		placeCell(cellX, cellZ, baseY)
-
-		-- Lead the line the way the character is walking, snapped to the grid
-		-- axes so the farmland stays straight instead of drifting diagonally.
-		local humanoid = getHumanoid()
-		local move = humanoid and humanoid.MoveDirection or Vector3.new(0, 0, 0)
-		local stepX, stepZ = 0, 0
-		if math.abs(move.X) >= math.abs(move.Z) then
-			if move.X > 0.1 then stepX = 1 elseif move.X < -0.1 then stepX = -1 end
-		else
-			if move.Z > 0.1 then stepZ = 1 elseif move.Z < -0.1 then stepZ = -1 end
-		end
-
-		if stepX ~= 0 or stepZ ~= 0 then
-			for i = 1, 3 do
-				placeCell(cellX + stepX * i, cellZ + stepZ * i, baseY)
-			end
-		end
+		placeTile(ground.Position.X, ground.Position.Y, ground.Position.Z)
 	end))
 
 	Library:Notify({ Title = "Create Farmland", Description = "Enabled", Time = 2 })
