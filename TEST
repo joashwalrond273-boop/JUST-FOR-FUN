@@ -5790,8 +5790,9 @@ CombatAutoPVP:AddCheckbox("CreateFarmland", {
 FARMLAND_SLOT = 3       -- tool slot sent as the first arg of createFarmland
 FARMLAND_SPACING = 8    -- farmland tiles are 8x8 studs, so 8 keeps them flush
 FARMLAND_RADIUS = 3     -- extra cells filled each way around the character
-FARMLAND_INTERVAL = 0.03 -- seconds between sends; flooding gets the extras dropped
-FARMLAND_RETRY = 2      -- seconds before an already-sent cell is tried again
+FARMLAND_INTERVAL = 0.04 -- seconds between sends; flooding gets the extras dropped
+FARMLAND_BURST = 2      -- tiles fired per send, to close the area up faster
+FARMLAND_RETRY = 1.5    -- seconds before an already-sent cell is tried again
 
 FarmlandRayParams = RaycastParams.new()
 FarmlandRayParams.FilterType = Enum.RaycastFilterType.Exclude
@@ -5812,29 +5813,35 @@ Toggles.CreateFarmland:OnChanged(function()
 	local placed = {}     -- key -> clock time it was last sent
 	local pending = {}    -- key -> { cellX, cellZ } still waiting to be sent
 	local lastSend = 0    -- clock time of the last send
+	local groundY = nil   -- last known ground height under the feet
 
 	track("CreateFarmland_Poll", RunService.Heartbeat:Connect(function()
 		local root = getRootPart()
 		local character = getCharacter()
 		if not root or not character or not isAlive() then return end
 
-		-- Ground straight under the feet, ignoring the character and its tool.
+		-- Ground height under the feet, used as the height for every tile. If the
+		-- ray misses this frame the last known height is reused instead, so the
+		-- fill never stops just because the ray could not see the ground.
 		FarmlandRayParams.FilterDescendantsInstances = { character }
 		local ground = workspace:Raycast(root.Position, Vector3.new(0, -50, 0), FarmlandRayParams)
-		if not ground then return end
+		if ground then
+			groundY = ground.Position.Y
+		end
 
-		-- Snap to the 8x8 grid so every tile lands on the same lattice as the ones
-		-- beside it.
-		local cellX = math.floor(ground.Position.X / FARMLAND_SPACING)
-		local cellZ = math.floor(ground.Position.Z / FARMLAND_SPACING)
-		local baseY = ground.Position.Y
+		-- The grid cell comes from the character's own position, NOT the raycast.
+		-- Relying on the ray meant that on slopes, on top of already-placed
+		-- farmland, or mid-step wherever it could not see the ground, the whole
+		-- fill bailed out and that land got nothing. This keeps it going.
+		local cellX = math.floor(root.Position.X / FARMLAND_SPACING)
+		local cellZ = math.floor(root.Position.Z / FARMLAND_SPACING)
+		local baseY = groundY or (root.Position.Y - 3)
 		local now = os.clock()
 
 		-- Queue every cell inside the radius that is not already waiting. Once a
 		-- cell has been sent it is only skipped for FARMLAND_RETRY seconds, then it
-		-- goes back in the queue. That is the fix for the gaps: a tile the game
-		-- refused the first time gets fired again instead of being left empty
-		-- forever, so the area keeps getting re-covered until it is actually full.
+		-- goes back in the queue, so a tile the game refused gets fired again
+		-- instead of being left as a permanent gap.
 		for dx = -FARMLAND_RADIUS, FARMLAND_RADIUS do
 			for dz = -FARMLAND_RADIUS, FARMLAND_RADIUS do
 				local cx = cellX + dx
@@ -5854,25 +5861,28 @@ Toggles.CreateFarmland:OnChanged(function()
 		if now - lastSend < FARMLAND_INTERVAL then return end
 		lastSend = now
 
-		-- Send whichever waiting cell is closest to the feet, so the ground under
-		-- and around you always goes first and the fill can never fall behind.
-		local bestKey = nil
-		local bestDist = math.huge
-		for key, c in next, pending do
-			local d = (c[1] - cellX) * (c[1] - cellX) + (c[2] - cellZ) * (c[2] - cellZ)
-			if d < bestDist then
-				bestDist = d
-				bestKey = key
+		-- Fire several tiles per send, always the ones closest to the feet first,
+		-- so the whole area around you closes up quickly and the fill can never
+		-- fall behind the direction you are walking.
+		for _ = 1, FARMLAND_BURST do
+			local bestKey = nil
+			local bestDist = math.huge
+			for key, c in next, pending do
+				local d = (c[1] - cellX) * (c[1] - cellX) + (c[2] - cellZ) * (c[2] - cellZ)
+				if d < bestDist then
+					bestDist = d
+					bestKey = key
+				end
 			end
-		end
-		if not bestKey then return end
+			if not bestKey then break end
 
-		local c = pending[bestKey]
-		pending[bestKey] = nil
-		placed[bestKey] = now
-		pcall(function()
-			remote:FireServer(FARMLAND_SLOT, Vector3.new(c[1] * FARMLAND_SPACING, baseY, c[2] * FARMLAND_SPACING), 0)
-		end)
+			local c = pending[bestKey]
+			pending[bestKey] = nil
+			placed[bestKey] = now
+			pcall(function()
+				remote:FireServer(FARMLAND_SLOT, Vector3.new(c[1] * FARMLAND_SPACING, baseY, c[2] * FARMLAND_SPACING), 0)
+			end)
+		end
 	end))
 
 	Library:Notify({ Title = "Create Farmland", Description = "Enabled", Time = 2 })
