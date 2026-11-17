@@ -9329,11 +9329,13 @@ FarmChop:AddSlider("AutoChopSpeed", {
 
 FarmChop:AddDivider()
 
--- Dynamic mineable farm: the dropdown is filled from every ore found in
--- workspace.worldResources.mineable. Pick one, then press Farm to teleport
--- through that ore's nodes.
+-- Dynamic farm: "Select Mineable" is filled from workspace.worldResources.mineable
+-- and "Select Choppable" from workspace.worldResources.choppable. Pick one, then
+-- press Farm to teleport through that resource's nodes. Mineables drive Auto Mine,
+-- choppables drive Auto Chop.
 -- Kept global on purpose: the main chunk is close to Luau's 200-local limit.
 oreFarmRunning = false
+chopFarmRunning = false
 
 OreFarm:AddDropdown("FarmSelector", {
 	Text = "Select Mineable",
@@ -9341,14 +9343,29 @@ OreFarm:AddDropdown("FarmSelector", {
 	Default = "None",
 })
 
+OreFarm:AddDropdown("ChopSelector", {
+	Text = "Select Choppable",
+	Values = { "None" },
+	Default = "None",
+})
+
 OreFarm:AddButton({
 	Text = "Farm",
 	Func = function()
-		if oreFarmRunning then
+		if oreFarmRunning or chopFarmRunning then
 			stopOreFarm()
+			stopChopFarm()
 			Library:Notify({ Title = "Ore Factory", Description = "Farm stopped.", Time = 3 })
 		else
-			startOreFarm()
+			local chopSel = Options.ChopSelector and Options.ChopSelector.Value
+			local mineSel = Options.FarmSelector and Options.FarmSelector.Value
+			if chopSel and chopSel ~= "None" then
+				startChopFarm()
+			elseif mineSel and mineSel ~= "None" then
+				startOreFarm()
+			else
+				Library:Notify({ Title = "Ore Factory", Description = "Select a mineable or choppable first.", Time = 3 })
+			end
 		end
 	end,
 })
@@ -9375,11 +9392,10 @@ function getMineableFolder()
 	return workspace:FindFirstChild("worldResources") and workspace.worldResources:FindFirstChild("mineable")
 end
 
--- Walk every ore node under worldResources.mineable. Nodes live in chunk
+-- Walk every resource node under a world-resources folder. Nodes live in chunk
 -- folders, but some builds nest deeper or place them directly, so we scan any
--- Folder descendants and treat every non-Folder object as an ore node.
-function forEachMineableNode(callback)
-	local folder = getMineableFolder()
+-- Folder descendants and treat every non-Folder object as a node.
+function forEachResourceNode(folder, callback)
 	if not folder then return end
 	local function scan(container, depth)
 		for _, child in ipairs(container:GetChildren()) do
@@ -9393,6 +9409,10 @@ function forEachMineableNode(callback)
 	scan(folder, 0)
 end
 
+function getChoppableFolder()
+	return workspace:FindFirstChild("worldResources") and workspace.worldResources:FindFirstChild("choppable")
+end
+
 -- Ore nodes are sometimes Models (with a PrimaryPart) and sometimes plain
 -- BaseParts, so resolve whichever part actually exists.
 function getMineableAnchor(obj)
@@ -9403,11 +9423,11 @@ function getMineableAnchor(obj)
 	return nil
 end
 
-function refreshFarmSelector()
-	if not Options.FarmSelector then return end
+function refreshSelector(option, folder)
+	if not option then return end
 
 	local found = {}
-	forEachMineableNode(function(obj)
+	forEachResourceNode(folder, function(obj)
 		if obj.Name and obj.Name ~= "" then
 			found[obj.Name] = true
 		end
@@ -9419,21 +9439,38 @@ function refreshFarmSelector()
 
 	local values = { "None" }
 	for _, name in ipairs(names) do table.insert(values, name) end
-	Options.FarmSelector:SetValues(values)
+	option:SetValues(values)
 end
 
-function collectMineablePositions(oreName)
+function refreshFarmSelector()
+	refreshSelector(Options.FarmSelector, getMineableFolder())
+end
+
+function refreshChopSelector()
+	refreshSelector(Options.ChopSelector, getChoppableFolder())
+end
+
+-- Collect a hover position for every node of the given name. anchorFor resolves
+-- the part to stand near and hover is the extra height above it.
+function collectResourcePositions(folder, name, anchorFor, hover)
 	local positions = {}
-	forEachMineableNode(function(obj)
-		if obj.Name == oreName then
-			local part = getMineableAnchor(obj)
+	forEachResourceNode(folder, function(obj)
+		if obj.Name == name then
+			local part = anchorFor(obj)
 			if part then
-				-- Hover just above the ore instead of teleporting inside it.
-				table.insert(positions, part.Position + Vector3.new(0, part.Size.Y / 2 + 5, 0))
+				table.insert(positions, part.Position + Vector3.new(0, part.Size.Y / 2 + (hover or 5), 0))
 			end
 		end
 	end)
 	return positions
+end
+
+function collectMineablePositions(oreName)
+	return collectResourcePositions(getMineableFolder(), oreName, getMineableAnchor, 5)
+end
+
+function collectChoppablePositions(treeName)
+	return collectResourcePositions(getChoppableFolder(), treeName, getChopTargetPart, 3)
 end
 
 function resetAndWaitForSpawn()
@@ -9555,24 +9592,119 @@ Options.FarmSelector:OnChanged(function()
 	end
 end)
 
+function stopChopFarm()
+	if not chopFarmRunning then return end
+	chopFarmRunning = false
+	if Toggles.AutoChop then Toggles.AutoChop:SetValue(false) end
+end
+
+function startChopFarm()
+	local selected = Options.ChopSelector and Options.ChopSelector.Value
+	local treeName = (selected and selected ~= "None") and selected or nil
+	if not treeName then
+		Library:Notify({ Title = "Ore Factory", Description = "Select a choppable first.", Time = 3 })
+		return
+	end
+
+	stopOreFarm()
+	stopChopFarm()
+
+	if Toggles.AutoChop then Toggles.AutoChop:SetValue(true) end
+
+	task.spawn(function()
+		-- Let any previous run notice the flag before this run takes over.
+		task.wait(0.15)
+		if Options.ChopSelector.Value ~= treeName then return end
+
+		if collectChoppablePositions(treeName)[1] == nil then
+			Library:Notify({ Title = "Ore Factory", Description = "No " .. treeName .. " nodes found.", Time = 3 })
+			return
+		end
+
+		local resetEvery = math.max(1, math.floor((Options.FarmResetEvery and Options.FarmResetEvery.Value) or 3))
+		local teleportDelay = (Options.FarmDelay and Options.FarmDelay.Value) or 1.5
+
+		chopFarmRunning = true
+		resetAndWaitForSpawn()
+
+		-- Re-scan every pass: chunks stream in as we travel, and nodes respawn
+		-- after a reset, so a one-time snapshot always misses some of them.
+		local visited = {}
+		local count = 0
+		local pass = 0
+		while chopFarmRunning and pass < 25 do
+			pass = pass + 1
+			local progressed = false
+			for _, pos in ipairs(collectChoppablePositions(treeName)) do
+				if not chopFarmRunning then break end
+				local key = math.floor(pos.X) .. ":" .. math.floor(pos.Y) .. ":" .. math.floor(pos.Z)
+				if not visited[key] then
+					visited[key] = true
+					progressed = true
+					local target = CFrame.new(pos)
+					local stayUntil = os.clock() + teleportDelay
+					while os.clock() < stayUntil do
+						if not chopFarmRunning then break end
+						local root = getRootPart()
+						if root then
+							root.CFrame = target
+							root.AssemblyLinearVelocity = Vector3.zero
+						end
+						task.wait()
+					end
+					if not chopFarmRunning then break end
+					count = count + 1
+					if count % resetEvery == 0 then resetAndWaitForSpawn() end
+				end
+			end
+			if not progressed then break end
+			if not chopFarmRunning then break end
+			task.wait(0.2)
+		end
+
+		if not chopFarmRunning then return end
+		chopFarmRunning = false
+		if Toggles.AutoChop then Toggles.AutoChop:SetValue(false) end
+		Library:Notify({ Title = "Ore Factory", Description = "Finished farming " .. treeName .. ".", Time = 3 })
+	end)
+end
+
+Options.ChopSelector:OnChanged(function()
+	-- Changing the selected choppable stops whatever is currently farming.
+	if chopFarmRunning then
+		stopChopFarm()
+	end
+end)
+
 task.spawn(function()
-	-- The mineable folder usually isn't loaded the instant the script runs, so
-	-- wait for it before filling the list, then keep the list fresh.
-	local folder = getMineableFolder()
+	-- The resource folders usually aren't loaded the instant the script runs, so
+	-- wait for them before filling the lists, then keep the lists fresh.
+	local mineFolder = getMineableFolder()
+	local chopFolder = getChoppableFolder()
 	local waited = 0
-	while not folder and waited < 60 do
+	while (not mineFolder or not chopFolder) and waited < 60 do
 		task.wait(0.5)
 		waited = waited + 1
-		folder = getMineableFolder()
+		mineFolder = getMineableFolder()
+		chopFolder = getChoppableFolder()
 	end
 
 	refreshFarmSelector()
+	refreshChopSelector()
 
-	if folder then
+	if mineFolder then
 		disconnect("FarmSelectorScan")
-		track("FarmSelectorScan", folder.ChildAdded:Connect(function()
+		track("FarmSelectorScan", mineFolder.ChildAdded:Connect(function()
 			task.wait(0.5)
 			pcall(refreshFarmSelector)
+		end))
+	end
+
+	if chopFolder then
+		disconnect("ChopSelectorScan")
+		track("ChopSelectorScan", chopFolder.ChildAdded:Connect(function()
+			task.wait(0.5)
+			pcall(refreshChopSelector)
 		end))
 	end
 end)
@@ -9655,7 +9787,7 @@ local function autoMine()
 	if not root then return end
 	local maxRange = (Options.AutoMineRange and Options.AutoMineRange.Value) or 30
 	local closest, dist = nil, maxRange
-	forEachMineableNode(function(obj)
+	forEachResourceNode(getMineableFolder(), function(obj)
 		local anchor = getMineableAnchor(obj)
 		if anchor then
 			local d = (root.Position - anchor.Position).Magnitude
