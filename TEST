@@ -331,6 +331,7 @@ TSG.BuildRemote = (keyedRemotes and rawget(keyedRemotes, "build")) or (interacti
 TSG.CraftRemote = (keyedRemotes and rawget(keyedRemotes, "craft")) or (interactionsFolder and interactionsFolder:FindFirstChild("craft"))
 TSG.DeleteStructureRemote = (keyedRemotes and rawget(keyedRemotes, "deleteStructure")) or (interactionsFolder and interactionsFolder:FindFirstChild("deleteStructure"))
 TSG.HitStructureRemote = (keyedRemotes and rawget(keyedRemotes, "hitStructure")) or (interactionsFolder and interactionsFolder:FindFirstChild("hitStructure")) or resolvePath(ReplicatedStorage, "remoteInterface", "interactions", "hitStructure")
+TSG.CreateFarmlandRemote = (keyedRemotes and rawget(keyedRemotes, "createFarmland")) or (interactionsFolder and interactionsFolder:FindFirstChild("createFarmland"))
 
 -- No Bear Trap DMG remote (intercepted via the __namecall hook below)
 local TrapRunEvent = resolvePath(ReplicatedStorage, "remoteInterface", "traps", "Run") or (ReplicatedStorage:FindFirstChild("remoteInterface") and ReplicatedStorage.remoteInterface:FindFirstChild("traps") and ReplicatedStorage.remoteInterface.traps:FindFirstChild("Run"))
@@ -1176,6 +1177,82 @@ AutoArmorDeluxeGroup:AddButton({
 	Text = "Equip Best Sword",
 	Func = function()
 		equipBestSword()
+	end,
+})
+
+AutoArmorDeluxeGroup:AddDivider()
+
+AutoArmorDeluxeGroup:AddSlider("HotbarPresetSlot", {
+	Text = "Hotbar Preset Slot",
+	Default = 1,
+	Min = 1,
+	Max = 9,
+	Rounding = 0,
+	Compact = true,
+})
+
+HotbarPresets = {}
+
+AutoArmorDeluxeGroup:AddButton({
+	Text = "Save Hotbar",
+	Func = function()
+		local slot = math.floor((Options.HotbarPresetSlot and Options.HotbarPresetSlot.Value) or 1)
+		local preset = {}
+		local containers = {}
+		local character = getCharacter()
+		if character then
+			table.insert(containers, character)
+		end
+		local backpack = LocalPlayer:FindFirstChildOfClass("Backpack")
+		if backpack then
+			table.insert(containers, backpack)
+		end
+		for _, container in ipairs(containers) do
+			for _, tool in ipairs(container:GetChildren()) do
+				if tool:IsA("Tool") then
+					local hotbarSlot = tonumber(tool:GetAttribute("slot") or tool:GetAttribute("Slot") or tool:GetAttribute("HotbarSlot"))
+					if hotbarSlot == nil and tool:FindFirstChild("toolModel") then
+						hotbarSlot = tonumber(tool.toolModel:GetAttribute("slot") or tool.toolModel:GetAttribute("Slot") or tool.toolModel:GetAttribute("HotbarSlot"))
+					end
+					if hotbarSlot == nil then
+						hotbarSlot = tonumber(tool.Name:match("(%d+)"))
+					end
+					if hotbarSlot then
+						preset[hotbarSlot] = tool:GetAttribute("id") or tool:GetAttribute("itemId") or tool:GetAttribute("ItemId")
+					end
+				end
+			end
+		end
+		HotbarPresets[slot] = preset
+		Library:Notify({ Title = "Hotbar", Description = "Saved preset " .. tostring(slot), Time = 2 })
+	end,
+})
+
+AutoArmorDeluxeGroup:AddButton({
+	Text = "Load Hotbar",
+	Func = function()
+		local slot = math.floor((Options.HotbarPresetSlot and Options.HotbarPresetSlot.Value) or 1)
+		local preset = HotbarPresets[slot]
+		if not preset or not next(preset) then
+			Library:Notify({ Title = "Hotbar", Description = "Preset " .. tostring(slot) .. " is empty", Time = 2 })
+			return
+		end
+		local equipRemote = TSG.EquipHotbarRemote
+		if not equipRemote then
+			Library:Notify({ Title = "Hotbar", Description = "Hotbar remote not found", Time = 2 })
+			return
+		end
+		task.spawn(function()
+			for hotbarSlot, itemId in pairs(preset) do
+				if itemId then
+					pcall(function()
+						equipRemote:InvokeServer("inventory", hotbarSlot, itemId)
+					end)
+					task.wait(1)
+				end
+			end
+		end)
+		Library:Notify({ Title = "Hotbar", Description = "Loaded preset " .. tostring(slot), Time = 2 })
 	end,
 })
 
@@ -5700,79 +5777,111 @@ CombatAutoPVP = Tabs.Combat:AddRightGroupbox("UTILITIES", "swords")
 
 CombatAutoPVP:AddDivider()
 
-CombatAutoPVP:AddSlider("HotbarPresetSlot", {
-	Text = "Hotbar Preset Slot",
-	Default = 1,
-	Min = 1,
-	Max = 9,
-	Rounding = 0,
-	Compact = true,
+CombatAutoPVP:AddCheckbox("CreateFarmland", {
+	Text = "Create Farmland",
+	Default = false,
 })
 
-HotbarPresets = {}
+-- ==========================================
+-- CREATE FARMLAND
+-- ==========================================
+local FARMLAND_SLOT = 6      -- hotbar slot holding the shovel
+local FARMLAND_SPACING = 4   -- studs between farmland tiles
 
-CombatAutoPVP:AddButton({
-	Text = "Save Hotbar",
-	Func = function()
-		local slot = math.floor((Options.HotbarPresetSlot and Options.HotbarPresetSlot.Value) or 1)
-		local preset = {}
-		local containers = {}
-		local character = getCharacter()
-		if character then
-			table.insert(containers, character)
-		end
-		local backpack = LocalPlayer:FindFirstChildOfClass("Backpack")
-		if backpack then
-			table.insert(containers, backpack)
-		end
-		for _, container in ipairs(containers) do
-			for _, tool in ipairs(container:GetChildren()) do
-				if tool:IsA("Tool") then
-					local hotbarSlot = tonumber(tool:GetAttribute("slot") or tool:GetAttribute("Slot") or tool:GetAttribute("HotbarSlot"))
-					if hotbarSlot == nil and tool:FindFirstChild("toolModel") then
-						hotbarSlot = tonumber(tool.toolModel:GetAttribute("slot") or tool.toolModel:GetAttribute("Slot") or tool.toolModel:GetAttribute("HotbarSlot"))
-					end
-					if hotbarSlot == nil then
-						hotbarSlot = tonumber(tool.Name:match("(%d+)"))
-					end
-					if hotbarSlot then
-						preset[hotbarSlot] = tool:GetAttribute("id") or tool:GetAttribute("itemId") or tool:GetAttribute("ItemId")
-					end
+local function getFarmlandHotbarSlot(tool)
+	local slot = tonumber(tool:GetAttribute("slot") or tool:GetAttribute("Slot") or tool:GetAttribute("HotbarSlot"))
+	if slot == nil and tool:FindFirstChild("toolModel") then
+		local tm = tool.toolModel
+		slot = tonumber(tm:GetAttribute("slot") or tm:GetAttribute("Slot") or tm:GetAttribute("HotbarSlot"))
+	end
+	if slot == nil then
+		slot = tonumber(tool.Name:match("(%d+)"))
+	end
+	return slot
+end
+
+local farmlandNextEquip = 0
+
+local function ensureFarmlandTool()
+	local character = getCharacter()
+	if not character then return end
+
+	local equipped = character:FindFirstChildOfClass("Tool")
+	if equipped and getFarmlandHotbarSlot(equipped) == FARMLAND_SLOT then
+		return
+	end
+
+	local now = tick()
+	if now < farmlandNextEquip then return end
+	farmlandNextEquip = now + 1
+
+	local tool = nil
+	for _, container in ipairs({ character, LocalPlayer:FindFirstChildOfClass("Backpack") }) do
+		if container then
+			for _, item in ipairs(container:GetChildren()) do
+				if item:IsA("Tool") and getFarmlandHotbarSlot(item) == FARMLAND_SLOT then
+					tool = item
+					break
 				end
 			end
 		end
-		HotbarPresets[slot] = preset
-		Library:Notify({ Title = "Hotbar", Description = "Saved preset " .. tostring(slot), Time = 2 })
-	end,
-})
+		if tool then break end
+	end
+	if not tool then return end
 
-CombatAutoPVP:AddButton({
-	Text = "Load Hotbar",
-	Func = function()
-		local slot = math.floor((Options.HotbarPresetSlot and Options.HotbarPresetSlot.Value) or 1)
-		local preset = HotbarPresets[slot]
-		if not preset or not next(preset) then
-			Library:Notify({ Title = "Hotbar", Description = "Preset " .. tostring(slot) .. " is empty", Time = 2 })
+	local itemId = tool:GetAttribute("id") or tool:GetAttribute("itemId") or tool:GetAttribute("ItemId")
+	local equipRemote = TSG.EquipHotbarRemote
+	if not equipRemote or not itemId then return end
+	pcall(function()
+		equipRemote:InvokeServer("inventory", FARMLAND_SLOT, itemId)
+	end)
+end
+
+Toggles.CreateFarmland:OnChanged(function()
+	disconnect("CreateFarmland_Poll")
+	if not Toggles.CreateFarmland.Value then
+		Library:Notify({ Title = "Create Farmland", Description = "Disabled", Time = 2 })
+		return
+	end
+
+	local remote = TSG.CreateFarmlandRemote
+	if not remote then
+		Library:Notify({ Title = "Create Farmland", Description = "createFarmland remote not found", Time = 2 })
+		return
+	end
+
+	local lastCell = nil
+
+	track("CreateFarmland_Poll", RunService.Heartbeat:Connect(function()
+		local root = getRootPart()
+		if not root or not isAlive() then
+			lastCell = nil
 			return
 		end
-		local equipRemote = TSG.EquipHotbarRemote
-		if not equipRemote then
-			Library:Notify({ Title = "Hotbar", Description = "Hotbar remote not found", Time = 2 })
-			return
-		end
-		task.spawn(function()
-			for hotbarSlot, itemId in pairs(preset) do
-				if itemId then
-					pcall(function()
-						equipRemote:InvokeServer("inventory", hotbarSlot, itemId)
-					end)
-					task.wait(1)
-				end
+
+		ensureFarmlandTool()
+
+		-- Snap to a 4 stud world grid so tiles line up as a proper grid.
+		local p = root.Position
+		local baseX = math.floor(p.X / FARMLAND_SPACING) * FARMLAND_SPACING
+		local baseZ = math.floor(p.Z / FARMLAND_SPACING) * FARMLAND_SPACING
+
+		local cell = baseX .. "," .. baseZ
+		if cell == lastCell then return end
+		lastCell = cell
+
+		for dx = -1, 1 do
+			for dz = -1, 1 do
+				local pos = Vector3.new(baseX + dx * FARMLAND_SPACING, p.Y, baseZ + dz * FARMLAND_SPACING)
+				pcall(function()
+					remote:FireServer(FARMLAND_SLOT, pos, 0)
+				end)
 			end
-		end)
-		Library:Notify({ Title = "Hotbar", Description = "Loaded preset " .. tostring(slot), Time = 2 })
-	end,
-})
+		end
+	end))
+
+	Library:Notify({ Title = "Create Farmland", Description = "Enabled", Time = 2 })
+end)
 
 updatePVPModulesVisibility = function()
 	local isCam = (Toggles.Camlock and Toggles.Camlock.Value) or false
