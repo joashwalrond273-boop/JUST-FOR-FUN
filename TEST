@@ -5788,7 +5788,7 @@ CombatAutoPVP:AddCheckbox("CreateFarmland", {
 -- Kept as globals on purpose: the main chunk is already at Luau's 200-local
 -- register limit, so no extra top-level locals.
 FARMLAND_SLOT = 3       -- tool slot sent as the first arg of createFarmland
-FARMLAND_SPACING = 1    -- grid cell size in studs: 1 keeps the tiles packed tight
+FARMLAND_SPACING = 8    -- farmland tiles are 8x8 studs, so 8 keeps them flush
 
 FarmlandRayParams = RaycastParams.new()
 FarmlandRayParams.FilterType = Enum.RaycastFilterType.Exclude
@@ -5809,29 +5809,15 @@ Toggles.CreateFarmland:OnChanged(function()
 	local lastCell = nil
 	local placedCells = {}
 
-	-- Fires one tile at an exact position, skipping spots already sent so
-	-- walking never re-sends the same place.
-	local function placeTile(x, y, z)
-		local key = x .. "," .. z
+	-- Places the tile that owns cell (cx, cz) on the 8 stud grid, skipping
+	-- cells that already got one so walking never re-sends the same spot.
+	local function placeFarmland(cx, cz, y)
+		local key = cx .. "," .. cz
 		if placedCells[key] then return end
 		placedCells[key] = true
 		pcall(function()
-			remote:FireServer(FARMLAND_SLOT, Vector3.new(x, y, z), 0)
+			remote:FireServer(FARMLAND_SLOT, Vector3.new(cx * FARMLAND_SPACING, y, cz * FARMLAND_SPACING), 0)
 		end)
-	end
-
-	-- The farmland grid the game snaps to is offset from whole multiples, so
-	-- each cell is covered from its corner and half a cell in, on both axes.
-	-- Whichever of those the game keeps ends up flush on the line being walked
-	-- instead of shifted half a tile to the side.
-	local function placeCell(cellX, cellZ, y)
-		local half = FARMLAND_SPACING / 2
-		local minX = cellX * FARMLAND_SPACING
-		local minZ = cellZ * FARMLAND_SPACING
-		placeTile(minX, y, minZ)
-		placeTile(minX + half, y, minZ)
-		placeTile(minX, y, minZ + half)
-		placeTile(minX + half, y, minZ + half)
 	end
 
 	track("CreateFarmland_Poll", RunService.Heartbeat:Connect(function()
@@ -5847,7 +5833,7 @@ Toggles.CreateFarmland:OnChanged(function()
 		local ground = workspace:Raycast(root.Position, Vector3.new(0, -50, 0), FarmlandRayParams)
 		if not ground then return end
 
-		-- Snap to whole studs so the tiles stay packed instead of spread.
+		-- Snap to the 8x8 grid the shovel uses, so tiles always line up.
 		local cellX = math.floor(ground.Position.X / FARMLAND_SPACING)
 		local cellZ = math.floor(ground.Position.Z / FARMLAND_SPACING)
 		local baseY = ground.Position.Y
@@ -5856,7 +5842,7 @@ Toggles.CreateFarmland:OnChanged(function()
 		if cell == lastCell then return end
 		lastCell = cell
 
-		placeCell(cellX, cellZ, baseY)
+		placeFarmland(cellX, cellZ, baseY)
 
 		-- Lead the line the way the character is walking, snapped to the grid
 		-- axes so the farmland stays straight instead of drifting diagonally.
@@ -5871,7 +5857,7 @@ Toggles.CreateFarmland:OnChanged(function()
 
 		if stepX ~= 0 or stepZ ~= 0 then
 			for i = 1, 3 do
-				placeCell(cellX + stepX * i, cellZ + stepZ * i, baseY)
+				placeFarmland(cellX + stepX * i, cellZ + stepZ * i, baseY)
 			end
 		end
 	end))
