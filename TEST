@@ -5789,8 +5789,9 @@ CombatAutoPVP:AddCheckbox("CreateFarmland", {
 -- register limit, so no extra top-level locals.
 FARMLAND_SLOT = 3       -- tool slot sent as the first arg of createFarmland
 FARMLAND_SPACING = 8    -- farmland tiles are 8x8 studs, so 8 keeps them flush
-FARMLAND_RADIUS = 2     -- extra cells filled each way around the character
-FARMLAND_INTERVAL = 0.05 -- seconds between sends; flooding gets the extras dropped
+FARMLAND_RADIUS = 3     -- extra cells filled each way around the character
+FARMLAND_INTERVAL = 0.03 -- seconds between sends; flooding gets the extras dropped
+FARMLAND_RETRY = 2      -- seconds before an already-sent cell is tried again
 
 FarmlandRayParams = RaycastParams.new()
 FarmlandRayParams.FilterType = Enum.RaycastFilterType.Exclude
@@ -5808,8 +5809,9 @@ Toggles.CreateFarmland:OnChanged(function()
 		return
 	end
 
-	local placedCells = {}
-	local lastSend = 0       -- clock time of the last send
+	local placed = {}     -- key -> clock time it was last sent
+	local pending = {}    -- key -> { cellX, cellZ } still waiting to be sent
+	local lastSend = 0    -- clock time of the last send
 
 	track("CreateFarmland_Poll", RunService.Heartbeat:Connect(function()
 		local root = getRootPart()
@@ -5821,40 +5823,56 @@ Toggles.CreateFarmland:OnChanged(function()
 		local ground = workspace:Raycast(root.Position, Vector3.new(0, -50, 0), FarmlandRayParams)
 		if not ground then return end
 
-		-- Snap to the 8x8 grid so every tile lands on the SAME lattice as the ones
-		-- beside it. One tile per cell only: the old code fired four overlapping
-		-- half-offset tiles per cell, which is what made everything look shifted
-		-- instead of lined up.
+		-- Snap to the 8x8 grid so every tile lands on the same lattice as the ones
+		-- beside it.
 		local cellX = math.floor(ground.Position.X / FARMLAND_SPACING)
 		local cellZ = math.floor(ground.Position.Z / FARMLAND_SPACING)
 		local baseY = ground.Position.Y
-
-		-- One tile per short interval. The scan always starts under the feet and
-		-- works outwards, so the nearest empty cell is whatever gets placed next.
-		-- That is why it never stalls: there is no queue to get stuck behind, it
-		-- just keeps filling the ground around you for as long as you walk.
 		local now = os.clock()
-		if now - lastSend < FARMLAND_INTERVAL then return end
 
-		for r = 0, FARMLAND_RADIUS do
-			for dx = -r, r do
-				for dz = -r, r do
-					if math.max(math.abs(dx), math.abs(dz)) == r then
-						local x = (cellX + dx) * FARMLAND_SPACING
-						local z = (cellZ + dz) * FARMLAND_SPACING
-						local key = x .. "," .. z
-						if not placedCells[key] then
-							placedCells[key] = true
-							lastSend = now
-							pcall(function()
-								remote:FireServer(FARMLAND_SLOT, Vector3.new(x, baseY, z), 0)
-							end)
-							return
-						end
-					end
+		-- Queue every cell inside the radius that is not already waiting. Once a
+		-- cell has been sent it is only skipped for FARMLAND_RETRY seconds, then it
+		-- goes back in the queue. That is the fix for the gaps: a tile the game
+		-- refused the first time gets fired again instead of being left empty
+		-- forever, so the area keeps getting re-covered until it is actually full.
+		for dx = -FARMLAND_RADIUS, FARMLAND_RADIUS do
+			for dz = -FARMLAND_RADIUS, FARMLAND_RADIUS do
+				local cx = cellX + dx
+				local cz = cellZ + dz
+				local key = cx .. "," .. cz
+				local sentAt = placed[key]
+				if sentAt and now - sentAt > FARMLAND_RETRY then
+					placed[key] = nil
+					sentAt = nil
+				end
+				if not sentAt and not pending[key] then
+					pending[key] = { cx, cz }
 				end
 			end
 		end
+
+		if now - lastSend < FARMLAND_INTERVAL then return end
+		lastSend = now
+
+		-- Send whichever waiting cell is closest to the feet, so the ground under
+		-- and around you always goes first and the fill can never fall behind.
+		local bestKey = nil
+		local bestDist = math.huge
+		for key, c in next, pending do
+			local d = (c[1] - cellX) * (c[1] - cellX) + (c[2] - cellZ) * (c[2] - cellZ)
+			if d < bestDist then
+				bestDist = d
+				bestKey = key
+			end
+		end
+		if not bestKey then return end
+
+		local c = pending[bestKey]
+		pending[bestKey] = nil
+		placed[bestKey] = now
+		pcall(function()
+			remote:FireServer(FARMLAND_SLOT, Vector3.new(c[1] * FARMLAND_SPACING, baseY, c[2] * FARMLAND_SPACING), 0)
+		end)
 	end))
 
 	Library:Notify({ Title = "Create Farmland", Description = "Enabled", Time = 2 })
