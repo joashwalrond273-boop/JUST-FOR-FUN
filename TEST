@@ -9426,12 +9426,21 @@ end
 function refreshSelector(option, folder)
 	if not option then return end
 
+	local previous = option.Value
+
 	local found = {}
 	forEachResourceNode(folder, function(obj)
 		if obj.Name and obj.Name ~= "" then
 			found[obj.Name] = true
 		end
 	end)
+
+	-- Keep the current choice in the list. The folder briefly empties while a
+	-- reset streams chunks back in, and Obsidian's SetValues drops the selected
+	-- value from the dropdown whenever it is missing from the new list.
+	if previous and previous ~= "None" then
+		found[previous] = true
+	end
 
 	local names = {}
 	for name in pairs(found) do table.insert(names, name) end
