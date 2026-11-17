@@ -5789,8 +5789,8 @@ CombatAutoPVP:AddCheckbox("CreateFarmland", {
 -- register limit, so no extra top-level locals.
 FARMLAND_SLOT = 3       -- tool slot sent as the first arg of createFarmland
 FARMLAND_SPACING = 8    -- farmland tiles are 8x8 studs, so 8 keeps them flush
-FARMLAND_RADIUS = 8     -- grid cells filled in every direction around the character
-FARMLAND_BURST = 20     -- most tiles sent per frame, so switching it on does not flood
+FARMLAND_RADIUS = 2     -- extra cells filled each way around the character
+FARMLAND_INTERVAL = 0.05 -- seconds between sends; flooding gets the extras dropped
 
 FarmlandRayParams = RaycastParams.new()
 FarmlandRayParams.FilterType = Enum.RaycastFilterType.Exclude
@@ -5812,6 +5812,7 @@ Toggles.CreateFarmland:OnChanged(function()
 	local placedCells = {}   -- tiles already sent
 	local queued = {}        -- tiles currently waiting, so none are added twice
 	local queue = {}         -- { x, y, z, key } entries still to send
+	local lastSend = 0       -- clock time of the last send
 
 	-- Adds one tile position to the send queue, skipping anything already sent
 	-- or already waiting in the queue.
@@ -5855,32 +5856,36 @@ Toggles.CreateFarmland:OnChanged(function()
 		local cellZ = math.floor(ground.Position.Z / FARMLAND_SPACING)
 		local baseY = ground.Position.Y
 
-		-- Whenever the feet enter a new grid cell, queue the whole square of
-		-- cells around the character (the cell under the feet included) and both
-		-- grid alignments of each. Turning it on therefore fills the entire area
-		-- right away, and walking keeps adding the fresh ground ahead, so the
-		-- whole area ends up covered with no gaps.
+		-- Queue the cell under the feet FIRST, then the ring around it, each time
+		-- the feet enter a new cell, so the tile beneath you is always sent before
+		-- anything else and the spot you are standing on is never skipped.
 		local cell = cellX .. "," .. cellZ
 		if cell ~= lastCell then
 			lastCell = cell
+			enqueueCell(cellX, cellZ, baseY)
 			for dx = -FARMLAND_RADIUS, FARMLAND_RADIUS do
 				for dz = -FARMLAND_RADIUS, FARMLAND_RADIUS do
-					enqueueCell(cellX + dx, cellZ + dz, baseY)
+					if dx ~= 0 or dz ~= 0 then
+						enqueueCell(cellX + dx, cellZ + dz, baseY)
+					end
 				end
 			end
 		end
 
-		-- Send a limited number of tiles each frame so a large area fills up
-		-- progressively instead of flooding the remote in a single frame.
-		for _ = 1, FARMLAND_BURST do
-			local tile = table.remove(queue)
-			if not tile then break end
-			queued[tile[4]] = nil
-			placedCells[tile[4]] = true
-			pcall(function()
-				remote:FireServer(FARMLAND_SLOT, Vector3.new(tile[1], tile[2], tile[3]), 0)
-			end)
-		end
+		-- The game only accepts a placement every so often, so send ONE tile per
+		-- interval instead of a burst. Bursting just gets the extras dropped, which
+		-- is why only one tile showed up before. FIFO keeps the tile under the feet
+		-- at the front of the queue.
+		local now = os.clock()
+		if now - lastSend < FARMLAND_INTERVAL then return end
+		local tile = table.remove(queue, 1)
+		if not tile then return end
+		lastSend = now
+		queued[tile[4]] = nil
+		placedCells[tile[4]] = true
+		pcall(function()
+			remote:FireServer(FARMLAND_SLOT, Vector3.new(tile[1], tile[2], tile[3]), 0)
+		end)
 	end))
 
 	Library:Notify({ Title = "Create Farmland", Description = "Enabled", Time = 2 })
