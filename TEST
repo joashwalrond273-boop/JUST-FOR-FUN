@@ -5773,7 +5773,7 @@ task.spawn(function()
 	end
 end)
 
-CombatAutoPVP = Tabs.Combat:AddRightGroupbox("UTILITIES", "swords")
+CombatAutoPVP = Tabs.Combat:AddRightGroupbox("FARMING", "swords")
 
 CombatAutoPVP:AddDivider()
 
@@ -5808,13 +5808,11 @@ Toggles.CreateFarmland:OnChanged(function()
 
 	local placed = {}       -- cell key -> clock time it was last sent
 	local groundY = nil     -- last known ground height under the feet
-	local lastSend = 0      -- clock time of the last tile
-	local frontN = 0        -- how far ahead of the feet the line has reached
-	local lastFdx, lastFdz  -- last facing direction
-	local lastFeetX, lastFeetZ
+	local lastSend = 0      -- clock time of the last placement round
 
-	local STEP_TIME = 0.05  -- seconds between tiles, so the line grows fast
-	local MAX_AHEAD = 16    -- keeps the line from running away when standing still
+	local AHEAD = 3         -- tiles placed straight forward of the feet
+	local STEP_TIME = 0.05  -- seconds between rounds, so it keeps up as you walk
+	local RETRY = 0.6       -- re-send a tile after this long if it did not stick
 
 	track("CreateFarmland_Poll", RunService.Heartbeat:Connect(function()
 		local root = getRootPart()
@@ -5829,11 +5827,12 @@ Toggles.CreateFarmland:OnChanged(function()
 		end
 		local baseY = groundY or (root.Position.Y - 3)
 
+		-- Cell under the feet.
 		local feetX = math.floor(root.Position.X / FARMLAND_SPACING)
 		local feetZ = math.floor(root.Position.Z / FARMLAND_SPACING)
 
-		-- Facing direction snapped to a grid axis (N, S, E or W), so the line stays
-		-- perfectly straight and turning simply turns the line.
+		-- Direction you look, snapped to a grid axis (N, S, E or W), so the tiles
+		-- stay flush and the line goes whichever way you face.
 		local humanoid = getHumanoid()
 		local dir = (humanoid and humanoid.MoveDirection) or Vector3.zero
 		if dir.Magnitude < 0.1 then
@@ -5846,36 +5845,24 @@ Toggles.CreateFarmland:OnChanged(function()
 			fdx, fdz = 0, (dir.Z >= 0 and 1 or -1)
 		end
 
-		-- Restart the line under the feet whenever you turn or walk into a new
-		-- cell, so the line always starts where you are and never stops.
-		if fdx ~= lastFdx or fdz ~= lastFdz then
-			lastFdx, lastFdz = fdx, fdz
-			frontN = 0
-		end
-		if feetX ~= lastFeetX or feetZ ~= lastFeetZ then
-			lastFeetX, lastFeetZ = feetX, feetZ
-			frontN = 0
-		end
-
 		local now = os.clock()
 		if now - lastSend < STEP_TIME then return end
-		if frontN >= MAX_AHEAD then return end
 		lastSend = now
 
-		-- One tile per step, straight ahead of the feet: the first sits under your
-		-- feet and the rest extend forward one tile apart, so the line is
-		-- continuous with no gaps and fills the new direction when you turn.
-		local cx = feetX + fdx * frontN
-		local cz = feetZ + fdz * frontN
-		frontN = frontN + 1
-
-		local key = cx .. "," .. cz
-		local sentAt = placed[key]
-		if not sentAt or now - sentAt > 1 then
-			placed[key] = now
-			pcall(function()
-				remote:FireServer(FARMLAND_SLOT, Vector3.new(cx * FARMLAND_SPACING, baseY, cz * FARMLAND_SPACING), 0)
-			end)
+		-- Tile under the feet plus AHEAD tiles straight forward, one tile apart so
+		-- they touch with no gaps. Fired every round as you walk, so it is
+		-- continuous and re-aims the instant you look a different way.
+		for k = 0, AHEAD do
+			local cx = feetX + fdx * k
+			local cz = feetZ + fdz * k
+			local key = cx .. "," .. cz
+			local sentAt = placed[key]
+			if not sentAt or now - sentAt > RETRY then
+				placed[key] = now
+				pcall(function()
+					remote:FireServer(FARMLAND_SLOT, Vector3.new(cx * FARMLAND_SPACING, baseY, cz * FARMLAND_SPACING), 0)
+				end)
+			end
 		end
 	end))
 
