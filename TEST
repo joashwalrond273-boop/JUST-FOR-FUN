@@ -5789,10 +5789,9 @@ CombatAutoPVP:AddCheckbox("CreateFarmland", {
 -- register limit, so no extra top-level locals.
 FARMLAND_SLOT = 3       -- tool slot sent as the first arg of createFarmland
 FARMLAND_SPACING = 8    -- farmland tiles are 8x8 studs, so 8 keeps them flush
-FARMLAND_RADIUS = 4     -- extra cells filled each way around the character
+FARMLAND_AHEAD = 3      -- tiles laid ahead of the feet in the direction you face
 FARMLAND_INTERVAL = 0.01 -- seconds between sends; lower = fills faster
-FARMLAND_BURST = 4      -- tiles fired per send
-FARMLAND_RETRY = 1      -- seconds before an already-sent cell is tried again
+FARMLAND_RETRY = 1      -- seconds before a placed cell is tried again
 
 FarmlandRayParams = RaycastParams.new()
 FarmlandRayParams.FilterType = Enum.RaycastFilterType.Exclude
@@ -5811,7 +5810,6 @@ Toggles.CreateFarmland:OnChanged(function()
 	end
 
 	local placed = {}     -- key -> clock time it was last sent
-	local pending = {}    -- key -> { cellX, cellZ } still waiting to be sent
 	local lastSend = 0    -- clock time of the last send
 	local groundY = nil   -- last known ground height under the feet
 
@@ -5820,68 +5818,51 @@ Toggles.CreateFarmland:OnChanged(function()
 		local character = getCharacter()
 		if not root or not character or not isAlive() then return end
 
-		-- Ground height under the feet, used as the height for every tile. If the
-		-- ray misses this frame the last known height is reused instead, so the
-		-- fill never stops just because the ray could not see the ground.
+		-- Height under the feet. Reused if the ray misses, so placement never
+		-- stops just because the ground could not be seen this frame.
 		FarmlandRayParams.FilterDescendantsInstances = { character }
 		local ground = workspace:Raycast(root.Position, Vector3.new(0, -50, 0), FarmlandRayParams)
 		if ground then
 			groundY = ground.Position.Y
 		end
 
-		-- The grid cell comes from the character's own position, NOT the raycast.
-		-- Relying on the ray meant that on slopes, on top of already-placed
-		-- farmland, or mid-step wherever it could not see the ground, the whole
-		-- fill bailed out and that land got nothing. This keeps it going.
+		-- Cell is taken from the character, not the ray, so nothing is skipped.
 		local cellX = math.floor(root.Position.X / FARMLAND_SPACING)
 		local cellZ = math.floor(root.Position.Z / FARMLAND_SPACING)
 		local baseY = groundY or (root.Position.Y - 3)
 		local now = os.clock()
 
-		-- Queue every cell inside the radius that is not already waiting. Once a
-		-- cell has been sent it is only skipped for FARMLAND_RETRY seconds, then it
-		-- goes back in the queue, so a tile the game refused gets fired again
-		-- instead of being left as a permanent gap.
-		for dx = -FARMLAND_RADIUS, FARMLAND_RADIUS do
-			for dz = -FARMLAND_RADIUS, FARMLAND_RADIUS do
-				local cx = cellX + dx
-				local cz = cellZ + dz
-				local key = cx .. "," .. cz
-				local sentAt = placed[key]
-				if sentAt and now - sentAt > FARMLAND_RETRY then
-					placed[key] = nil
-					sentAt = nil
-				end
-				if not sentAt and not pending[key] then
-					pending[key] = { cx, cz }
-				end
-			end
+		-- Facing / walking direction snapped to a grid axis (N, S, E or W), so the
+		-- row of tiles runs straight along the grid and turning simply turns the
+		-- row to the new direction.
+		local humanoid = getHumanoid()
+		local dir = (humanoid and humanoid.MoveDirection) or Vector3.zero
+		if dir.Magnitude < 0.1 then
+			dir = root.CFrame.LookVector
+		end
+		local fdx, fdz
+		if math.abs(dir.X) >= math.abs(dir.Z) then
+			fdx, fdz = (dir.X >= 0 and 1 or -1), 0
+		else
+			fdx, fdz = 0, (dir.Z >= 0 and 1 or -1)
 		end
 
 		if now - lastSend < FARMLAND_INTERVAL then return end
 		lastSend = now
 
-		-- Fire several tiles per send, always the ones closest to the feet first,
-		-- so the whole area around you closes up quickly and the fill can never
-		-- fall behind the direction you are walking.
-		for _ = 1, FARMLAND_BURST do
-			local bestKey = nil
-			local bestDist = math.huge
-			for key, c in next, pending do
-				local d = (c[1] - cellX) * (c[1] - cellX) + (c[2] - cellZ) * (c[2] - cellZ)
-				if d < bestDist then
-					bestDist = d
-					bestKey = key
-				end
+		-- One tile under the feet, then FARMLAND_AHEAD tiles in front of it. As you
+		-- walk the row is laid down again further along, so it keeps going.
+		for i = 0, FARMLAND_AHEAD do
+			local cx = cellX + fdx * i
+			local cz = cellZ + fdz * i
+			local key = cx .. "," .. cz
+			local sentAt = placed[key]
+			if not sentAt or now - sentAt > FARMLAND_RETRY then
+				placed[key] = now
+				pcall(function()
+					remote:FireServer(FARMLAND_SLOT, Vector3.new(cx * FARMLAND_SPACING, baseY, cz * FARMLAND_SPACING), 0)
+				end)
 			end
-			if not bestKey then break end
-
-			local c = pending[bestKey]
-			pending[bestKey] = nil
-			placed[bestKey] = now
-			pcall(function()
-				remote:FireServer(FARMLAND_SLOT, Vector3.new(c[1] * FARMLAND_SPACING, baseY, c[2] * FARMLAND_SPACING), 0)
-			end)
 		end
 	end))
 
