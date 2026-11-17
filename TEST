@@ -5788,7 +5788,8 @@ CombatAutoPVP:AddCheckbox("CreateFarmland", {
 -- Kept as globals on purpose: the main chunk is already at Luau's 200-local
 -- register limit, so no extra top-level locals.
 FARMLAND_SLOT = 3       -- tool slot sent as the first arg of createFarmland
-FARMLAND_SPACING = 8  -- farmland tiles are 8x8 studs, so 8 keeps them flush
+FARMLAND_SPACING = 8    -- farmland tiles are 8x8 studs, so 8 keeps them flush
+FARMLAND_SIDE = 2       -- grid cells covered to each side of the walk axis
 
 FarmlandRayParams = RaycastParams.new()
 FarmlandRayParams.FilterType = Enum.RaycastFilterType.Exclude
@@ -5844,8 +5845,9 @@ Toggles.CreateFarmland:OnChanged(function()
 
 		placeFarmland(cellX, cellZ, baseY)
 
-		-- Lead the line the way the character is walking, snapped to the grid
-		-- axes so the farmland stays straight instead of drifting diagonally.
+		-- Sweep a band as the character walks: 3 cells ahead, and FARMLAND_SIDE
+		-- cells to each side of the walk axis, so the whole strip around the
+		-- path fills in instead of only the line being followed.
 		local humanoid = getHumanoid()
 		local move = humanoid and humanoid.MoveDirection or Vector3.new(0, 0, 0)
 		local stepX, stepZ = 0, 0
@@ -5856,8 +5858,16 @@ Toggles.CreateFarmland:OnChanged(function()
 		end
 
 		if stepX ~= 0 or stepZ ~= 0 then
-			for i = 1, 3 do
-				placeFarmland(cellX + stepX * i, cellZ + stepZ * i, baseY)
+			-- Perpendicular to the walk axis: the left/right sweep of the band.
+			local sideX, sideZ = -stepZ, stepX
+			for i = 0, 3 do
+				for s = -FARMLAND_SIDE, FARMLAND_SIDE do
+					placeFarmland(
+						cellX + stepX * i + sideX * s,
+						cellZ + stepZ * i + sideZ * s,
+						baseY
+					)
+				end
 			end
 		end
 	end))
