@@ -61,7 +61,6 @@ local updateSwimBoostVisibility
 local isTeammate
 local Xeno_PlayHitSound
 local resetAndTeleport
-local CombatAutoPVP
 
 Library.ShowToggleFrameInKeybinds = true
 
@@ -5773,102 +5772,6 @@ task.spawn(function()
 	end
 end)
 
-CombatAutoPVP = Tabs.Combat:AddRightGroupbox("FARMING", "swords")
-
-CombatAutoPVP:AddDivider()
-
-CombatAutoPVP:AddCheckbox("CreateFarmland", {
-	Text = "Create Farmland",
-	Default = false,
-})
-
--- ==========================================
--- CREATE FARMLAND
--- ==========================================
--- Kept as globals on purpose: the main chunk is already at Luau's 200-local
--- register limit, so no extra top-level locals.
-FARMLAND_SLOT = 3       -- tool slot sent as the first arg of createFarmland
-FARMLAND_SPACING = 8    -- farmland tiles are 8x8 studs, so 8 keeps them flush
-
-FarmlandRayParams = RaycastParams.new()
-FarmlandRayParams.FilterType = Enum.RaycastFilterType.Exclude
-
-Toggles.CreateFarmland:OnChanged(function()
-	disconnect("CreateFarmland_Poll")
-	if not Toggles.CreateFarmland.Value then
-		Library:Notify({ Title = "Create Farmland", Description = "Disabled", Time = 2 })
-		return
-	end
-
-	local remote = TSG.CreateFarmlandRemote
-	if not remote then
-		Library:Notify({ Title = "Create Farmland", Description = "createFarmland remote not found", Time = 2 })
-		return
-	end
-
-	local placed = {}       -- cell key -> clock time it was last sent
-	local groundY = nil     -- last known ground height under the feet
-	local lastSend = 0      -- clock time of the last placement round
-
-	local AHEAD = 3         -- tiles placed straight forward of the feet
-	local STEP_TIME = 0.05  -- seconds between rounds, so it keeps up as you walk
-	local RETRY = 0.6       -- re-send a tile after this long if it did not stick
-
-	track("CreateFarmland_Poll", RunService.Heartbeat:Connect(function()
-		local root = getRootPart()
-		local character = getCharacter()
-		if not root or not character or not isAlive() then return end
-
-		-- Height under the feet; kept from the last frame if the ray misses.
-		FarmlandRayParams.FilterDescendantsInstances = { character }
-		local ground = workspace:Raycast(root.Position, Vector3.new(0, -50, 0), FarmlandRayParams)
-		if ground then
-			groundY = ground.Position.Y
-		end
-		local baseY = groundY or (root.Position.Y - 3)
-
-		-- Cell under the feet.
-		local feetX = math.floor(root.Position.X / FARMLAND_SPACING)
-		local feetZ = math.floor(root.Position.Z / FARMLAND_SPACING)
-
-		-- Direction you look, snapped to a grid axis (N, S, E or W), so the tiles
-		-- stay flush and the line goes whichever way you face.
-		local humanoid = getHumanoid()
-		local dir = (humanoid and humanoid.MoveDirection) or Vector3.zero
-		if dir.Magnitude < 0.1 then
-			dir = root.CFrame.LookVector
-		end
-		local fdx, fdz
-		if math.abs(dir.X) >= math.abs(dir.Z) then
-			fdx, fdz = (dir.X >= 0 and 1 or -1), 0
-		else
-			fdx, fdz = 0, (dir.Z >= 0 and 1 or -1)
-		end
-
-		local now = os.clock()
-		if now - lastSend < STEP_TIME then return end
-		lastSend = now
-
-		-- Tile under the feet plus AHEAD tiles straight forward, one tile apart so
-		-- they touch with no gaps. Fired every round as you walk, so it is
-		-- continuous and re-aims the instant you look a different way.
-		for k = 0, AHEAD do
-			local cx = feetX + fdx * k
-			local cz = feetZ + fdz * k
-			local key = cx .. "," .. cz
-			local sentAt = placed[key]
-			if not sentAt or now - sentAt > RETRY then
-				placed[key] = now
-				pcall(function()
-					remote:FireServer(FARMLAND_SLOT, Vector3.new(cx * FARMLAND_SPACING, baseY, cz * FARMLAND_SPACING), 0)
-				end)
-			end
-		end
-	end))
-
-	Library:Notify({ Title = "Create Farmland", Description = "Enabled", Time = 2 })
-end)
-
 updatePVPModulesVisibility = function()
 	local isCam = (Toggles.Camlock and Toggles.Camlock.Value) or false
 	local isCamLerp = (Toggles.CamlockCameraLerp and Toggles.CamlockCameraLerp.Value) or false
@@ -6096,7 +5999,6 @@ updatePVPModulesVisibility = function()
 			Options.AutoJumpDelay.Holder.Visible = isAutoJump
 		end
 	end
-	CombatAutoPVP:Resize()
 	if MainLeft and MainLeft.Resize then
 		pcall(function() MainLeft:Resize() end)
 	end
@@ -8323,13 +8225,13 @@ MoveRight:AddSlider("InvisibleFlySpeedSlider", {
 
 local invisFillLabel = MoveRight:AddLabel("Highlight Fill Color")
 invisFillLabel:AddColorPicker("InvisibleFlyFillColor", {
-	Default = Color3.fromRGB(0, 255, 0),
+	Default = Color3.fromRGB(255, 0, 0),
 	Title = "Invisible Fly Highlight Fill Color",
 })
 
 local invisOutlineLabel = MoveRight:AddLabel("Highlight Outline Color")
 invisOutlineLabel:AddColorPicker("InvisibleFlyOutlineColor", {
-	Default = Color3.fromRGB(255, 255, 255),
+	Default = Color3.fromRGB(255, 0, 0),
 	Title = "Invisible Fly Highlight Outline Color",
 })
 
@@ -9427,287 +9329,153 @@ FarmChop:AddSlider("AutoChopSpeed", {
 
 FarmChop:AddDivider()
 
-local goldOreFarmRunning = false
-
-OreFarm:AddToggle("TeleportAllGold", {
-	Text = "Gold Farm",
-	Default = false,
-})
-
-OreFarm:AddSlider("GoldFarmResetEvery", {
-	Text = "Teleports Before Reset",
-	Default = 3,
-	Min = 1,
-	Max = 10,
-	Rounding = 0,
-	Compact = true,
-})
-
-OreFarm:AddSlider("GoldFarmDelay", {
-	Text = "Teleport Delay",
-	Default = 1.5,
-	Min = 0.1,
-	Max = 5,
-	Rounding = 1,
-	Compact = true,
-})
-
-Toggles.TeleportAllGold:OnChanged(function()
-	local on = Toggles.TeleportAllGold.Value
-
-	if Toggles.AutoMine then Toggles.AutoMine:SetValue(on) end
-	if Toggles.FastPickup then Toggles.FastPickup:SetValue(on) end
-	if Toggles.VacuumPickup then Toggles.VacuumPickup:SetValue(on) end
-
-	if not on then
-		goldOreFarmRunning = false
-		return
-	end
-
-	if goldOreFarmRunning then return end
-	goldOreFarmRunning = true
-
-	local goldLocations = {
-		{ name = "Gold 1",  pos = Vector3.new(-84.23, 129.86, -814.38)   },
-		{ name = "Gold 2",  pos = Vector3.new(56.16, 131.13, -1034.22)   },
-		{ name = "Gold 3",  pos = Vector3.new(459.33, 106.14, -450.45)   },
-		{ name = "Gold 4",  pos = Vector3.new(256.27, 48.79, 460.91)     },
-		{ name = "Gold 5",  pos = Vector3.new(252.14, 54.12, 479.16)     },
-		{ name = "Gold 6",  pos = Vector3.new(242.42, 27.75, 812.38)     },
-		{ name = "Gold 7",  pos = Vector3.new(256.51, 29.71, 820.83)     },
-		{ name = "Gold 8",  pos = Vector3.new(1167.43, 33.49, -603.89)   },
-		{ name = "Gold 9",  pos = Vector3.new(1183.23, 32.86, -599.99)   },
-		{ name = "Gold 10", pos = Vector3.new(1235.74, 30.01, -896.10)   },
-		{ name = "Gold 11", pos = Vector3.new(1567.02, 27.73, -936.97)   },
-		{ name = "Gold 12", pos = Vector3.new(1678.57, 47.00, -908.68)   },
-		{ name = "Gold 13", pos = Vector3.new(1678.49, 45.50, -920.86)   },
-		{ name = "Gold 14", pos = Vector3.new(1634.37, 29.83, -655.97)   },
-		{ name = "Gold 15", pos = Vector3.new(1193.93, 24.40, -573.54)   },
-		{ name = "Gold 16", pos = Vector3.new(1193.43, 25.75, -557.54)   },
-		{ name = "Gold 17", pos = Vector3.new(-543.60, 80.73, 295.57)    },
-		{ name = "Gold 18", pos = Vector3.new(-653.59, 232.27, 640.91)   },
-		{ name = "Gold 19", pos = Vector3.new(-663.52, 233.84, 649.10)   },
-		{ name = "Gold 20", pos = Vector3.new(-640.43, -24.62, -84.31)   },
-		{ name = "Gold 21", pos = Vector3.new(-651.10, -21.64, -85.49)   },
-		{ name = "Gold 22", pos = Vector3.new(-907.66, 130.52, -409.32)  },
-		{ name = "Gold 23", pos = Vector3.new(-255.52, 54.43, 1428.30)   },
-		{ name = "Gold 24", pos = Vector3.new(1719.88, 117.22, 2257.25)  },
-		{ name = "Gold 25", pos = Vector3.new(1728.39, 112.66, 2266.65)  },
-		{ name = "Gold 26", pos = Vector3.new(1722.59, 115.27, 2282.20)  },
-		{ name = "Gold 27", pos = Vector3.new(1742.57, 111.59, 2290.01)  },
-		{ name = "Gold 28", pos = Vector3.new(1823.00, 40.39, 2471.76)   },
-		{ name = "Gold 29", pos = Vector3.new(1850.12, 32.62, 2453.28)   },
-		{ name = "Gold 30", pos = Vector3.new(1448.26, 39.00, 2401.78)   },
-		{ name = "Gold 31", pos = Vector3.new(-2008.77, 36.15, -55.16)   },
-		{ name = "Gold 32", pos = Vector3.new(-2027.85, 35.06, -55.34)   },
-		{ name = "Gold 33", pos = Vector3.new(-2202.91, 51.04, 22.15)    },
-		{ name = "Gold 34", pos = Vector3.new(-2471.10, 33.87, 573.66)   },
-		{ name = "Gold 35", pos = Vector3.new(-1904.57, 71.89, 882.51)   },
-		{ name = "Gold 36", pos = Vector3.new(-1087.01, 81.07, -1466.22) },
-		{ name = "Gold 37", pos = Vector3.new(-1451.60, 40.95, -1760.48) },
-		{ name = "Gold 38", pos = Vector3.new(-1876.66, 36.06, -1970.79) },
-		{ name = "Gold 39", pos = Vector3.new(-1906.56, 42.16, -1974.67) },
-		{ name = "Gold 40", pos = Vector3.new(-1765.44, 96.27, 7159.27)  },
-		{ name = "Gold 41", pos = Vector3.new(-1265.08, 37.71, 6280.68)  },
-		{ name = "Gold 42", pos = Vector3.new(-1172.27, 65.16, 6621.89)  },
-		{ name = "Gold 43", pos = Vector3.new(-1213.45, 64.51, 6624.58)  },
-		{ name = "Gold 44", pos = Vector3.new(-1400.78, 25.24, -395.94)  },
-		{ name = "Gold 45", pos = Vector3.new(1118.38, -111.96, 2029.53) },
-		{ name = "Gold 46", pos = Vector3.new(945.18, -153.26, 2327.91)  },
-		{ name = "Gold 47", pos = Vector3.new(1156.04, -104.52, 2399.89) },
-		{ name = "Gold 48", pos = Vector3.new(998.95, -173.57, 2636.58)  },
-		{ name = "Gold 49", pos = Vector3.new(1616.02, -103.28, 2955.18) },
-		{ name = "Gold 50", pos = Vector3.new(1849.67, -35.19, 2691.63)  },
-		{ name = "Gold 51", pos = Vector3.new(2154.13, -98.55, 2644.76)  },
-		{ name = "Gold 52", pos = Vector3.new(2339.90, -100.89, 2328.77) },
-		{ name = "Gold 53", pos = Vector3.new(2004.04, -42.34, 2099.46)  },
-		{ name = "Gold 54", pos = Vector3.new(1852.13, -107.16, 1627.06) },
-		{ name = "Gold 55", pos = Vector3.new(1740.55, -103.90, 1626.94) },
-		{ name = "Gold 56", pos = Vector3.new(1363.03, -74.36, 1697.86)  },
-		{ name = "Gold 57", pos = Vector3.new(-24.38, -196.69, 978.64)   },
-		{ name = "Gold 58", pos = Vector3.new(63.16, -188.27, 956.27)    },
-		{ name = "Gold 59", pos = Vector3.new(746.97, -61.05, -333.77)   },
-		{ name = "Gold 60", pos = Vector3.new(825.71, -293.60, -332.13)  },
-		{ name = "Gold 61", pos = Vector3.new(842.68, -294.72, -313.27)  },
-		{ name = "Gold 62", pos = Vector3.new(840.11, -293.25, -337.24)  },
-		{ name = "Gold 63", pos = Vector3.new(-1462.39, -92.42, 215.77)  },
-		{ name = "Gold 64", pos = Vector3.new(-1459.47, -92.33, 215.86)  },
-		{ name = "Gold 65", pos = Vector3.new(662.44, -41.66, -1685.76)  },
-		{ name = "Gold 66", pos = Vector3.new(659.67, -41.54, -1699.74)  },
-		{ name = "Gold 67", pos = Vector3.new(933.98, -83.83, -1502.32)  },
-		{ name = "Gold 68", pos = Vector3.new(941.40, -85.03, -1517.60)  },
-		{ name = "Gold 69", pos = Vector3.new(-411.39, -29.02, -211.46)  },
-		{ name = "Gold 70", pos = Vector3.new(1567.19, 27.77, -936.13)   },
-	}
-
-	task.spawn(function()
-		local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
-		local characterFolder = remoteInterface and remoteInterface:FindFirstChild("character")
-		local resetRemote = characterFolder and characterFolder:FindFirstChild("reset")
-
-		local function resetAndWaitForSpawn()
-			local respawned = false
-			local conn
-			conn = LocalPlayer.CharacterAdded:Connect(function()
-				respawned = true
-			end)
-
-			if resetRemote then
-				pcall(function()
-					resetRemote:InvokeServer()
-				end)
-			end
-
-			local timeout = os.clock() + 15
-			while not respawned and os.clock() < timeout do
-				task.wait(0.1)
-			end
-
-			if conn then
-				conn:Disconnect()
-			end
-
-			task.wait(0.5)
-		end
-
-		local resetEvery = math.max(1, math.floor((Options.GoldFarmResetEvery and Options.GoldFarmResetEvery.Value) or 3))
-		local teleportDelay = (Options.GoldFarmDelay and Options.GoldFarmDelay.Value) or 1.5
-		local count = 0
-		resetAndWaitForSpawn()
-		for _, loc in ipairs(goldLocations) do
-			if not goldOreFarmRunning then break end
-
-			local target = CFrame.new(loc.pos)
-			local stayUntil = os.clock() + teleportDelay
-			while os.clock() < stayUntil do
-				if not goldOreFarmRunning then break end
-				local root = getRootPart()
-				if root then
-					root.CFrame = target
-					root.AssemblyLinearVelocity = Vector3.zero
-				end
-				task.wait()
-			end
-
-			if not goldOreFarmRunning then break end
-
-			count = count + 1
-
-			if count % resetEvery == 0 then
-				resetAndWaitForSpawn()
-			end
-		end
-
-		goldOreFarmRunning = false
-		if Toggles.TeleportAllGold.Value then
-			Toggles.TeleportAllGold:SetValue(false)
-		end
-		Library:Notify({ Title = "Ore Factory", Description = "Finished Gold teleports.", Time = 3 })
-	end)
-end)
-
-local coalOreFarmRunning = false
-
-OreFarm:AddToggle("TeleportAllCoal", {
-	Text = "Coal Farm",
-	Default = false,
-})
-
-OreFarm:AddSlider("CoalFarmResetEvery", {
-	Text = "Teleports Before Reset",
-	Default = 3,
-	Min = 1,
-	Max = 10,
-	Rounding = 0,
-	Compact = true,
-})
-
-OreFarm:AddSlider("CoalFarmDelay", {
-	Text = "Teleport Delay",
-	Default = 1.5,
-	Min = 0.1,
-	Max = 5,
-	Rounding = 1,
-	Compact = true,
-})
+-- Dynamic mineable farm: the dropdown is filled from every ore found in
+-- workspace.worldResources.mineable, and picking one teleports through its nodes.
+local oreFarmRunning = false
 
 OreFarm:AddDropdown("FarmSelector", {
-	Text = "Select Farm",
-	Values = { "Gold Farm", "Coal Farm" },
-	Default = "Gold Farm",
+	Text = "Select Mineable",
+	Values = { "None" },
+	Default = "None",
 })
 
-Toggles.TeleportAllCoal:OnChanged(function()
-	local on = Toggles.TeleportAllCoal.Value
+OreFarm:AddSlider("FarmResetEvery", {
+	Text = "Teleports Before Reset",
+	Default = 3,
+	Min = 1,
+	Max = 10,
+	Rounding = 0,
+	Compact = true,
+})
 
-	if Toggles.AutoMine then Toggles.AutoMine:SetValue(on) end
-	if Toggles.FastPickup then Toggles.FastPickup:SetValue(on) end
-	if Toggles.VacuumPickup then Toggles.VacuumPickup:SetValue(on) end
+OreFarm:AddSlider("FarmDelay", {
+	Text = "Teleport Delay",
+	Default = 1.5,
+	Min = 0.1,
+	Max = 5,
+	Rounding = 1,
+	Compact = true,
+})
 
-	if not on then
-		coalOreFarmRunning = false
+local function getMineableFolder()
+	return workspace:FindFirstChild("worldResources") and workspace.worldResources:FindFirstChild("mineable")
+end
+
+local function refreshFarmSelector()
+	local folder = getMineableFolder()
+	if not folder or not Options.FarmSelector then return end
+
+	local found = {}
+	for _, chunkFolder in ipairs(folder:GetChildren()) do
+		if chunkFolder:IsA("Folder") then
+			for _, obj in ipairs(chunkFolder:GetChildren()) do
+				if obj.Name and obj.Name ~= "" then
+					found[obj.Name] = true
+				end
+			end
+		end
+	end
+
+	local names = {}
+	for name in pairs(found) do table.insert(names, name) end
+	table.sort(names)
+
+	local values = { "None" }
+	for _, name in ipairs(names) do table.insert(values, name) end
+	Options.FarmSelector:SetValues(values)
+end
+
+local function collectMineablePositions(oreName)
+	local folder = getMineableFolder()
+	local positions = {}
+	if not folder then return positions end
+
+	for _, chunkFolder in ipairs(folder:GetChildren()) do
+		if chunkFolder:IsA("Folder") then
+			for _, obj in ipairs(chunkFolder:GetChildren()) do
+				if obj.Name == oreName and obj.PrimaryPart then
+					table.insert(positions, obj.PrimaryPart.Position)
+				end
+			end
+		end
+	end
+	return positions
+end
+
+local function resetAndWaitForSpawn()
+	local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
+	local characterFolder = remoteInterface and remoteInterface:FindFirstChild("character")
+	local resetRemote = characterFolder and characterFolder:FindFirstChild("reset")
+
+	local respawned = false
+	local conn
+	conn = LocalPlayer.CharacterAdded:Connect(function()
+		respawned = true
+	end)
+
+	if resetRemote then
+		pcall(function()
+			resetRemote:InvokeServer()
+		end)
+	end
+
+	local timeout = os.clock() + 15
+	while not respawned and os.clock() < timeout do
+		task.wait(0.1)
+	end
+
+	if conn then
+		conn:Disconnect()
+	end
+
+	task.wait(0.5)
+end
+
+Options.FarmSelector:OnChanged(function()
+	local selected = Options.FarmSelector.Value
+	local oreName = (selected and selected ~= "None") and selected or nil
+
+	local wasRunning = oreFarmRunning
+	oreFarmRunning = false
+
+	if not oreName then
+		if wasRunning then
+			if Toggles.AutoMine then Toggles.AutoMine:SetValue(false) end
+			if Toggles.FastPickup then Toggles.FastPickup:SetValue(false) end
+			if Toggles.VacuumPickup then Toggles.VacuumPickup:SetValue(false) end
+		end
 		return
 	end
 
-	if coalOreFarmRunning then return end
-	coalOreFarmRunning = true
-
-	local coalLocations = {
-		{ name = "Coal 1",  pos = Vector3.new(1130.93, 24.94, -601.55)  },
-		{ name = "Coal 2",  pos = Vector3.new(1319.54, 25.26, -1129.08) },
-		{ name = "Coal 3",  pos = Vector3.new(-681.19, 173.56, 657.90)  },
-		{ name = "Coal 4",  pos = Vector3.new(-886.51, 75.31, 192.70)   },
-		{ name = "Coal 5",  pos = Vector3.new(-1351.22, 31.18, -167.99) },
-		{ name = "Coal 6",  pos = Vector3.new(-1872.79, 30.78, 194.66)  },
-		{ name = "Coal 7",  pos = Vector3.new(-2255.10, 29.20, 964.32)  },
-		{ name = "Coal 8",  pos = Vector3.new(331.57, 47.36, 492.03)    },
-		{ name = "Coal 9",  pos = Vector3.new(264.71, 27.19, 267.24)    },
-		{ name = "Coal 10", pos = Vector3.new(-680.98, 26.07, 254.45)   },
-		{ name = "Coal 11", pos = Vector3.new(182.10, 25.26, -934.94)   },
-		{ name = "Coal 12", pos = Vector3.new(11.22, 36.86, -1008.32)   },
-	}
+	if Toggles.AutoMine then Toggles.AutoMine:SetValue(true) end
+	if Toggles.FastPickup then Toggles.FastPickup:SetValue(true) end
+	if Toggles.VacuumPickup then Toggles.VacuumPickup:SetValue(true) end
 
 	task.spawn(function()
-		local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
-		local characterFolder = remoteInterface and remoteInterface:FindFirstChild("character")
-		local resetRemote = characterFolder and characterFolder:FindFirstChild("reset")
+		-- Let any previous run notice the flag before this run takes over.
+		task.wait(0.15)
+		if Options.FarmSelector.Value ~= oreName then return end
 
-		local function resetAndWaitForSpawn()
-			local respawned = false
-			local conn
-			conn = LocalPlayer.CharacterAdded:Connect(function()
-				respawned = true
-			end)
-
-			if resetRemote then
-				pcall(function()
-					resetRemote:InvokeServer()
-				end)
-			end
-
-			local timeout = os.clock() + 15
-			while not respawned and os.clock() < timeout do
-				task.wait(0.1)
-			end
-
-			if conn then
-				conn:Disconnect()
-			end
-
-			task.wait(0.5)
+		local positions = collectMineablePositions(oreName)
+		if #positions == 0 then
+			Library:Notify({ Title = "Ore Factory", Description = "No " .. oreName .. " nodes found.", Time = 3 })
+			return
 		end
 
-		local resetEvery = math.max(1, math.floor((Options.CoalFarmResetEvery and Options.CoalFarmResetEvery.Value) or 3))
-		local teleportDelay = (Options.CoalFarmDelay and Options.CoalFarmDelay.Value) or 1.5
-		local count = 0
-		resetAndWaitForSpawn()
-		for _, loc in ipairs(coalLocations) do
-			if not coalOreFarmRunning then break end
+		local resetEvery = math.max(1, math.floor((Options.FarmResetEvery and Options.FarmResetEvery.Value) or 3))
+		local teleportDelay = (Options.FarmDelay and Options.FarmDelay.Value) or 1.5
 
-			local target = CFrame.new(loc.pos)
+		oreFarmRunning = true
+		resetAndWaitForSpawn()
+
+		local count = 0
+		for _, pos in ipairs(positions) do
+			if not oreFarmRunning then break end
+
+			local target = CFrame.new(pos)
 			local stayUntil = os.clock() + teleportDelay
 			while os.clock() < stayUntil do
-				if not coalOreFarmRunning then break end
+				if not oreFarmRunning then break end
 				local root = getRootPart()
 				if root then
 					root.CFrame = target
@@ -9716,57 +9484,47 @@ Toggles.TeleportAllCoal:OnChanged(function()
 				task.wait()
 			end
 
-			if not coalOreFarmRunning then break end
+			if not oreFarmRunning then break end
 
 			count = count + 1
-
 			if count % resetEvery == 0 then
 				resetAndWaitForSpawn()
 			end
 		end
 
-		coalOreFarmRunning = false
-		if Toggles.TeleportAllCoal.Value then
-			Toggles.TeleportAllCoal:SetValue(false)
+		if not oreFarmRunning then return end
+		oreFarmRunning = false
+
+		if Toggles.AutoMine then Toggles.AutoMine:SetValue(false) end
+		if Toggles.FastPickup then Toggles.FastPickup:SetValue(false) end
+		if Toggles.VacuumPickup then Toggles.VacuumPickup:SetValue(false) end
+		if Options.FarmSelector.Value == oreName then
+			Options.FarmSelector:SetValue("None")
 		end
-		Library:Notify({ Title = "Ore Factory", Description = "Finished Coal teleports.", Time = 3 })
+		Library:Notify({ Title = "Ore Factory", Description = "Finished farming " .. oreName .. ".", Time = 3 })
 	end)
 end)
 
-local updateFarmVisibility = function()
-	local selected = (Options.FarmSelector and Options.FarmSelector.Value) or "Gold Farm"
-	local showGold = selected == "Gold Farm"
-	local showCoal = selected == "Coal Farm"
-
-	local function setVisible(option, visible)
-		if not option then return end
-		option.Visible = visible
-		if option.Holder then
-			option.Holder.Visible = visible
-		end
+task.spawn(function()
+	-- The mineable folder usually isn't loaded the instant the script runs, so
+	-- wait for it before filling the list, then keep the list fresh.
+	local folder = getMineableFolder()
+	local waited = 0
+	while not folder and waited < 60 do
+		task.wait(0.5)
+		waited = waited + 1
+		folder = getMineableFolder()
 	end
 
-	setVisible(Toggles.TeleportAllGold, showGold)
-	setVisible(Options.GoldFarmResetEvery, showGold)
-	setVisible(Options.GoldFarmDelay, showGold)
+	refreshFarmSelector()
 
-	setVisible(Toggles.TeleportAllCoal, showCoal)
-	setVisible(Options.CoalFarmResetEvery, showCoal)
-	setVisible(Options.CoalFarmDelay, showCoal)
-
-	OreFarm:Resize()
-end
-
-if Options.FarmSelector then
-	Options.FarmSelector:OnChanged(function()
-		updateFarmVisibility()
-	end)
-end
-
-updateFarmVisibility()
-task.spawn(function()
-	task.wait(0.05)
-	updateFarmVisibility()
+	if folder then
+		disconnect("FarmSelectorScan")
+		track("FarmSelectorScan", folder.ChildAdded:Connect(function()
+			task.wait(0.5)
+			pcall(refreshFarmSelector)
+		end))
+	end
 end)
 
 OreFarm:AddDivider()
@@ -13257,7 +13015,8 @@ local invisibleFlyVars = {
 	playerClone = nil,
 	wasInvisibleFlyEnabled = false,
 	connection = nil,
-	highlight = nil
+	highlight = nil,
+	didFly = false,
 }
 
 local function onInvisibleFlyToggle(state)
@@ -13268,6 +13027,7 @@ local function onInvisibleFlyToggle(state)
 
 	if state then
 		invisibleFlyVars.wasInvisibleFlyEnabled = true
+		invisibleFlyVars.didFly = false
 		task.spawn(function()
 			repeat
 				task.wait()
@@ -13319,9 +13079,10 @@ local function onInvisibleFlyToggle(state)
 				local hum = getHumanoid()
 
 				if not (root and hum and invisibleFlyVars.playerClone) then
-					return
+					break
 				end
 
+				invisibleFlyVars.didFly = true
 				workspace.CurrentCamera.CameraSubject = invisibleFlyVars.playerClone:FindFirstChild("Humanoid") or hum
 				hum:ChangeState("Climbing")
 				LocalPlayer.Character:PivotTo(invisibleFlyVars.playerClone:GetPivot() + Vector3.new(0, 500, 0))
@@ -13355,34 +13116,30 @@ local function onInvisibleFlyToggle(state)
 				end
 			end
 
+			-- Land the body back where the clone was, then clear it, so turning the
+			-- toggle off can never leave you floating up in the air.
 			workspace.CurrentCamera.CameraSubject = getHumanoid()
 
 			if invisibleFlyVars.highlight then
 				invisibleFlyVars.highlight:Destroy()
 				invisibleFlyVars.highlight = nil
 			end
-			
+
 			if invisibleFlyVars.playerClone then
-				LocalPlayer.Character:PivotTo(invisibleFlyVars.playerClone:GetPivot())
+				local character = LocalPlayer.Character
+				if invisibleFlyVars.didFly and character and character:FindFirstChild("HumanoidRootPart") then
+					character:PivotTo(invisibleFlyVars.playerClone:GetPivot())
+				end
 				invisibleFlyVars.playerClone:Destroy()
 				invisibleFlyVars.playerClone = nil
 			end
+			invisibleFlyVars.didFly = false
 		end)
 	else
-		if invisibleFlyVars.wasInvisibleFlyEnabled then
-			local root = getRootPart()
-			if root then
-				local currentCFrame = root.CFrame
-				local newCFrame = CFrame.new(currentCFrame.Position.X, currentCFrame.Position.Y - 500, currentCFrame.Position.Z)
-				LocalPlayer.Character:PivotTo(newCFrame)
-			end
-			invisibleFlyVars.wasInvisibleFlyEnabled = false
-			
-			if invisibleFlyVars.highlight then
-				invisibleFlyVars.highlight:Destroy()
-				invisibleFlyVars.highlight = nil
-			end
-		end
+		-- The fly loop above lands the body and removes the clone the moment it
+		-- notices the toggle is off, so there is nothing to do here. (Moving the
+		-- body down 500 here as well would double-apply the offset.)
+		invisibleFlyVars.wasInvisibleFlyEnabled = false
 	end
 end
 
