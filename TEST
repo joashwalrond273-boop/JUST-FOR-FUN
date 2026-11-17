@@ -1179,112 +1179,6 @@ AutoArmorDeluxeGroup:AddButton({
 	end,
 })
 
--- Armor Presets: like the Cosmetic Presets, but it stores the Helmet / Shirt /
--- Pants you are actually wearing so the setup can be re-equipped later.
-ArmorPresets = {}
-
-AutoArmorDeluxeGroup:AddButton({
-	Text = "Save Armor",
-	Func = function()
-		local presetSlot = 1
-		local character = getCharacter()
-		if not character then
-			Library:Notify({ Title = "Armor Presets", Description = "Character not found.", Time = 3 })
-			return
-		end
-
-		-- Known armor pieces: item id -> the clothing slot it equips into (1
-		-- helmet, 2 shirt/chestplate, 3 pants), matching the equipClothing calls
-		-- used by the armor buttons above.
-		local slotByItemId = {
-			[202] = 1, [200] = 2, [201] = 3, -- Bluesteel
-			[354] = 1, [355] = 2, [356] = 3, -- Atlantean
-			[262] = 1, [261] = 2, [260] = 3, -- Darksteel
-			[404] = 1, [403] = 2, [402] = 3, -- Samurai
-			[541] = 1, [542] = 2, [543] = 3, -- Juggernaut
-		}
-		-- The game names each worn piece after its item, so pieces that only
-		-- expose a name can still be matched.
-		local idByItemName = {
-			["Bluesteel Helmet"] = 202, ["Bluesteel Chestplate"] = 200, ["Bluesteel Pants"] = 201,
-			["Atlantean Helmet"] = 354, ["Atlantean Armor"] = 355, ["Atlantean Pants"] = 356,
-			["Darksteel Helmet"] = 262, ["Darksteel Armor"] = 261, ["Darksteel Pants"] = 260,
-			["Samurai Helmet"] = 404, ["Samurai Armor"] = 403, ["Samurai Pants"] = 402,
-			["Juggernaut Helmet"] = 541, ["Juggernaut Armor"] = 542, ["Juggernaut Pants"] = 543,
-		}
-
-		local preset = {}
-		local function consider(id, name)
-			id = tonumber(id)
-			if not id and name then
-				id = idByItemName[name]
-			end
-			local slot = id and slotByItemId[id]
-			if slot and preset[slot] == nil then
-				preset[slot] = id
-			end
-		end
-
-		-- The pieces you are wearing sit on the character, carrying their item id
-		-- as an attribute or on a toolModel (like equipped tools), or are simply
-		-- named after the item.
-		for _, obj in ipairs(character:GetDescendants()) do
-			consider(obj:GetAttribute("itemId") or obj:GetAttribute("id") or obj:GetAttribute("ItemId") or obj:GetAttribute("Id"), obj.Name)
-		end
-
-		-- Some builds store the worn loadout as attributes on the character.
-		for _, inst in ipairs({character, LocalPlayer}) do
-			local ok, attrs = pcall(function()
-				return inst:GetAttributes()
-			end)
-			if ok and typeof(attrs) == "table" then
-				for _, value in pairs(attrs) do
-					consider(value, value)
-				end
-			end
-		end
-
-		if not next(preset) then
-			Library:Notify({ Title = "Armor Presets", Description = "Couldn't detect your armor.", Time = 3 })
-			return
-		end
-
-		ArmorPresets[presetSlot] = preset
-		Library:Notify({ Title = "Armor Presets", Description = "Saved your armor", Time = 2 })
-	end,
-})
-
-AutoArmorDeluxeGroup:AddButton({
-	Text = "Load Armor",
-	Func = function()
-		local presetSlot = 1
-		local preset = ArmorPresets[presetSlot]
-		if not preset or not next(preset) then
-			Library:Notify({ Title = "Armor Presets", Description = "No saved armor yet", Time = 2 })
-			return
-		end
-
-		local equipClothingRemote = TSG.EquipClothingRemote
-		if not equipClothingRemote then
-			Library:Notify({ Title = "Armor Presets", Description = "Clothing remote not found", Time = 2 })
-			return
-		end
-
-		task.spawn(function()
-			for slot = 1, 3 do
-				local itemId = preset[slot]
-				if itemId then
-					pcall(function()
-						equipClothingRemote:InvokeServer("inventory", slot, itemId)
-					end)
-					task.wait(1)
-				end
-			end
-		end)
-		Library:Notify({ Title = "Armor Presets", Description = "Loaded your armor", Time = 2 })
-	end,
-})
-
 AutoArmorDeluxeGroup:AddDivider()
 
 AutoArmorDeluxeGroup:AddCheckbox("AtlanteanAutoSwap", {
@@ -3974,6 +3868,7 @@ do
 	local posRunning = false
 	local posGui = nil
 	local posLabel = nil
+	local posLastUpdate = 0
 
 	local function buildPosHud()
 		local playerGui = LocalPlayer:FindFirstChildOfClass("PlayerGui")
@@ -4055,9 +3950,14 @@ do
 
 		buildPosHud()
 		posRunning = true
+		posLastUpdate = 0
 
 		track("PositionReaderHud_Render", RunService.RenderStepped:Connect(function()
 			if not posRunning or not posLabel then return end
+
+			local now = tick()
+			if now - posLastUpdate < 0.2 then return end
+			posLastUpdate = now
 
 			local root = getRootPart()
 			if not root then
@@ -4965,10 +4865,6 @@ do
 	end
 	track("AutoEatSlot_CharAdded", LocalPlayer.CharacterAdded:Connect(hookAutoEatSlotChar))
 
-	track("AutoEatSlot_Poll", RunService.Heartbeat:Connect(function()
-		updateAutoEatSlotState()
-	end))
-
 	if Options.AutoEatSlot then
 		Options.AutoEatSlot:OnChanged(function()
 			updateAutoEatSlotState()
@@ -4977,7 +4873,9 @@ do
 
 	if Toggles.AutoEatSlotSystem then
 		Toggles.AutoEatSlotSystem:OnChanged(function()
+			disconnect("AutoEatSlot_Poll")
 			if Toggles.AutoEatSlotSystem.Value then
+				track("AutoEatSlot_Poll", RunService.Heartbeat:Connect(updateAutoEatSlotState))
 				updateAutoEatSlotState()
 				Library:Notify({ Title = "Auto Eat Slot System", Description = "Enabled", Time = 2 })
 			else
@@ -5876,17 +5774,6 @@ CombatAutoPVP:AddButton({
 	end,
 })
 
-CombatAutoPVP:AddCheckbox("BreakStructures", {
-	Text = "Structure Break Aura",
-	Default = false,
-})
-
-CombatAutoPVP:AddDropdown("BreakStructuresToolSlot", {
-	Text = "Attack Slot",
-	Values = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" },
-	Default = "5",
-})
-
 updatePVPModulesVisibility = function()
 	local isCam = (Toggles.Camlock and Toggles.Camlock.Value) or false
 	local isCamLerp = (Toggles.CamlockCameraLerp and Toggles.CamlockCameraLerp.Value) or false
@@ -6112,13 +5999,6 @@ updatePVPModulesVisibility = function()
 		Options.AutoJumpDelay.Visible = isAutoJump
 		if Options.AutoJumpDelay.Holder then
 			Options.AutoJumpDelay.Holder.Visible = isAutoJump
-		end
-	end
-	local isBreakAura = (Toggles.BreakStructures and Toggles.BreakStructures.Value) or false
-	if Options.BreakStructuresToolSlot then
-		Options.BreakStructuresToolSlot.Visible = isBreakAura
-		if Options.BreakStructuresToolSlot.Holder then
-			Options.BreakStructuresToolSlot.Holder.Visible = isBreakAura
 		end
 	end
 	CombatAutoPVP:Resize()
@@ -6669,76 +6549,6 @@ do
 	updateShieldSystemVisibility()
 end
 
--- ==========================================
--- STRUCTURE BREAK AURA
--- ==========================================
-local breakStructuresThread = nil
-
-local function stopBreakStructures()
-	if breakStructuresThread then
-		pcall(task.cancel, breakStructuresThread)
-		breakStructuresThread = nil
-	end
-end
-
-local function getStructurePosition(structure)
-	if structure:IsA("BasePart") then
-		return structure.Position
-	end
-	local primary = structure.PrimaryPart or structure:FindFirstChildWhichIsA("BasePart")
-	if primary then
-		return primary.Position
-	end
-	return nil
-end
-
-local function startBreakStructures()
-	stopBreakStructures()
-	if not (Toggles.BreakStructures and Toggles.BreakStructures.Value) then return end
-	local remote = TSG.HitStructureRemote
-	if not remote then
-		Library:Notify({ Title = "Break Structures", Description = "hitStructure remote not found", Time = 2 })
-		return
-	end
-	breakStructuresThread = task.spawn(function()
-		while Toggles.BreakStructures and Toggles.BreakStructures.Value do
-			local root = getRootPart()
-			if root and isAlive() then
-				local origin = root.Position
-				local range = 50
-				local toolSlot = tonumber(Options.BreakStructuresToolSlot and Options.BreakStructuresToolSlot.Value) or 5
-				local folder = workspace:FindFirstChild("placedStructures")
-				if folder then
-					for _, area in ipairs(folder:GetChildren()) do
-						for _, structure in ipairs(area:GetChildren()) do
-							local pos = getStructurePosition(structure)
-							if pos and (pos - origin).Magnitude <= range then
-								pcall(function()
-									remote:FireServer(toolSlot, structure, CFrame.new(pos))
-								end)
-							end
-						end
-					end
-				end
-			end
-			task.wait(0.2)
-		end
-	end)
-end
-
-Toggles.BreakStructures:OnChanged(function()
-	if Toggles.BreakStructures.Value then
-		startBreakStructures()
-		Library:Notify({ Title = "Structure Break Aura", Description = "Enabled", Time = 2 })
-	else
-		stopBreakStructures()
-		Library:Notify({ Title = "Structure Break Aura", Description = "Disabled", Time = 2 })
-	end
-	if updatePVPModulesVisibility then
-		updatePVPModulesVisibility()
-	end
-end)
-
 local function updateAdvanceState()
 	if not (Toggles.Advance and Toggles.Advance.Value) then return end
 	if not isAlive() then return end
@@ -7191,11 +7001,18 @@ do
 		return bestPlayer
 	end
 
+	-- The target is re-picked a few times a second; the camera lock below still
+	-- runs every frame so it stays perfectly smooth.
+	local aimlockTarget = nil
+	local aimlockNextPick = 0
+
 	track("Aimlock", RunService.RenderStepped:Connect(function()
 		-- Runs in the water with Water Bypass, and anywhere else while names are
 		-- picked in the Blacklist (then it only locks onto those names).
 		if not (isWaterBypassActive() or (isCamlockListActive() and isAdvanceSlotAllowed(Options.CamlockSlotSystemSlot))) then
 			AimlockTargetPlayer = nil
+			aimlockTarget = nil
+			aimlockNextPick = 0
 			aimlockReleaseMouse()
 			return
 		end
@@ -7214,7 +7031,12 @@ do
 		UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
 		UserInputService.MouseIconEnabled = false
 
-		local closest = aimlockPickClosest()
+		local now = tick()
+		if now >= aimlockNextPick then
+			aimlockNextPick = now + 0.15
+			aimlockTarget = aimlockPickClosest()
+		end
+		local closest = aimlockTarget
 		if not closest or not closest.Character then
 			-- No target: the camlock is free to keep working normally.
 			AimlockTargetPlayer = nil
@@ -13740,9 +13562,6 @@ Library:OnUnload(function()
 	end
 	if Toggles.SmartSwing and Toggles.SmartSwing.Value then
 		Toggles.SmartSwing:SetValue(false)
-	end
-	if Toggles.BreakStructures and Toggles.BreakStructures.Value then
-		Toggles.BreakStructures:SetValue(false)
 	end
 	if Toggles.ShieldAutoParry and Toggles.ShieldAutoParry.Value then
 		Toggles.ShieldAutoParry:SetValue(false)
