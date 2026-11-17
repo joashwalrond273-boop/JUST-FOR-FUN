@@ -5788,7 +5788,7 @@ CombatAutoPVP:AddCheckbox("CreateFarmland", {
 -- Kept as globals on purpose: the main chunk is already at Luau's 200-local
 -- register limit, so no extra top-level locals.
 FARMLAND_SLOT = 3       -- tool slot sent as the first arg of createFarmland
-FARMLAND_SPACING = 8    -- farmland tiles are 8x8 studs, so 8 keeps them flush
+FARMLAND_SPACING = 1   -- farmland tiles are 8x8 studs, so 8 keeps them flush
 
 FarmlandRayParams = RaycastParams.new()
 FarmlandRayParams.FilterType = Enum.RaycastFilterType.Exclude
