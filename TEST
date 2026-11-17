@@ -9330,13 +9330,27 @@ FarmChop:AddSlider("AutoChopSpeed", {
 FarmChop:AddDivider()
 
 -- Dynamic mineable farm: the dropdown is filled from every ore found in
--- workspace.worldResources.mineable, and picking one teleports through its nodes.
-local oreFarmRunning = false
+-- workspace.worldResources.mineable. Pick one, then press Farm to teleport
+-- through that ore's nodes.
+-- Kept global on purpose: the main chunk is close to Luau's 200-local limit.
+oreFarmRunning = false
 
 OreFarm:AddDropdown("FarmSelector", {
 	Text = "Select Mineable",
 	Values = { "None" },
 	Default = "None",
+})
+
+OreFarm:AddButton({
+	Text = "Farm",
+	Func = function()
+		if oreFarmRunning then
+			stopOreFarm()
+			Library:Notify({ Title = "Ore Factory", Description = "Farm stopped.", Time = 3 })
+		else
+			startOreFarm()
+		end
+	end,
 })
 
 OreFarm:AddSlider("FarmResetEvery", {
@@ -9357,11 +9371,11 @@ OreFarm:AddSlider("FarmDelay", {
 	Compact = true,
 })
 
-local function getMineableFolder()
+function getMineableFolder()
 	return workspace:FindFirstChild("worldResources") and workspace.worldResources:FindFirstChild("mineable")
 end
 
-local function refreshFarmSelector()
+function refreshFarmSelector()
 	local folder = getMineableFolder()
 	if not folder or not Options.FarmSelector then return end
 
@@ -9385,7 +9399,7 @@ local function refreshFarmSelector()
 	Options.FarmSelector:SetValues(values)
 end
 
-local function collectMineablePositions(oreName)
+function collectMineablePositions(oreName)
 	local folder = getMineableFolder()
 	local positions = {}
 	if not folder then return positions end
@@ -9393,8 +9407,10 @@ local function collectMineablePositions(oreName)
 	for _, chunkFolder in ipairs(folder:GetChildren()) do
 		if chunkFolder:IsA("Folder") then
 			for _, obj in ipairs(chunkFolder:GetChildren()) do
-				if obj.Name == oreName and obj.PrimaryPart then
-					table.insert(positions, obj.PrimaryPart.Position)
+				local part = obj.PrimaryPart
+				if obj.Name == oreName and part then
+					-- Hover just above the ore instead of teleporting inside it.
+					table.insert(positions, part.Position + Vector3.new(0, part.Size.Y / 2 + 5, 0))
 				end
 			end
 		end
@@ -9402,7 +9418,7 @@ local function collectMineablePositions(oreName)
 	return positions
 end
 
-local function resetAndWaitForSpawn()
+function resetAndWaitForSpawn()
 	local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
 	local characterFolder = remoteInterface and remoteInterface:FindFirstChild("character")
 	local resetRemote = characterFolder and characterFolder:FindFirstChild("reset")
@@ -9431,21 +9447,23 @@ local function resetAndWaitForSpawn()
 	task.wait(0.5)
 end
 
-Options.FarmSelector:OnChanged(function()
-	local selected = Options.FarmSelector.Value
-	local oreName = (selected and selected ~= "None") and selected or nil
-
-	local wasRunning = oreFarmRunning
+function stopOreFarm()
+	if not oreFarmRunning then return end
 	oreFarmRunning = false
+	if Toggles.AutoMine then Toggles.AutoMine:SetValue(false) end
+	if Toggles.FastPickup then Toggles.FastPickup:SetValue(false) end
+	if Toggles.VacuumPickup then Toggles.VacuumPickup:SetValue(false) end
+end
 
+function startOreFarm()
+	local selected = Options.FarmSelector and Options.FarmSelector.Value
+	local oreName = (selected and selected ~= "None") and selected or nil
 	if not oreName then
-		if wasRunning then
-			if Toggles.AutoMine then Toggles.AutoMine:SetValue(false) end
-			if Toggles.FastPickup then Toggles.FastPickup:SetValue(false) end
-			if Toggles.VacuumPickup then Toggles.VacuumPickup:SetValue(false) end
-		end
+		Library:Notify({ Title = "Ore Factory", Description = "Select a mineable first.", Time = 3 })
 		return
 	end
+
+	stopOreFarm()
 
 	if Toggles.AutoMine then Toggles.AutoMine:SetValue(true) end
 	if Toggles.FastPickup then Toggles.FastPickup:SetValue(true) end
@@ -9498,11 +9516,15 @@ Options.FarmSelector:OnChanged(function()
 		if Toggles.AutoMine then Toggles.AutoMine:SetValue(false) end
 		if Toggles.FastPickup then Toggles.FastPickup:SetValue(false) end
 		if Toggles.VacuumPickup then Toggles.VacuumPickup:SetValue(false) end
-		if Options.FarmSelector.Value == oreName then
-			Options.FarmSelector:SetValue("None")
-		end
 		Library:Notify({ Title = "Ore Factory", Description = "Finished farming " .. oreName .. ".", Time = 3 })
 	end)
+end
+
+Options.FarmSelector:OnChanged(function()
+	-- Changing the selected mineable stops whatever is currently farming.
+	if oreFarmRunning then
+		stopOreFarm()
+	end
 end)
 
 task.spawn(function()
