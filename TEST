@@ -9482,6 +9482,115 @@ function collectChoppablePositions(treeName)
 	return collectResourcePositions(getChoppableFolder(), treeName, getChopTargetPart, 3)
 end
 
+-- Location markers (e.g. "Bamboo", "Volcano") are children of worldResources
+-- next to the mineable/choppable folders. Visiting them moves the streaming
+-- focus so far regions load and their resources appear client-side.
+function resolveLocationPosition(obj)
+	if obj:IsA("BasePart") then return obj.Position end
+	if obj:IsA("Vector3Value") then return obj.Value end
+	if obj:IsA("Model") then
+		local part = obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
+		return part and part.Position or nil
+	end
+	if obj:IsA("Folder") then
+		local sum, n = Vector3.zero, 0
+		for _, d in ipairs(obj:GetDescendants()) do
+			if d:IsA("BasePart") then
+				sum = sum + d.Position
+				n = n + 1
+				if n >= 50 then break end
+			end
+		end
+		if n > 0 then return sum / n end
+	end
+	return nil
+end
+
+-- Every location under worldResources, with the preferred one (name match)
+-- moved to the front so its region streams in first.
+function collectLocationPositions(preferredName)
+	local positions = {}
+	local resources = workspace:FindFirstChild("worldResources")
+	if not resources then return positions end
+	local needle = preferredName and string.lower(preferredName) or nil
+	local preferredPos = nil
+	for _, child in ipairs(resources:GetChildren()) do
+		if child.Name ~= "mineable" and child.Name ~= "choppable" then
+			local pos = resolveLocationPosition(child)
+			if pos then
+				if needle and string.find(string.lower(child.Name), needle, 1, true) then
+					preferredPos = pos
+				else
+					table.insert(positions, pos)
+				end
+			end
+		end
+	end
+	if preferredPos then table.insert(positions, 1, preferredPos) end
+	return positions
+end
+
+-- Hold the character at a position for the given duration to keep the streaming
+-- focus there, while the farm is still running.
+function teleportHold(pos, duration, shouldContinue)
+	local target = CFrame.new(pos)
+	local stayUntil = os.clock() + duration
+	while os.clock() < stayUntil do
+		if not shouldContinue() then break end
+		local root = getRootPart()
+		if root then
+			root.CFrame = target
+			root.AssemblyLinearVelocity = Vector3.zero
+		end
+		task.wait()
+	end
+end
+
+-- Shared teleport farm. Walks through every location so far regions stream in,
+-- farming each node of the target resource once (deduped). Returns the number of
+-- nodes farmed.
+function runFarmLoop(shouldContinue, collect, preferredLocation)
+	local resetEvery = math.max(1, math.floor((Options.FarmResetEvery and Options.FarmResetEvery.Value) or 3))
+	local teleportDelay = (Options.FarmDelay and Options.FarmDelay.Value) or 1.5
+
+	resetAndWaitForSpawn()
+
+	local visited = {}
+	local count = 0
+	local pass = 0
+	while shouldContinue() and pass < 25 do
+		pass = pass + 1
+		local progressed = false
+		local locations = collectLocationPositions(preferredLocation)
+		if #locations == 0 then locations = { false } end
+		for _, loc in ipairs(locations) do
+			if not shouldContinue() then break end
+			if loc then teleportHold(loc, 2, shouldContinue) end
+			for _, pos in ipairs(collect()) do
+				if not shouldContinue() then break end
+				local key = math.floor(pos.X) .. ":" .. math.floor(pos.Y) .. ":" .. math.floor(pos.Z)
+				if not visited[key] then
+					visited[key] = true
+					progressed = true
+					teleportHold(pos, teleportDelay, shouldContinue)
+					if not shouldContinue() then break end
+					count = count + 1
+					if count % resetEvery == 0 then resetAndWaitForSpawn() end
+				end
+			end
+		end
+		-- Always run a second pass: the first sweep only moves the streaming
+		-- focus, so regions may not have loaded their nodes yet.
+		if not progressed then
+			if pass >= 2 then break end
+			task.wait(1)
+		end
+		if not shouldContinue() then break end
+		task.wait(0.2)
+	end
+	return count
+end
+
 function resetAndWaitForSpawn()
 	local remoteInterface = ReplicatedStorage:FindFirstChild("remoteInterface")
 	local characterFolder = remoteInterface and remoteInterface:FindFirstChild("character")
@@ -9538,51 +9647,10 @@ function startOreFarm()
 		task.wait(0.15)
 		if Options.FarmSelector.Value ~= oreName then return end
 
-		if collectMineablePositions(oreName)[1] == nil then
-			Library:Notify({ Title = "Ore Factory", Description = "No " .. oreName .. " nodes found.", Time = 3 })
-			return
-		end
-
-		local resetEvery = math.max(1, math.floor((Options.FarmResetEvery and Options.FarmResetEvery.Value) or 3))
-		local teleportDelay = (Options.FarmDelay and Options.FarmDelay.Value) or 1.5
-
 		oreFarmRunning = true
-		resetAndWaitForSpawn()
-
-		-- Re-scan every pass: chunks stream in as we travel, and nodes respawn
-		-- after a reset, so a one-time snapshot always misses some of them.
-		local visited = {}
-		local count = 0
-		local pass = 0
-		while oreFarmRunning and pass < 25 do
-			pass = pass + 1
-			local progressed = false
-			for _, pos in ipairs(collectMineablePositions(oreName)) do
-				if not oreFarmRunning then break end
-				local key = math.floor(pos.X) .. ":" .. math.floor(pos.Y) .. ":" .. math.floor(pos.Z)
-				if not visited[key] then
-					visited[key] = true
-					progressed = true
-					local target = CFrame.new(pos)
-					local stayUntil = os.clock() + teleportDelay
-					while os.clock() < stayUntil do
-						if not oreFarmRunning then break end
-						local root = getRootPart()
-						if root then
-							root.CFrame = target
-							root.AssemblyLinearVelocity = Vector3.zero
-						end
-						task.wait()
-					end
-					if not oreFarmRunning then break end
-					count = count + 1
-					if count % resetEvery == 0 then resetAndWaitForSpawn() end
-				end
-			end
-			if not progressed then break end
-			if not oreFarmRunning then break end
-			task.wait(0.2)
-		end
+		-- Start at the volcano region, then sweep every location so far nodes load.
+		local count = runFarmLoop(function() return oreFarmRunning end,
+			function() return collectMineablePositions(oreName) end, "volcano")
 
 		if not oreFarmRunning then return end
 		oreFarmRunning = false
@@ -9590,7 +9658,11 @@ function startOreFarm()
 		if Toggles.AutoMine then Toggles.AutoMine:SetValue(false) end
 		if Toggles.FastPickup then Toggles.FastPickup:SetValue(false) end
 		if Toggles.VacuumPickup then Toggles.VacuumPickup:SetValue(false) end
-		Library:Notify({ Title = "Ore Factory", Description = "Finished farming " .. oreName .. ".", Time = 3 })
+		if count > 0 then
+			Library:Notify({ Title = "Ore Factory", Description = "Finished farming " .. oreName .. ".", Time = 3 })
+		else
+			Library:Notify({ Title = "Ore Factory", Description = "No " .. oreName .. " nodes found.", Time = 3 })
+		end
 	end)
 end
 
@@ -9625,56 +9697,19 @@ function startChopFarm()
 		task.wait(0.15)
 		if Options.ChopSelector.Value ~= treeName then return end
 
-		if collectChoppablePositions(treeName)[1] == nil then
-			Library:Notify({ Title = "Ore Factory", Description = "No " .. treeName .. " nodes found.", Time = 3 })
-			return
-		end
-
-		local resetEvery = math.max(1, math.floor((Options.FarmResetEvery and Options.FarmResetEvery.Value) or 3))
-		local teleportDelay = (Options.FarmDelay and Options.FarmDelay.Value) or 1.5
-
 		chopFarmRunning = true
-		resetAndWaitForSpawn()
-
-		-- Re-scan every pass: chunks stream in as we travel, and nodes respawn
-		-- after a reset, so a one-time snapshot always misses some of them.
-		local visited = {}
-		local count = 0
-		local pass = 0
-		while chopFarmRunning and pass < 25 do
-			pass = pass + 1
-			local progressed = false
-			for _, pos in ipairs(collectChoppablePositions(treeName)) do
-				if not chopFarmRunning then break end
-				local key = math.floor(pos.X) .. ":" .. math.floor(pos.Y) .. ":" .. math.floor(pos.Z)
-				if not visited[key] then
-					visited[key] = true
-					progressed = true
-					local target = CFrame.new(pos)
-					local stayUntil = os.clock() + teleportDelay
-					while os.clock() < stayUntil do
-						if not chopFarmRunning then break end
-						local root = getRootPart()
-						if root then
-							root.CFrame = target
-							root.AssemblyLinearVelocity = Vector3.zero
-						end
-						task.wait()
-					end
-					if not chopFarmRunning then break end
-					count = count + 1
-					if count % resetEvery == 0 then resetAndWaitForSpawn() end
-				end
-			end
-			if not progressed then break end
-			if not chopFarmRunning then break end
-			task.wait(0.2)
-		end
+		-- Start at the bamboo region, then sweep every location so far nodes load.
+		local count = runFarmLoop(function() return chopFarmRunning end,
+			function() return collectChoppablePositions(treeName) end, "bamboo")
 
 		if not chopFarmRunning then return end
 		chopFarmRunning = false
 		if Toggles.AutoChop then Toggles.AutoChop:SetValue(false) end
-		Library:Notify({ Title = "Ore Factory", Description = "Finished farming " .. treeName .. ".", Time = 3 })
+		if count > 0 then
+			Library:Notify({ Title = "Ore Factory", Description = "Finished farming " .. treeName .. ".", Time = 3 })
+		else
+			Library:Notify({ Title = "Ore Factory", Description = "No " .. treeName .. " nodes found.", Time = 3 })
+		end
 	end)
 end
 
