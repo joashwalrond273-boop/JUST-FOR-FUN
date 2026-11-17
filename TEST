@@ -5789,9 +5789,6 @@ CombatAutoPVP:AddCheckbox("CreateFarmland", {
 -- register limit, so no extra top-level locals.
 FARMLAND_SLOT = 3       -- tool slot sent as the first arg of createFarmland
 FARMLAND_SPACING = 8    -- farmland tiles are 8x8 studs, so 8 keeps them flush
-FARMLAND_AHEAD = 3      -- tiles put in the straight line ahead of the feet
-FARMLAND_INTERVAL = 0.05 -- seconds between sends; flooding gets the extras dropped
-FARMLAND_RETRY = 1      -- seconds before a placed cell is tried again
 
 FarmlandRayParams = RaycastParams.new()
 FarmlandRayParams.FilterType = Enum.RaycastFilterType.Exclude
@@ -5809,9 +5806,9 @@ Toggles.CreateFarmland:OnChanged(function()
 		return
 	end
 
-	local placed = {}     -- key -> clock time it was last sent
-	local lastSend = 0    -- clock time of the last send
-	local groundY = nil   -- last known ground height under the feet
+	local lastSend = 0      -- clock time the last tile was sent
+	local groundY = nil     -- last known ground height under the feet
+	local anchorX, anchorZ  -- last spot the line was laid down at
 
 	track("CreateFarmland_Poll", RunService.Heartbeat:Connect(function()
 		local root = getRootPart()
@@ -5824,46 +5821,39 @@ Toggles.CreateFarmland:OnChanged(function()
 		if ground then
 			groundY = ground.Position.Y
 		end
-
-		-- Cell is taken from the character, not the ray, so nothing is skipped.
-		local cellX = math.floor(root.Position.X / FARMLAND_SPACING)
-		local cellZ = math.floor(root.Position.Z / FARMLAND_SPACING)
 		local baseY = groundY or (root.Position.Y - 3)
+
+		local px, pz = root.Position.X, root.Position.Z
 		local now = os.clock()
 
-		-- Facing / walking direction snapped to a grid axis (N, S, E or W), so the
-		-- line of tiles is perfectly straight along the grid and turning simply
-		-- turns the line to the new direction.
-		local humanoid = getHumanoid()
-		local dir = (humanoid and humanoid.MoveDirection) or Vector3.zero
-		if dir.Magnitude < 0.1 then
-			dir = root.CFrame.LookVector
-		end
-		local fdx, fdz
-		if math.abs(dir.X) >= math.abs(dir.Z) then
-			fdx, fdz = (dir.X >= 0 and 1 or -1), 0
-		else
-			fdx, fdz = 0, (dir.Z >= 0 and 1 or -1)
+		-- The very first tile goes straight under the feet, so the line starts
+		-- exactly where you are.
+		if not anchorX then
+			anchorX, anchorZ = px, pz
+			lastSend = now
+			pcall(function()
+				remote:FireServer(FARMLAND_SLOT, Vector3.new(px, baseY, pz), 0)
+			end)
+			return
 		end
 
-		if now - lastSend < FARMLAND_INTERVAL then return end
+		-- Small pacing gap so a long walk (or a teleport) cannot flood the remote.
+		if now - lastSend < 0.05 then return end
+
+		local dx, dz = px - anchorX, pz - anchorZ
+		local dist = math.sqrt(dx * dx + dz * dz)
+		if dist < FARMLAND_SPACING then return end
+
+		-- Step exactly one tile-length along the path you actually walked, then lay
+		-- the tile there. Tiles end up FARMLAND_SPACING apart, so they sit
+		-- back-to-back with no gaps, and the line just keeps going as you walk.
+		local ux, uz = dx / dist, dz / dist
+		anchorX = anchorX + ux * FARMLAND_SPACING
+		anchorZ = anchorZ + uz * FARMLAND_SPACING
 		lastSend = now
-
-		-- One tile under the feet, then FARMLAND_AHEAD more straight ahead of it,
-		-- all one tile apart so they touch in a straight line. As you walk the line
-		-- is laid down again further along, so it keeps going.
-		for i = 0, FARMLAND_AHEAD do
-			local cx = cellX + fdx * i
-			local cz = cellZ + fdz * i
-			local key = cx .. "," .. cz
-			local sentAt = placed[key]
-			if not sentAt or now - sentAt > FARMLAND_RETRY then
-				placed[key] = now
-				pcall(function()
-					remote:FireServer(FARMLAND_SLOT, Vector3.new(cx * FARMLAND_SPACING, baseY, cz * FARMLAND_SPACING), 0)
-				end)
-			end
-		end
+		pcall(function()
+			remote:FireServer(FARMLAND_SLOT, Vector3.new(anchorX, baseY, anchorZ), 0)
+		end)
 	end))
 
 	Library:Notify({ Title = "Create Farmland", Description = "Enabled", Time = 2 })
