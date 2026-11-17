@@ -5789,9 +5789,6 @@ CombatAutoPVP:AddCheckbox("CreateFarmland", {
 -- register limit, so no extra top-level locals.
 FARMLAND_SLOT = 3       -- tool slot sent as the first arg of createFarmland
 FARMLAND_SPACING = 8    -- farmland tiles are 8x8 studs, so 8 keeps them flush
-FARMLAND_AHEAD = 3      -- tiles laid ahead of the feet in the direction you face
-FARMLAND_INTERVAL = 0.01 -- seconds between sends; lower = fills faster
-FARMLAND_RETRY = 1      -- seconds before a placed cell is tried again
 
 FarmlandRayParams = RaycastParams.new()
 FarmlandRayParams.FilterType = Enum.RaycastFilterType.Exclude
@@ -5809,61 +5806,52 @@ Toggles.CreateFarmland:OnChanged(function()
 		return
 	end
 
-	local placed = {}     -- key -> clock time it was last sent
-	local lastSend = 0    -- clock time of the last send
-	local groundY = nil   -- last known ground height under the feet
+	local anchorX, anchorZ = nil, nil   -- centre of the last tile laid
+	local groundY = nil                 -- last known ground height under the feet
 
 	track("CreateFarmland_Poll", RunService.Heartbeat:Connect(function()
 		local root = getRootPart()
 		local character = getCharacter()
 		if not root or not character or not isAlive() then return end
 
-		-- Height under the feet. Reused if the ray misses, so placement never
-		-- stops just because the ground could not be seen this frame.
+		-- Height under the feet; kept from the last frame if the ray misses.
 		FarmlandRayParams.FilterDescendantsInstances = { character }
 		local ground = workspace:Raycast(root.Position, Vector3.new(0, -50, 0), FarmlandRayParams)
 		if ground then
 			groundY = ground.Position.Y
 		end
-
-		-- Cell is taken from the character, not the ray, so nothing is skipped.
-		local cellX = math.floor(root.Position.X / FARMLAND_SPACING)
-		local cellZ = math.floor(root.Position.Z / FARMLAND_SPACING)
 		local baseY = groundY or (root.Position.Y - 3)
-		local now = os.clock()
 
-		-- Facing / walking direction snapped to a grid axis (N, S, E or W), so the
-		-- row of tiles runs straight along the grid and turning simply turns the
-		-- row to the new direction.
-		local humanoid = getHumanoid()
-		local dir = (humanoid and humanoid.MoveDirection) or Vector3.zero
-		if dir.Magnitude < 0.1 then
-			dir = root.CFrame.LookVector
-		end
-		local fdx, fdz
-		if math.abs(dir.X) >= math.abs(dir.Z) then
-			fdx, fdz = (dir.X >= 0 and 1 or -1), 0
-		else
-			fdx, fdz = 0, (dir.Z >= 0 and 1 or -1)
+		local px, pz = root.Position.X, root.Position.Z
+
+		-- First tile goes straight under the feet, so the line starts where you are.
+		if not anchorX then
+			anchorX, anchorZ = px, pz
+			pcall(function()
+				remote:FireServer(FARMLAND_SLOT, Vector3.new(px, baseY, pz), 0)
+			end)
+			return
 		end
 
-		if now - lastSend < FARMLAND_INTERVAL then return end
-		lastSend = now
+		local dx, dz = px - anchorX, pz - anchorZ
+		local dist = math.sqrt(dx * dx + dz * dz)
+		if dist < FARMLAND_SPACING then return end
 
-		-- One tile under the feet, then FARMLAND_AHEAD tiles in front of it. As you
-		-- walk the row is laid down again further along, so it keeps going.
-		for i = 0, FARMLAND_AHEAD do
-			local cx = cellX + fdx * i
-			local cz = cellZ + fdz * i
-			local key = cx .. "," .. cz
-			local sentAt = placed[key]
-			if not sentAt or now - sentAt > FARMLAND_RETRY then
-				placed[key] = now
-				pcall(function()
-					remote:FireServer(FARMLAND_SLOT, Vector3.new(cx * FARMLAND_SPACING, baseY, cz * FARMLAND_SPACING), 0)
-				end)
-			end
+		-- Lay one tile for every full tile-width you have walked, straight along the
+		-- path you actually walked. Each one is exactly FARMLAND_SPACING from the
+		-- last, so they touch with no gap, and the line just keeps going as you
+		-- walk. Tiles are never re-sent, so nothing gets flooded or dropped.
+		local ux, uz = dx / dist, dz / dist
+		local steps = math.floor(dist / FARMLAND_SPACING)
+		for s = 1, steps do
+			local x = anchorX + ux * FARMLAND_SPACING * s
+			local z = anchorZ + uz * FARMLAND_SPACING * s
+			pcall(function()
+				remote:FireServer(FARMLAND_SLOT, Vector3.new(x, baseY, z), 0)
+			end)
 		end
+		anchorX = anchorX + ux * FARMLAND_SPACING * steps
+		anchorZ = anchorZ + uz * FARMLAND_SPACING * steps
 	end))
 
 	Library:Notify({ Title = "Create Farmland", Description = "Enabled", Time = 2 })
