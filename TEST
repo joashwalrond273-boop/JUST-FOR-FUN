@@ -5788,7 +5788,7 @@ CombatAutoPVP:AddCheckbox("CreateFarmland", {
 -- Kept as globals on purpose: the main chunk is already at Luau's 200-local
 -- register limit, so no extra top-level locals.
 FARMLAND_SLOT = 3       -- tool slot sent as the first arg of createFarmland
-FARMLAND_SPACING = 1    -- 1 stud steps so tiles sit flush instead of spaced out
+FARMLAND_SPACING = 8    -- farmland tiles are 8x8 studs, so 8 keeps them flush
 
 FarmlandRayParams = RaycastParams.new()
 FarmlandRayParams.FilterType = Enum.RaycastFilterType.Exclude
@@ -5808,32 +5808,16 @@ Toggles.CreateFarmland:OnChanged(function()
 
 	local lastCell = nil
 	local placedCells = {}
-	local lineDir = nil
-	local lineOrigin = nil
-	local lineFront = 0
 
-	-- Fires a tile on the grid, skipping studs that already got one so walking
-	-- does not re-send the same positions over and over.
-	local function placeFarmland(x, y, z)
-		local key = math.floor(x / FARMLAND_SPACING) .. "," .. math.floor(z / FARMLAND_SPACING)
+	-- Places the tile that owns cell (cx, cz) on the 8 stud grid, skipping
+	-- cells that already got one so walking never re-sends the same spot.
+	local function placeFarmland(cx, cz, y)
+		local key = cx .. "," .. cz
 		if placedCells[key] then return end
 		placedCells[key] = true
 		pcall(function()
-			remote:FireServer(FARMLAND_SLOT, Vector3.new(x, y, z), 0)
+			remote:FireServer(FARMLAND_SLOT, Vector3.new(cx * FARMLAND_SPACING, y, cz * FARMLAND_SPACING), 0)
 		end)
-	end
-
-	-- Walks the locked direction and places every tile up to the wanted index,
-	-- so the farmland always continues on the same straight line.
-	local function extendLine(y, targetIndex)
-		for i = lineFront + 1, targetIndex do
-			lineFront = i
-			placeFarmland(
-				lineOrigin.X + lineDir.X * i * FARMLAND_SPACING,
-				y,
-				lineOrigin.Z + lineDir.Z * i * FARMLAND_SPACING
-			)
-		end
 	end
 
 	track("CreateFarmland_Poll", RunService.Heartbeat:Connect(function()
@@ -5849,39 +5833,32 @@ Toggles.CreateFarmland:OnChanged(function()
 		local ground = workspace:Raycast(root.Position, Vector3.new(0, -50, 0), FarmlandRayParams)
 		if not ground then return end
 
-		-- Snap to the grid the shovel itself uses.
-		local baseX = math.floor(ground.Position.X / FARMLAND_SPACING) * FARMLAND_SPACING
-		local baseZ = math.floor(ground.Position.Z / FARMLAND_SPACING) * FARMLAND_SPACING
+		-- Snap to the 8x8 grid the shovel uses, so tiles always line up.
+		local cellX = math.floor(ground.Position.X / FARMLAND_SPACING)
+		local cellZ = math.floor(ground.Position.Z / FARMLAND_SPACING)
 		local baseY = ground.Position.Y
 
-		local cell = baseX .. "," .. baseZ
+		local cell = cellX .. "," .. cellZ
 		if cell == lastCell then return end
 		lastCell = cell
 
-		if not lineDir then
-			-- Lock the direction once, from how the character is moving (or
-			-- facing) when the first tile goes down, then never change it.
-			local humanoid = getHumanoid()
-			local direction = humanoid and humanoid.MoveDirection or Vector3.new(0, 0, 0)
-			local flat = Vector3.new(direction.X, 0, direction.Z)
-			if flat.Magnitude < 0.1 then
-				local look = root.CFrame.LookVector
-				flat = Vector3.new(look.X, 0, look.Z)
-			end
-			if flat.Magnitude < 0.001 then return end
+		placeFarmland(cellX, cellZ, baseY)
 
-			lineDir = flat.Unit
-			lineOrigin = Vector3.new(baseX, baseY, baseZ)
-			lineFront = 0
-			placeFarmland(lineOrigin.X, baseY, lineOrigin.Z)
+		-- Lead the line the way the character is walking, snapped to the grid
+		-- axes so the farmland stays straight instead of drifting diagonally.
+		local humanoid = getHumanoid()
+		local move = humanoid and humanoid.MoveDirection or Vector3.new(0, 0, 0)
+		local stepX, stepZ = 0, 0
+		if math.abs(move.X) >= math.abs(move.Z) then
+			if move.X > 0.1 then stepX = 1 elseif move.X < -0.1 then stepX = -1 end
+		else
+			if move.Z > 0.1 then stepZ = 1 elseif move.Z < -0.1 then stepZ = -1 end
 		end
 
-		-- How far along the line the character has walked, plus 3 tiles of lead.
-		local along = (ground.Position.X - lineOrigin.X) * lineDir.X
-			+ (ground.Position.Z - lineOrigin.Z) * lineDir.Z
-		local targetIndex = math.floor(along / FARMLAND_SPACING) + 3
-		if targetIndex > lineFront then
-			extendLine(baseY, targetIndex)
+		if stepX ~= 0 or stepZ ~= 0 then
+			for i = 1, 3 do
+				placeFarmland(cellX + stepX * i, cellZ + stepZ * i, baseY)
+			end
 		end
 	end))
 
