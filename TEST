@@ -8832,6 +8832,37 @@ MoveMountAura:AddSlider("MountFlySpeed", {
 	Compact = true,
 })
 
+-- Each mount slider only shows while its own toggle is on.
+updateMountVisibility = function()
+	local speedOn = (Toggles.MountSpeedBoost and Toggles.MountSpeedBoost.Value) or false
+	local flyOn = (Toggles.MountFly and Toggles.MountFly.Value) or false
+	if Options.MountSpeedValue then
+		if Options.MountSpeedValue.Visible ~= nil then
+			Options.MountSpeedValue.Visible = speedOn
+		end
+		if Options.MountSpeedValue.Holder then
+			Options.MountSpeedValue.Holder.Visible = speedOn
+		end
+	end
+	if Options.MountFlySpeed then
+		if Options.MountFlySpeed.Visible ~= nil then
+			Options.MountFlySpeed.Visible = flyOn
+		end
+		if Options.MountFlySpeed.Holder then
+			Options.MountFlySpeed.Holder.Visible = flyOn
+		end
+	end
+	MoveMountAura:Resize()
+end
+
+updateMountVisibility()
+task.spawn(function()
+	task.wait(0.05)
+	if updateMountVisibility then
+		updateMountVisibility()
+	end
+end)
+
 Toggles.SpeedHack:OnChanged(function()
 	disconnect("SpeedHack")
 	if Toggles.SpeedHack.Value then
@@ -8915,6 +8946,7 @@ end
 
 Toggles.MountSpeedBoost:OnChanged(function()
 	disconnect("MountSpeedBoost")
+	updateMountVisibility()
 	if Toggles.MountSpeedBoost.Value then
 		Library:Notify({ Title = "Mount Speed", Description = "Enabled", Time = 2 })
 		track("MountSpeedBoost", RunService.Heartbeat:Connect(function(dt)
@@ -9126,6 +9158,7 @@ track("FlyInputEnded", flyInputEnded)
 
 Toggles.MountFly:OnChanged(function()
 	disconnect("MountFly")
+	updateMountVisibility()
 	if Toggles.MountFly.Value then
 		Library:Notify({ Title = "Mount Fly", Description = "Enabled", Time = 2 })
 		track("MountFly", RunService.Heartbeat:Connect(function()
@@ -11497,84 +11530,26 @@ local function setPlayerShadows(castShadow)
 	end
 end
 
-VisualFPS:AddSlider("UncapFPSValue", {
-	Text = "FPS Target",
-	Default = 90,
-	Min = 60,
-	Max = 120,
-	Rounding = 0,
-	Compact = true,
-})
-
 VisualFPS:AddCheckbox("UncapFPS", {
 	Text = "Uncap FPS",
 	Default = false,
 	Callback = function(state)
-		disconnect("UncapFPS_Timer")
-
-		local targetFps = math.clamp(math.floor(((Options.UncapFPSValue and Options.UncapFPSValue.Value) or 90) + 0.5), 60, 120)
-
-		if not state then
-			pcall(function()
-				if typeof(setfpscap) == "function" then
-					setfpscap(60)
-				elseif typeof(set_fps_cap) == "function" then
-					set_fps_cap(60)
-				end
-			end)
-			return
-		end
-
-		local function triggerUncap()
-			pcall(function()
-				if typeof(setfpscap) == "function" then
-					setfpscap(targetFps)
-				elseif typeof(set_fps_cap) == "function" then
-					set_fps_cap(targetFps)
-				elseif typeof(setfps) == "function" then
-					setfps(targetFps)
-				end
-			end)
-
-			pcall(function()
-				setfflag("TaskSchedulerTargetFps", targetFps)
-			end)
-		end
-
-		-- Trigger immediately on toggle enable
-		triggerUncap()
-
-		-- Only re-apply the target FPS when the FPS has actually dropped back
-		-- to ~60 (the game reset the cap), instead of re-triggering blindly.
-		local uncapFrames = 0
-		local uncapSampleStart = os.clock()
-		track("UncapFPS_Timer", RunService.Heartbeat:Connect(function()
-			uncapFrames = uncapFrames + 1
-			local now = os.clock()
-			local elapsed = now - uncapSampleStart
-			if elapsed < 1 then return end
-
-			local fps = uncapFrames / elapsed
-			uncapFrames = 0
-			uncapSampleStart = now
-
-			-- Detected the 60 FPS cap again -> re-apply the target FPS
-			if fps >= 55 and fps <= 62 then
-				triggerUncap()
+		-- Just raise the engine cap (60 -> 240) once, or put it back on disable.
+		local cap = state and 240 or 60
+		pcall(function()
+			if typeof(setfpscap) == "function" then
+				setfpscap(cap)
+			elseif typeof(set_fps_cap) == "function" then
+				set_fps_cap(cap)
+			elseif typeof(setfps) == "function" then
+				setfps(cap)
 			end
-		end))
+		end)
+		pcall(function()
+			setfflag("TaskSchedulerTargetFps", tostring(cap))
+		end)
 	end,
 })
-
-if Options.UncapFPSValue then
-	Options.UncapFPSValue:OnChanged(function()
-		-- Live-apply a new target while Uncap FPS is already on
-		if Toggles.UncapFPS and Toggles.UncapFPS.Value then
-			Toggles.UncapFPS:SetValue(false)
-			Toggles.UncapFPS:SetValue(true)
-		end
-	end)
-end
 
 VisualFPS:AddCheckbox("DisableRenderFog", {
 	Text = "Disable Render Fog",
