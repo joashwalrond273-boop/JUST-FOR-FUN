@@ -5789,8 +5789,7 @@ CombatAutoPVP:AddCheckbox("CreateFarmland", {
 -- register limit, so no extra top-level locals.
 FARMLAND_SLOT = 3       -- tool slot sent as the first arg of createFarmland
 FARMLAND_SPACING = 8    -- farmland tiles are 8x8 studs, so 8 keeps them flush
-FARMLAND_SIDE = 2       -- grid cells filled to each side of the character
-FARMLAND_AHEAD = 4      -- grid cells filled ahead of the character
+FARMLAND_AHEAD = 3      -- grid cells filled in every direction around the character
 
 FarmlandRayParams = RaycastParams.new()
 FarmlandRayParams.FilterType = Enum.RaycastFilterType.Exclude
@@ -5844,33 +5843,13 @@ Toggles.CreateFarmland:OnChanged(function()
 		if cell == lastCell then return end
 		lastCell = cell
 
-		-- Fill a rectangle that starts under the character and runs FARMLAND_AHEAD
-		-- cells ahead, FARMLAND_SIDE cells out to each side. It re-fills on every
-		-- grid cell crossed, so consecutive sweeps overlap and the whole area
-		-- walked over ends up covered.
-		local humanoid = getHumanoid()
-		local move = humanoid and humanoid.MoveDirection or Vector3.new(0, 0, 0)
-		if math.abs(move.X) < 0.1 and math.abs(move.Z) < 0.1 then
-			move = root.CFrame.LookVector
-		end
-
-		-- Ahead snapped to the grid axes, so the rows stay straight.
-		local aheadX, aheadZ = 0, 0
-		if math.abs(move.X) >= math.abs(move.Z) then
-			if move.X > 0.1 then aheadX = 1 elseif move.X < -0.1 then aheadX = -1 end
-		else
-			if move.Z > 0.1 then aheadZ = 1 elseif move.Z < -0.1 then aheadZ = -1 end
-		end
-
-		-- Perpendicular to that: the left and right of each row.
-		local sideX, sideZ = -aheadZ, aheadX
-		for i = 0, FARMLAND_AHEAD do
-			for s = -FARMLAND_SIDE, FARMLAND_SIDE do
-				placeFarmland(
-					cellX + aheadX * i + sideX * s,
-					cellZ + aheadZ * i + sideZ * s,
-					baseY
-				)
+		-- Fill a square of FARMLAND_AHEAD cells in every direction around the
+		-- character, including the cell under the feet. It re-fills on every
+		-- grid cell crossed, so consecutive fills overlap and everything walked
+		-- over gets filled in with nothing skipped.
+		for dx = -FARMLAND_AHEAD, FARMLAND_AHEAD do
+			for dz = -FARMLAND_AHEAD, FARMLAND_AHEAD do
+				placeFarmland(cellX + dx, cellZ + dz, baseY)
 			end
 		end
 	end))
