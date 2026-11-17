@@ -5789,10 +5789,10 @@ CombatAutoPVP:AddCheckbox("CreateFarmland", {
 -- register limit, so no extra top-level locals.
 FARMLAND_SLOT = 3       -- tool slot sent as the first arg of createFarmland
 FARMLAND_SPACING = 8    -- farmland tiles are 8x8 studs, so 8 keeps them flush
-FARMLAND_RADIUS = 3     -- extra cells filled each way around the character
-FARMLAND_INTERVAL = 0.04 -- seconds between sends; flooding gets the extras dropped
-FARMLAND_BURST = 2      -- tiles fired per send, to close the area up faster
-FARMLAND_RETRY = 1.5    -- seconds before an already-sent cell is tried again
+FARMLAND_RADIUS = 4     -- extra cells filled each way around the character
+FARMLAND_INTERVAL = 0.01 -- seconds between sends; lower = fills faster
+FARMLAND_BURST = 4      -- tiles fired per send
+FARMLAND_RETRY = 1      -- seconds before an already-sent cell is tried again
 
 FarmlandRayParams = RaycastParams.new()
 FarmlandRayParams.FilterType = Enum.RaycastFilterType.Exclude
