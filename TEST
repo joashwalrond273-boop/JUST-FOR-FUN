@@ -5789,7 +5789,8 @@ CombatAutoPVP:AddCheckbox("CreateFarmland", {
 -- register limit, so no extra top-level locals.
 FARMLAND_SLOT = 3       -- tool slot sent as the first arg of createFarmland
 FARMLAND_SPACING = 8    -- farmland tiles are 8x8 studs, so 8 keeps them flush
-FARMLAND_AHEAD = 3      -- grid cells filled in every direction around the character
+FARMLAND_RADIUS = 8     -- grid cells filled in every direction around the character
+FARMLAND_BURST = 20     -- most tiles sent per frame, so switching it on does not flood
 
 FarmlandRayParams = RaycastParams.new()
 FarmlandRayParams.FilterType = Enum.RaycastFilterType.Exclude
@@ -5808,17 +5809,32 @@ Toggles.CreateFarmland:OnChanged(function()
 	end
 
 	local lastCell = nil
-	local placedCells = {}
+	local placedCells = {}   -- tiles already sent
+	local queued = {}        -- tiles currently waiting, so none are added twice
+	local queue = {}         -- { x, y, z, key } entries still to send
 
-	-- Places the tile that owns cell (cx, cz) on the 8 stud grid, skipping
-	-- cells that already got one so walking never re-sends the same spot.
-	local function placeFarmland(cx, cz, y)
-		local key = cx .. "," .. cz
-		if placedCells[key] then return end
-		placedCells[key] = true
-		pcall(function()
-			remote:FireServer(FARMLAND_SLOT, Vector3.new(cx * FARMLAND_SPACING, y, cz * FARMLAND_SPACING), 0)
-		end)
+	-- Adds one tile position to the send queue, skipping anything already sent
+	-- or already waiting in the queue.
+	local function enqueueTile(x, y, z)
+		local key = x .. "," .. z
+		if placedCells[key] or queued[key] then return end
+		queued[key] = true
+		queue[#queue + 1] = { x, y, z, key }
+	end
+
+	-- The game snaps farmland onto its own grid, which is offset from whole
+	-- multiples of 8, so every cell is covered from its corner AND half a tile
+	-- in, on both axes. One of those two lands on the game's grid no matter how
+	-- it is offset, which is what keeps the tiles touching instead of leaving
+	-- gaps between them.
+	local function enqueueCell(cellX, cellZ, y)
+		local half = FARMLAND_SPACING / 2
+		local minX = cellX * FARMLAND_SPACING
+		local minZ = cellZ * FARMLAND_SPACING
+		enqueueTile(minX, y, minZ)
+		enqueueTile(minX + half, y, minZ)
+		enqueueTile(minX, y, minZ + half)
+		enqueueTile(minX + half, y, minZ + half)
 	end
 
 	track("CreateFarmland_Poll", RunService.Heartbeat:Connect(function()
@@ -5839,18 +5855,31 @@ Toggles.CreateFarmland:OnChanged(function()
 		local cellZ = math.floor(ground.Position.Z / FARMLAND_SPACING)
 		local baseY = ground.Position.Y
 
+		-- Whenever the feet enter a new grid cell, queue the whole square of
+		-- cells around the character (the cell under the feet included) and both
+		-- grid alignments of each. Turning it on therefore fills the entire area
+		-- right away, and walking keeps adding the fresh ground ahead, so the
+		-- whole area ends up covered with no gaps.
 		local cell = cellX .. "," .. cellZ
-		if cell == lastCell then return end
-		lastCell = cell
-
-		-- Fill a square of FARMLAND_AHEAD cells in every direction around the
-		-- character, including the cell under the feet. It re-fills on every
-		-- grid cell crossed, so consecutive fills overlap and everything walked
-		-- over gets filled in with nothing skipped.
-		for dx = -FARMLAND_AHEAD, FARMLAND_AHEAD do
-			for dz = -FARMLAND_AHEAD, FARMLAND_AHEAD do
-				placeFarmland(cellX + dx, cellZ + dz, baseY)
+		if cell ~= lastCell then
+			lastCell = cell
+			for dx = -FARMLAND_RADIUS, FARMLAND_RADIUS do
+				for dz = -FARMLAND_RADIUS, FARMLAND_RADIUS do
+					enqueueCell(cellX + dx, cellZ + dz, baseY)
+				end
 			end
+		end
+
+		-- Send a limited number of tiles each frame so a large area fills up
+		-- progressively instead of flooding the remote in a single frame.
+		for _ = 1, FARMLAND_BURST do
+			local tile = table.remove(queue)
+			if not tile then break end
+			queued[tile[4]] = nil
+			placedCells[tile[4]] = true
+			pcall(function()
+				remote:FireServer(FARMLAND_SLOT, Vector3.new(tile[1], tile[2], tile[3]), 0)
+			end)
 		end
 	end))
 
