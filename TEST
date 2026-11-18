@@ -3347,6 +3347,20 @@ SpectateGroup:AddDropdown("SpectatePlayerList", {
 	Default = "",
 })
 
+SpectateGroup:AddToggle("Freecam", {
+	Text = "Freecam",
+	Default = false,
+})
+
+SpectateGroup:AddSlider("FreecamSpeed", {
+	Text = "Freecam Speed",
+	Default = 50,
+	Min = 5,
+	Max = 300,
+	Rounding = 0,
+	Compact = true,
+})
+
 local TeleportGroup = Tabs.Main:AddRightGroupbox("TELEPORT", "navigation")
 
 TeleportGroup:AddDropdown("TeleportPlayerList", {
@@ -13231,6 +13245,114 @@ Options.SpectatePlayerList:OnChanged(function()
 	end
 end)
 
+-- Freecam Script Logic. Global on purpose (main chunk is near Luau's 200-local limit).
+FreecamState = {
+	active = false,
+	pos = Vector3.zero,
+	yaw = 0,
+	pitch = 0,
+	speed = 50,
+	keys = {},
+}
+
+function stopFreecam()
+	FreecamState.active = false
+	FreecamState.keys = {}
+	disconnect("FreecamLoop")
+	disconnect("FreecamInputBegan")
+	disconnect("FreecamInputEnded")
+	local camera = workspace.CurrentCamera
+	if camera then
+		camera.CameraType = Enum.CameraType.Custom
+		local localHum = getHumanoid()
+		if localHum then camera.CameraSubject = localHum end
+	end
+	pcall(function() UserInputService.MouseBehavior = Enum.MouseBehavior.Default end)
+end
+
+function startFreecam()
+	disconnect("FreecamLoop")
+	disconnect("FreecamInputBegan")
+	disconnect("FreecamInputEnded")
+	local camera = workspace.CurrentCamera
+	if not camera then return end
+
+	FreecamState.active = true
+	FreecamState.keys = {}
+	FreecamState.pos = camera.CFrame.Position
+	local look = camera.CFrame.LookVector
+	FreecamState.yaw = math.atan2(-look.X, -look.Z)
+	FreecamState.pitch = math.asin(math.clamp(look.Y, -1, 1))
+	FreecamState.speed = (Options.FreecamSpeed and Options.FreecamSpeed.Value) or 50
+
+	camera.CameraType = Enum.CameraType.Scriptable
+	camera.CameraSubject = nil
+	pcall(function() UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter end)
+
+	track("FreecamInputBegan", UserInputService.InputBegan:Connect(function(input, processed)
+		if processed then return end
+		if input.UserInputType == Enum.UserInputType.Keyboard then
+			FreecamState.keys[input.KeyCode] = true
+		end
+	end))
+	track("FreecamInputEnded", UserInputService.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.Keyboard then
+			FreecamState.keys[input.KeyCode] = nil
+		end
+	end))
+
+	track("FreecamLoop", RunService.RenderStepped:Connect(function(dt)
+		if not FreecamState.active then return end
+		local cam = workspace.CurrentCamera
+		if not cam then return end
+
+		-- Look with the mouse.
+		local delta = UserInputService:GetMouseDelta()
+		local sensitivity = 0.0025
+		FreecamState.yaw = FreecamState.yaw - delta.X * sensitivity
+		FreecamState.pitch = math.clamp(FreecamState.pitch - delta.Y * sensitivity, math.rad(-89), math.rad(89))
+		local rotation = CFrame.fromEulerAnglesYXZ(FreecamState.pitch, FreecamState.yaw, 0)
+
+		-- Move with WASD, Space/Ctrl (or E/Q) for up/down, Shift to sprint.
+		local keys = FreecamState.keys
+		local move = Vector3.zero
+		if keys[Enum.KeyCode.W] then move = move + rotation.LookVector end
+		if keys[Enum.KeyCode.S] then move = move - rotation.LookVector end
+		if keys[Enum.KeyCode.A] then move = move - rotation.RightVector end
+		if keys[Enum.KeyCode.D] then move = move + rotation.RightVector end
+		if keys[Enum.KeyCode.Space] or keys[Enum.KeyCode.E] then move = move + Vector3.new(0, 1, 0) end
+		if keys[Enum.KeyCode.LeftControl] or keys[Enum.KeyCode.Q] then move = move - Vector3.new(0, 1, 0) end
+
+		local speed = FreecamState.speed
+		if keys[Enum.KeyCode.LeftShift] then speed = speed * 2 end
+		if move.Magnitude > 0 then move = move.Unit end
+
+		FreecamState.pos = FreecamState.pos + move * speed * dt
+		cam.CameraType = Enum.CameraType.Scriptable
+		cam.CameraSubject = nil
+		cam.CFrame = CFrame.new(FreecamState.pos) * rotation
+	end))
+end
+
+Toggles.Freecam:OnChanged(function()
+	if Toggles.Freecam.Value then
+		if Toggles.SpectateToggle.Value then
+			Toggles.SpectateToggle:SetValue(false)
+		end
+		startFreecam()
+		Library:Notify({ Title = "FREECAM", Description = "Freecam enabled (WASD to move, mouse to look).", Time = 3 })
+	else
+		stopFreecam()
+		Library:Notify({ Title = "FREECAM", Description = "Freecam disabled.", Time = 2 })
+	end
+end)
+
+if Options.FreecamSpeed then
+	Options.FreecamSpeed:OnChanged(function()
+		FreecamState.speed = Options.FreecamSpeed.Value
+	end)
+end
+
 -- Invisible Fly Script Logic
 local invisibleFlyVars = {
 	invisiblefly = false,
@@ -13602,6 +13724,9 @@ Library:OnUnload(function()
 
 	if Toggles.SpectateToggle and Toggles.SpectateToggle.Value then
 		Toggles.SpectateToggle:SetValue(false)
+	end
+	if Toggles.Freecam and Toggles.Freecam.Value then
+		Toggles.Freecam:SetValue(false)
 	end
 	if Toggles.TouchFling and Toggles.TouchFling.Value then
 		Toggles.TouchFling:SetValue(false)
