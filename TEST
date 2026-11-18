@@ -9003,6 +9003,29 @@ MoveBoatSpeed:AddSlider("BoatFlySpeed", {
 	Compact = true,
 })
 
+-- The boat sliders only make sense while their parent toggle is on, so hide
+-- them until then. Global on purpose: the main chunk is at Luau's 200-local limit.
+function updateBoatVisibility()
+	local speedOn = (Toggles.BoatSpeedToggle and Toggles.BoatSpeedToggle.Value) or false
+	local flyOn = speedOn and ((Toggles.BoatFly and Toggles.BoatFly.Value) or false)
+
+	local function setVisible(option, visible)
+		if not option then return end
+		option.Visible = visible
+		if option.Holder then
+			option.Holder.Visible = visible
+		end
+	end
+
+	setVisible(Options.BoatSpeedValue, speedOn)
+	setVisible(Toggles.BoatFly, speedOn)
+	setVisible(Options.BoatFlySpeed, flyOn)
+
+	if MoveBoatSpeed and MoveBoatSpeed.Resize then
+		MoveBoatSpeed:Resize()
+	end
+end
+
 do
 	local boatPlatform = nil
 
@@ -9111,8 +9134,20 @@ do
 		else
 			disableBoatSpeed()
 		end
+
+		updateBoatVisibility()
 	end)
 end
+
+Toggles.BoatFly:OnChanged(function()
+	updateBoatVisibility()
+end)
+
+updateBoatVisibility()
+task.spawn(function()
+	task.wait(0.05)
+	updateBoatVisibility()
+end)
 
 Toggles.SpeedHack:OnChanged(function()
 	disconnect("SpeedHack")
@@ -9695,10 +9730,11 @@ FarmMine:AddDropdown("AutoMineSlotSystemSlot", {
 	Multi = true,
 })
 
-FarmMine:AddInput("AutoMineNameFilter", {
+FarmMine:AddDropdown("AutoMineNameFilter", {
 	Text = "Node Name Filter",
-	Default = "",
-	Placeholder = "Copper Ore, Iron Ore (blank = all)",
+	Values = {},
+	Default = {},
+	Multi = true,
 })
 
 FarmMine:AddSlider("AutoMineRange", {
@@ -9747,10 +9783,11 @@ FarmChop:AddDropdown("AutoChopSlotSystemSlot", {
 	Multi = true,
 })
 
-FarmChop:AddInput("AutoChopNameFilter", {
+FarmChop:AddDropdown("AutoChopNameFilter", {
 	Text = "Node Name Filter",
-	Default = "",
-	Placeholder = "Oak Tree, Birch (blank = all)",
+	Values = {},
+	Default = {},
+	Multi = true,
 })
 
 FarmChop:AddSlider("AutoChopRange", {
@@ -9901,6 +9938,45 @@ end
 
 function refreshChopSelector()
 	refreshSelector(Options.ChopSelector, getChoppableFolder())
+end
+
+-- Node Name Filter dropdowns for the auto farms. Same streaming-refresh idea as
+-- refreshSelector, but the Value of a multi dropdown is a table, so the current
+-- picks are carried over manually instead of via refreshSelector.
+function refreshMultiSelector(option, folder)
+	if not option then return end
+
+	local previous = option.Value
+	if type(previous) ~= "table" then previous = {} end
+
+	local found = {}
+	forEachResourceNode(folder, function(obj)
+		if obj.Name and obj.Name ~= "" then
+			found[obj.Name] = true
+		end
+	end)
+
+	-- Keep the current picks in the list. Chunks briefly empty out while a reset
+	-- streams them back in, and Obsidian drops selections missing from the list.
+	for name in pairs(previous) do
+		found[name] = true
+	end
+
+	local names = {}
+	for name in pairs(found) do
+		table.insert(names, name)
+	end
+	table.sort(names)
+
+	option:SetValues(names)
+end
+
+function refreshMineFilterSelector()
+	refreshMultiSelector(Options.AutoMineNameFilter, getMineableFolder())
+end
+
+function refreshChopFilterSelector()
+	refreshMultiSelector(Options.AutoChopNameFilter, getChoppableFolder())
 end
 
 -- Collect a hover position for every node of the given name. anchorFor resolves
@@ -10179,12 +10255,15 @@ task.spawn(function()
 
 	refreshFarmSelector()
 	refreshChopSelector()
+	refreshMineFilterSelector()
+	refreshChopFilterSelector()
 
 	if mineFolder then
 		disconnect("FarmSelectorScan")
 		track("FarmSelectorScan", mineFolder.ChildAdded:Connect(function()
 			task.wait(0.5)
 			pcall(refreshFarmSelector)
+			pcall(refreshMineFilterSelector)
 		end))
 	end
 
@@ -10193,6 +10272,7 @@ task.spawn(function()
 		track("ChopSelectorScan", chopFolder.ChildAdded:Connect(function()
 			task.wait(0.5)
 			pcall(refreshChopSelector)
+			pcall(refreshChopFilterSelector)
 		end))
 	end
 end)
@@ -10255,16 +10335,27 @@ local isAiAuraRunning   = false
 local lastAutoMineHit   = 0
 local lastAutoChopHit   = 0
 
--- Node Name Filter for the auto farms. The input is a comma-separated list of
--- names; a node matches when its name contains any of them (case-insensitive).
--- Blank means "no filter" so every node is targeted. Kept global on purpose:
--- the main chunk is at Luau's 200-local register limit.
+-- Node Name Filter for the auto farms. The filter comes from a multi dropdown,
+-- so its value is a table of selected node names: a node matches when its name
+-- is one of the picks, and an empty pick list means "no filter" (farm them all).
+-- A plain string is also accepted as a comma-separated list, matched as a
+-- substring. Kept global on purpose: the main chunk is at Luau's 200-local limit.
 function resourceNameMatches(obj, filterValue)
-	if not filterValue or filterValue == "" then return true end
 	local name = obj and obj.Name
 	if not name or name == "" then return false end
+
+	if type(filterValue) == "table" then
+		local any = false
+		for selected in pairs(filterValue) do
+			any = true
+			if selected == name then return true end
+		end
+		return not any
+	end
+
+	if filterValue == nil or filterValue == "" then return true end
 	local lowered = string.lower(name)
-	for token in string.gmatch(string.lower(filterValue), "[^,]+") do
+	for token in string.gmatch(string.lower(tostring(filterValue)), "[^,]+") do
 		local needle = string.match(token, "^%s*(.-)%s*$")
 		if needle ~= "" and string.find(lowered, needle, 1, true) then
 			return true
@@ -11712,6 +11803,11 @@ TSG_MeteorGroup:AddCheckbox("AutoMeteorTeleport", {
 	Default = false,
 })
 
+TSG_MeteorGroup:AddCheckbox("MeteorAlert", {
+	Text = "Meteor Alert (300 studs)",
+	Default = false,
+})
+
 Toggles.AutoMeteorTeleport:OnChanged(function()
 	disconnect("AutoMeteorTeleport")
 	if not Toggles.AutoMeteorTeleport.Value then return end
@@ -11735,6 +11831,83 @@ Toggles.AutoMeteorTeleport:OnChanged(function()
 		local impactAt = ev:GetAttribute("ImpactAt")
 		if typeof(impactAt) == "number" and impactAt < workspace:GetServerTimeNow() then return end
 		TSG_TeleportToMeteor(ev, "Meteor")
+	end))
+end)
+
+-- Meteor Alert: warns and resets the character when a meteor's landing point is
+-- within 300 studs of us. The landing point streams in as an attribute shortly
+-- after the event folder appears, so each new meteor is watched for a moment.
+TSG_MeteorAlertSeen = {}
+
+function TSG_CheckMeteorAlert(ev)
+	if not (Toggles.MeteorAlert and Toggles.MeteorAlert.Value) then return end
+	if typeof(ev) ~= "Instance" or not ev.Parent then return end
+	if ev:GetAttribute("type") ~= "Meteor" then return end
+	if TSG_MeteorAlertSeen[ev] then return end
+
+	-- Ignore events that already landed; only warn about incoming meteors.
+	local impactAt = ev:GetAttribute("ImpactAt")
+	if typeof(impactAt) == "number" and impactAt < workspace:GetServerTimeNow() then return end
+
+	local target = ev:GetAttribute("TargetCFrame")
+	if typeof(target) ~= "CFrame" then return end
+	local root = getRootPart()
+	if not root then return end
+
+	local dist = (root.Position - target.Position).Magnitude
+	if dist > 300 then return end
+
+	TSG_MeteorAlertSeen[ev] = true
+
+	Library:Notify({
+		Title = "Meteor Alert",
+		Description = string.format("Meteor landing %.0f studs away - resetting!", dist),
+		Time = 4,
+	})
+
+	local humanoid = getHumanoid()
+	if humanoid and humanoid.Health > 0 then
+		pcall(function()
+			humanoid.Health = 0
+		end)
+	end
+end
+
+function TSG_WatchMeteorAlert(ev)
+	-- Poll briefly so the alert still fires when TargetCFrame arrives late.
+	for _ = 1, 10 do
+		if not (Toggles.MeteorAlert and Toggles.MeteorAlert.Value) then return end
+		if typeof(ev) ~= "Instance" or not ev.Parent then return end
+		if TSG_MeteorAlertSeen[ev] then return end
+		if typeof(ev:GetAttribute("TargetCFrame")) == "CFrame" then
+			TSG_CheckMeteorAlert(ev)
+			return
+		end
+		task.wait(0.3)
+	end
+end
+
+Toggles.MeteorAlert:OnChanged(function()
+	disconnect("MeteorAlert")
+	TSG_MeteorAlertSeen = {}
+	if not Toggles.MeteorAlert.Value then return end
+
+	local active = ReplicatedStorage:WaitForChild("activeEvents", 10)
+	if not active then
+		Library:Notify({ Title = "Meteor Alert", Description = "activeEvents not found.", Time = 3 })
+		Toggles.MeteorAlert:SetValue(false)
+		return
+	end
+
+	for _, ev in ipairs(active:GetChildren()) do
+		if ev:IsA("Folder") then
+			task.spawn(TSG_WatchMeteorAlert, ev)
+		end
+	end
+
+	track("MeteorAlert", active.ChildAdded:Connect(function(ev)
+		if not ev:IsA("Folder") then return end
+		task.spawn(TSG_WatchMeteorAlert, ev)
 	end))
 end)
 
@@ -14613,6 +14786,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.SkyboxFreezeTime and Toggles.SkyboxFreezeTime.Value then
 		Toggles.SkyboxFreezeTime:SetValue(false)
+	end
+	if Toggles.MeteorAlert and Toggles.MeteorAlert.Value then
+		Toggles.MeteorAlert:SetValue(false)
 	end
 
 	if Toggles.WalkOnWater and Toggles.WalkOnWater.Value then
