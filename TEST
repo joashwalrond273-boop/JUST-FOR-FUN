@@ -1390,6 +1390,17 @@ AutoArmorDeluxeGroup:AddSlider("AtlanteanEquipSpeed", {
 	Compact = true,
 })
 
+-- How long you must stay in the water before the Atlantean gear swaps in. Bail
+-- out of the water before this and nothing swaps at all.
+AutoArmorDeluxeGroup:AddSlider("AtlanteanWaterTime", {
+	Text = "Seconds In Water",
+	Default = 0.5,
+	Min = 0,
+	Max = 10,
+	Rounding = 1,
+	Compact = true,
+})
+
 -- Set while the Atlantean Slot System is the one flipping the toggle, so a
 -- forced enable doesn't fake a "just entered the water" event. Kept global on
 -- purpose: the main chunk is already at Luau's 200-local register limit.
@@ -1405,7 +1416,11 @@ Toggles.AtlanteanAutoSwap:OnChanged(function()
 		local wasInWater = AtlanteanSlotSystemForcing and isInWater() or false
 		local pendingState = nil
 		local stableTime = 0
-		local SWITCH_DEBOUNCE = 0.4
+		-- How long each state has to hold before we act. Entering the water uses
+		-- the user's "Seconds In Water" slider below, so a quick dip in and out
+		-- never swaps anything at all. Leaving the water keeps a short fixed
+		-- debounce so the swap-back isn't spammed while bobbing at the surface.
+		local EXIT_DEBOUNCE = 0.4
 		local function equipAtlantean()
 			local equipHotbarRemote = TSG.EquipHotbarRemote
 			local equipClothingRemote = TSG.EquipClothingRemote
@@ -1453,7 +1468,15 @@ Toggles.AtlanteanAutoSwap:OnChanged(function()
 				return
 			end
 			stableTime = stableTime + (dt or 0)
-			if stableTime < SWITCH_DEBOUNCE then return end
+			-- Entering the water only counts once the player has actually stayed
+			-- under for the configured time; leaving uses the short fixed debounce.
+			local requiredTime
+			if inWater then
+				requiredTime = (Options.AtlanteanWaterTime and Options.AtlanteanWaterTime.Value) or 0.5
+			else
+				requiredTime = EXIT_DEBOUNCE
+			end
+			if stableTime < requiredTime then return end
 
 			wasInWater = inWater
 			pendingState = nil
@@ -5527,6 +5550,17 @@ CombatCamlockConfig:AddCheckbox("WaterBypass", {
 	Default = false,
 })
 
+-- Field of view for the swim aimbot: only targets inside this cone in front of
+-- the camera are picked up. 360° disables the restriction.
+CombatCamlockConfig:AddSlider("WaterBypassFOV", {
+	Text = "Aimbot FOV",
+	Default = 360,
+	Min = 10,
+	Max = 360,
+	Rounding = 0,
+	Compact = true,
+})
+
 CombatCamlockConfig:AddDropdown("WaterBypassAimPart", {
 	Text = "Swim Aim Part",
 	Values = {"Head", "HumanoidRootPart", "UpperTorso"},
@@ -5534,14 +5568,20 @@ CombatCamlockConfig:AddDropdown("WaterBypassAimPart", {
 	Visible = false,
 })
 
--- "Swim Aim Part" only shows while Fix Swim Motion is on.
+-- "Swim Aim Part" and the FOV slider only show while Fix Swim Motion is on.
 if Options.WaterBypassAimPart and Options.WaterBypassAimPart.SetVisible then
 	Options.WaterBypassAimPart:SetVisible(Toggles.WaterBypass.Value and true or false)
+end
+if Options.WaterBypassFOV and Options.WaterBypassFOV.SetVisible then
+	Options.WaterBypassFOV:SetVisible(Toggles.WaterBypass.Value and true or false)
 end
 
 Toggles.WaterBypass:OnChanged(function()
 	if Options.WaterBypassAimPart and Options.WaterBypassAimPart.SetVisible then
 		Options.WaterBypassAimPart:SetVisible(Toggles.WaterBypass.Value and true or false)
+	end
+	if Options.WaterBypassFOV and Options.WaterBypassFOV.SetVisible then
+		Options.WaterBypassFOV:SetVisible(Toggles.WaterBypass.Value and true or false)
 	end
 end)
 
@@ -5666,7 +5706,7 @@ CombatLeft:AddDropdown("KillAuraTarget", {
 
 CombatLeft:AddDropdown("KillAuraPriority", {
 	Text = "Target Priority",
-	Values = {"Normal", "Lowest HP Kill", "Highest HP Kill"},
+	Values = {"Normal", "Lowest HP Kill", "Highest HP Kill", "Closest to Crosshair"},
 	Default = "Normal",
 })
 
@@ -5697,7 +5737,7 @@ CombatLeft:AddSlider("KillAuraAngle", {
 CombatLeft:AddSlider("KillAuraSpeed", {
 	Text = "Hit Cooldown",
 	Default = 0.2,
-	Min = 0.05,
+	Min = 0.1,
 	Max = 2,
 	Rounding = 2,
 	Compact = true,
@@ -6456,15 +6496,6 @@ CombatReach:AddToggle("Reach", {
 	Default = false,
 })
 
-CombatReach:AddSlider("ReachMaxTargets", {
-	Text = "Target More Enemies",
-	Default = 1,
-	Min = 1,
-	Max = 10,
-	Rounding = 0,
-	Compact = true,
-})
-
 CombatReach:AddDropdown("ReachTarget", {
 	Text = "Target Player",
 	Values = {"All"},
@@ -7124,10 +7155,18 @@ local function killAuraLoop()
 	local priority = (Options.KillAuraPriority and Options.KillAuraPriority.Value) or "Normal"
 	local useLowestHP = priority == "Lowest HP Kill"
 	local useHighestHP = priority == "Highest HP Kill"
+	local useCrosshair = priority == "Closest to Crosshair"
 	local lowestHealth = math.huge
 	local lowestHPTarget = nil
 	local highestHealth = -math.huge
 	local highestHPTarget = nil
+	-- "Closest to Crosshair" picks whatever sits nearest to the centre of the
+	-- screen, measured as the camera-forward dot product.
+	local crosshairCamera = useCrosshair and workspace.CurrentCamera or nil
+	local crosshairForward = crosshairCamera and crosshairCamera.CFrame.LookVector or nil
+	local crosshairCamPos = crosshairCamera and crosshairCamera.CFrame.Position or nil
+	local bestCrosshairDot = -math.huge
+	local crosshairTarget = nil
 
 	-- Scan Players
 	for _, otherPlayer in ipairs(Players:GetPlayers()) do
@@ -7148,6 +7187,17 @@ local function killAuraLoop()
 								highestHealth = otherHum.Health
 								highestHPTarget = otherPlayer.Character
 							end
+						elseif useCrosshair then
+							if crosshairForward then
+								local dir = otherRoot.Position - crosshairCamPos
+								if dir.Magnitude > 0 then
+									local dot = crosshairForward:Dot(dir.Unit)
+									if dot > bestCrosshairDot then
+										bestCrosshairDot = dot
+										crosshairTarget = otherPlayer.Character
+									end
+								end
+							end
 						elseif d < nearestDist then
 							nearestDist = d
 							nearestTarget = otherPlayer.Character
@@ -7162,6 +7212,8 @@ local function killAuraLoop()
 		nearestTarget = lowestHPTarget
 	elseif useHighestHP then
 		nearestTarget = highestHPTarget
+	elseif useCrosshair then
+		nearestTarget = crosshairTarget
 	end
 
 	if not nearestTarget then
@@ -7399,6 +7451,15 @@ do
 
 		local maxDist = (Options.CamlockStuds and Options.CamlockStuds.Value) or 20
 
+		-- Optional field of view: only targets inside the cone in front of the
+		-- camera are considered. 360° (the default) means no restriction.
+		local camera = workspace.CurrentCamera
+		local fovAngle = (Options.WaterBypassFOV and Options.WaterBypassFOV.Value) or 360
+		local useFOV = camera ~= nil and fovAngle < 360
+		local coneThreshold = useFOV and math.cos(math.rad(fovAngle / 2)) or nil
+		local forward = useFOV and camera.CFrame.LookVector or nil
+		local camPos = useFOV and camera.CFrame.Position or nil
+
 		-- While names are picked in the Blacklist the aimlock only looks at those
 		-- names; with an empty list it keeps its old behaviour (closest
 		-- non-teammate).
@@ -7421,7 +7482,16 @@ do
 				if otherRoot and otherHum and otherHum.Health > 0 then
 					local dist = (otherRoot.Position - root.Position).Magnitude
 					if dist <= bestDist then
-						bestPlayer, bestDist = otherPlayer, dist
+						local inFOV = true
+						if useFOV and forward then
+							local dir = otherRoot.Position - camPos
+							if dir.Magnitude > 0 then
+								inFOV = forward:Dot(dir.Unit) >= coneThreshold
+							end
+						end
+						if inFOV then
+							bestPlayer, bestDist = otherPlayer, dist
+						end
 					end
 				end
 			end
@@ -8568,13 +8638,9 @@ local function connectReachTool(tool)
 					return a.dist < b.dist
 				end)
 
-				local maxTargets = (Options.ReachMaxTargets and Options.ReachMaxTargets.Value) or 1
-				local hitCount = 0
-
+				-- The "Target More Enemies" cap is gone, so every valid target in
+				-- range is hit each swing.
 				for _, targetInfo in ipairs(targetsToHit) do
-					if hitCount >= maxTargets then break end
-					hitCount = hitCount + 1
-
 					local slot = tonumber(tool.Name) or 1
 					if targetInfo.isPlayer and targetInfo.player then
 						local targetPlayer = targetInfo.player
@@ -11726,14 +11792,14 @@ BossLocationsGroup:AddButton({
 -- Extra Locations
 local TeleportExtra = Tabs.Teleport:AddLeftGroupbox("Extra Locations", "map-pin")
 
+-- Paired two per row (Obsidian's Button:AddButton chain), so the ten locations
+-- sit as five side-by-side pairs — same style as the Mounts / Merchants menus.
 TeleportExtra:AddButton({
 	Text = "Desert",
 	Func = function()
 		resetAndTeleport(Vector3.new(1459.50, 26.26, -204.70), "Desert")
 	end,
-})
-
-TeleportExtra:AddButton({
+}):AddButton({
 	Text = "Desert Hill",
 	Func = function()
 		resetAndTeleport(Vector3.new(1548.35, 145.47, 196.68), "Desert Hill")
@@ -11745,9 +11811,7 @@ TeleportExtra:AddButton({
 	Func = function()
 		resetAndTeleport(Vector3.new(-170.20, 25.26, 430.70), "MainLand")
 	end,
-})
-
-TeleportExtra:AddButton({
+}):AddButton({
 	Text = "Below ML",
 	Func = function()
 		resetAndTeleport(Vector3.new(-177, 25.26, -1014.83), "Below ML")
@@ -11759,9 +11823,7 @@ TeleportExtra:AddButton({
 	Func = function()
 		resetAndTeleport(Vector3.new(-1315.59, 41.19, 1972.84), "Arena")
 	end,
-})
-
-TeleportExtra:AddButton({
+}):AddButton({
 	Text = "Bamboo",
 	Func = function()
 		resetAndTeleport(Vector3.new(-1330.92, 39.43, 5798.47), "Bamboo")
@@ -11773,9 +11835,7 @@ TeleportExtra:AddButton({
 	Func = function()
 		resetAndTeleport(Vector3.new(1769.70, 36.43, 1832.10), "Volcano")
 	end,
-})
-
-TeleportExtra:AddButton({
+}):AddButton({
 	Text = "Asia Cave",
 	Func = function()
 		resetAndTeleport(Vector3.new(-1782.19, 353.22, 7074.68), "Asia Cave")
@@ -11787,9 +11847,7 @@ TeleportExtra:AddButton({
 	Func = function()
 		resetAndTeleport(Vector3.new(-1645.06, 336.32, -2874.34), "Jugger Doom")
 	end,
-})
-
-TeleportExtra:AddButton({
+}):AddButton({
 	Text = "Waterfall",
 	Func = function()
 		resetAndTeleport(Vector3.new(-1949.89, 25.29, 345.83), "Waterfall")
