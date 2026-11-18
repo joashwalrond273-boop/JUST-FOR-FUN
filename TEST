@@ -11600,6 +11600,85 @@ resetAndTeleport = function(targetPos, label, glue)
 	end
 end
 
+-- Meteor
+TSG_PickActiveMeteor = function()
+	local active = ReplicatedStorage:FindFirstChild("activeEvents")
+	if not active then return nil end
+	local now = workspace:GetServerTimeNow()
+	local soonest, soonestAt = nil, math.huge
+	local latest, latestAt = nil, -math.huge
+	for _, ev in ipairs(active:GetChildren()) do
+		if ev:IsA("Folder") and ev:GetAttribute("type") == "Meteor" then
+			local impactAt = ev:GetAttribute("ImpactAt")
+			if typeof(impactAt) == "number" then
+				if impactAt >= now and impactAt < soonestAt then
+					soonest, soonestAt = ev, impactAt
+				end
+				if impactAt > latestAt then
+					latest, latestAt = ev, impactAt
+				end
+			end
+		end
+	end
+	return soonest or latest
+end
+
+TSG_TeleportToMeteor = function(ev, label)
+	local target = ev and ev:GetAttribute("TargetCFrame")
+	if typeof(target) ~= "CFrame" then
+		Library:Notify({ Title = "Meteor", Description = "No meteor landing point found.", Time = 2 })
+		return
+	end
+	local cf = CFrame.new(target.Position + Vector3.new(0, 8, 0))
+	resetAndTeleport(function() return cf end, label or "Meteor", true)
+end
+
+TSG_MeteorGroup = Tabs.Teleport:AddLeftGroupbox("Meteor", "map-pin")
+
+TSG_MeteorGroup:AddButton({
+	Text = "Teleport to Meteor",
+	Func = function()
+		local ev = TSG_PickActiveMeteor()
+		if not ev then
+			Library:Notify({ Title = "Meteor", Description = "No active meteor right now.", Time = 2 })
+			return
+		end
+		TSG_TeleportToMeteor(ev, "Meteor")
+	end,
+})
+
+TSG_MeteorGroup:AddToggle("AutoMeteorTeleport", {
+	Text = "Auto Teleport",
+	Default = false,
+	Tooltip = "Teleport to the landing site as soon as a meteor is detected",
+})
+
+Toggles.AutoMeteorTeleport:OnChanged(function()
+	disconnect("AutoMeteorTeleport")
+	if not Toggles.AutoMeteorTeleport.Value then return end
+
+	local now = workspace:GetServerTimeNow()
+	local existing = TSG_PickActiveMeteor()
+	local existingImpact = existing and existing:GetAttribute("ImpactAt")
+	if existing and (typeof(existingImpact) ~= "number" or existingImpact >= now) then
+		TSG_TeleportToMeteor(existing, "Meteor")
+	end
+
+	local active = ReplicatedStorage:WaitForChild("activeEvents", 10)
+	if not active then
+		Library:Notify({ Title = "Meteor", Description = "activeEvents not found.", Time = 2 })
+		Toggles.AutoMeteorTeleport:SetValue(false)
+		return
+	end
+	track("AutoMeteorTeleport", active.ChildAdded:Connect(function(ev)
+		if not ev:IsA("Folder") then return end
+		if ev:GetAttribute("type") ~= "Meteor" then return end
+		local impactAt = ev:GetAttribute("ImpactAt")
+		if typeof(impactAt) == "number" and impactAt < workspace:GetServerTimeNow() then return end
+		TSG_TeleportToMeteor(ev, "Meteor")
+	end))
+end)
+
 -- Boss Locations
 local BossLocationsGroup = Tabs.Teleport:AddLeftGroupbox("Boss locations", "swords")
 
@@ -11897,90 +11976,14 @@ MerchantsGroup:AddButton({
 	end,
 })
 
--- Meteor
-TSG_PickActiveMeteor = function()
-	local active = ReplicatedStorage:FindFirstChild("activeEvents")
-	if not active then return nil end
-	local now = workspace:GetServerTimeNow()
-	local soonest, soonestAt = nil, math.huge
-	local latest, latestAt = nil, -math.huge
-	for _, ev in ipairs(active:GetChildren()) do
-		if ev:IsA("Folder") and ev:GetAttribute("type") == "Meteor" then
-			local impactAt = ev:GetAttribute("ImpactAt")
-			if typeof(impactAt) == "number" then
-				if impactAt >= now and impactAt < soonestAt then
-					soonest, soonestAt = ev, impactAt
-				end
-				if impactAt > latestAt then
-					latest, latestAt = ev, impactAt
-				end
-			end
-		end
-	end
-	return soonest or latest
-end
-
-TSG_TeleportToMeteor = function(ev, label)
-	local target = ev and ev:GetAttribute("TargetCFrame")
-	if typeof(target) ~= "CFrame" then
-		Library:Notify({ Title = "Meteor", Description = "No meteor landing point found.", Time = 2 })
-		return
-	end
-	local cf = CFrame.new(target.Position + Vector3.new(0, 8, 0))
-	resetAndTeleport(function() return cf end, label or "Meteor", true)
-end
-
-TSG_MeteorGroup = Tabs.Teleport:AddRightGroupbox("Meteor", "map-pin")
-
-TSG_MeteorGroup:AddButton({
-	Text = "Teleport to Meteor",
-	Func = function()
-		local ev = TSG_PickActiveMeteor()
-		if not ev then
-			Library:Notify({ Title = "Meteor", Description = "No active meteor right now.", Time = 2 })
-			return
-		end
-		TSG_TeleportToMeteor(ev, "Meteor")
-	end,
-})
-
-TSG_MeteorGroup:AddToggle("AutoMeteorTeleport", {
-	Text = "Auto Teleport",
-	Default = false,
-	Tooltip = "Teleport to the landing site as soon as a meteor is detected",
-})
-
-Toggles.AutoMeteorTeleport:OnChanged(function()
-	disconnect("AutoMeteorTeleport")
-	if not Toggles.AutoMeteorTeleport.Value then return end
-
-	local now = workspace:GetServerTimeNow()
-	local existing = TSG_PickActiveMeteor()
-	local existingImpact = existing and existing:GetAttribute("ImpactAt")
-	if existing and (typeof(existingImpact) ~= "number" or existingImpact >= now) then
-		TSG_TeleportToMeteor(existing, "Meteor")
-	end
-
-	local active = ReplicatedStorage:WaitForChild("activeEvents", 10)
-	if not active then
-		Library:Notify({ Title = "Meteor", Description = "activeEvents not found.", Time = 2 })
-		Toggles.AutoMeteorTeleport:SetValue(false)
-		return
-	end
-	track("AutoMeteorTeleport", active.ChildAdded:Connect(function(ev)
-		if not ev:IsA("Folder") then return end
-		if ev:GetAttribute("type") ~= "Meteor" then return end
-		local impactAt = ev:GetAttribute("ImpactAt")
-		if typeof(impactAt) == "number" and impactAt < workspace:GetServerTimeNow() then return end
-		TSG_TeleportToMeteor(ev, "Meteor")
-	end))
-end)
-
 -- ==========================================
 -- VISUALS
 -- ==========================================
 local VisualLeft = Tabs.Visuals:AddLeftGroupbox("Player ESP", "scan-eye")
 local VisualFPS = Tabs.Visuals:AddRightGroupbox("FPS Booster", "zap")
+-- Anti-Lag Plus hosts the heavier perf toggles. Kept global on purpose:
+-- the main chunk is already at Luau's 200-local register limit.
+TSG_AntiLagGroup = Tabs.Visuals:AddRightGroupbox("Anti-Lag Plus", "wind")
 
 -- ==========================================
 local function setPlayerShadows(castShadow)
@@ -12181,8 +12184,6 @@ VisualFPS:AddCheckbox("FullBright", {
 	end,
 })
 
-VisualFPS:AddDivider()
-
 pcall(function()
 	local lighting = game:GetService("Lighting")
 	local oldBlur = lighting:FindFirstChild("TSG_Smoothness_Blur")
@@ -12211,7 +12212,7 @@ do
 		end
 	end
 
-	VisualFPS:AddCheckbox("LowTextures", {
+	TSG_AntiLagGroup:AddCheckbox("LowTextures", {
 		Text = "Low Textures PBR",
 		Default = false,
 		Callback = function(state)
@@ -12243,7 +12244,7 @@ do
 	})
 end
 
-VisualFPS:AddCheckbox("DisableEffects", {
+TSG_AntiLagGroup:AddCheckbox("DisableEffects", {
 	Text = "Disable Effects",
 	Default = false,
 	Callback = function(state)
@@ -12286,7 +12287,7 @@ do
 		end)
 	end
 
-	VisualFPS:AddCheckbox("RemoveParticles", {
+	TSG_AntiLagGroup:AddCheckbox("RemoveParticles", {
 		Text = "Remove Particles",
 		Default = false,
 		Callback = function(state)
@@ -12394,7 +12395,7 @@ do
 		end
 	end
 
-	VisualFPS:AddCheckbox("KillHeavyPostEffects", {
+	TSG_AntiLagGroup:AddCheckbox("KillHeavyPostEffects", {
 		Text = "Kill Heavy Post FX",
 		Default = false,
 		Callback = function(state)
@@ -12442,7 +12443,7 @@ do
 	local qualityOriginal = nil
 	local meshOriginal = nil
 
-	VisualFPS:AddCheckbox("LowQualityLevel", {
+	TSG_AntiLagGroup:AddCheckbox("LowQualityLevel", {
 		Text = "Low Quality Level",
 		Default = false,
 		Callback = function(state)
@@ -12482,7 +12483,7 @@ do
 		end
 	end
 
-	VisualFPS:AddCheckbox("SkyboxFreezeTime", {
+	TSG_AntiLagGroup:AddCheckbox("SkyboxFreezeTime", {
 		Text = "Kill Skybox + Freeze Time",
 		Default = false,
 		Callback = function(state)
@@ -12595,6 +12596,15 @@ end)
 
 local VisualEnv = Tabs.Visuals:AddLeftGroupbox("ENVIRONMENT", "sun")
 
+VisualEnv:AddSlider("ControlTheHours", {
+	Text = "Control The Hours",
+	Default = 12,
+	Min = 0,
+	Max = 24,
+	Rounding = 1,
+	Compact = true,
+})
+
 VisualEnv:AddToggle("ClearWeather", {
 	Text = "Clear Weather",
 	Default = false,
@@ -12610,15 +12620,6 @@ VisualEnv:AddDropdown("WeatherControl", {
 	Text = "Weather Controller",
 	Values = {"Default", "Ash", "Rain", "Heavy Rain", "Thunderstorm", "Snow", "Sandstorm"},
 	Default = "Default",
-})
-
-VisualEnv:AddSlider("ControlTheHours", {
-	Text = "Control The Hours",
-	Default = 12,
-	Min = 0,
-	Max = 24,
-	Rounding = 1,
-	Compact = true,
 })
 
 local espObjects = {}
