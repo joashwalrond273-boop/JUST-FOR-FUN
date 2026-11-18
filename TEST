@@ -1569,7 +1569,7 @@ local ImmuneTab = PlayerTabBox:AddTab("Immune", "shield")
 local AdvanceHealGroup = Tabs.Player:AddRightGroupbox("Advance Heal", "heart")
 
 AdvanceHealGroup:AddToggle("AutoEatCustom", {
-	Text = "Auto Eat",
+	Text = "Auto Heal",
 	Default = false,
 })
 
@@ -3643,13 +3643,11 @@ FunAttach:AddCheckbox("ResetFirst", {
 	Default = false,
 })
 
-local PlusKillPlayerToggle = FunAttach:AddCheckbox("PlusKillPlayerToggle", {
-	Text = "Kill Player",
-	Default = false,
+FunAttach:AddDropdown("AttachAction", {
+	Text = "Player Action",
+	Values = { "None", "Kill Player", "Fling Player" },
+	Default = "None",
 })
-if PlusKillPlayerToggle.TextLabel then
-	PlusKillPlayerToggle.TextLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
-end
 
 FunAttach:AddSlider("AttachDistance", {
 	Text = "Attach Distance",
@@ -5294,7 +5292,7 @@ Toggles.AutoEatCustom:OnChanged(function()
 	disconnect("AutoEatCustom")
 	if Toggles.AutoEatCustom.Value then
 		track("AutoEatCustom", RunService.Heartbeat:Connect(tryEatCustom))
-		Library:Notify({ Title = "Auto Eat", Description = "Enabled", Time = 2 })
+		Library:Notify({ Title = "Auto Heal", Description = "Enabled", Time = 2 })
 	end
 end)
 
@@ -5360,7 +5358,7 @@ do
 			if Toggles.AutoEatSlotSystem.Value then
 				track("AutoEatSlot_Poll", RunService.Heartbeat:Connect(updateAutoEatSlotState))
 				updateAutoEatSlotState()
-				Library:Notify({ Title = "Auto Eat Slot System", Description = "Enabled", Time = 2 })
+				Library:Notify({ Title = "Auto Heal Slot System", Description = "Enabled", Time = 2 })
 			else
 				if autoEatSlotSaved ~= nil then
 					if Toggles.AutoEatCustom and Toggles.AutoEatCustom.Value ~= autoEatSlotSaved then
@@ -5368,7 +5366,7 @@ do
 					end
 					autoEatSlotSaved = nil
 				end
-				Library:Notify({ Title = "Auto Eat Slot System", Description = "Disabled", Time = 2 })
+				Library:Notify({ Title = "Auto Heal Slot System", Description = "Disabled", Time = 2 })
 			end
 		end)
 	end
@@ -9018,7 +9016,9 @@ function updateBoatVisibility()
 	end
 
 	setVisible(Options.BoatSpeedValue, speedOn)
-	setVisible(Toggles.BoatFly, speedOn)
+	-- Boat Fly stays visible even with Boat Speed off, so the option is always
+	-- discoverable; its fly-speed slider only appears once Boat Fly is on.
+	setVisible(Toggles.BoatFly, true)
 	setVisible(Options.BoatFlySpeed, flyOn)
 
 	if MoveBoatSpeed and MoveBoatSpeed.Resize then
@@ -9628,6 +9628,19 @@ FarmAI:AddCheckbox("BossHighlighter", {
 	Default = false,
 })
 
+-- Boss ESP only makes sense alongside AI Aura, so keep it hidden until that is on.
+function updateBossESPVisibility()
+	local visible = (Toggles.AiAura and Toggles.AiAura.Value) or false
+	local option = Toggles.BossHighlighter
+	if option then
+		option.Visible = visible
+		if option.Holder then
+			option.Holder.Visible = visible
+		end
+	end
+	FarmAI:Resize()
+end
+
 FarmAI:AddDropdown("AiAuraSlot", {
 	Text = "Attack Slot",
 	Values = {"1","2","3","4","5","6","7","8","9","10"},
@@ -9657,17 +9670,53 @@ FarmAI:AddDropdown("AiAuraNameList", {
 	Values = getAiAuraNames(),
 	Default = {},
 	Multi = true,
-	Searchable = true,
+	AllowNull = true,
 })
 
-FarmAI:AddButton({
-	Text = "Refresh AI Names",
-	Func = function()
-		if Options.AiAuraNameList then
-			Options.AiAuraNameList:SetValues(getAiAuraNames())
+-- Keep the AI Names droplist filled straight from the AI folders the aura uses,
+-- so there is no manual searching/refreshing.
+function refreshAiAuraNameList()
+	if not Options.AiAuraNameList then return end
+
+	local previous = Options.AiAuraNameList.Value
+	local keep = {}
+	if type(previous) == "table" then
+		for name in pairs(previous) do
+			keep[name] = true
 		end
-	end,
-})
+	end
+
+	local names, seen = {}, {}
+	local function add(name)
+		if name and name ~= "" and not seen[name] then
+			seen[name] = true
+			table.insert(names, name)
+		end
+	end
+
+	for _, name in ipairs(getAiAuraNames()) do
+		add(name)
+	end
+	for name in pairs(keep) do
+		add(name)
+	end
+	table.sort(names)
+
+	Options.AiAuraNameList:SetValues(names)
+end
+
+do
+	local function watchAiFolder(folderName)
+		local folder = waitForChild(workspace, folderName, 15)
+		if not folder then return end
+		track("AiAuraNames_" .. folderName, folder.ChildAdded:Connect(function()
+			task.wait(0.5)
+			pcall(refreshAiAuraNameList)
+		end))
+	end
+	task.spawn(watchAiFolder, "AI_Server")
+	task.spawn(watchAiFolder, "AI_Client")
+end
 
 FarmAI:AddSlider("AiAuraRange", {
 	Text = "Range",
@@ -9697,6 +9746,7 @@ updateAiAuraNameFilterVisibility()
 task.spawn(function()
 	task.wait(0.05)
 	updateAiAuraNameFilterVisibility()
+	updateBossESPVisibility()
 end)
 
 -- ==========================================
@@ -9735,6 +9785,7 @@ FarmMine:AddDropdown("AutoMineNameFilter", {
 	Values = {},
 	Default = {},
 	Multi = true,
+	AllowNull = true,
 })
 
 FarmMine:AddSlider("AutoMineRange", {
@@ -9788,6 +9839,7 @@ FarmChop:AddDropdown("AutoChopNameFilter", {
 	Values = {},
 	Default = {},
 	Multi = true,
+	AllowNull = true,
 })
 
 FarmChop:AddSlider("AutoChopRange", {
@@ -10722,6 +10774,7 @@ end
 
 Toggles.AiAura:OnChanged(function()
 	disconnect("AiAura")
+	updateBossESPVisibility()
 	if Toggles.AiAura.Value then
 		if not TSG.MeleeAI and not TSG.MeleeAnimalRemote then
 			Library:Notify({ Title = "AI Aura", Description = "AI remote not found.", Time = 4 })
@@ -10729,9 +10782,7 @@ Toggles.AiAura:OnChanged(function()
 			return
 		end
 		isAiAuraRunning = true
-		if Options.AiAuraNameList then
-			Options.AiAuraNameList:SetValues(getAiAuraNames())
-		end
+		refreshAiAuraNameList()
 		track("AiAura", RunService.Heartbeat:Connect(function()
 			if not isAlive() or not isAiAuraRunning then return end
 			aiAuraLoop()
@@ -11786,6 +11837,11 @@ end
 
 TSG_MeteorGroup = Tabs.Teleport:AddLeftGroupbox("Meteor Search", "map-pin")
 
+TSG_MeteorGroup:AddCheckbox("AutoMeteorTeleport", {
+	Text = "Auto Teleport",
+	Default = false,
+})
+
 TSG_MeteorGroup:AddButton({
 	Text = "Teleport to Meteor",
 	Func = function()
@@ -11796,11 +11852,6 @@ TSG_MeteorGroup:AddButton({
 		end
 		TSG_TeleportToMeteor(ev, "Meteor")
 	end,
-})
-
-TSG_MeteorGroup:AddCheckbox("AutoMeteorTeleport", {
-	Text = "Auto Teleport",
-	Default = false,
 })
 
 TSG_MeteorGroup:AddCheckbox("MeteorAlert", {
@@ -14108,14 +14159,15 @@ Toggles.AttachToggle:OnChanged(function(value)
 	end
 	startAttach()
 end)
-Toggles.PlusKillPlayerToggle:OnChanged(function()
-	if Toggles.PlusKillPlayerToggle.TextLabel then
-		Toggles.PlusKillPlayerToggle.TextLabel.TextColor3 = Toggles.PlusKillPlayerToggle.Value and Color3.fromRGB(255, 100, 100) or Color3.fromRGB(255, 0, 0)
+Options.AttachAction:OnChanged(function(value)
+	local kill = value == "Kill Player"
+	local fling = value == "Fling Player"
+
+	if Toggles.KillAura and Toggles.KillAura.Value ~= kill then
+		Toggles.KillAura:SetValue(kill)
 	end
-	if Toggles.PlusKillPlayerToggle.Value then
-		Toggles.KillAura:SetValue(true)
-	else
-		Toggles.KillAura:SetValue(false)
+	if Toggles.TouchFling and Toggles.TouchFling.Value ~= fling then
+		Toggles.TouchFling:SetValue(fling)
 	end
 end)
 Options.AttachPlayerList:OnChanged(function()
@@ -14801,8 +14853,8 @@ Library:OnUnload(function()
 	if Toggles.AttachToggle and Toggles.AttachToggle.Value then
 		Toggles.AttachToggle:SetValue(false)
 	end
-	if Toggles.PlusKillPlayerToggle and Toggles.PlusKillPlayerToggle.Value then
-		Toggles.PlusKillPlayerToggle:SetValue(false)
+	if Options.AttachAction and Options.AttachAction.Value ~= "None" then
+		Options.AttachAction:SetValue("None")
 	end
 
 	if Toggles.SpectateToggle and Toggles.SpectateToggle.Value then
