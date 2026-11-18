@@ -8987,39 +8987,17 @@ MoveBoatSpeed:AddSlider("BoatSpeedValue", {
 	Compact = true,
 })
 
-MoveBoatSpeed:AddCheckbox("BoatFly", {
-	Text = "Boat Fly (E up / Q down)",
-	Default = false,
-})
-
-MoveBoatSpeed:AddSlider("BoatFlySpeed", {
-	Text = "Boat Fly Speed",
-	Default = 1.2,
-	Min = 0.2,
-	Max = 5,
-	Rounding = 1,
-	Compact = true,
-})
-
--- The boat sliders only make sense while their parent toggle is on, so hide
--- them until then. Global on purpose: the main chunk is at Luau's 200-local limit.
+-- The boat slider only makes sense while its parent toggle is on, so hide it
+-- until then. Global on purpose: the main chunk is at Luau's 200-local limit.
 function updateBoatVisibility()
 	local speedOn = (Toggles.BoatSpeedToggle and Toggles.BoatSpeedToggle.Value) or false
-	local flyOn = speedOn and ((Toggles.BoatFly and Toggles.BoatFly.Value) or false)
 
-	local function setVisible(option, visible)
-		if not option then return end
-		option.Visible = visible
-		if option.Holder then
-			option.Holder.Visible = visible
+	if Options.BoatSpeedValue then
+		Options.BoatSpeedValue.Visible = speedOn
+		if Options.BoatSpeedValue.Holder then
+			Options.BoatSpeedValue.Holder.Visible = speedOn
 		end
 	end
-
-	setVisible(Options.BoatSpeedValue, speedOn)
-	-- Boat Fly stays visible even with Boat Speed off, so the option is always
-	-- discoverable; its fly-speed slider only appears once Boat Fly is on.
-	setVisible(Toggles.BoatFly, true)
-	setVisible(Options.BoatFlySpeed, flyOn)
 
 	if MoveBoatSpeed and MoveBoatSpeed.Resize then
 		MoveBoatSpeed:Resize()
@@ -9119,27 +9097,12 @@ do
 							end
 						end
 						boat:PivotTo(boatCFrame)
-						local extraY = 0
-						if Toggles.BoatFly and Toggles.BoatFly.Value then
-							-- Fly mode: ignore the altitude lock and steer vertically with keys
-							local vertical = 0
-							if UserInputService:IsKeyDown(Enum.KeyCode.E) then
-								vertical = 1
-							elseif UserInputService:IsKeyDown(Enum.KeyCode.Q) then
-								vertical = -1
-							end
-							local flySpeed = Options.BoatFlySpeed and Options.BoatFlySpeed.Value or 1.2
-							extraY = vertical * flySpeed
-							originalY = boatCFrame.Position.Y
-						elseif humanoid.Parent:GetAttribute("inTerrain") then
-							extraY = 0
-						else
-							extraY = 0
+						if not humanoid.Parent:GetAttribute("inTerrain") then
 							boatCFrame =
 								boatCFrame - Vector3.new(0, boatCFrame.Position.Y - originalY, 0)
 						end
 						local speedMult = Options.BoatSpeedValue and Options.BoatSpeedValue.Value or 0.9
-						boatCFrame = boatCFrame + Vector3.new(0, extraY, 0) + humanoid.MoveDirection * speedMult
+						boatCFrame = boatCFrame + humanoid.MoveDirection * speedMult
 
 						if boatPlatform then
 							local pos = boatCFrame.Position
@@ -9164,10 +9127,6 @@ do
 		updateBoatVisibility()
 	end)
 end
-
-Toggles.BoatFly:OnChanged(function()
-	updateBoatVisibility()
-end)
 
 updateBoatVisibility()
 task.spawn(function()
@@ -12832,6 +12791,53 @@ do
 	})
 end
 
+-- Remote spam filter. A client can only intercept remote calls made from its own
+-- VM (for example another script running in the same executor); calls that leave
+-- someone else's machine for the server are never visible to us. So this caps
+-- runaway FireServer/InvokeServer spam per remote and drops the excess.
+-- Globals on purpose: the main chunk is at Luau's 200-local register limit.
+TSG_RemoteSpamOriginal = nil
+TSG_RemoteSpamInstalled = false
+TSG_RemoteSpamWindow = {}
+TSG_RemoteSpamLimit = 150
+
+function TSG_RemoteSpamHook(...)
+	local self = ...
+	local method = getnamecallmethod()
+
+	if
+		Toggles.BlockRemoteSpam
+		and Toggles.BlockRemoteSpam.Value
+		and (method == "FireServer" or method == "InvokeServer")
+	then
+		local now = tick()
+		local entry = TSG_RemoteSpamWindow[self]
+		if not entry or now - entry.t > 1 then
+			TSG_RemoteSpamWindow[self] = { t = now, n = 1 }
+		else
+			entry.n = entry.n + 1
+			if entry.n > TSG_RemoteSpamLimit then
+				return nil
+			end
+		end
+	end
+
+	return TSG_RemoteSpamOriginal(...)
+end
+
+TSG_AntiLagGroup:AddCheckbox("BlockRemoteSpam", {
+	Text = "Block Remote Spam",
+	Default = false,
+	Callback = function(state)
+		if state and not TSG_RemoteSpamInstalled and hookmetamethod then
+			TSG_RemoteSpamInstalled = true
+			TSG_RemoteSpamOriginal = hookmetamethod(game, "__namecall", function(...)
+				return TSG_RemoteSpamHook(...)
+			end)
+		end
+	end,
+})
+
 VisualLeft:AddToggle("PlayerESP", {
 	Text = "Enabled",
 	Default = false,
@@ -14894,6 +14900,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.SkyboxFreezeTime and Toggles.SkyboxFreezeTime.Value then
 		Toggles.SkyboxFreezeTime:SetValue(false)
+	end
+	if Toggles.BlockRemoteSpam and Toggles.BlockRemoteSpam.Value then
+		Toggles.BlockRemoteSpam:SetValue(false)
 	end
 	if Toggles.MeteorAlert and Toggles.MeteorAlert.Value then
 		Toggles.MeteorAlert:SetValue(false)
