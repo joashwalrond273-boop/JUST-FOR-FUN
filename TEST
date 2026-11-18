@@ -8989,6 +8989,20 @@ MoveBoatSpeed:AddSlider("BoatSpeedValue", {
 	Compact = true,
 })
 
+MoveBoatSpeed:AddCheckbox("BoatFly", {
+	Text = "Boat Fly (E up / Q down)",
+	Default = false,
+})
+
+MoveBoatSpeed:AddSlider("BoatFlySpeed", {
+	Text = "Boat Fly Speed",
+	Default = 1.2,
+	Min = 0.2,
+	Max = 5,
+	Rounding = 1,
+	Compact = true,
+})
+
 do
 	local boatPlatform = nil
 
@@ -9057,7 +9071,18 @@ do
 						end
 						boat:PivotTo(boatCFrame)
 						local extraY = 0
-						if humanoid.Parent:GetAttribute("inTerrain") then
+						if Toggles.BoatFly and Toggles.BoatFly.Value then
+							-- Fly mode: ignore the altitude lock and steer vertically with keys
+							local vertical = 0
+							if UserInputService:IsKeyDown(Enum.KeyCode.E) then
+								vertical = 1
+							elseif UserInputService:IsKeyDown(Enum.KeyCode.Q) then
+								vertical = -1
+							end
+							local flySpeed = Options.BoatFlySpeed and Options.BoatFlySpeed.Value or 1.2
+							extraY = vertical * flySpeed
+							originalY = boatCFrame.Position.Y
+						elseif humanoid.Parent:GetAttribute("inTerrain") then
 							extraY = 0
 						else
 							extraY = 0
@@ -11633,7 +11658,7 @@ TSG_TeleportToMeteor = function(ev, label)
 	resetAndTeleport(function() return cf end, label or "Meteor", true)
 end
 
-TSG_MeteorGroup = Tabs.Teleport:AddLeftGroupbox("Meteor", "map-pin")
+TSG_MeteorGroup = Tabs.Teleport:AddLeftGroupbox("Meteor Search", "map-pin")
 
 TSG_MeteorGroup:AddButton({
 	Text = "Teleport to Meteor",
@@ -11647,10 +11672,9 @@ TSG_MeteorGroup:AddButton({
 	end,
 })
 
-TSG_MeteorGroup:AddToggle("AutoMeteorTeleport", {
+TSG_MeteorGroup:AddCheckbox("AutoMeteorTeleport", {
 	Text = "Auto Teleport",
 	Default = false,
-	Tooltip = "Teleport to the landing site as soon as a meteor is detected",
 })
 
 Toggles.AutoMeteorTeleport:OnChanged(function()
@@ -11998,26 +12022,55 @@ local function setPlayerShadows(castShadow)
 	end
 end
 
-VisualFPS:AddCheckbox("UncapFPS", {
-	Text = "Uncap FPS",
-	Default = false,
-	Callback = function(state)
-		-- Just raise the engine cap (60 -> 240) once, or put it back on disable.
-		local cap = state and 240 or 60
-		pcall(function()
-			if typeof(setfpscap) == "function" then
-				setfpscap(cap)
-			elseif typeof(set_fps_cap) == "function" then
-				set_fps_cap(cap)
-			elseif typeof(setfps) == "function" then
-				setfps(cap)
+do
+	local PBR_TYPES = { SurfaceAppearance = true, Texture = true, Decal = true }
+
+	local function simplifyObject(v)
+		if not v or not v.Parent then return end
+		local c = v.ClassName
+		if c == "MeshPart" or c == "Part" or c == "WedgePart" or c == "CornerWedgePart" or c == "TrussPart" then
+			if v.Material ~= Enum.Material.Plastic then
+				pcall(function()
+					v.Material = Enum.Material.Plastic
+					v.Reflectance = 0
+				end)
 			end
-		end)
-		pcall(function()
-			setfflag("TaskSchedulerTargetFps", tostring(cap))
-		end)
-	end,
-})
+		elseif PBR_TYPES[c] then
+			pcall(v.Destroy, v)
+		end
+	end
+
+	VisualFPS:AddCheckbox("LowTextures", {
+		Text = "Low Textures PBR",
+		Default = false,
+		Callback = function(state)
+			disconnect("LowTextures")
+			if state then
+				-- Process workspace smoothly in micro-chunks without memory bloat or FPS freeze
+				task.spawn(function()
+					local descendants = workspace:GetDescendants()
+					for i = 1, #descendants do
+						if not (Toggles.LowTextures and Toggles.LowTextures.Value) then break end
+						local v = descendants[i]
+						simplifyObject(v)
+						if i % 300 == 0 then
+							task.wait()
+						end
+					end
+				end)
+
+				-- Fast direct check: skip non-visual objects instantly with zero overhead
+				track("LowTextures", workspace.DescendantAdded:Connect(function(v)
+					if not (Toggles.LowTextures and Toggles.LowTextures.Value) then return end
+					local c = v.ClassName
+					if PBR_TYPES[c] or c == "MeshPart" or c == "Part" or c == "WedgePart" or c == "CornerWedgePart" or c == "TrussPart" then
+						simplifyObject(v)
+					end
+				end))
+			end
+		end,
+	})
+end
 
 VisualFPS:AddCheckbox("DisableRenderFog", {
 	Text = "Disable Render Fog",
@@ -12194,55 +12247,25 @@ pcall(function()
 	if oldCC then oldCC:Destroy() end
 end)
 
-do
-	local PBR_TYPES = { SurfaceAppearance = true, Texture = true, Decal = true }
-
-	local function simplifyObject(v)
-		if not v or not v.Parent then return end
-		local c = v.ClassName
-		if c == "MeshPart" or c == "Part" or c == "WedgePart" or c == "CornerWedgePart" or c == "TrussPart" then
-			if v.Material ~= Enum.Material.Plastic then
-				pcall(function()
-					v.Material = Enum.Material.Plastic
-					v.Reflectance = 0
-				end)
+TSG_AntiLagGroup:AddCheckbox("UncapFPS", {
+	Text = "Uncap FPS",
+	Default = false,
+	Callback = function(state)
+		local cap = state and 240 or 60
+		pcall(function()
+			if typeof(setfpscap) == "function" then
+				setfpscap(cap)
+			elseif typeof(set_fps_cap) == "function" then
+				set_fps_cap(cap)
+			elseif typeof(setfps) == "function" then
+				setfps(cap)
 			end
-		elseif PBR_TYPES[c] then
-			pcall(v.Destroy, v)
-		end
-	end
-
-	TSG_AntiLagGroup:AddCheckbox("LowTextures", {
-		Text = "Low Textures PBR",
-		Default = false,
-		Callback = function(state)
-			disconnect("LowTextures")
-			if state then
-				-- Process workspace smoothly in micro-chunks without memory bloat or FPS freeze
-				task.spawn(function()
-					local descendants = workspace:GetDescendants()
-					for i = 1, #descendants do
-						if not (Toggles.LowTextures and Toggles.LowTextures.Value) then break end
-						local v = descendants[i]
-						simplifyObject(v)
-						if i % 300 == 0 then
-							task.wait()
-						end
-					end
-				end)
-
-				-- Fast direct check: skip non-visual objects instantly with zero overhead
-				track("LowTextures", workspace.DescendantAdded:Connect(function(v)
-					if not (Toggles.LowTextures and Toggles.LowTextures.Value) then return end
-					local c = v.ClassName
-					if PBR_TYPES[c] or c == "MeshPart" or c == "Part" or c == "WedgePart" or c == "CornerWedgePart" or c == "TrussPart" then
-						simplifyObject(v)
-					end
-				end))
-			end
-		end,
-	})
-end
+		end)
+		pcall(function()
+			setfflag("TaskSchedulerTargetFps", tostring(cap))
+		end)
+	end,
+})
 
 TSG_AntiLagGroup:AddCheckbox("DisableEffects", {
 	Text = "Disable Effects",
