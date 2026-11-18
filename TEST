@@ -3347,7 +3347,7 @@ SpectateGroup:AddDropdown("SpectatePlayerList", {
 	Default = "",
 })
 
-SpectateGroup:AddToggle("Freecam", {
+SpectateGroup:AddCheckbox("Freecam", {
 	Text = "Freecam",
 	Default = false,
 })
@@ -13253,14 +13253,81 @@ FreecamState = {
 	pitch = 0,
 	speed = 50,
 	keys = {},
+	lookDelta = Vector2.zero,
+	controls = nil,
+	saved = nil,
+	frozen = false,
+	frozenHumanoid = nil,
 }
+
+-- Grab the default ControlModule so the on-screen joystick (mobile) and WASD (PC)
+-- can be read through one API.
+function getPlayerControls()
+	local playerScripts = LocalPlayer:FindFirstChild("PlayerScripts")
+	local playerModule = playerScripts and playerScripts:FindFirstChild("PlayerModule")
+	if not playerModule then return nil end
+	local ok, module = pcall(require, playerModule)
+	if not ok or not module then return nil end
+	local ok2, controls = pcall(function() return module:GetControls() end)
+	if ok2 then return controls end
+	return nil
+end
+
+-- Move input in camera space: X is right, -Z is forward (the ControlModule
+-- convention shared by the mobile thumbstick and the keyboard).
+function getMoveVector()
+	local controls = FreecamState.controls
+	if controls then
+		local ok, v = pcall(function() return controls:GetMoveVector() end)
+		if ok and typeof(v) == "Vector3" and v.Magnitude > 0 then
+			return v
+		end
+	end
+	return nil
+end
+
+-- Hold the body still while freecam is active: no walking, turning or jumping.
+function freezeCharacter(freeze)
+	local humanoid = getHumanoid()
+	if freeze then
+		if FreecamState.frozen and FreecamState.frozenHumanoid == humanoid then return end
+		if humanoid then
+			FreecamState.saved = {
+				WalkSpeed = humanoid.WalkSpeed,
+				AutoRotate = humanoid.AutoRotate,
+				JumpPower = humanoid.JumpPower,
+				JumpHeight = humanoid.JumpHeight,
+			}
+			humanoid.WalkSpeed = 0
+			humanoid.AutoRotate = false
+			humanoid.JumpPower = 0
+			humanoid.JumpHeight = 0
+			FreecamState.frozenHumanoid = humanoid
+		end
+		FreecamState.frozen = true
+	else
+		local saved = FreecamState.saved
+		if humanoid and saved then
+			humanoid.WalkSpeed = saved.WalkSpeed
+			humanoid.AutoRotate = saved.AutoRotate
+			humanoid.JumpPower = saved.JumpPower
+			humanoid.JumpHeight = saved.JumpHeight
+		end
+		FreecamState.frozen = false
+		FreecamState.saved = nil
+		FreecamState.frozenHumanoid = nil
+	end
+end
 
 function stopFreecam()
 	FreecamState.active = false
 	FreecamState.keys = {}
+	FreecamState.lookDelta = Vector2.zero
 	disconnect("FreecamLoop")
 	disconnect("FreecamInputBegan")
 	disconnect("FreecamInputEnded")
+	disconnect("FreecamTouch")
+	freezeCharacter(false)
 	local camera = workspace.CurrentCamera
 	if camera then
 		camera.CameraType = Enum.CameraType.Custom
@@ -13274,11 +13341,14 @@ function startFreecam()
 	disconnect("FreecamLoop")
 	disconnect("FreecamInputBegan")
 	disconnect("FreecamInputEnded")
+	disconnect("FreecamTouch")
 	local camera = workspace.CurrentCamera
 	if not camera then return end
 
 	FreecamState.active = true
 	FreecamState.keys = {}
+	FreecamState.lookDelta = Vector2.zero
+	FreecamState.controls = getPlayerControls()
 	FreecamState.pos = camera.CFrame.Position
 	local look = camera.CFrame.LookVector
 	FreecamState.yaw = math.atan2(-look.X, -look.Z)
@@ -13288,7 +13358,9 @@ function startFreecam()
 	camera.CameraType = Enum.CameraType.Scriptable
 	camera.CameraSubject = nil
 	pcall(function() UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter end)
+	freezeCharacter(true)
 
+	-- Extra keys: Space/E up, Ctrl/Q down, Shift to sprint (PC).
 	track("FreecamInputBegan", UserInputService.InputBegan:Connect(function(input, processed)
 		if processed then return end
 		if input.UserInputType == Enum.UserInputType.Keyboard then
@@ -13300,31 +13372,49 @@ function startFreecam()
 			FreecamState.keys[input.KeyCode] = nil
 		end
 	end))
+	-- Drag to look on mobile. Joystick touches are game-processed, so they are
+	-- skipped here and read through the ControlModule instead.
+	track("FreecamTouch", UserInputService.TouchMoved:Connect(function(input, processed)
+		if processed then return end
+		FreecamState.lookDelta = FreecamState.lookDelta + input.Delta
+	end))
 
 	track("FreecamLoop", RunService.RenderStepped:Connect(function(dt)
 		if not FreecamState.active then return end
 		local cam = workspace.CurrentCamera
 		if not cam then return end
 
-		-- Look with the mouse.
-		local delta = UserInputService:GetMouseDelta()
+		-- Re-freeze if the character respawned while freecam is on.
+		if FreecamState.frozenHumanoid ~= getHumanoid() then
+			FreecamState.frozen = false
+			freezeCharacter(true)
+		end
+
+		-- Look with the mouse (PC) or a touch drag (mobile).
+		local delta = UserInputService:GetMouseDelta() + FreecamState.lookDelta
+		FreecamState.lookDelta = Vector2.zero
 		local sensitivity = 0.0025
 		FreecamState.yaw = FreecamState.yaw - delta.X * sensitivity
 		FreecamState.pitch = math.clamp(FreecamState.pitch - delta.Y * sensitivity, math.rad(-89), math.rad(89))
 		local rotation = CFrame.fromEulerAnglesYXZ(FreecamState.pitch, FreecamState.yaw, 0)
 
-		-- Move with WASD, Space/Ctrl (or E/Q) for up/down, Shift to sprint.
-		local keys = FreecamState.keys
+		-- Move with the joystick / WASD; the body stays put while the camera flies.
 		local move = Vector3.zero
-		if keys[Enum.KeyCode.W] then move = move + rotation.LookVector end
-		if keys[Enum.KeyCode.S] then move = move - rotation.LookVector end
-		if keys[Enum.KeyCode.A] then move = move - rotation.RightVector end
-		if keys[Enum.KeyCode.D] then move = move + rotation.RightVector end
-		if keys[Enum.KeyCode.Space] or keys[Enum.KeyCode.E] then move = move + Vector3.new(0, 1, 0) end
-		if keys[Enum.KeyCode.LeftControl] or keys[Enum.KeyCode.Q] then move = move - Vector3.new(0, 1, 0) end
+		local input = getMoveVector()
+		if input then
+			move = rotation.RightVector * input.X + rotation.LookVector * (-input.Z)
+		else
+			local keys = FreecamState.keys
+			if keys[Enum.KeyCode.W] then move = move + rotation.LookVector end
+			if keys[Enum.KeyCode.S] then move = move - rotation.LookVector end
+			if keys[Enum.KeyCode.A] then move = move - rotation.RightVector end
+			if keys[Enum.KeyCode.D] then move = move + rotation.RightVector end
+			if keys[Enum.KeyCode.Space] or keys[Enum.KeyCode.E] then move = move + Vector3.new(0, 1, 0) end
+			if keys[Enum.KeyCode.LeftControl] or keys[Enum.KeyCode.Q] then move = move - Vector3.new(0, 1, 0) end
+		end
 
 		local speed = FreecamState.speed
-		if keys[Enum.KeyCode.LeftShift] then speed = speed * 2 end
+		if FreecamState.keys[Enum.KeyCode.LeftShift] then speed = speed * 2 end
 		if move.Magnitude > 0 then move = move.Unit end
 
 		FreecamState.pos = FreecamState.pos + move * speed * dt
@@ -13340,7 +13430,7 @@ Toggles.Freecam:OnChanged(function()
 			Toggles.SpectateToggle:SetValue(false)
 		end
 		startFreecam()
-		Library:Notify({ Title = "FREECAM", Description = "Freecam enabled (WASD to move, mouse to look).", Time = 3 })
+		Library:Notify({ Title = "FREECAM", Description = "Freecam enabled (joystick/WASD to move, drag to look).", Time = 3 })
 	else
 		stopFreecam()
 		Library:Notify({ Title = "FREECAM", Description = "Freecam disabled.", Time = 2 })
