@@ -11897,6 +11897,125 @@ MerchantsGroup:AddButton({
 	end,
 })
 
+-- Placed Structures
+do
+	local StructuresGroup = Tabs.Teleport:AddLeftGroupbox("Placed Structures", "building-2")
+
+	-- State for this groupbox lives in a `do` block so it does not add to the
+	-- main chunk's local register budget.
+	local structureMap = {}
+	local structureSignature = nil
+	local pollElapsed = 0
+
+	local function structureOrigin(instance)
+		if instance:IsA("BasePart") then
+			return instance.Position
+		elseif instance:IsA("Model") then
+			local part = instance.PrimaryPart or instance:FindFirstChildWhichIsA("BasePart", true)
+			return part and part.Position or nil
+		end
+		return nil
+	end
+
+	local function structureSignatureFor(folder)
+		if not folder then
+			return ""
+		end
+		local names = {}
+		for _, child in ipairs(folder:GetChildren()) do
+			if child:IsA("Model") or child:IsA("BasePart") then
+				table.insert(names, child.Name)
+			end
+		end
+		table.sort(names)
+		return table.concat(names, "\0")
+	end
+
+	local function refreshStructureList()
+		local folder = workspace:FindFirstChild("placedStructures")
+		local list = {}
+		local map = {}
+		if folder then
+			for _, child in ipairs(folder:GetChildren()) do
+				if child:IsA("Model") or child:IsA("BasePart") then
+					-- Structures can share a name, so keep the labels unique.
+					local label = child.Name
+					local index = 2
+					while map[label] do
+						label = child.Name .. " (" .. index .. ")"
+						index = index + 1
+					end
+					map[label] = child
+					table.insert(list, label)
+				end
+			end
+		end
+		table.sort(list, function(a, b)
+			return a:lower() < b:lower()
+		end)
+		structureMap = map
+		structureSignature = structureSignatureFor(folder)
+		if Options.StructureList then
+			Options.StructureList:SetValues(list)
+			local current = Options.StructureList.Value
+			if list[1] and (not current or not map[current]) then
+				Options.StructureList:SetValue(list[1])
+			end
+		end
+	end
+
+	StructuresGroup:AddDropdown("StructureList", {
+		Text = "Structure",
+		Values = {},
+		Default = "",
+	})
+
+	StructuresGroup:AddButton({
+		Text = "Refresh List",
+		Func = function()
+			refreshStructureList()
+			local count = 0
+			for _ in pairs(structureMap) do
+				count = count + 1
+			end
+			Library:Notify({ Title = "Placed Structures", Description = tostring(count) .. " found.", Time = 2 })
+		end,
+	})
+
+	StructuresGroup:AddButton({
+		Text = "Teleport To Structure",
+		Func = function()
+			local name = Options.StructureList and Options.StructureList.Value
+			local target = name and structureMap[name]
+			if not target or not target.Parent then
+				Library:Notify({ Title = "Placed Structures", Description = "Select a valid structure first.", Time = 3 })
+				return
+			end
+			local position = structureOrigin(target)
+			if not position then
+				Library:Notify({ Title = "Placed Structures", Description = "Could not locate that structure.", Time = 3 })
+				return
+			end
+			resetAndTeleport(position, target.Name)
+		end,
+	})
+
+	-- Keep the list in sync as structures are built/removed. A 2s poll is used
+	-- so it also picks the folder up if it is created after this script runs.
+	track("PlacedStructuresPoll", RunService.Heartbeat:Connect(function(dt)
+		pollElapsed = pollElapsed + dt
+		if pollElapsed < 2 then
+			return
+		end
+		pollElapsed = 0
+		if structureSignatureFor(workspace:FindFirstChild("placedStructures")) ~= structureSignature then
+			refreshStructureList()
+		end
+	end))
+
+	refreshStructureList()
+end
+
 -- ==========================================
 -- VISUALS
 -- ==========================================
