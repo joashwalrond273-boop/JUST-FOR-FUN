@@ -3361,6 +3361,15 @@ SpectateGroup:AddSlider("FreecamSpeed", {
 	Compact = true,
 })
 
+SpectateGroup:AddSlider("FreecamTurnSpeed", {
+	Text = "Turn Speed",
+	Default = 100,
+	Min = 10,
+	Max = 500,
+	Rounding = 0,
+	Compact = true,
+})
+
 local TeleportGroup = Tabs.Main:AddRightGroupbox("TELEPORT", "navigation")
 
 TeleportGroup:AddDropdown("TeleportPlayerList", {
@@ -13252,6 +13261,7 @@ FreecamState = {
 	yaw = 0,
 	pitch = 0,
 	speed = 50,
+	turn = 1,
 	keys = {},
 	lookDelta = Vector2.zero,
 	controls = nil,
@@ -13368,6 +13378,7 @@ function startFreecam()
 	FreecamState.yaw = math.atan2(-look.X, -look.Z)
 	FreecamState.pitch = math.asin(math.clamp(look.Y, -1, 1))
 	FreecamState.speed = (Options.FreecamSpeed and Options.FreecamSpeed.Value) or 50
+	FreecamState.turn = ((Options.FreecamTurnSpeed and Options.FreecamTurnSpeed.Value) or 100) / 100
 
 	camera.CameraType = Enum.CameraType.Scriptable
 	camera.CameraSubject = nil
@@ -13407,12 +13418,14 @@ function startFreecam()
 		end
 
 		-- Look with the mouse (PC) or a touch drag (mobile). A drag covers far fewer
-		-- pixels than a mouse, so touch gets a higher sensitivity.
+		-- pixels than a mouse, so touch gets a higher sensitivity. Both are scaled by
+		-- the Turn Speed slider.
 		local mouseDelta = UserInputService:GetMouseDelta()
 		local touchDelta = FreecamState.lookDelta
 		FreecamState.lookDelta = Vector2.zero
-		local turnX = mouseDelta.X * 0.0040 + touchDelta.X * 0.0125
-		local turnY = mouseDelta.Y * 0.0040 + touchDelta.Y * 0.0125
+		local turnScale = FreecamState.turn
+		local turnX = (mouseDelta.X * 0.0040 + touchDelta.X * 0.0125) * turnScale
+		local turnY = (mouseDelta.Y * 0.0040 + touchDelta.Y * 0.0125) * turnScale
 		FreecamState.yaw = FreecamState.yaw - turnX
 		FreecamState.pitch = math.clamp(FreecamState.pitch - turnY, math.rad(-89), math.rad(89))
 		local rotation = CFrame.fromEulerAnglesYXZ(FreecamState.pitch, FreecamState.yaw, 0)
@@ -13459,6 +13472,12 @@ end)
 if Options.FreecamSpeed then
 	Options.FreecamSpeed:OnChanged(function()
 		FreecamState.speed = Options.FreecamSpeed.Value
+	end)
+end
+
+if Options.FreecamTurnSpeed then
+	Options.FreecamTurnSpeed:OnChanged(function()
+		FreecamState.turn = Options.FreecamTurnSpeed.Value / 100
 	end)
 end
 
