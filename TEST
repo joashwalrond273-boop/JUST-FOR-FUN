@@ -11897,124 +11897,84 @@ MerchantsGroup:AddButton({
 	end,
 })
 
--- Placed Structures
-do
-	local StructuresGroup = Tabs.Teleport:AddLeftGroupbox("Placed Structures", "building-2")
-
-	-- State for this groupbox lives in a `do` block so it does not add to the
-	-- main chunk's local register budget.
-	local structureMap = {}
-	local structureSignature = nil
-	local pollElapsed = 0
-
-	local function structureOrigin(instance)
-		if instance:IsA("BasePart") then
-			return instance.Position
-		elseif instance:IsA("Model") then
-			local part = instance.PrimaryPart or instance:FindFirstChildWhichIsA("BasePart", true)
-			return part and part.Position or nil
-		end
-		return nil
-	end
-
-	local function structureSignatureFor(folder)
-		if not folder then
-			return ""
-		end
-		local names = {}
-		for _, child in ipairs(folder:GetChildren()) do
-			if child:IsA("Model") or child:IsA("BasePart") then
-				table.insert(names, child.Name)
-			end
-		end
-		table.sort(names)
-		return table.concat(names, "\0")
-	end
-
-	local function refreshStructureList()
-		local folder = workspace:FindFirstChild("placedStructures")
-		local list = {}
-		local map = {}
-		if folder then
-			for _, child in ipairs(folder:GetChildren()) do
-				if child:IsA("Model") or child:IsA("BasePart") then
-					-- Structures can share a name, so keep the labels unique.
-					local label = child.Name
-					local index = 2
-					while map[label] do
-						label = child.Name .. " (" .. index .. ")"
-						index = index + 1
-					end
-					map[label] = child
-					table.insert(list, label)
+-- Meteor
+TSG_PickActiveMeteor = function()
+	local active = ReplicatedStorage:FindFirstChild("activeEvents")
+	if not active then return nil end
+	local now = workspace:GetServerTimeNow()
+	local soonest, soonestAt = nil, math.huge
+	local latest, latestAt = nil, -math.huge
+	for _, ev in ipairs(active:GetChildren()) do
+		if ev:IsA("Folder") and ev:GetAttribute("type") == "Meteor" then
+			local impactAt = ev:GetAttribute("ImpactAt")
+			if typeof(impactAt) == "number" then
+				if impactAt >= now and impactAt < soonestAt then
+					soonest, soonestAt = ev, impactAt
+				end
+				if impactAt > latestAt then
+					latest, latestAt = ev, impactAt
 				end
 			end
 		end
-		table.sort(list, function(a, b)
-			return a:lower() < b:lower()
-		end)
-		structureMap = map
-		structureSignature = structureSignatureFor(folder)
-		if Options.StructureList then
-			Options.StructureList:SetValues(list)
-			local current = Options.StructureList.Value
-			if list[1] and (not current or not map[current]) then
-				Options.StructureList:SetValue(list[1])
-			end
-		end
 	end
+	return soonest or latest
+end
 
-	StructuresGroup:AddDropdown("StructureList", {
-		Text = "Structure",
-		Values = {},
-		Default = "",
-	})
+TSG_TeleportToMeteor = function(ev, label)
+	local target = ev and ev:GetAttribute("TargetCFrame")
+	if typeof(target) ~= "CFrame" then
+		Library:Notify({ Title = "Meteor", Description = "No meteor landing point found.", Time = 2 })
+		return
+	end
+	local cf = CFrame.new(target.Position + Vector3.new(0, 8, 0))
+	resetAndTeleport(function() return cf end, label or "Meteor", true)
+end
 
-	StructuresGroup:AddButton({
-		Text = "Refresh List",
-		Func = function()
-			refreshStructureList()
-			local count = 0
-			for _ in pairs(structureMap) do
-				count = count + 1
-			end
-			Library:Notify({ Title = "Placed Structures", Description = tostring(count) .. " found.", Time = 2 })
-		end,
-	})
+TSG_MeteorGroup = Tabs.Teleport:AddRightGroupbox("Meteor", "map-pin")
 
-	StructuresGroup:AddButton({
-		Text = "Teleport To Structure",
-		Func = function()
-			local name = Options.StructureList and Options.StructureList.Value
-			local target = name and structureMap[name]
-			if not target or not target.Parent then
-				Library:Notify({ Title = "Placed Structures", Description = "Select a valid structure first.", Time = 3 })
-				return
-			end
-			local position = structureOrigin(target)
-			if not position then
-				Library:Notify({ Title = "Placed Structures", Description = "Could not locate that structure.", Time = 3 })
-				return
-			end
-			resetAndTeleport(position, target.Name)
-		end,
-	})
-
-	-- Keep the list in sync as structures are built/removed. A 2s poll is used
-	-- so it also picks the folder up if it is created after this script runs.
-	track("PlacedStructuresPoll", RunService.Heartbeat:Connect(function(dt)
-		pollElapsed = pollElapsed + dt
-		if pollElapsed < 2 then
+TSG_MeteorGroup:AddButton({
+	Text = "Teleport to Meteor",
+	Func = function()
+		local ev = TSG_PickActiveMeteor()
+		if not ev then
+			Library:Notify({ Title = "Meteor", Description = "No active meteor right now.", Time = 2 })
 			return
 		end
-		pollElapsed = 0
-		if structureSignatureFor(workspace:FindFirstChild("placedStructures")) ~= structureSignature then
-			refreshStructureList()
-		end
-	end))
+		TSG_TeleportToMeteor(ev, "Meteor")
+	end,
+})
 
-	refreshStructureList()
-end
+TSG_MeteorGroup:AddToggle("AutoMeteorTeleport", {
+	Text = "Auto Teleport",
+	Default = false,
+	Tooltip = "Teleport to the landing site as soon as a meteor is detected",
+})
+
+Toggles.AutoMeteorTeleport:OnChanged(function()
+	disconnect("AutoMeteorTeleport")
+	if not Toggles.AutoMeteorTeleport.Value then return end
+
+	local now = workspace:GetServerTimeNow()
+	local existing = TSG_PickActiveMeteor()
+	local existingImpact = existing and existing:GetAttribute("ImpactAt")
+	if existing and (typeof(existingImpact) ~= "number" or existingImpact >= now) then
+		TSG_TeleportToMeteor(existing, "Meteor")
+	end
+
+	local active = ReplicatedStorage:WaitForChild("activeEvents", 10)
+	if not active then
+		Library:Notify({ Title = "Meteor", Description = "activeEvents not found.", Time = 2 })
+		Toggles.AutoMeteorTeleport:SetValue(false)
+		return
+	end
+	track("AutoMeteorTeleport", active.ChildAdded:Connect(function(ev)
+		if not ev:IsA("Folder") then return end
+		if ev:GetAttribute("type") ~= "Meteor" then return end
+		local impactAt = ev:GetAttribute("ImpactAt")
+		if typeof(impactAt) == "number" and impactAt < workspace:GetServerTimeNow() then return end
+		TSG_TeleportToMeteor(ev, "Meteor")
+	end))
+end)
 
 -- ==========================================
 -- VISUALS
