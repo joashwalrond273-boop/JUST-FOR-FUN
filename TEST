@@ -4080,11 +4080,6 @@ MainRight:AddCheckbox("BossSpawnNotifier", {
 	Default = false,
 })
 
-MainRight:AddCheckbox("BossSpawnPredictor", {
-	Text = "Spawn Predictor",
-	Default = false,
-})
-
 MainRight:AddCheckbox("PositionReaderHud", {
 	Text = "Position Reader HUD",
 	Default = false,
@@ -4908,6 +4903,25 @@ Toggles.AntiLava:OnChanged(function()
 	end
 end)
 
+-- Auto Air Bubbles keeps every bubble on your head. The bubbles are physics
+-- parts, so while we hold one it is anchored and made non-collidable. Without
+-- that, teleporting a collidable part onto the character every tick handed the
+-- physics solver a fresh overlap each step, which is what shoved the player
+-- around - worst while looking up, since the camera also steers you.
+TSG_AirBubbleRestore = TSG_AirBubbleRestore or {}
+
+function restoreAirBubbles()
+	for bubble, original in pairs(TSG_AirBubbleRestore) do
+		if bubble and bubble.Parent then
+			pcall(function()
+				bubble.Anchored = original.anchored
+				bubble.CanCollide = original.collide
+			end)
+		end
+		TSG_AirBubbleRestore[bubble] = nil
+	end
+end
+
 Toggles.AutoAirBubbles:OnChanged(function()
 	disconnect("AutoAirBubbles")
 	if Toggles.AutoAirBubbles.Value then
@@ -4924,15 +4938,27 @@ Toggles.AutoAirBubbles:OnChanged(function()
 				local humanoid = getHumanoid()
 				local isSwimming = humanoid and (humanoid:GetState() == Enum.HumanoidStateType.Swimming)
 				if isSwimming or character:GetAttribute("inWater") or head.Position.Y < 5 then
+					local target = CFrame.new(head.Position + Vector3.new(0, 0.5, 0))
 					for _, bubble in ipairs(airBubbles:GetChildren()) do
 						if bubble:IsA("BasePart") then
-							bubble.Position = head.Position + Vector3.new(0, 0.5, 0)
+							if not TSG_AirBubbleRestore[bubble] then
+								TSG_AirBubbleRestore[bubble] = {
+									anchored = bubble.Anchored,
+									collide = bubble.CanCollide,
+								}
+								bubble.AssemblyLinearVelocity = Vector3.zero
+								bubble.Anchored = true
+								bubble.CanCollide = false
+							end
+							bubble.CFrame = target
 						end
 					end
 				end
 			end
 		end))
 		Library:Notify({ Title = "Auto Air Bubbles", Description = "Enabled", Time = 2 })
+	else
+		restoreAirBubbles()
 	end
 end)
 
@@ -9017,23 +9043,27 @@ do
 	Toggles.BoatSpeedToggle:OnChanged(function()
 		local function getCurrentBoat()
 			local humanoid = getHumanoid()
-			if humanoid and humanoid.SeatPart then
-				local folder = humanoid.SeatPart:FindFirstAncestorOfClass("Folder")
-				if folder and folder == workspace.boats then
-					return humanoid.SeatPart:FindFirstAncestorOfClass("Model")
-				end
+			local seat = humanoid and humanoid.SeatPart
+			if not seat then return nil end
+			local boats = workspace:FindFirstChild("boats")
+			if not boats then return nil end
+			if seat:FindFirstAncestorOfClass("Folder") == boats then
+				return seat:FindFirstAncestorOfClass("Model")
 			end
+			return nil
 		end
 
 		local originalY = nil
 		local boatCFrame = nil
 		-- Cached part list for the boat we are currently in. Rebuilding it with
-		-- GetDescendants() on every physics step (~60x/sec) was the single
-		-- heaviest thing the boat feature did, so it is only refreshed when the
-		-- boat changes or every couple of seconds.
+		-- GetDescendants() on every physics step was the single heaviest thing
+		-- this feature did, so it is only rebuilt when the boat actually changes.
 		local cachedBoat = nil
 		local cachedBoatParts = nil
+		local cachedSeat = nil
+		local platformParked = false
 		local nextPartRefresh = 0
+		local nextPartFreeze = 0
 
 		local function enableBoatSpeed()
 			disconnect("boat_hover")
@@ -9041,7 +9071,10 @@ do
 			boatCFrame = nil
 			cachedBoat = nil
 			cachedBoatParts = nil
+			cachedSeat = nil
+			platformParked = true
 			nextPartRefresh = 0
+			nextPartFreeze = 0
 
 			pcall(function()
 				boatPlatform = Instance.new("Part")
@@ -9053,34 +9086,55 @@ do
 				boatPlatform.CanTouch = false
 				boatPlatform.CanQuery = false
 				boatPlatform.CastShadow = false
+				boatPlatform.Position = Vector3.new(0, -500, 0)
 				boatPlatform.Parent = workspace
 			end)
 
 			track("boat_hover",
 				RunService.Stepped:Connect(
 					function()
+						local now = tick()
 						local humanoid = getHumanoid()
-						local boat = getCurrentBoat()
-						if not boat or not humanoid then
-							originalY = nil
-							boatCFrame = nil
-							cachedBoat = nil
-							cachedBoatParts = nil
-							if boatPlatform then
-								boatPlatform.Position = Vector3.new(0, -500, 0)
+						local seat = humanoid and humanoid.SeatPart
+
+						-- Only re-detect the boat when the seat actually changed
+						-- (boarded / left / swapped) or the boat vanished. While you
+						-- are not in a boat this becomes essentially free instead of
+						-- running seat lookups 60x a second.
+						if seat ~= cachedSeat or (cachedBoat and not cachedBoat.Parent) then
+							cachedSeat = seat
+							local detected = seat and getCurrentBoat() or nil
+							if detected ~= cachedBoat then
+								cachedBoat = detected
+								cachedBoatParts = nil
+								boatCFrame = nil
+								originalY = nil
+								platformParked = false
 							end
+							if not cachedBoat then
+								-- Park the platform once, then stop touching it.
+								if boatPlatform and not platformParked then
+									platformParked = true
+									boatPlatform.Position = Vector3.new(0, -500, 0)
+								end
+								return
+							end
+						end
+
+						local boat = cachedBoat
+						if not boat or not humanoid then
 							return
 						end
+
 						if not boatCFrame then
 							boatCFrame = boat:GetPivot()
 						end
 						if not originalY then
 							originalY = boatCFrame.Position.Y
 						end
-						local now = tick()
-						if boat ~= cachedBoat or not cachedBoatParts or now >= nextPartRefresh then
-							cachedBoat = boat
-							nextPartRefresh = now + 2
+
+						if not cachedBoatParts or now >= nextPartRefresh then
+							nextPartRefresh = now + 5
 							local parts = {}
 							for _, v in ipairs(boat:GetDescendants()) do
 								if v:IsA("Part") or v:IsA("MeshPart") or v:IsA("Union") then
@@ -9089,15 +9143,22 @@ do
 							end
 							cachedBoatParts = parts
 						end
-						for _, v in ipairs(cachedBoatParts) do
-							-- Only write when the part is actually moving: reads are
-							-- far cheaper than property writes on every part, every step.
-							if v.Parent and v.AssemblyLinearVelocity.Magnitude > 0.01 then
-								v.Velocity = Vector3.zero
+
+						-- Zeroing every part's velocity is the pricey half of this
+						-- loop, so it runs at ~20 Hz. PivotTo already re-pins the
+						-- whole boat each step, so drift cannot build up in between.
+						if now >= nextPartFreeze then
+							nextPartFreeze = now + 0.05
+							for _, v in ipairs(cachedBoatParts) do
+								if v.Parent and v.AssemblyLinearVelocity.Magnitude > 0.01 then
+									v.Velocity = Vector3.zero
+								end
 							end
 						end
+
 						boat:PivotTo(boatCFrame)
-						if not humanoid.Parent:GetAttribute("inTerrain") then
+						local parent = humanoid.Parent
+						if parent and not parent:GetAttribute("inTerrain") then
 							boatCFrame =
 								boatCFrame - Vector3.new(0, boatCFrame.Position.Y - originalY, 0)
 						end
@@ -9382,6 +9443,14 @@ Options.FastPVPDirection:OnChanged(function()
 		return
 	end
 
+	-- The first 1.5s of a sink/rise is deliberately gentle, then it switches to
+	-- whatever the Fast PVP Speed slider is set to. The timers reset as soon as
+	-- you stop looking down/up (or leave the water), so each dive ramps again.
+	local RAMP_TIME = 1.5
+	local RAMP_SPEED = 8
+	local sinkStart = nil
+	local riseStart = nil
+
 	track("FastPVP", RunService.Heartbeat:Connect(function()
 		local character = getCharacter()
 		local root = character and character:FindFirstChild("HumanoidRootPart")
@@ -9392,19 +9461,44 @@ Options.FastPVPDirection:OnChanged(function()
 				local cam = workspace.CurrentCamera
 				local lookY = cam and cam.CFrame.LookVector.Y or 0
 				local speed = (Options.FastPVPSpeed and Options.FastPVPSpeed.Value) or 60
+				local now = tick()
+
 				if sinkOn and lookY <= -0.9 then
+					if not sinkStart then
+						sinkStart = now
+					end
+					local vel = math.min(speed, RAMP_SPEED)
+					if now - sinkStart >= RAMP_TIME then
+						vel = speed
+					end
 					root.AssemblyLinearVelocity = Vector3.new(
 						root.AssemblyLinearVelocity.X,
-						-speed,
+						-vel,
 						root.AssemblyLinearVelocity.Z
 					)
-				elseif riseOn and lookY >= 0.85 then
-					root.AssemblyLinearVelocity = Vector3.new(
-						root.AssemblyLinearVelocity.X,
-						speed,
-						root.AssemblyLinearVelocity.Z
-					)
+				else
+					sinkStart = nil
 				end
+
+				if riseOn and lookY >= 0.85 then
+					if not riseStart then
+						riseStart = now
+					end
+					local vel = math.min(speed, RAMP_SPEED)
+					if now - riseStart >= RAMP_TIME then
+						vel = speed
+					end
+					root.AssemblyLinearVelocity = Vector3.new(
+						root.AssemblyLinearVelocity.X,
+						vel,
+						root.AssemblyLinearVelocity.Z
+					)
+				else
+					riseStart = nil
+				end
+			else
+				sinkStart = nil
+				riseStart = nil
 			end
 		end
 	end))
@@ -10983,376 +11077,6 @@ do
 end
 
 -- ==========================================
--- Boss Next-Spawn Predictor (learns per-boss spawn interval from observed spawns)
-do
-	local BOSS_NAMES = {
-		"The Great Spider",
-		"The Juggernaut",
-		"The Samurai",
-		"The Titan",
-	}
-
-	local PREDICTOR_HISTORY = 6          -- spawn samples kept per boss
-	local PREDICTOR_MIN_INTERVAL = 5     -- ignore gaps shorter than this (seconds)
-	local PREDICTOR_MAX_INTERVAL = 3600  -- ignore gaps longer than this (server reset / AFK)
-
-	local predictorRunning = false
-	local predictorLastRefresh = 0
-	local predictorSpawnTimes = {}       -- boss -> { tick(), ... }
-	local predictorIntervals = {}        -- boss -> running average seconds
-	local predictorAlive = {}            -- boss -> bool
-	local predictorModels = {}           -- boss -> tracked model instance
-
-	local predictorGui = nil
-	local predictorRows = {}             -- boss -> { status, fill }
-
-	local function getBossName(name)
-		if type(name) ~= "string" then return nil end
-		for _, boss in ipairs(BOSS_NAMES) do
-			if name == boss or string.find(name, boss, 1, true) then
-				return boss
-			end
-		end
-		return nil
-	end
-
-	local function recordSpawn(boss)
-		predictorAlive[boss] = true
-
-		local times = predictorSpawnTimes[boss]
-		if not times then
-			times = {}
-			predictorSpawnTimes[boss] = times
-		end
-
-		local now = tick()
-		local prev = times[#times]
-		if prev then
-			local gap = now - prev
-			if gap >= PREDICTOR_MIN_INTERVAL and gap <= PREDICTOR_MAX_INTERVAL then
-				local avg = predictorIntervals[boss]
-				predictorIntervals[boss] = avg and (avg * 0.5 + gap * 0.5) or gap
-			end
-		end
-
-		times[#times + 1] = now
-		while #times > PREDICTOR_HISTORY do
-			table.remove(times, 1)
-		end
-	end
-
-	local function clearBossModel(boss)
-		predictorModels[boss] = nil
-		disconnect("Predict_Hum_" .. boss)
-		disconnect("Predict_HumHealth_" .. boss)
-		disconnect("Predict_HumWait_" .. boss)
-	end
-
-	-- Track the spawned model's Humanoid so we can tell when it actually dies
-	local function bindBossModel(boss, model)
-		if not model or not model:IsA("Model") then
-			predictorAlive[boss] = true
-			return
-		end
-
-		predictorModels[boss] = model
-		predictorAlive[boss] = true
-
-		local function bindHumanoid(hum)
-			if not hum then return end
-			disconnect("Predict_Hum_" .. boss)
-			disconnect("Predict_HumHealth_" .. boss)
-			disconnect("Predict_HumWait_" .. boss)
-			track("Predict_Hum_" .. boss, hum.Died:Connect(function()
-				predictorAlive[boss] = false
-			end))
-			track("Predict_HumHealth_" .. boss, hum.HealthChanged:Connect(function(health)
-				if health <= 0 then
-					predictorAlive[boss] = false
-				end
-			end))
-		end
-
-		local hum = model:FindFirstChildWhichIsA("Humanoid")
-		if hum then
-			bindHumanoid(hum)
-		else
-			disconnect("Predict_Hum_" .. boss)
-			disconnect("Predict_HumHealth_" .. boss)
-			disconnect("Predict_HumWait_" .. boss)
-			track("Predict_HumWait_" .. boss, model.DescendantAdded:Connect(function(desc)
-				if desc:IsA("Humanoid") then
-					bindHumanoid(desc)
-				end
-			end))
-		end
-	end
-
-	local function onPredictorSpawned(child)
-		if not predictorRunning then return end
-		local boss = getBossName(child and child.Name)
-		if boss then
-			recordSpawn(boss)
-			bindBossModel(boss, child)
-		end
-	end
-
-	local function onPredictorRemoved(child)
-		if not predictorRunning then return end
-		local boss = getBossName(child and child.Name)
-		if boss then
-			predictorAlive[boss] = false
-			clearBossModel(boss)
-		end
-	end
-
-	local function scanExistingBosses()
-		local containers = {
-			workspace:FindFirstChild("AI_Server"),
-			workspace:FindFirstChild("AI_Client"),
-		}
-		for _, container in ipairs(containers) do
-			if container then
-				for _, child in ipairs(container:GetChildren()) do
-					local boss = getBossName(child.Name)
-					if boss then
-						bindBossModel(boss, child)
-					end
-				end
-			end
-		end
-	end
-
-	local function refreshPredictorHooks()
-		if not predictorRunning then return end
-
-		local aiServer = workspace:FindFirstChild("AI_Server")
-		if aiServer and not Connections["Predict_AI_Server"] then
-			track("Predict_AI_Server", aiServer.ChildAdded:Connect(onPredictorSpawned))
-		end
-		if aiServer and not Connections["Predict_AI_ServerRemoved"] then
-			track("Predict_AI_ServerRemoved", aiServer.ChildRemoved:Connect(onPredictorRemoved))
-		end
-
-		local aiClient = workspace:FindFirstChild("AI_Client")
-		if aiClient and not Connections["Predict_AI_Client"] then
-			track("Predict_AI_Client", aiClient.ChildAdded:Connect(onPredictorSpawned))
-		end
-		if aiClient and not Connections["Predict_AI_ClientRemoved"] then
-			track("Predict_AI_ClientRemoved", aiClient.ChildRemoved:Connect(onPredictorRemoved))
-		end
-
-		if not Connections["Predict_Workspace"] then
-			track("Predict_Workspace", workspace.ChildAdded:Connect(onPredictorSpawned))
-		end
-
-		if not Connections["Predict_WorkspaceRemoved"] then
-			track("Predict_WorkspaceRemoved", workspace.ChildRemoved:Connect(onPredictorRemoved))
-		end
-	end
-
-	local function updatePredictorGui()
-		local playerGui = LocalPlayer:FindFirstChildOfClass("PlayerGui")
-		if not playerGui then return end
-
-		if not predictorGui or not predictorGui.Parent then
-			predictorGui = Instance.new("ScreenGui")
-			predictorGui.Name = "XenoSpawnPredictor"
-			predictorGui.ResetOnSpawn = false
-			predictorGui.IgnoreGuiInset = true
-			predictorGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-			predictorGui.Parent = playerGui
-
-			local frame = Instance.new("Frame")
-			frame.Name = "Panel"
-			frame.Position = UDim2.new(0, 16, 0, 90)
-			frame.Size = UDim2.new(0, 152, 0, 18 + #BOSS_NAMES * 15)
-			frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-			frame.BackgroundTransparency = 0.25
-			frame.BorderSizePixel = 0
-			frame.Active = true
-			frame.Parent = predictorGui
-
-			local corner = Instance.new("UICorner")
-			corner.CornerRadius = UDim.new(0, 5)
-			corner.Parent = frame
-
-			local stroke = Instance.new("UIStroke")
-			stroke.Color = Color3.fromRGB(0, 244, 255)
-			stroke.Transparency = 0.4
-			stroke.Thickness = 1
-			stroke.Parent = frame
-
-			local title = Instance.new("TextLabel")
-			title.Size = UDim2.new(1, -12, 0, 14)
-			title.Position = UDim2.new(0, 6, 0, 2)
-			title.BackgroundTransparency = 1
-			title.Font = Enum.Font.GothamBold
-			title.TextSize = 11
-			title.TextColor3 = Color3.fromRGB(0, 244, 255)
-			title.TextXAlignment = Enum.TextXAlignment.Left
-			title.Text = "Boss Spawn Predictor"
-			title.Parent = frame
-
-			local dragging, dragStart, dragPos = false, nil, nil
-			frame.InputBegan:Connect(function(input)
-				if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-					dragging = true
-					dragStart = input.Position
-					dragPos = frame.Position
-					input.Changed:Connect(function()
-						if input.UserInputState == Enum.UserInputState.End then
-							dragging = false
-						end
-					end)
-				end
-			end)
-			frame.InputChanged:Connect(function(input)
-				if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-					local delta = input.Position - dragStart
-					frame.Position = UDim2.new(dragPos.X.Scale, dragPos.X.Offset + delta.X, dragPos.Y.Scale, dragPos.Y.Offset + delta.Y)
-				end
-			end)
-
-			predictorRows = {}
-
-			for index, boss in ipairs(BOSS_NAMES) do
-				local row = Instance.new("Frame")
-				row.BackgroundTransparency = 1
-				row.Size = UDim2.new(1, -12, 0, 13)
-				row.Position = UDim2.new(0, 6, 0, 2 + index * 15)
-				row.Parent = frame
-
-				local nameLabel = Instance.new("TextLabel")
-				nameLabel.Size = UDim2.new(0.62, 0, 1, 0)
-				nameLabel.BackgroundTransparency = 1
-				nameLabel.Font = Enum.Font.Gotham
-				nameLabel.TextSize = 10
-				nameLabel.TextColor3 = Color3.fromRGB(235, 235, 235)
-				nameLabel.TextXAlignment = Enum.TextXAlignment.Left
-				nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
-				nameLabel.Text = boss
-				nameLabel.Parent = row
-
-				local status = Instance.new("TextLabel")
-				status.Size = UDim2.new(0.38, 0, 1, 0)
-				status.Position = UDim2.new(0.62, 0, 0, 0)
-				status.BackgroundTransparency = 1
-				status.Font = Enum.Font.GothamBold
-				status.TextSize = 10
-				status.TextColor3 = Color3.fromRGB(180, 180, 180)
-				status.TextXAlignment = Enum.TextXAlignment.Right
-				status.Text = "..."
-				status.Parent = row
-
-				local fillBg = Instance.new("Frame")
-				fillBg.Size = UDim2.new(1, 0, 0, 2)
-				fillBg.Position = UDim2.new(0, 0, 1, -1)
-				fillBg.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-				fillBg.BorderSizePixel = 0
-				fillBg.Parent = row
-
-				local fill = Instance.new("Frame")
-				fill.Size = UDim2.new(0, 0, 1, 0)
-				fill.BackgroundColor3 = Color3.fromRGB(0, 244, 255)
-				fill.BorderSizePixel = 0
-				fill.Parent = fillBg
-
-				predictorRows[boss] = { status = status, fill = fill }
-			end
-		end
-
-		local now = tick()
-
-		for _, boss in ipairs(BOSS_NAMES) do
-			local row = predictorRows[boss]
-			if row then
-				-- Sanity check: a tracked model that died or was removed is no longer alive
-				if predictorAlive[boss] then
-					local model = predictorModels[boss]
-					if model then
-						local hum = model:FindFirstChildWhichIsA("Humanoid")
-						if not model.Parent or (hum and hum.Health <= 0) then
-							predictorAlive[boss] = false
-							clearBossModel(boss)
-						end
-					end
-				end
-
-				if predictorAlive[boss] then
-					row.status.Text = "ALIVE"
-					row.status.TextColor3 = Color3.fromRGB(255, 90, 90)
-					row.fill.Size = UDim2.new(1, 0, 1, 0)
-					row.fill.BackgroundColor3 = Color3.fromRGB(255, 90, 90)
-				else
-					local interval = predictorIntervals[boss]
-					local times = predictorSpawnTimes[boss]
-					if not interval or not times or #times < 2 then
-						row.status.Text = "learning..."
-						row.status.TextColor3 = Color3.fromRGB(180, 180, 180)
-						row.fill.Size = UDim2.new(0, 0, 1, 0)
-					else
-						local remaining = (times[#times] + interval) - now
-						if remaining <= 0 then
-							row.status.Text = "due now"
-							row.status.TextColor3 = Color3.fromRGB(255, 200, 60)
-							row.fill.Size = UDim2.new(1, 0, 1, 0)
-							row.fill.BackgroundColor3 = Color3.fromRGB(255, 200, 60)
-						else
-							row.status.Text = string.format("~%02d:%02d", math.floor(remaining / 60), math.floor(remaining % 60))
-							row.status.TextColor3 = Color3.fromRGB(0, 244, 255)
-							row.fill.Size = UDim2.new(1 - math.clamp(remaining / interval, 0, 1), 0, 1, 0)
-							row.fill.BackgroundColor3 = Color3.fromRGB(0, 244, 255)
-						end
-					end
-				end
-			end
-		end
-	end
-
-	Toggles.BossSpawnPredictor:OnChanged(function()
-		predictorRunning = false
-		disconnect("Predict_AI_Server")
-		disconnect("Predict_AI_ServerRemoved")
-		disconnect("Predict_AI_Client")
-		disconnect("Predict_AI_ClientRemoved")
-		disconnect("Predict_Workspace")
-		disconnect("Predict_WorkspaceRemoved")
-		disconnect("Predict_Poll")
-		for _, boss in ipairs(BOSS_NAMES) do
-			clearBossModel(boss)
-		end
-		predictorLastRefresh = 0
-
-		if predictorGui then
-			predictorGui:Destroy()
-			predictorGui = nil
-			predictorRows = {}
-		end
-
-		if not Toggles.BossSpawnPredictor.Value then
-			Library:Notify({ Title = "Spawn Predictor", Description = "Disabled", Time = 2 })
-			return
-		end
-
-		predictorRunning = true
-		scanExistingBosses()
-		refreshPredictorHooks()
-		updatePredictorGui()
-
-		track("Predict_Poll", RunService.Heartbeat:Connect(function()
-			local now = tick()
-			if now - predictorLastRefresh < 0.25 then return end
-			predictorLastRefresh = now
-			refreshPredictorHooks()
-			updatePredictorGui()
-		end))
-
-		Library:Notify({ Title = "Spawn Predictor", Description = "Learning spawn intervals...", Time = 3 })
-	end)
-end
-
--- ==========================================
 -- Ore ESP (reads ore names from workspace.worldResources.mineable, per-ore filters)
 local oreESP = {
 	highlights = {},
@@ -12157,8 +11881,8 @@ WaypointGroup:AddButton({
 -- Mounts Groupbox
 local MountsGroup = Tabs.Teleport:AddRightGroupbox("Mounts", "paw-print")
 
--- Buttons are paired side by side (Obsidian's Button:AddButton) so the six
--- mounts sit in three rows.
+-- Buttons are paired side by side (Obsidian's Button:AddButton) so the mounts
+-- sit two per row.
 MountsGroup:AddButton({
 	Text = "Lion",
 	Func = function()
@@ -12192,6 +11916,18 @@ MountsGroup:AddButton({
 	Text = "Snow Bear",
 	Func = function()
 		resetAndTeleport(Vector3.new(-879.8, 25.3, -2062.5), "Snow Bear")
+	end,
+})
+
+MountsGroup:AddButton({
+	Text = "Panda",
+	Func = function()
+		resetAndTeleport(Vector3.new(-1428.11, 261.87, 6886.87), "Panda")
+	end,
+}):AddButton({
+	Text = "Pig",
+	Func = function()
+		resetAndTeleport(Vector3.new(-881.38, 25.26, -31.87), "Pig")
 	end,
 })
 
@@ -13336,8 +13072,11 @@ end)
 
 -- ==========================================
 -- Boss ESP (highlight + health bar on the live boss bodies)
--- The boss templates live in ReplicatedStorage.game.AIModels, so the live
--- bosses are clones carrying those names - we look for them in workspace.
+-- Bosses are clones of ReplicatedStorage.game.AIModels and they only ever live
+-- as direct children of workspace.AI_Server / workspace.AI_Client, so we hook
+-- those two folders instead of rescanning the entire game. Attaching and
+-- detaching is event driven, and the only recurring work is a throttled 5 Hz
+-- pass that bails out immediately whenever no boss is tracked.
 do
 	local BOSS_MODELS = {
 		"Arena Kraken Eye",
@@ -13349,69 +13088,37 @@ do
 		"The Great Spider",
 	}
 
-	local BOSS_LOOKUP = {}
-	for _, name in ipairs(BOSS_MODELS) do
-		BOSS_LOOKUP[name] = true
-	end
-
 	local bossESPs = {}
 	local BOSS_HL_NAME = "URIEL_BossESP_Highlight"
 	local BOSS_BB_NAME = "URIEL_BossESP_Billboard"
-	local bossLastScan = 0
 	local BOSS_MAX_DISTANCE = 500
+	local bossLastRefresh = 0
+	local bossLastUpdate = 0
 
-	local function clearBossESPs()
-		for inst, entry in pairs(bossESPs) do
-			if entry.highlight then
-				pcall(function() entry.highlight:Destroy() end)
-			end
-			if entry.billboard then
-				pcall(function() entry.billboard:Destroy() end)
-			end
-			bossESPs[inst] = nil
-		end
-	end
-
-	-- Every live clone of a boss model/part, skipping nested matches so a boss
-	-- split into several named parts isn't highlighted twice.
-	local function findBosses()
-		local found = {}
-		for _, inst in ipairs(workspace:GetDescendants()) do
-			if BOSS_LOOKUP[inst.Name] and (inst:IsA("Model") or inst:IsA("BasePart")) then
-				local nested = false
-				local parent = inst.Parent
-				while parent and parent ~= workspace do
-					if BOSS_LOOKUP[parent.Name] then
-						nested = true
-						break
-					end
-					parent = parent.Parent
-				end
-				if not nested then
-					table.insert(found, inst)
-				end
+	-- Substring match so a clone carrying a numeric suffix still counts.
+	local function isBossName(name)
+		if type(name) ~= "string" then return nil end
+		for _, boss in ipairs(BOSS_MODELS) do
+			if name == boss or string.find(name, boss, 1, true) then
+				return boss
 			end
 		end
-		return found
+		return nil
 	end
 
 	local function bossHumanoid(inst)
-		if inst:IsA("Model") then
+		if inst and inst:IsA("Model") then
 			return inst:FindFirstChildOfClass("Humanoid")
 		end
 		return nil
 	end
 
-	local function isBossGone(inst)
-		if not inst or not inst.Parent then return true end
-		local hum = bossHumanoid(inst)
-		if hum and hum.Health <= 0 then return true end
-		return false
-	end
-
 	local function bossPart(inst)
+		if not inst then return nil end
 		if inst:IsA("BasePart") then return inst end
-		return inst.PrimaryPart or inst:FindFirstChildWhichIsA("BasePart")
+		return inst.PrimaryPart
+			or inst:FindFirstChild("HumanoidRootPart")
+			or inst:FindFirstChildWhichIsA("BasePart")
 	end
 
 	-- Lightweight BillboardGui health bar, same style as the player ESP.
@@ -13454,67 +13161,137 @@ do
 		healthFill.BorderSizePixel = 0
 		healthFill.Parent = healthBg
 
-		return billboard, healthBg, healthFill, hpText
+		return billboard, healthFill, hpText
 	end
 
-	local function updateBossESPs()
-		local root = getRootPart()
-		local myPos = root and root.Position
+	-- Redraw the bar only when the health value actually changed.
+	local function updateBossBar(entry)
+		local hum = entry.hum
+		if not (hum and hum.Parent) then return end
+		local curHealth = hum.Health
+		if entry.lastHealth == curHealth then return end
+		entry.lastHealth = curHealth
+		local maxH = hum.MaxHealth > 0 and hum.MaxHealth or 100
+		local pct = math.clamp(curHealth / maxH, 0, 1)
+		entry.healthFill.Size = UDim2.new(pct, 0, 1, 0)
+		entry.healthFill.BackgroundColor3 = Color3.fromHSV(pct * 0.33, 1, 1)
+		entry.hpText.Text = tostring(math.floor(curHealth)) .. " HP"
+	end
 
-		-- workspace:GetDescendants() builds a table of every instance in the game,
-		-- which is very costly to run every frame/second. Bosses spawn and die on
-		-- a slow cadence, so scanning every few seconds is plenty; the health and
-		-- range updates below still run every frame once a boss is tracked.
-		local now = tick()
-		if now - bossLastScan >= 3 then
-			bossLastScan = now
-			for _, inst in ipairs(findBosses()) do
-				if not bossESPs[inst] then
-					local hl = Instance.new("Highlight")
-					hl.Name = BOSS_HL_NAME
-					hl.FillColor = Color3.fromRGB(255, 60, 60)
-					hl.FillTransparency = 0.6
-					hl.OutlineColor = Color3.fromRGB(255, 255, 255)
-					hl.OutlineTransparency = 0
-					hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-					hl.Adornee = inst
-					hl.Parent = getESPFolder()
+	local function detachBoss(inst)
+		local entry = bossESPs[inst]
+		if not entry then return end
+		bossESPs[inst] = nil
+		if entry.highlight then
+			pcall(function() entry.highlight:Destroy() end)
+		end
+		if entry.billboard then
+			pcall(function() entry.billboard:Destroy() end)
+		end
+	end
 
-					local entry = {
-						highlight = hl,
-						lastHealth = -1,
-					}
+	local function clearBossESPs()
+		for inst in pairs(bossESPs) do
+			detachBoss(inst)
+		end
+	end
 
-					-- Bosses that are proper models carry a Humanoid, so they get
-					-- a health bar too; plain part bosses only get the highlight.
-					local hum = bossHumanoid(inst)
-					local part = bossPart(inst)
-					if hum and part then
-						local billboard, healthBg, healthFill, hpText = createBossHealthBar(part)
-						entry.billboard = billboard
-						entry.healthBg = healthBg
-						entry.healthFill = healthFill
-						entry.hpText = hpText
-						entry.hum = hum
-					end
+	local function attachBoss(inst)
+		if bossESPs[inst] or not inst or not inst.Parent then return end
+		if not isBossName(inst.Name) then return end
 
-					bossESPs[inst] = entry
+		local hl = Instance.new("Highlight")
+		hl.Name = BOSS_HL_NAME
+		hl.FillColor = Color3.fromRGB(255, 60, 60)
+		hl.FillTransparency = 0.6
+		hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+		hl.OutlineTransparency = 0
+		hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+		hl.Adornee = inst
+		hl.Parent = getESPFolder()
+
+		local entry = {
+			highlight = hl,
+			lastHealth = -1,
+		}
+
+		-- Bosses that are proper models carry a Humanoid, so they get a health
+		-- bar too; plain part bosses only get the highlight.
+		local hum = bossHumanoid(inst)
+		local part = bossPart(inst)
+		if hum and part then
+			local billboard, healthFill, hpText = createBossHealthBar(part)
+			entry.billboard = billboard
+			entry.healthFill = healthFill
+			entry.hpText = hpText
+			entry.hum = hum
+			entry.part = part
+			updateBossBar(entry)
+		end
+
+		bossESPs[inst] = entry
+	end
+
+	local function onBossChildAdded(child)
+		-- Defer so the clone has finished parenting before we read its parts.
+		task.defer(function()
+			if Toggles.BossHighlighter and Toggles.BossHighlighter.Value then
+				attachBoss(child)
+			end
+		end)
+	end
+
+	local function onBossChildRemoved(child)
+		detachBoss(child)
+	end
+
+	-- Only the two AI folders are hooked, and only once each, so this is cheap
+	-- enough to re-check on a slow cadence in case the folders stream in late.
+	local function refreshBossHooks()
+		for _, folderName in ipairs({"AI_Server", "AI_Client"}) do
+			local folder = workspace:FindFirstChild(folderName)
+			if folder and not Connections["BossESP_Added_" .. folderName] then
+				track("BossESP_Added_" .. folderName, folder.ChildAdded:Connect(onBossChildAdded))
+				track("BossESP_Removed_" .. folderName, folder.ChildRemoved:Connect(onBossChildRemoved))
+				-- One-time sweep of this folder's direct children only (tiny list).
+				for _, child in ipairs(folder:GetChildren()) do
+					attachBoss(child)
 				end
 			end
 		end
+	end
+
+	local function updateBossESP()
+		local now = tick()
+		if now - bossLastRefresh >= 1 then
+			bossLastRefresh = now
+			refreshBossHooks()
+		end
+
+		-- Nothing tracked: one lookup and out. This is the usual case, so the
+		-- per-frame cost while enabled but boss-free is effectively nil.
+		if not next(bossESPs) then return end
+
+		-- Throttle the visual updates to 5 Hz instead of every frame.
+		if now - bossLastUpdate < 0.2 then return end
+		bossLastUpdate = now
+
+		local root = getRootPart()
+		local myPos = root and root.Position
 
 		for inst, entry in pairs(bossESPs) do
-			if isBossGone(inst) then
-				if entry.highlight then
-					pcall(function() entry.highlight:Destroy() end)
-				end
-				if entry.billboard then
-					pcall(function() entry.billboard:Destroy() end)
-				end
-				bossESPs[inst] = nil
+			local hum = entry.hum
+			if (not inst.Parent) or (hum and hum.Health <= 0) then
+				detachBoss(inst)
 			else
+				local part = entry.part
+				if not (part and part.Parent) then
+					part = bossPart(inst)
+					entry.part = part
+					if entry.billboard then entry.billboard.Adornee = part or inst end
+				end
+
 				-- Only show the boss while it is within range.
-				local part = bossPart(inst)
 				local inRange = true
 				if myPos and part then
 					inRange = (part.Position - myPos).Magnitude <= BOSS_MAX_DISTANCE
@@ -13524,33 +13301,28 @@ do
 
 				if entry.billboard then
 					entry.billboard.Enabled = inRange
-					if inRange and entry.hum then
-						local curHealth = entry.hum.Health
-						if entry.lastHealth ~= curHealth then
-							entry.lastHealth = curHealth
-							local maxH = entry.hum.MaxHealth > 0 and entry.hum.MaxHealth or 100
-							local pct = math.clamp(curHealth / maxH, 0, 1)
-							entry.healthFill.Size = UDim2.new(pct, 0, 1, 0)
-							entry.healthFill.BackgroundColor3 = Color3.fromHSV(pct * 0.33, 1, 1)
-							entry.hpText.Text = tostring(math.floor(curHealth)) .. " HP"
-						end
-					end
+					if inRange then updateBossBar(entry) end
 				end
 			end
 		end
 	end
 
 	Toggles.BossHighlighter:OnChanged(function()
-		disconnect("BossHighlighter_Loop")
+		disconnect("BossESP_Loop")
+		disconnect("BossESP_Added_AI_Server")
+		disconnect("BossESP_Added_AI_Client")
+		disconnect("BossESP_Removed_AI_Server")
+		disconnect("BossESP_Removed_AI_Client")
 		clearBossESPs()
-		bossLastScan = 0
+		bossLastRefresh = 0
+		bossLastUpdate = 0
 
 		if not Toggles.BossHighlighter.Value then
 			return
 		end
 
-		updateBossESPs()
-		track("BossHighlighter_Loop", RunService.Heartbeat:Connect(updateBossESPs))
+		refreshBossHooks()
+		track("BossESP_Loop", RunService.Heartbeat:Connect(updateBossESP))
 	end)
 end
 
@@ -15017,6 +14789,13 @@ Library:OnUnload(function()
 	if Toggles.UncapFPS and Toggles.UncapFPS.Value then
 		Toggles.UncapFPS:SetValue(false)
 	end
+	if Toggles.BossHighlighter and Toggles.BossHighlighter.Value then
+		Toggles.BossHighlighter:SetValue(false)
+	end
+	if Toggles.AutoAirBubbles and Toggles.AutoAirBubbles.Value then
+		Toggles.AutoAirBubbles:SetValue(false)
+	end
+	pcall(restoreAirBubbles)
 
 	pcall(function()
 		if fovCircle then fovCircle:Remove() end
