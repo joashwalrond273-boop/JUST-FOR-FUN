@@ -9695,6 +9695,12 @@ FarmMine:AddDropdown("AutoMineSlotSystemSlot", {
 	Multi = true,
 })
 
+FarmMine:AddInput("AutoMineNameFilter", {
+	Text = "Node Name Filter",
+	Default = "",
+	Placeholder = "Copper Ore, Iron Ore (blank = all)",
+})
+
 FarmMine:AddSlider("AutoMineRange", {
 	Text = "Range",
 	Default = 30,
@@ -9739,6 +9745,12 @@ FarmChop:AddDropdown("AutoChopSlotSystemSlot", {
 	Values = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"},
 	Default = {"1"},
 	Multi = true,
+})
+
+FarmChop:AddInput("AutoChopNameFilter", {
+	Text = "Node Name Filter",
+	Default = "",
+	Placeholder = "Oak Tree, Birch (blank = all)",
 })
 
 FarmChop:AddSlider("AutoChopRange", {
@@ -10243,6 +10255,24 @@ local isAiAuraRunning   = false
 local lastAutoMineHit   = 0
 local lastAutoChopHit   = 0
 
+-- Node Name Filter for the auto farms. The input is a comma-separated list of
+-- names; a node matches when its name contains any of them (case-insensitive).
+-- Blank means "no filter" so every node is targeted. Kept global on purpose:
+-- the main chunk is at Luau's 200-local register limit.
+function resourceNameMatches(obj, filterValue)
+	if not filterValue or filterValue == "" then return true end
+	local name = obj and obj.Name
+	if not name or name == "" then return false end
+	local lowered = string.lower(name)
+	for token in string.gmatch(string.lower(filterValue), "[^,]+") do
+		local needle = string.match(token, "^%s*(.-)%s*$")
+		if needle ~= "" and string.find(lowered, needle, 1, true) then
+			return true
+		end
+	end
+	return false
+end
+
 local function mineObject(obj)
 	local slot = tonumber(Options.AutoMineSlot.Value) or 1
 	local anchor = obj and getMineableAnchor(obj)
@@ -10262,8 +10292,10 @@ local function autoMine()
 	local root = getRootPart()
 	if not root then return end
 	local maxRange = (Options.AutoMineRange and Options.AutoMineRange.Value) or 30
+	local nameFilter = Options.AutoMineNameFilter and Options.AutoMineNameFilter.Value or ""
 	local closest, dist = nil, maxRange
 	forEachResourceNode(getMineableFolder(), function(obj)
+		if not resourceNameMatches(obj, nameFilter) then return end
 		local anchor = getMineableAnchor(obj)
 		if anchor then
 			local d = (root.Position - anchor.Position).Magnitude
@@ -10319,15 +10351,18 @@ local function autoChop()
 	local folder = workspace:FindFirstChild("worldResources") and workspace.worldResources:FindFirstChild("choppable")
 	if not folder then return end
 	local maxRange = (Options.AutoChopRange and Options.AutoChopRange.Value) or 30
+	local nameFilter = Options.AutoChopNameFilter and Options.AutoChopNameFilter.Value or ""
 	local closest, dist = nil, maxRange
 	for _, subfolder in ipairs(folder:GetChildren()) do
 		if subfolder:IsA("Folder") then
 			for _, obj in ipairs(subfolder:GetChildren()) do
-				local part = getChopTargetPart(obj)
-				if part then
-					local d = getFlatDistance(root.Position, part.Position)
-					if d < dist then
-						closest, dist = obj, d
+				if resourceNameMatches(obj, nameFilter) then
+					local part = getChopTargetPart(obj)
+					if part then
+						local d = getFlatDistance(root.Position, part.Position)
+						if d < dist then
+							closest, dist = obj, d
+						end
 					end
 				end
 			end
