@@ -3365,10 +3365,42 @@ SpectateGroup:AddSlider("FreecamTurnSpeed", {
 	Text = "Turn Speed",
 	Default = 100,
 	Min = 10,
-	Max = 500,
+	Max = 150,
 	Rounding = 0,
 	Compact = true,
 })
+
+-- Bring the character to wherever the freecam is looking from.
+FreecamBodyButton = SpectateGroup:AddButton({
+	Text = "Teleport Body To Camera",
+	Func = function()
+		local camera = workspace.CurrentCamera
+		local root = getRootPart()
+		if not camera or not root then
+			Library:Notify({ Title = "FREECAM", Description = "No character to teleport.", Time = 2 })
+			return
+		end
+		root.CFrame = CFrame.new(camera.CFrame.Position)
+		root.AssemblyLinearVelocity = Vector3.zero
+		Library:Notify({ Title = "FREECAM", Description = "Teleported body to camera.", Time = 2 })
+	end,
+})
+
+-- Freecam-only controls stay hidden until the checkbox is on.
+function updateFreecamVisibility()
+	local visible = Toggles.Freecam and Toggles.Freecam.Value or false
+	if Options.FreecamSpeed and Options.FreecamSpeed.SetVisible then
+		Options.FreecamSpeed:SetVisible(visible)
+	end
+	if Options.FreecamTurnSpeed and Options.FreecamTurnSpeed.SetVisible then
+		Options.FreecamTurnSpeed:SetVisible(visible)
+	end
+	if FreecamBodyButton and FreecamBodyButton.SetVisible then
+		FreecamBodyButton:SetVisible(visible)
+	end
+end
+
+updateFreecamVisibility()
 
 local TeleportGroup = Tabs.Main:AddRightGroupbox("TELEPORT", "navigation")
 
@@ -13457,6 +13489,7 @@ function startFreecam()
 end
 
 Toggles.Freecam:OnChanged(function()
+	updateFreecamVisibility()
 	if Toggles.Freecam.Value then
 		if Toggles.SpectateToggle.Value then
 			Toggles.SpectateToggle:SetValue(false)
