@@ -3370,19 +3370,33 @@ SpectateGroup:AddSlider("FreecamTurnSpeed", {
 	Compact = true,
 })
 
--- Bring the character to wherever the freecam is looking from.
+-- Bring the character to wherever the freecam is looking from. Resets first so the
+-- teleport lands cleanly, then moves the fresh character in about a second later.
 FreecamBodyButton = SpectateGroup:AddButton({
 	Text = "Teleport Body To Camera",
 	Func = function()
 		local camera = workspace.CurrentCamera
-		local root = getRootPart()
-		if not camera or not root then
-			Library:Notify({ Title = "FREECAM", Description = "No character to teleport.", Time = 2 })
-			return
+		if not camera then return end
+		local targetPos = camera.CFrame.Position
+
+		-- Capture the spot, then drop freecam so the camera snaps back to the body.
+		if Toggles.Freecam.Value then
+			Toggles.Freecam:SetValue(false)
 		end
-		root.CFrame = CFrame.new(camera.CFrame.Position)
-		root.AssemblyLinearVelocity = Vector3.zero
-		Library:Notify({ Title = "FREECAM", Description = "Teleported body to camera.", Time = 2 })
+
+		task.spawn(function()
+			resetAndWaitForSpawn()
+			-- resetAndWaitForSpawn already pauses 0.5s after spawn; top it up to 1s.
+			task.wait(0.5)
+			local root = getRootPart()
+			if not root then
+				Library:Notify({ Title = "FREECAM", Description = "No character to teleport.", Time = 2 })
+				return
+			end
+			root.CFrame = CFrame.new(targetPos)
+			root.AssemblyLinearVelocity = Vector3.zero
+			Library:Notify({ Title = "FREECAM", Description = "Teleported body to camera.", Time = 2 })
+		end)
 	end,
 })
 
