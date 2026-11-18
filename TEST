@@ -9049,11 +9049,21 @@ do
 
 		local originalY = nil
 		local boatCFrame = nil
+		-- Cached part list for the boat we are currently in. Rebuilding it with
+		-- GetDescendants() on every physics step (~60x/sec) was the single
+		-- heaviest thing the boat feature did, so it is only refreshed when the
+		-- boat changes or every couple of seconds.
+		local cachedBoat = nil
+		local cachedBoatParts = nil
+		local nextPartRefresh = 0
 
 		local function enableBoatSpeed()
 			disconnect("boat_hover")
 			originalY = nil
 			boatCFrame = nil
+			cachedBoat = nil
+			cachedBoatParts = nil
+			nextPartRefresh = 0
 
 			pcall(function()
 				boatPlatform = Instance.new("Part")
@@ -9076,6 +9086,8 @@ do
 						if not boat or not humanoid then
 							originalY = nil
 							boatCFrame = nil
+							cachedBoat = nil
+							cachedBoatParts = nil
 							if boatPlatform then
 								boatPlatform.Position = Vector3.new(0, -500, 0)
 							end
@@ -9087,9 +9099,23 @@ do
 						if not originalY then
 							originalY = boatCFrame.Position.Y
 						end
-						for _, v in pairs(boat:GetDescendants()) do
-							if v:IsA("Part") or v:IsA("MeshPart") or v:IsA("Union") then
-								v.Velocity = Vector3.new(0, 0, 0)
+						local now = tick()
+						if boat ~= cachedBoat or not cachedBoatParts or now >= nextPartRefresh then
+							cachedBoat = boat
+							nextPartRefresh = now + 2
+							local parts = {}
+							for _, v in ipairs(boat:GetDescendants()) do
+								if v:IsA("Part") or v:IsA("MeshPart") or v:IsA("Union") then
+									table.insert(parts, v)
+								end
+							end
+							cachedBoatParts = parts
+						end
+						for _, v in ipairs(cachedBoatParts) do
+							-- Only write when the part is actually moving: reads are
+							-- far cheaper than property writes on every part, every step.
+							if v.Parent and v.AssemblyLinearVelocity.Magnitude > 0.01 then
+								v.Velocity = Vector3.zero
 							end
 						end
 						boat:PivotTo(boatCFrame)
@@ -14270,6 +14296,7 @@ FreecamState = {
 	saved = nil,
 	frozen = false,
 	frozenHumanoid = nil,
+	frozenParts = nil,
 }
 
 -- Grab the default ControlModule so the on-screen joystick (mobile) and WASD (PC)
@@ -14313,6 +14340,8 @@ function isJoystickTouch(position)
 end
 
 -- Hold the body still while freecam is active: no walking, turning or jumping.
+-- The body parts are also anchored, because plenty of games rewrite WalkSpeed
+-- every frame, which would drag the character along with the joystick.
 function freezeCharacter(freeze)
 	local humanoid = getHumanoid()
 	if freeze then
@@ -14329,6 +14358,20 @@ function freezeCharacter(freeze)
 			humanoid.JumpPower = 0
 			humanoid.JumpHeight = 0
 			FreecamState.frozenHumanoid = humanoid
+
+			local character = humanoid.Parent
+			local pinned = {}
+			if character then
+				for _, part in ipairs(character:GetDescendants()) do
+					if part:IsA("BasePart") and not part.Anchored then
+						part.AssemblyLinearVelocity = Vector3.zero
+						part.AssemblyAngularVelocity = Vector3.zero
+						part.Anchored = true
+						table.insert(pinned, part)
+					end
+				end
+			end
+			FreecamState.frozenParts = pinned
 		end
 		FreecamState.frozen = true
 	else
@@ -14339,9 +14382,22 @@ function freezeCharacter(freeze)
 			humanoid.JumpPower = saved.JumpPower
 			humanoid.JumpHeight = saved.JumpHeight
 		end
+
+		local pinned = FreecamState.frozenParts
+		if pinned then
+			for _, part in ipairs(pinned) do
+				if part and part.Parent then
+					part.AssemblyLinearVelocity = Vector3.zero
+					part.AssemblyAngularVelocity = Vector3.zero
+					part.Anchored = false
+				end
+			end
+		end
+
 		FreecamState.frozen = false
 		FreecamState.saved = nil
 		FreecamState.frozenHumanoid = nil
+		FreecamState.frozenParts = nil
 	end
 end
 
