@@ -13286,6 +13286,20 @@ function getMoveVector()
 	return nil
 end
 
+-- The default mobile joystick sits under PlayerGui.TouchGui. Touches that start
+-- there are movement, not camera, so they must not swing the view.
+function isJoystickTouch(position)
+	local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
+	local touchGui = playerGui and playerGui:FindFirstChild("TouchGui")
+	if not touchGui then return false end
+	local frame = touchGui:FindFirstChild("ThumbstickFrame", true)
+	if not frame then return false end
+	local topLeft = frame.AbsolutePosition
+	local size = frame.AbsoluteSize
+	return position.X >= topLeft.X and position.X <= topLeft.X + size.X
+		and position.Y >= topLeft.Y and position.Y <= topLeft.Y + size.Y
+end
+
 -- Hold the body still while freecam is active: no walking, turning or jumping.
 function freezeCharacter(freeze)
 	local humanoid = getHumanoid()
@@ -13372,11 +13386,13 @@ function startFreecam()
 			FreecamState.keys[input.KeyCode] = nil
 		end
 	end))
-	-- Drag to look on mobile. Joystick touches are game-processed, so they are
-	-- skipped here and read through the ControlModule instead.
-	track("FreecamTouch", UserInputService.TouchMoved:Connect(function(input, processed)
-		if processed then return end
-		FreecamState.lookDelta = FreecamState.lookDelta + input.Delta
+	-- Drag to look on mobile. Joystick touches move the camera instead, so they are
+	-- filtered out by position and handled through the ControlModule. Touch deltas
+	-- are Vector3, so they are flattened before being accumulated.
+	track("FreecamTouch", UserInputService.TouchMoved:Connect(function(input)
+		if isJoystickTouch(input.Position) then return end
+		local d = input.Delta
+		FreecamState.lookDelta = FreecamState.lookDelta + Vector2.new(d.X, d.Y)
 	end))
 
 	track("FreecamLoop", RunService.RenderStepped:Connect(function(dt)
@@ -13390,12 +13406,15 @@ function startFreecam()
 			freezeCharacter(true)
 		end
 
-		-- Look with the mouse (PC) or a touch drag (mobile).
-		local delta = UserInputService:GetMouseDelta() + FreecamState.lookDelta
+		-- Look with the mouse (PC) or a touch drag (mobile). A drag covers far fewer
+		-- pixels than a mouse, so touch gets a higher sensitivity.
+		local mouseDelta = UserInputService:GetMouseDelta()
+		local touchDelta = FreecamState.lookDelta
 		FreecamState.lookDelta = Vector2.zero
-		local sensitivity = 0.0025
-		FreecamState.yaw = FreecamState.yaw - delta.X * sensitivity
-		FreecamState.pitch = math.clamp(FreecamState.pitch - delta.Y * sensitivity, math.rad(-89), math.rad(89))
+		local turnX = mouseDelta.X * 0.0040 + touchDelta.X * 0.0125
+		local turnY = mouseDelta.Y * 0.0040 + touchDelta.Y * 0.0125
+		FreecamState.yaw = FreecamState.yaw - turnX
+		FreecamState.pitch = math.clamp(FreecamState.pitch - turnY, math.rad(-89), math.rad(89))
 		local rotation = CFrame.fromEulerAnglesYXZ(FreecamState.pitch, FreecamState.yaw, 0)
 
 		-- Move with the joystick / WASD; the body stays put while the camera flies.
