@@ -489,6 +489,31 @@ AutoArmorDeluxeGroup:AddSlider("ToiletBedSpeed", {
 
 AutoArmorDeluxeGroup:AddDivider()
 
+-- Armor Piece: multi-select picker that decides which pieces a material button
+-- crafts and equips. It drives every material set (Bluesteel, Atlantean,
+-- Darksteel, Samurai, Juggernaut, ...), so with only "Sword" ticked each of the
+-- buttons below crafts and equips the sword alone.
+AutoArmorDeluxeGroup:AddDropdown("ArmorPieceSelect", {
+	Text = "Armor Piece",
+	Values = { "Helmet", "Chestplate", "Pants", "Sword" },
+	Multi = true,
+	Tooltip = "Which pieces the material buttons below craft and equip",
+})
+
+-- A multi dropdown can only take one value through Default, so tick all four here.
+Options.ArmorPieceSelect:SetValue({
+	Helmet = true,
+	Chestplate = true,
+	Pants = true,
+	Sword = true,
+})
+
+-- True when `piece` is ticked in the Armor Piece dropdown above.
+local function isArmorPieceSelected(piece)
+	local selected = Options.ArmorPieceSelect and Options.ArmorPieceSelect.Value
+	return selected ~= nil and selected[piece] == true
+end
+
 AutoArmorDeluxeGroup:AddButton({
 	Text = "Bluesteel",
 	Func = function()
@@ -509,18 +534,26 @@ AutoArmorDeluxeGroup:AddButton({
 		end
 
 		if Toggles.ArmorEquipOnly and Toggles.ArmorEquipOnly.Value then
-			pcall(function()
-				equipHotbarRemote:InvokeServer("inventory", armorSlot, 197)
-			end)
-			pcall(function()
-				equipClothingRemote:InvokeServer("inventory", 1, 202)
-			end)
-			pcall(function()
-				equipClothingRemote:InvokeServer("inventory", 2, 200)
-			end)
-			pcall(function()
-				equipClothingRemote:InvokeServer("inventory", 3, 201)
-			end)
+			if isArmorPieceSelected("Sword") then
+				pcall(function()
+					equipHotbarRemote:InvokeServer("inventory", armorSlot, 197)
+				end)
+			end
+			if isArmorPieceSelected("Helmet") then
+				pcall(function()
+					equipClothingRemote:InvokeServer("inventory", 1, 202)
+				end)
+			end
+			if isArmorPieceSelected("Chestplate") then
+				pcall(function()
+					equipClothingRemote:InvokeServer("inventory", 2, 200)
+				end)
+			end
+			if isArmorPieceSelected("Pants") then
+				pcall(function()
+					equipClothingRemote:InvokeServer("inventory", 3, 201)
+				end)
+			end
 			return
 		end
 
@@ -564,34 +597,44 @@ AutoArmorDeluxeGroup:AddButton({
 		end
 
 		local itemsToCraft = {
-			{197, "Bluesteel Sword"},
-			{202, "Bluesteel Helmet"},
-			{200, "Bluesteel Chestplate"},
-			{201, "Bluesteel Pants"},
+			{197, "Sword"},
+			{202, "Helmet"},
+			{200, "Chestplate"},
+			{201, "Pants"},
 		}
 
 		if furnace then
 			for _, item in ipairs(itemsToCraft) do
-				pcall(function()
-					craftRemote:InvokeServer(item[1], furnace, 1, 0)
-				end)
+				if isArmorPieceSelected(item[2]) then
+					pcall(function()
+						craftRemote:InvokeServer(item[1], furnace, 1, 0)
+					end)
+				end
 			end
 
 			task.wait(getCraftDelay())
 
 			if not (Toggles.ArmorCraftOnly and Toggles.ArmorCraftOnly.Value) then
-				pcall(function()
-					equipHotbarRemote:InvokeServer("inventory", armorSlot, 197)
-				end)
-				pcall(function()
-					equipClothingRemote:InvokeServer("inventory", 1, 202)
-				end)
-				pcall(function()
-					equipClothingRemote:InvokeServer("inventory", 2, 200)
-				end)
-				pcall(function()
-					equipClothingRemote:InvokeServer("inventory", 3, 201)
-				end)
+				if isArmorPieceSelected("Sword") then
+					pcall(function()
+						equipHotbarRemote:InvokeServer("inventory", armorSlot, 197)
+					end)
+				end
+				if isArmorPieceSelected("Helmet") then
+					pcall(function()
+						equipClothingRemote:InvokeServer("inventory", 1, 202)
+					end)
+				end
+				if isArmorPieceSelected("Chestplate") then
+					pcall(function()
+						equipClothingRemote:InvokeServer("inventory", 2, 200)
+					end)
+				end
+				if isArmorPieceSelected("Pants") then
+					pcall(function()
+						equipClothingRemote:InvokeServer("inventory", 3, 201)
+					end)
+				end
 			end
 
 			if not usedExistingForge then
@@ -626,18 +669,26 @@ AutoArmorDeluxeGroup:AddButton({
 		end
 
 		if Toggles.ArmorEquipOnly and Toggles.ArmorEquipOnly.Value then
-			pcall(function()
-				equipHotbarRemote:InvokeServer("inventory", armorSlot, 357)
-			end)
-			pcall(function()
-				equipClothingRemote:InvokeServer("inventory", 1, 354)
-			end)
-			pcall(function()
-				equipClothingRemote:InvokeServer("inventory", 2, 355)
-			end)
-			pcall(function()
-				equipClothingRemote:InvokeServer("inventory", 3, 356)
-			end)
+			if isArmorPieceSelected("Sword") then
+				pcall(function()
+					equipHotbarRemote:InvokeServer("inventory", armorSlot, 357)
+				end)
+			end
+			if isArmorPieceSelected("Helmet") then
+				pcall(function()
+					equipClothingRemote:InvokeServer("inventory", 1, 354)
+				end)
+			end
+			if isArmorPieceSelected("Chestplate") then
+				pcall(function()
+					equipClothingRemote:InvokeServer("inventory", 2, 355)
+				end)
+			end
+			if isArmorPieceSelected("Pants") then
+				pcall(function()
+					equipClothingRemote:InvokeServer("inventory", 3, 356)
+				end)
+			end
 			return
 		end
 
@@ -675,34 +726,44 @@ AutoArmorDeluxeGroup:AddButton({
 		end
 
 		local itemsToCraft = {
-			{357, "Atlantean Sword"},
-			{355, "Atlantean Armor"},
-			{356, "Atlantean Pants"},
-			{354, "Atlantean Helmet"},
+			{357, "Sword"},
+			{355, "Chestplate"},
+			{356, "Pants"},
+			{354, "Helmet"},
 		}
 
 		if furnace then
 			for _, item in ipairs(itemsToCraft) do
-				pcall(function()
-					craftRemote:InvokeServer(item[1], furnace, 1, 0)
-				end)
+				if isArmorPieceSelected(item[2]) then
+					pcall(function()
+						craftRemote:InvokeServer(item[1], furnace, 1, 0)
+					end)
+				end
 			end
 
 			task.wait(getCraftDelay())
 
 			if not (Toggles.ArmorCraftOnly and Toggles.ArmorCraftOnly.Value) then
-				pcall(function()
-					equipHotbarRemote:InvokeServer("inventory", armorSlot, 357)
-				end)
-				pcall(function()
-					equipClothingRemote:InvokeServer("inventory", 1, 354)
-				end)
-				pcall(function()
-					equipClothingRemote:InvokeServer("inventory", 2, 355)
-				end)
-				pcall(function()
-					equipClothingRemote:InvokeServer("inventory", 3, 356)
-				end)
+				if isArmorPieceSelected("Sword") then
+					pcall(function()
+						equipHotbarRemote:InvokeServer("inventory", armorSlot, 357)
+					end)
+				end
+				if isArmorPieceSelected("Helmet") then
+					pcall(function()
+						equipClothingRemote:InvokeServer("inventory", 1, 354)
+					end)
+				end
+				if isArmorPieceSelected("Chestplate") then
+					pcall(function()
+						equipClothingRemote:InvokeServer("inventory", 2, 355)
+					end)
+				end
+				if isArmorPieceSelected("Pants") then
+					pcall(function()
+						equipClothingRemote:InvokeServer("inventory", 3, 356)
+					end)
+				end
 			end
 
 			if not usedExistingForge then
@@ -737,18 +798,26 @@ AutoArmorDeluxeGroup:AddButton({
 		end
 
 		if Toggles.ArmorEquipOnly and Toggles.ArmorEquipOnly.Value then
-			pcall(function()
-				equipHotbarRemote:InvokeServer("inventory", armorSlot, 267)
-			end)
-			pcall(function()
-				equipClothingRemote:InvokeServer("inventory", 1, 262)
-			end)
-			pcall(function()
-				equipClothingRemote:InvokeServer("inventory", 2, 261)
-			end)
-			pcall(function()
-				equipClothingRemote:InvokeServer("inventory", 3, 260)
-			end)
+			if isArmorPieceSelected("Sword") then
+				pcall(function()
+					equipHotbarRemote:InvokeServer("inventory", armorSlot, 267)
+				end)
+			end
+			if isArmorPieceSelected("Helmet") then
+				pcall(function()
+					equipClothingRemote:InvokeServer("inventory", 1, 262)
+				end)
+			end
+			if isArmorPieceSelected("Chestplate") then
+				pcall(function()
+					equipClothingRemote:InvokeServer("inventory", 2, 261)
+				end)
+			end
+			if isArmorPieceSelected("Pants") then
+				pcall(function()
+					equipClothingRemote:InvokeServer("inventory", 3, 260)
+				end)
+			end
 			return
 		end
 
@@ -783,34 +852,44 @@ AutoArmorDeluxeGroup:AddButton({
 		end
 
 		local itemsToCraft = {
-			{267, "Darksteel Sword"},
-			{261, "Darksteel Chestplate"},
-			{260, "Darksteel Pants"},
-			{262, "Darksteel Helmet"},
+			{267, "Sword"},
+			{261, "Chestplate"},
+			{260, "Pants"},
+			{262, "Helmet"},
 		}
 
 		if furnace then
 			for _, item in ipairs(itemsToCraft) do
-				pcall(function()
-					craftRemote:InvokeServer(item[1], furnace, 1, 0)
-				end)
+				if isArmorPieceSelected(item[2]) then
+					pcall(function()
+						craftRemote:InvokeServer(item[1], furnace, 1, 0)
+					end)
+				end
 			end
 
 			task.wait(getCraftDelay())
 
 			if not (Toggles.ArmorCraftOnly and Toggles.ArmorCraftOnly.Value) then
-				pcall(function()
-					equipHotbarRemote:InvokeServer("inventory", armorSlot, 267)
-				end)
-				pcall(function()
-					equipClothingRemote:InvokeServer("inventory", 1, 262)
-				end)
-				pcall(function()
-					equipClothingRemote:InvokeServer("inventory", 2, 261)
-				end)
-				pcall(function()
-					equipClothingRemote:InvokeServer("inventory", 3, 260)
-				end)
+				if isArmorPieceSelected("Sword") then
+					pcall(function()
+						equipHotbarRemote:InvokeServer("inventory", armorSlot, 267)
+					end)
+				end
+				if isArmorPieceSelected("Helmet") then
+					pcall(function()
+						equipClothingRemote:InvokeServer("inventory", 1, 262)
+					end)
+				end
+				if isArmorPieceSelected("Chestplate") then
+					pcall(function()
+						equipClothingRemote:InvokeServer("inventory", 2, 261)
+					end)
+				end
+				if isArmorPieceSelected("Pants") then
+					pcall(function()
+						equipClothingRemote:InvokeServer("inventory", 3, 260)
+					end)
+				end
 			end
 
 			if not usedExistingForge then
@@ -845,18 +924,26 @@ AutoArmorDeluxeGroup:AddButton({
 		end
 
 		if Toggles.ArmorEquipOnly and Toggles.ArmorEquipOnly.Value then
-			pcall(function()
-				equipHotbarRemote:InvokeServer("inventory", armorSlot, 406)
-			end)
-			pcall(function()
-				equipClothingRemote:InvokeServer("inventory", 1, 404)
-			end)
-			pcall(function()
-				equipClothingRemote:InvokeServer("inventory", 2, 403)
-			end)
-			pcall(function()
-				equipClothingRemote:InvokeServer("inventory", 3, 402)
-			end)
+			if isArmorPieceSelected("Sword") then
+				pcall(function()
+					equipHotbarRemote:InvokeServer("inventory", armorSlot, 406)
+				end)
+			end
+			if isArmorPieceSelected("Helmet") then
+				pcall(function()
+					equipClothingRemote:InvokeServer("inventory", 1, 404)
+				end)
+			end
+			if isArmorPieceSelected("Chestplate") then
+				pcall(function()
+					equipClothingRemote:InvokeServer("inventory", 2, 403)
+				end)
+			end
+			if isArmorPieceSelected("Pants") then
+				pcall(function()
+					equipClothingRemote:InvokeServer("inventory", 3, 402)
+				end)
+			end
 			return
 		end
 
@@ -893,34 +980,44 @@ AutoArmorDeluxeGroup:AddButton({
 		end
 
 		local itemsToCraft = {
-			{406, "Samurai Sword"},
-			{403, "Samurai Armor"},
-			{402, "Samurai Pants"},
-			{404, "Samurai Helmet"},
+			{406, "Sword"},
+			{403, "Chestplate"},
+			{402, "Pants"},
+			{404, "Helmet"},
 		}
 
 		if furnace then
 			for _, item in ipairs(itemsToCraft) do
-				pcall(function()
-					craftRemote:InvokeServer(item[1], furnace, 1, 0)
-				end)
+				if isArmorPieceSelected(item[2]) then
+					pcall(function()
+						craftRemote:InvokeServer(item[1], furnace, 1, 0)
+					end)
+				end
 			end
 
 			task.wait(getCraftDelay())
 
 			if not (Toggles.ArmorCraftOnly and Toggles.ArmorCraftOnly.Value) then
-				pcall(function()
-					equipHotbarRemote:InvokeServer("inventory", armorSlot, 406)
-				end)
-				pcall(function()
-					equipClothingRemote:InvokeServer("inventory", 1, 404)
-				end)
-				pcall(function()
-					equipClothingRemote:InvokeServer("inventory", 2, 403)
-				end)
-				pcall(function()
-					equipClothingRemote:InvokeServer("inventory", 3, 402)
-				end)
+				if isArmorPieceSelected("Sword") then
+					pcall(function()
+						equipHotbarRemote:InvokeServer("inventory", armorSlot, 406)
+					end)
+				end
+				if isArmorPieceSelected("Helmet") then
+					pcall(function()
+						equipClothingRemote:InvokeServer("inventory", 1, 404)
+					end)
+				end
+				if isArmorPieceSelected("Chestplate") then
+					pcall(function()
+						equipClothingRemote:InvokeServer("inventory", 2, 403)
+					end)
+				end
+				if isArmorPieceSelected("Pants") then
+					pcall(function()
+						equipClothingRemote:InvokeServer("inventory", 3, 402)
+					end)
+				end
 			end
 
 			if not usedExistingForge then
@@ -955,18 +1052,26 @@ AutoArmorDeluxeGroup:AddButton({
 		end
 
 		if Toggles.ArmorEquipOnly and Toggles.ArmorEquipOnly.Value then
-			pcall(function()
-				equipHotbarRemote:InvokeServer("inventory", armorSlot, 545)
-			end)
-			pcall(function()
-				equipClothingRemote:InvokeServer("inventory", 1, 541)
-			end)
-			pcall(function()
-				equipClothingRemote:InvokeServer("inventory", 2, 542)
-			end)
-			pcall(function()
-				equipClothingRemote:InvokeServer("inventory", 3, 543)
-			end)
+			if isArmorPieceSelected("Sword") then
+				pcall(function()
+					equipHotbarRemote:InvokeServer("inventory", armorSlot, 545)
+				end)
+			end
+			if isArmorPieceSelected("Helmet") then
+				pcall(function()
+					equipClothingRemote:InvokeServer("inventory", 1, 541)
+				end)
+			end
+			if isArmorPieceSelected("Chestplate") then
+				pcall(function()
+					equipClothingRemote:InvokeServer("inventory", 2, 542)
+				end)
+			end
+			if isArmorPieceSelected("Pants") then
+				pcall(function()
+					equipClothingRemote:InvokeServer("inventory", 3, 543)
+				end)
+			end
 			return
 		end
 
@@ -1008,34 +1113,44 @@ AutoArmorDeluxeGroup:AddButton({
 		end
 
 		local itemsToCraft = {
-			{545, "Juggernaut Sword"},
-			{542, "Juggernaut Armor"},
-			{543, "Juggernaut Pants"},
-			{541, "Juggernaut Helmet"},
+			{545, "Sword"},
+			{542, "Chestplate"},
+			{543, "Pants"},
+			{541, "Helmet"},
 		}
 
 		if furnace then
 			for _, item in ipairs(itemsToCraft) do
-				pcall(function()
-					craftRemote:InvokeServer(item[1], furnace, 1, 0)
-				end)
+				if isArmorPieceSelected(item[2]) then
+					pcall(function()
+						craftRemote:InvokeServer(item[1], furnace, 1, 0)
+					end)
+				end
 			end
 
 			task.wait(getCraftDelay())
 
 			if not (Toggles.ArmorCraftOnly and Toggles.ArmorCraftOnly.Value) then
-				pcall(function()
-					equipHotbarRemote:InvokeServer("inventory", armorSlot, 545)
-				end)
-				pcall(function()
-					equipClothingRemote:InvokeServer("inventory", 1, 541)
-				end)
-				pcall(function()
-					equipClothingRemote:InvokeServer("inventory", 2, 542)
-				end)
-				pcall(function()
-					equipClothingRemote:InvokeServer("inventory", 3, 543)
-				end)
+				if isArmorPieceSelected("Sword") then
+					pcall(function()
+						equipHotbarRemote:InvokeServer("inventory", armorSlot, 545)
+					end)
+				end
+				if isArmorPieceSelected("Helmet") then
+					pcall(function()
+						equipClothingRemote:InvokeServer("inventory", 1, 541)
+					end)
+				end
+				if isArmorPieceSelected("Chestplate") then
+					pcall(function()
+						equipClothingRemote:InvokeServer("inventory", 2, 542)
+					end)
+				end
+				if isArmorPieceSelected("Pants") then
+					pcall(function()
+						equipClothingRemote:InvokeServer("inventory", 3, 543)
+					end)
+				end
 			end
 
 			if not usedExistingForge then
@@ -12138,14 +12253,6 @@ VisualLeft:AddCheckbox("BoxESP", {
 	Title = "Box ESP Color",
 })
 
-VisualLeft:AddCheckbox("ViewArrow", {
-	Text = "View Arrow",
-	Default = false,
-}):AddColorPicker("ViewArrowColor", {
-	Default = Color3.fromRGB(255, 220, 0),
-	Title = "View Arrow Color",
-})
-
 VisualLeft:AddCheckbox("PlayerHealthBar", {
 	Text = "Health Bar",
 	Default = false,
@@ -12248,11 +12355,6 @@ local function removePlayerESP(player)
 		if entry.billboard then pcall(function() entry.billboard:Destroy() end) end
 		if entry.highlight then pcall(function() entry.highlight:Destroy() end) end
 		if entry.box then pcall(function() entry.box:Destroy() end) end
-		if entry.arrow then
-			for _, line in ipairs(entry.arrow) do
-				pcall(function() line:Remove() end)
-			end
-		end
 		if entry.charCon then pcall(function() entry.charCon:Disconnect() end) end
 		espObjects[player] = nil
 	end
@@ -12287,44 +12389,6 @@ local function createBoxDrawing()
 	return nil
 end
 
--- View Arrow: three lightweight Drawing lines (a shaft plus two head wings) that
--- point where a player is facing. Like the box this is C++ rendered, so it costs
--- no Instances and allocates nothing per frame.
-local function createArrowDrawings()
-	if not hasDrawing then return nil end
-	local arrow = {}
-	local ok = pcall(function()
-		local color = (Options and Options.ViewArrowColor and Options.ViewArrowColor.Value) or Color3.fromRGB(255, 220, 0)
-		for i = 1, 3 do
-			local line = Drawing.new("Line")
-			line.Thickness = 2
-			line.Transparency = 1
-			line.Visible = false
-			line.Color = color
-			arrow[i] = line
-		end
-	end)
-	if ok and #arrow == 3 then return arrow end
-	for _, line in ipairs(arrow) do
-		pcall(function() line:Remove() end)
-	end
-	return nil
-end
-
-local function destroyArrow(arrow)
-	if not arrow then return end
-	for _, line in ipairs(arrow) do
-		pcall(function() line:Remove() end)
-	end
-end
-
-local function hideArrow(arrow)
-	if not arrow then return end
-	for i = 1, #arrow do
-		arrow[i].Visible = false
-	end
-end
-
 local function getOrCreateESP(player)
 	if player == LocalPlayer then return nil end
 	local entry = espObjects[player]
@@ -12334,7 +12398,6 @@ local function getOrCreateESP(player)
 			if entry.billboard then entry.billboard.Enabled = false end
 			if entry.highlight then entry.highlight.Enabled = false end
 			if entry.box then entry.box.Visible = false end
-			hideArrow(entry.arrow)
 		end
 		return nil
 	end
@@ -12346,7 +12409,6 @@ local function getOrCreateESP(player)
 			if entry.billboard then entry.billboard.Enabled = false end
 			if entry.highlight then entry.highlight.Enabled = false end
 			if entry.box then entry.box.Visible = false end
-			hideArrow(entry.arrow)
 		end
 		return nil
 	end
@@ -12356,7 +12418,6 @@ local function getOrCreateESP(player)
 			if entry.billboard then pcall(function() entry.billboard:Destroy() end) end
 			if entry.highlight then pcall(function() entry.highlight:Destroy() end) end
 			if entry.box then pcall(function() entry.box:Destroy() end) end
-			destroyArrow(entry.arrow)
 		end
 
 		local maxDist = (Options and Options.ESPDistance and Options.ESPDistance.Value) or 500
