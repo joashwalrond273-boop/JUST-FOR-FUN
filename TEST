@@ -11740,14 +11740,13 @@ end)
 -- Boss Locations
 local BossLocationsGroup = Tabs.Teleport:AddLeftGroupbox("Boss locations", "swords")
 
+-- Paired two per row, so the six bosses sit as three side-by-side rows.
 BossLocationsGroup:AddButton({
 	Text = "Samurai",
 	Func = function()
 		resetAndTeleport(Vector3.new(-1727.48, 530.01, 7305.50), "Samurai")
 	end,
-})
-
-BossLocationsGroup:AddButton({
+}):AddButton({
 	Text = "Juggernaut",
 	Func = function()
 		resetAndTeleport(Vector3.new(-1601.49, 123.27, -2890.59), "Juggernaut")
@@ -11759,9 +11758,7 @@ BossLocationsGroup:AddButton({
 	Func = function()
 		resetAndTeleport(Vector3.new(-419.79, -89.69, 391.27), "Spider", true)
 	end,
-})
-
-BossLocationsGroup:AddButton({
+}):AddButton({
 	Text = "Titan",
 	Func = function()
 		resetAndTeleport(Vector3.new(1654.57, 33.20, 2312.14), "Titan")
@@ -11773,19 +11770,10 @@ BossLocationsGroup:AddButton({
 	Func = function()
 		resetAndTeleport(Vector3.new(802.42, 19.35, -1999.35), "Kraken")
 	end,
-})
-
-BossLocationsGroup:AddButton({
+}):AddButton({
 	Text = "Marvin",
 	Func = function()
 		resetAndTeleport(Vector3.new(-663.22, 26.14, 741.84), "Marvin")
-	end,
-})
-
-BossLocationsGroup:AddButton({
-	Text = "Hacker",
-	Func = function()
-		resetAndTeleport(Vector3.new(3811.73, 1546.83, -977.48), "Hacker")
 	end,
 })
 
@@ -11851,6 +11839,14 @@ TeleportExtra:AddButton({
 	Text = "Waterfall",
 	Func = function()
 		resetAndTeleport(Vector3.new(-1949.89, 25.29, 345.83), "Waterfall")
+	end,
+})
+
+-- Hacker (moved here from the Boss Locations menu).
+TeleportExtra:AddButton({
+	Text = "Hacker",
+	Func = function()
+		resetAndTeleport(Vector3.new(3811.73, 1546.83, -977.48), "Hacker")
 	end,
 })
 
