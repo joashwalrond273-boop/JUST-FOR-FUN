@@ -11387,6 +11387,88 @@ TeleportExtra:AddButton({
 	end,
 })
 
+-- Saved Spots: store your current position under a name and jump back later.
+Waypoints = {}
+
+function refreshWaypointList()
+	if not Options.WaypointList then return end
+	local names = {}
+	for name in pairs(Waypoints) do
+		table.insert(names, name)
+	end
+	table.sort(names)
+	pcall(function()
+		Options.WaypointList:SetValues(names)
+	end)
+end
+
+local WaypointGroup = Tabs.Teleport:AddLeftGroupbox("Saved Spots", "bookmark")
+
+WaypointGroup:AddInput("WaypointName", {
+	Text = "Spot Name",
+	Default = "",
+	Placeholder = "Spawn",
+})
+
+WaypointGroup:AddButton({
+	Text = "Save Current Spot",
+	Func = function()
+		local root = getRootPart()
+		if not root then
+			Library:Notify({ Title = "Saved Spots", Description = "No character to save.", Time = 3 })
+			return
+		end
+		local name = Options.WaypointName and Options.WaypointName.Value
+		if not name or name == "" then
+			local count = 0
+			for _ in pairs(Waypoints) do
+				count = count + 1
+			end
+			name = "Spot " .. tostring(count + 1)
+		end
+		-- Reusing a name simply overwrites it, so the list never gets duplicates.
+		Waypoints[name] = root.Position
+		refreshWaypointList()
+		pcall(function()
+			Options.WaypointList:SetValue(name)
+		end)
+		Library:Notify({ Title = "Saved Spots", Description = "Saved " .. name .. ".", Time = 3 })
+	end,
+})
+
+WaypointGroup:AddDropdown("WaypointList", {
+	Text = "Select Spot",
+	Values = {},
+	Default = "",
+})
+
+WaypointGroup:AddButton({
+	Text = "Teleport To Spot",
+	Func = function()
+		local name = Options.WaypointList and Options.WaypointList.Value
+		local pos = name and Waypoints[name]
+		if not pos then
+			Library:Notify({ Title = "Saved Spots", Description = "Select a saved spot first.", Time = 3 })
+			return
+		end
+		resetAndTeleport(pos, name)
+	end,
+})
+
+WaypointGroup:AddButton({
+	Text = "Delete Spot",
+	Func = function()
+		local name = Options.WaypointList and Options.WaypointList.Value
+		if not name or not Waypoints[name] then
+			Library:Notify({ Title = "Saved Spots", Description = "Select a saved spot first.", Time = 3 })
+			return
+		end
+		Waypoints[name] = nil
+		refreshWaypointList()
+		Library:Notify({ Title = "Saved Spots", Description = "Deleted " .. name .. ".", Time = 3 })
+	end,
+})
+
 -- Mounts Groupbox
 local MountsGroup = Tabs.Teleport:AddRightGroupbox("Mounts", "paw-print")
 
