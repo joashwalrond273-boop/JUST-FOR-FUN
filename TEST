@@ -489,26 +489,7 @@ AutoArmorDeluxeGroup:AddSlider("ToiletBedSpeed", {
 
 AutoArmorDeluxeGroup:AddDivider()
 
--- Armor Piece: multi-select picker that decides which pieces a material button
--- crafts and equips. It drives every material set (Bluesteel, Atlantean,
--- Darksteel, Samurai, Juggernaut, ...), so with only "Sword" ticked each of the
--- buttons below crafts and equips the sword alone.
-AutoArmorDeluxeGroup:AddDropdown("ArmorPieceSelect", {
-	Text = "Armor Piece",
-	Values = { "Helmet", "Chestplate", "Pants", "Sword" },
-	Multi = true,
-	Tooltip = "Which pieces the material buttons below craft and equip",
-})
-
--- A multi dropdown can only take one value through Default, so tick all four here.
-Options.ArmorPieceSelect:SetValue({
-	Helmet = true,
-	Chestplate = true,
-	Pants = true,
-	Sword = true,
-})
-
--- True when `piece` is ticked in the Armor Piece dropdown above.
+-- True when `piece` is ticked in the "Armor Piece" dropdown below.
 local function isArmorPieceSelected(piece)
 	local selected = Options.ArmorPieceSelect and Options.ArmorPieceSelect.Value
 	return selected ~= nil and selected[piece] == true
@@ -1180,6 +1161,17 @@ AutoArmorDeluxeGroup:AddDropdown("AutoArmorSlot", {
 	Default = "5",
 })
 
+-- Which pieces each material button (Bluesteel, Atlantean, Darksteel, Samurai,
+-- Juggernaut) crafts and equips. With only "Sword" ticked they craft and equip
+-- the sword alone.
+AutoArmorDeluxeGroup:AddDropdown("ArmorPieceSelect", {
+	Text = "Armor Piece",
+	Values = { "Helmet", "Chestplate", "Pants", "Sword" },
+	Default = { "Helmet", "Chestplate", "Pants", "Sword" },
+	Multi = true,
+	Tooltip = "Which pieces the material buttons craft and equip",
+})
+
 AutoArmorDeluxeGroup:AddDivider()
 
 AutoArmorDeluxeGroup:AddCheckbox("ArmorEquipOnly", {
@@ -1775,7 +1767,7 @@ CosmeticsGroup:AddDropdown("HitSoundSelect", {
 
 CosmeticsGroup:AddDropdown("HitEffectSelect", {
 	Text = "Hit Effect",
-	Values = { "None", "Lightning", "Smoke", "Fire", "Explosion", "Ice", "Poison", "Shockwave", "Blood", "Sakura", "Void" },
+	Values = { "None", "Lightning", "Smoke", "Fire", "Explosion", "Ice", "Poison", "Shockwave", "Blood", "Sakura", "Void", "Holy", "Shadow", "Water", "Sand", "Leaf", "Fireworks", "Meteor" },
 	Default = "None",
 })
 
@@ -2327,6 +2319,237 @@ Xeno_PlayHitEffect = function(hitArgs)
 			beam.CFrame = CFrame.new(position + Vector3.new(0, 7, 0))
 			beam.Parent = fxFolder
 			table.insert(extras, beam)
+		elseif selected == "Holy" then
+			emitWindow = 0.4
+			totalLife = 1.8
+
+			local halo = Instance.new("PointLight")
+			halo.Color = Color3.fromRGB(255, 230, 150)
+			halo.Range = 24
+			halo.Brightness = 3.5
+			halo.Parent = anchor
+			table.insert(extras, halo)
+
+			-- Sparkles that drift upwards like a blessing.
+			addEmitter(anchor, {
+				Texture = "rbxasset://textures/particles/sparkles_main.dds",
+				Color = ColorSequence.new(Color3.fromRGB(255, 250, 210), Color3.fromRGB(255, 185, 50)),
+				Size = NumberSequence.new({
+					NumberSequenceKeypoint.new(0, 2.4),
+					NumberSequenceKeypoint.new(1, 0),
+				}),
+				Transparency = NumberSequence.new({
+					NumberSequenceKeypoint.new(0, 0.05),
+					NumberSequenceKeypoint.new(1, 1),
+				}),
+				Lifetime = NumberRange.new(0.8, 1.3),
+				Rate = 120,
+				Speed = NumberRange.new(3, 9),
+				SpreadAngle = Vector2.new(180, 180),
+				Acceleration = Vector3.new(0, 16, 0),
+				LightEmission = 1,
+			})
+
+			-- Pillar of light rising out of the impact.
+			local pillar = Instance.new("Part")
+			pillar.Anchored = true
+			pillar.CanCollide = false
+			pillar.CanQuery = false
+			pillar.CanTouch = false
+			pillar.CastShadow = false
+			pillar.Material = Enum.Material.Neon
+			pillar.Color = Color3.fromRGB(255, 225, 140)
+			pillar.Transparency = 0.45
+			pillar.Size = Vector3.new(1.6, 10, 1.6)
+			pillar.CFrame = CFrame.new(position + Vector3.new(0, 5, 0))
+			pillar.Parent = fxFolder
+			table.insert(extras, pillar)
+		elseif selected == "Shadow" then
+			emitWindow = 0.5
+			totalLife = 1.8
+
+			local drain = Instance.new("PointLight")
+			drain.Color = Color3.fromRGB(95, 25, 160)
+			drain.Range = 20
+			drain.Brightness = 2.2
+			drain.Parent = anchor
+			table.insert(extras, drain)
+
+			-- Negative speed sucks the dark smoke inwards for an imploding look.
+			addEmitter(anchor, {
+				Texture = "rbxasset://textures/particles/smoke_main.dds",
+				Color = ColorSequence.new(Color3.fromRGB(70, 20, 110), Color3.fromRGB(15, 0, 25)),
+				Size = NumberSequence.new({
+					NumberSequenceKeypoint.new(0, 6),
+					NumberSequenceKeypoint.new(1, 0.5),
+				}),
+				Transparency = NumberSequence.new({
+					NumberSequenceKeypoint.new(0, 0.55),
+					NumberSequenceKeypoint.new(1, 0.9),
+				}),
+				Lifetime = NumberRange.new(0.7, 1.1),
+				Rate = 90,
+				Speed = NumberRange.new(-18, -8),
+				SpreadAngle = Vector2.new(180, 180),
+				Rotation = NumberRange.new(0, 360),
+				RotSpeed = NumberRange.new(-80, 80),
+			})
+		elseif selected == "Water" then
+			emitWindow = 0.25
+			totalLife = 1.3
+
+			local splash = Instance.new("PointLight")
+			splash.Color = Color3.fromRGB(90, 180, 255)
+			splash.Range = 16
+			splash.Brightness = 1.8
+			splash.Parent = anchor
+			table.insert(extras, splash)
+
+			-- Droplets that arc outwards and fall, like a splash.
+			addEmitter(anchor, {
+				Texture = "rbxasset://textures/particles/sparkles_main.dds",
+				Color = ColorSequence.new(Color3.fromRGB(190, 235, 255), Color3.fromRGB(40, 120, 220)),
+				Size = NumberSequence.new({
+					NumberSequenceKeypoint.new(0, 1.6),
+					NumberSequenceKeypoint.new(1, 0.2),
+				}),
+				Transparency = NumberSequence.new({
+					NumberSequenceKeypoint.new(0, 0.15),
+					NumberSequenceKeypoint.new(1, 0.7),
+				}),
+				Lifetime = NumberRange.new(0.5, 0.9),
+				Rate = 180,
+				Speed = NumberRange.new(16, 30),
+				SpreadAngle = Vector2.new(150, 150),
+				Acceleration = Vector3.new(0, -70, 0),
+				LightEmission = 0.4,
+			})
+		elseif selected == "Sand" then
+			emitWindow = 0.35
+			totalLife = 1.6
+
+			-- Dry dust kicked up by the hit.
+			addEmitter(anchor, {
+				Texture = "rbxasset://textures/particles/smoke_main.dds",
+				Color = ColorSequence.new(Color3.fromRGB(224, 194, 132), Color3.fromRGB(150, 116, 60)),
+				Size = NumberSequence.new({
+					NumberSequenceKeypoint.new(0, 1.2),
+					NumberSequenceKeypoint.new(1, 5),
+				}),
+				Transparency = NumberSequence.new({
+					NumberSequenceKeypoint.new(0, 0.45),
+					NumberSequenceKeypoint.new(1, 1),
+				}),
+				Lifetime = NumberRange.new(0.6, 1),
+				Rate = 140,
+				Speed = NumberRange.new(10, 20),
+				SpreadAngle = Vector2.new(120, 120),
+				Acceleration = Vector3.new(0, -25, 0),
+				Rotation = NumberRange.new(0, 360),
+				RotSpeed = NumberRange.new(-140, 140),
+			})
+		elseif selected == "Leaf" then
+			emitWindow = 0.7
+			totalLife = 2.6
+
+			-- Leaves that flutter down around the impact.
+			addEmitter(anchor, {
+				Texture = "rbxasset://textures/particles/sparkles_main.dds",
+				Color = ColorSequence.new(Color3.fromRGB(120, 210, 90), Color3.fromRGB(60, 130, 45)),
+				Size = NumberSequence.new({
+					NumberSequenceKeypoint.new(0, 1.4),
+					NumberSequenceKeypoint.new(1, 0.8),
+				}),
+				Transparency = NumberSequence.new({
+					NumberSequenceKeypoint.new(0, 0.2),
+					NumberSequenceKeypoint.new(1, 1),
+				}),
+				Lifetime = NumberRange.new(1.1, 1.7),
+				Rate = 60,
+				Speed = NumberRange.new(2, 6),
+				SpreadAngle = Vector2.new(180, 180),
+				Rotation = NumberRange.new(0, 360),
+				RotSpeed = NumberRange.new(-200, 200),
+				Acceleration = Vector3.new(0, -10, 0),
+				LightEmission = 0.25,
+			})
+		elseif selected == "Fireworks" then
+			emitWindow = 0.12
+			totalLife = 2
+
+			-- One big multicoloured burst that then falls like confetti.
+			addEmitter(anchor, {
+				Texture = "rbxasset://textures/particles/sparkles_main.dds",
+				Color = ColorSequence.new({
+					ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 90, 90)),
+					ColorSequenceKeypoint.new(0.33, Color3.fromRGB(255, 230, 90)),
+					ColorSequenceKeypoint.new(0.66, Color3.fromRGB(120, 220, 255)),
+					ColorSequenceKeypoint.new(1, Color3.fromRGB(200, 120, 255)),
+				}),
+				Size = NumberSequence.new({
+					NumberSequenceKeypoint.new(0, 1.8),
+					NumberSequenceKeypoint.new(1, 0.3),
+				}),
+				Transparency = NumberSequence.new({
+					NumberSequenceKeypoint.new(0, 0.05),
+					NumberSequenceKeypoint.new(1, 1),
+				}),
+				Lifetime = NumberRange.new(0.8, 1.3),
+				Rate = 240,
+				Speed = NumberRange.new(22, 40),
+				SpreadAngle = Vector2.new(180, 180),
+				Acceleration = Vector3.new(0, -45, 0),
+				LightEmission = 1,
+			})
+		elseif selected == "Meteor" then
+			emitWindow = 0.3
+			totalLife = 1.6
+
+			local impact = Instance.new("PointLight")
+			impact.Color = Color3.fromRGB(255, 120, 40)
+			impact.Range = 30
+			impact.Brightness = 4.5
+			impact.Parent = anchor
+			task.delay(0.25, function()
+				if impact.Parent then impact:Destroy() end
+			end)
+
+			-- Fire streak slamming down into the impact point.
+			addEmitter(anchor, {
+				Texture = "rbxasset://textures/particles/fire_main.dds",
+				Color = ColorSequence.new(Color3.fromRGB(255, 230, 150), Color3.fromRGB(160, 40, 0)),
+				Size = NumberSequence.new({
+					NumberSequenceKeypoint.new(0, 2.5),
+					NumberSequenceKeypoint.new(1, 5),
+				}),
+				Transparency = NumberSequence.new({
+					NumberSequenceKeypoint.new(0, 0.2),
+					NumberSequenceKeypoint.new(1, 1),
+				}),
+				Lifetime = NumberRange.new(0.4, 0.8),
+				Rate = 200,
+				Speed = NumberRange.new(0, 6),
+				SpreadAngle = Vector2.new(180, 180),
+				Acceleration = Vector3.new(0, -34, 0),
+				LightEmission = 1,
+			})
+
+			addEmitter(anchor, {
+				Texture = "rbxasset://textures/particles/smoke_main.dds",
+				Color = ColorSequence.new(Color3.fromRGB(70, 55, 45), Color3.fromRGB(140, 120, 100)),
+				Size = NumberSequence.new({
+					NumberSequenceKeypoint.new(0, 4),
+					NumberSequenceKeypoint.new(1, 12),
+				}),
+				Transparency = NumberSequence.new({
+					NumberSequenceKeypoint.new(0, 0.5),
+					NumberSequenceKeypoint.new(1, 1),
+				}),
+				Lifetime = NumberRange.new(0.9, 1.4),
+				Rate = 80,
+				Speed = NumberRange.new(6, 12),
+				SpreadAngle = Vector2.new(180, 180),
+			})
 		end
 
 		-- Stop emitting after the window, then let the particles fade out.
@@ -9419,7 +9642,7 @@ end)
 -- ==========================================
 -- ORE FACTORY
 -- ==========================================
-local OreFarm = Tabs.OreFactory:AddLeftGroupbox("Ore Factory", "drill")
+local OreFarm = Tabs.OreFactory:AddLeftGroupbox("Resource Farm", "drill")
 
 -- ==========================================
 local FarmMine = Tabs.OreFactory:AddRightGroupbox("Auto Mine", "gem")
@@ -9539,7 +9762,7 @@ OreFarm:AddButton({
 		if oreFarmRunning or chopFarmRunning then
 			stopOreFarm()
 			stopChopFarm()
-			Library:Notify({ Title = "Ore Factory", Description = "Farm stopped.", Time = 3 })
+			Library:Notify({ Title = "Resource Farm", Description = "Farm stopped.", Time = 3 })
 		else
 			local chopSel = Options.ChopSelector and Options.ChopSelector.Value
 			local mineSel = Options.FarmSelector and Options.FarmSelector.Value
@@ -9548,7 +9771,7 @@ OreFarm:AddButton({
 			elseif mineSel and mineSel ~= "None" then
 				startOreFarm()
 			else
-				Library:Notify({ Title = "Ore Factory", Description = "Select a mineable or choppable first.", Time = 3 })
+				Library:Notify({ Title = "Resource Farm", Description = "Select a mineable or choppable first.", Time = 3 })
 			end
 		end
 	end,
@@ -9816,7 +10039,7 @@ function startOreFarm()
 	local selected = Options.FarmSelector and Options.FarmSelector.Value
 	local oreName = (selected and selected ~= "None") and selected or nil
 	if not oreName then
-		Library:Notify({ Title = "Ore Factory", Description = "Select a mineable first.", Time = 3 })
+		Library:Notify({ Title = "Resource Farm", Description = "Select a mineable first.", Time = 3 })
 		return
 	end
 
@@ -9843,9 +10066,9 @@ function startOreFarm()
 		if Toggles.FastPickup then Toggles.FastPickup:SetValue(false) end
 		if Toggles.VacuumPickup then Toggles.VacuumPickup:SetValue(false) end
 		if count > 0 then
-			Library:Notify({ Title = "Ore Factory", Description = "Finished farming " .. oreName .. ".", Time = 3 })
+			Library:Notify({ Title = "Resource Farm", Description = "Finished farming " .. oreName .. ".", Time = 3 })
 		else
-			Library:Notify({ Title = "Ore Factory", Description = "No " .. oreName .. " nodes found.", Time = 3 })
+			Library:Notify({ Title = "Resource Farm", Description = "No " .. oreName .. " nodes found.", Time = 3 })
 		end
 	end)
 end
@@ -9867,7 +10090,7 @@ function startChopFarm()
 	local selected = Options.ChopSelector and Options.ChopSelector.Value
 	local treeName = (selected and selected ~= "None") and selected or nil
 	if not treeName then
-		Library:Notify({ Title = "Ore Factory", Description = "Select a choppable first.", Time = 3 })
+		Library:Notify({ Title = "Resource Farm", Description = "Select a choppable first.", Time = 3 })
 		return
 	end
 
@@ -9890,9 +10113,9 @@ function startChopFarm()
 		chopFarmRunning = false
 		if Toggles.AutoChop then Toggles.AutoChop:SetValue(false) end
 		if count > 0 then
-			Library:Notify({ Title = "Ore Factory", Description = "Finished farming " .. treeName .. ".", Time = 3 })
+			Library:Notify({ Title = "Resource Farm", Description = "Finished farming " .. treeName .. ".", Time = 3 })
 		else
-			Library:Notify({ Title = "Ore Factory", Description = "No " .. treeName .. " nodes found.", Time = 3 })
+			Library:Notify({ Title = "Resource Farm", Description = "No " .. treeName .. " nodes found.", Time = 3 })
 		end
 	end)
 end
