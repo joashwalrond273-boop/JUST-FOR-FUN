@@ -12529,7 +12529,7 @@ VisualEnv:AddDropdown("SelectTime", {
 
 VisualEnv:AddDropdown("WeatherControl", {
 	Text = "Weather Controller",
-	Values = {"Default", "Ash"},
+	Values = {"Default", "Ash", "Rain", "Heavy Rain", "Thunderstorm", "Snow", "Sandstorm"},
 	Default = "Default",
 })
 
@@ -13303,21 +13303,34 @@ Options.ControlTheHours:OnChanged(function()
 	applyClockTime(Options.ControlTheHours.Value)
 end)
 
--- Weather controller: forces client-side weather effects into the world.
+-- Weather controller: forces the game's own client-side weather effects.
 -- Kept global on purpose: the main chunk is at Luau's 200-local register limit.
 WeatherOverrideFolder = nil
 WeatherOverrideConnection = nil
+WeatherOverrideModule = nil
 
--- Locates the game's ash sky template (a part holding the ash ParticleEmitter).
-function TSG_FindAshTemplate()
+-- Module name + sky template + cell layout for every weather the game ships
+-- with, taken from the matching weatherController module.
+TSG_WEATHER_TYPES = {
+	Ash = { Module = "Ash", SkyPart = "AshSkyPart", Cell = 15, Height = 2, Offset = 20 },
+	Rain = { Module = "Rain", SkyPart = "RainSkyPart", Cell = 10, Height = 0.5, Offset = 30 },
+	HeavyRain = { Module = "HeavyRain", SkyPart = "RainSkyPart", Cell = 10, Height = 0.5, Offset = 30 },
+	-- Thunderstorm drives its own module but reuses the heavy-rain sky parts.
+	Thunderstorm = { Module = "Thunderstorm", Template = "HeavyRain", SkyPart = "RainSkyPart", Cell = 10, Height = 0.5, Offset = 30 },
+	Snow = { Module = "Snow", SkyPart = "SnowSkyPart", Cell = 15, Height = 2, Offset = 20 },
+	Sandstorm = { Module = "Sandstorm", Build = true, Cell = 18, Height = 8, Offset = 0 },
+}
+
+-- The live weatherController lives in PlayerScripts; StarterPlayer is only a
+-- fallback used to clone its sky-part templates.
+function TSG_GetWeatherController(requireLive)
 	local playerScripts = LocalPlayer:FindFirstChild("PlayerScripts")
 	local controller = playerScripts and playerScripts:FindFirstChild("weatherController")
-	if not controller then
-		local starter = game:GetService("StarterPlayer"):FindFirstChild("StarterPlayerScripts")
-		controller = starter and starter:FindFirstChild("weatherController")
+	if controller or requireLive then
+		return controller
 	end
-	local ashScript = controller and controller:FindFirstChild("Ash")
-	return ashScript and ashScript:FindFirstChild("AshSkyPart")
+	local starter = game:GetService("StarterPlayer"):FindFirstChild("StarterPlayerScripts")
+	return starter and starter:FindFirstChild("weatherController")
 end
 
 function TSG_StopWeatherOverride()
@@ -13329,15 +13342,51 @@ function TSG_StopWeatherOverride()
 		WeatherOverrideFolder:Destroy()
 		WeatherOverrideFolder = nil
 	end
+	if WeatherOverrideModule then
+		local module = WeatherOverrideModule
+		WeatherOverrideModule = nil
+		pcall(function()
+			module.Stop()
+		end)
+	end
 end
 
--- Builds a camera-following grid of ash sky cells so ash falls from above.
-function TSG_StartAshWeather()
-	TSG_StopWeatherOverride()
+-- The game builds sandstorm cells in code, so rebuild one here.
+function TSG_MakeSandPart(size)
+	local part = Instance.new("Part")
+	part.Anchored = true
+	part.Transparency = 1
+	part.CanCollide = false
+	part.CanTouch = false
+	part.CanQuery = false
+	part.CastShadow = false
+	part.Size = size
+	local fx = Instance.new("ParticleEmitter")
+	fx.Name = "SandFX"
+	fx.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+	fx.Color = ColorSequence.new(Color3.fromRGB(194, 151, 99), Color3.fromRGB(225, 190, 135))
+	fx.Speed = NumberRange.new(35, 55)
+	fx.SpreadAngle = Vector2.new(18, 10)
+	fx.EmissionDirection = Enum.NormalId.Right
+	fx.Acceleration = Vector3.new(25, -2, 0)
+	fx.Lifetime = NumberRange.new(1.5, 2.5)
+	fx.Rate = 110
+	fx.Parent = part
+	return part
+end
 
-	local template = TSG_FindAshTemplate()
-	if not template then
-		return false
+-- Fallback builder: a camera-following grid of cloned sky cells.
+function TSG_BuildWeatherGrid(config)
+	local template
+	if config.Build then
+		template = TSG_MakeSandPart(Vector3.new(config.Cell, config.Height, config.Cell))
+	else
+		local controller = TSG_GetWeatherController(false)
+		local module = controller and controller:FindFirstChild(config.Template or config.Module)
+		template = module and module:FindFirstChild(config.SkyPart)
+		if not template then
+			return false
+		end
 	end
 
 	local folder = Instance.new("Folder")
@@ -13346,26 +13395,26 @@ function TSG_StartAshWeather()
 	WeatherOverrideFolder = folder
 
 	local cells = {}
-	local cellSize = 40
-	local radius = 2
+	local radius = 3
+	local size = Vector3.new(config.Cell, config.Height, config.Cell)
 	for offsetX = -radius, radius do
 		for offsetZ = -radius, radius do
 			local cell = template:Clone()
-			cell.Name = "AshCell"
+			cell.Name = "WeatherCell"
 			cell.Anchored = true
 			cell.CanCollide = false
 			cell.CanQuery = false
 			cell.CanTouch = false
 			cell.CastShadow = false
 			cell.Transparency = 1
-			cell.Size = Vector3.new(cellSize, 2, cellSize)
+			cell.Size = size
 			for _, fx in ipairs(cell:GetDescendants()) do
 				if fx:IsA("ParticleEmitter") then
 					fx.Enabled = true
 				end
 			end
 			cell.Parent = folder
-			table.insert(cells, { Part = cell, X = offsetX * cellSize, Z = offsetZ * cellSize })
+			table.insert(cells, { Part = cell, X = offsetX * config.Cell, Z = offsetZ * config.Cell })
 		end
 	end
 
@@ -13374,23 +13423,50 @@ function TSG_StartAshWeather()
 		if not camera then return end
 		local base = camera.CFrame.Position
 		for _, cell in ipairs(cells) do
-			cell.Part.CFrame = CFrame.new(base.X + cell.X, base.Y + 20, base.Z + cell.Z)
+			cell.Part.CFrame = CFrame.new(base.X + cell.X, base.Y + config.Offset, base.Z + cell.Z)
 		end
 	end)
 
 	return true
 end
 
-Options.WeatherControl:OnChanged(function()
-	if Options.WeatherControl.Value == "Ash" then
-		if TSG_StartAshWeather() then
-			Library:Notify({ Title = "Weather Controller", Description = "Ash is now falling.", Time = 2 })
-		else
-			Library:Notify({ Title = "Weather Controller", Description = "Ash part not found.", Time = 3 })
+function TSG_StartWeather(kind)
+	TSG_StopWeatherOverride()
+
+	local config = TSG_WEATHER_TYPES[kind]
+	if not config then
+		return false
+	end
+
+	-- Preferred: run the game's own module so the effect is exact (sound loop,
+	-- ground splashes, lightning and raycast-corrected lifetime included).
+	local controller = TSG_GetWeatherController(true)
+	local module = controller and controller:FindFirstChild(config.Module)
+	if module and module:IsA("ModuleScript") then
+		local ok, loaded = pcall(require, module)
+		if ok and type(loaded) == "table" and type(loaded.Start) == "function" then
+			if pcall(loaded.Start) then
+				WeatherOverrideModule = loaded
+				return true
+			end
 		end
-	else
+	end
+
+	-- Fallback: rebuild the sky grid ourselves.
+	return TSG_BuildWeatherGrid(config)
+end
+
+Options.WeatherControl:OnChanged(function()
+	local value = Options.WeatherControl.Value
+	if value == "Default" then
 		TSG_StopWeatherOverride()
 		Library:Notify({ Title = "Weather Controller", Description = "Weather reset.", Time = 2 })
+		return
+	end
+	if TSG_StartWeather((value:gsub("%s", ""))) then
+		Library:Notify({ Title = "Weather Controller", Description = value .. " enabled.", Time = 2 })
+	else
+		Library:Notify({ Title = "Weather Controller", Description = "Could not start " .. value .. ".", Time = 3 })
 	end
 end)
 
