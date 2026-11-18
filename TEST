@@ -12527,6 +12527,12 @@ VisualEnv:AddDropdown("SelectTime", {
 	Default = "Default",
 })
 
+VisualEnv:AddDropdown("WeatherControl", {
+	Text = "Weather Controller",
+	Values = {"Default", "Ash"},
+	Default = "Default",
+})
+
 VisualEnv:AddSlider("ControlTheHours", {
 	Text = "Control The Hours",
 	Default = 12,
@@ -13295,6 +13301,97 @@ end)
 Options.ControlTheHours:OnChanged(function()
 	Options.SelectTime:SetValue("Default")
 	applyClockTime(Options.ControlTheHours.Value)
+end)
+
+-- Weather controller: forces client-side weather effects into the world.
+-- Kept global on purpose: the main chunk is at Luau's 200-local register limit.
+WeatherOverrideFolder = nil
+WeatherOverrideConnection = nil
+
+-- Locates the game's ash sky template (a part holding the ash ParticleEmitter).
+function TSG_FindAshTemplate()
+	local playerScripts = LocalPlayer:FindFirstChild("PlayerScripts")
+	local controller = playerScripts and playerScripts:FindFirstChild("weatherController")
+	if not controller then
+		local starter = game:GetService("StarterPlayer"):FindFirstChild("StarterPlayerScripts")
+		controller = starter and starter:FindFirstChild("weatherController")
+	end
+	local ashScript = controller and controller:FindFirstChild("Ash")
+	return ashScript and ashScript:FindFirstChild("AshSkyPart")
+end
+
+function TSG_StopWeatherOverride()
+	if WeatherOverrideConnection then
+		WeatherOverrideConnection:Disconnect()
+		WeatherOverrideConnection = nil
+	end
+	if WeatherOverrideFolder then
+		WeatherOverrideFolder:Destroy()
+		WeatherOverrideFolder = nil
+	end
+end
+
+-- Builds a camera-following grid of ash sky cells so ash falls from above.
+function TSG_StartAshWeather()
+	TSG_StopWeatherOverride()
+
+	local template = TSG_FindAshTemplate()
+	if not template then
+		return false
+	end
+
+	local folder = Instance.new("Folder")
+	folder.Name = "TSG_WeatherOverride"
+	folder.Parent = workspace
+	WeatherOverrideFolder = folder
+
+	local cells = {}
+	local cellSize = 40
+	local radius = 2
+	for offsetX = -radius, radius do
+		for offsetZ = -radius, radius do
+			local cell = template:Clone()
+			cell.Name = "AshCell"
+			cell.Anchored = true
+			cell.CanCollide = false
+			cell.CanQuery = false
+			cell.CanTouch = false
+			cell.CastShadow = false
+			cell.Transparency = 1
+			cell.Size = Vector3.new(cellSize, 2, cellSize)
+			for _, fx in ipairs(cell:GetDescendants()) do
+				if fx:IsA("ParticleEmitter") then
+					fx.Enabled = true
+				end
+			end
+			cell.Parent = folder
+			table.insert(cells, { Part = cell, X = offsetX * cellSize, Z = offsetZ * cellSize })
+		end
+	end
+
+	WeatherOverrideConnection = RunService.RenderStepped:Connect(function()
+		local camera = workspace.CurrentCamera
+		if not camera then return end
+		local base = camera.CFrame.Position
+		for _, cell in ipairs(cells) do
+			cell.Part.CFrame = CFrame.new(base.X + cell.X, base.Y + 20, base.Z + cell.Z)
+		end
+	end)
+
+	return true
+end
+
+Options.WeatherControl:OnChanged(function()
+	if Options.WeatherControl.Value == "Ash" then
+		if TSG_StartAshWeather() then
+			Library:Notify({ Title = "Weather Controller", Description = "Ash is now falling.", Time = 2 })
+		else
+			Library:Notify({ Title = "Weather Controller", Description = "Ash part not found.", Time = 3 })
+		end
+	else
+		TSG_StopWeatherOverride()
+		Library:Notify({ Title = "Weather Controller", Description = "Weather reset.", Time = 2 })
+	end
 end)
 
 local function applyClearWeather(state)
@@ -14275,6 +14372,7 @@ Library:OnUnload(function()
 		Toggles.LowTextures:SetValue(false)
 	end
 
+	pcall(function() TSG_StopWeatherOverride() end)
 	pcall(function()
 		local lighting = game:GetService("Lighting")
 		local blur = lighting:FindFirstChild("TSG_Smoothness_Blur")
