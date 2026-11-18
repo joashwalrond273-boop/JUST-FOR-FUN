@@ -12157,14 +12157,14 @@ WaypointGroup:AddButton({
 -- Mounts Groupbox
 local MountsGroup = Tabs.Teleport:AddRightGroupbox("Mounts", "paw-print")
 
+-- Buttons are paired side by side (Obsidian's Button:AddButton) so the six
+-- mounts sit in three rows.
 MountsGroup:AddButton({
 	Text = "Lion",
 	Func = function()
 		resetAndTeleport(Vector3.new(1327.79, 25.26, -756.75), "Lion")
 	end,
-})
-
-MountsGroup:AddButton({
+}):AddButton({
 	Text = "White Wolf",
 	Func = function()
 		resetAndTeleport(Vector3.new(-1447.88, 25.26, -1566.85), "White Wolf")
@@ -12176,9 +12176,7 @@ MountsGroup:AddButton({
 	Func = function()
 		resetAndTeleport(Vector3.new(-215.30, 25.26, 496.58), "Horse")
 	end,
-})
-
-MountsGroup:AddButton({
+}):AddButton({
 	Text = "Grey Wolf",
 	Func = function()
 		resetAndTeleport(Vector3.new(84.67, 25.26, 442.49), "Grey Wolf")
@@ -12190,9 +12188,7 @@ MountsGroup:AddButton({
 	Func = function()
 		resetAndTeleport(Vector3.new(1495.75, 25.26, -313.55), "Elephant")
 	end,
-})
-
-MountsGroup:AddButton({
+}):AddButton({
 	Text = "Snow Bear",
 	Func = function()
 		resetAndTeleport(Vector3.new(-879.8, 25.3, -2062.5), "Snow Bear")
@@ -12202,14 +12198,13 @@ MountsGroup:AddButton({
 -- Merchants Groupbox
 local MerchantsGroup = Tabs.Teleport:AddRightGroupbox("Merchants", "map-pin")
 
+-- Paired side by side as well: three rows of two merchants.
 MerchantsGroup:AddButton({
 	Text = "Mainland",
 	Func = function()
 		resetAndTeleport(Vector3.new(-144.60, 25.26, 429.38), "Mainland")
 	end,
-})
-
-MerchantsGroup:AddButton({
+}):AddButton({
 	Text = "Desert",
 	Func = function()
 		resetAndTeleport(Vector3.new(1428.14, 25.26, -593.17), "Desert")
@@ -12221,9 +12216,7 @@ MerchantsGroup:AddButton({
 	Func = function()
 		resetAndTeleport(Vector3.new(-744.10, 329.20, 7134.18), "Asia")
 	end,
-})
-
-MerchantsGroup:AddButton({
+}):AddButton({
 	Text = "Arctic",
 	Func = function()
 		resetAndTeleport(Vector3.new(-1251.90, 35.25, -1997.17), "Arctic")
@@ -12235,9 +12228,7 @@ MerchantsGroup:AddButton({
 	Func = function()
 		resetAndTeleport(Vector3.new(-166.28, 25.26, -1043.86), "Below Main")
 	end,
-})
-
-MerchantsGroup:AddButton({
+}):AddButton({
 	Text = "Secret",
 	Func = function()
 		resetAndTeleport(Vector3.new(-1171.82, 24.40, 90.70), "Secret")
