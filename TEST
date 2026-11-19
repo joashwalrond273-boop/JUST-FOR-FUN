@@ -6501,11 +6501,6 @@ SilentAimHK.Main:AddCheckbox("SAHKWallBang", {
 	Default = false,
 })
 
-SilentAimHK.Main:AddCheckbox("SAHKTriggerBot", {
-	Text = "Trigger Bot",
-	Default = false,
-})
-
 SilentAimHK.Main:AddDropdown("SAHKTargetPart", {
 	Text = "Target Part",
 	Values = { "Random", "Head", "HumanoidRootPart" },
@@ -6519,6 +6514,11 @@ SilentAimHK.Main:AddSlider("SAHKTargetRange", {
 	Max = 1000,
 	Rounding = 0,
 	Compact = true,
+})
+
+SilentAimHK.Config:AddCheckbox("SAHKTriggerBot", {
+	Text = "Trigger Bot",
+	Default = false,
 })
 
 SilentAimHK.Config:AddCheckbox("SAHKBulletTeleport", {
@@ -9071,16 +9071,27 @@ function SilentAimHK.makeVecTable(template, newVec)
 	return copied
 end
 
+-- How far in front of the target a teleported origin sits. Scaled to the target
+-- part so the projectile never spawns inside the target's own hitbox, which
+-- would make the game register the shot as starting past the target.
+function SilentAimHK.teleportClearance(hitPart)
+	if hitPart and hitPart.Parent then
+		return (hitPart.Size.Magnitude * 0.5) + 3
+	end
+	return 5
+end
+
 -- Rewrites a single value the game passed to a ray/remote so it points at the
 -- target. keyHint is the lowercase argument/field name it sat under.
 function SilentAimHK.rewriteValue(val, keyHint, targetPos, hitPart, bulletTeleport)
 	local t = typeof(val)
+	local clearance = bulletTeleport and SilentAimHK.teleportClearance(hitPart) or 0
 	if t == "Vector3" then
 		if SilentAimHK.V3_DIR[keyHint] then
 			return (targetPos - val).Unit
 		elseif SilentAimHK.V3_ORG[keyHint] then
 			if bulletTeleport then
-				return targetPos - ((targetPos - val).Unit * 2)
+				return targetPos - ((targetPos - val).Unit * clearance)
 			end
 			return val
 		elseif SilentAimHK.V3_HIT[keyHint] then
@@ -9090,7 +9101,7 @@ function SilentAimHK.rewriteValue(val, keyHint, targetPos, hitPart, bulletTelepo
 	elseif t == "CFrame" then
 		if SilentAimHK.CF_ORG[keyHint] then
 			if bulletTeleport then
-				return CFrame.new(targetPos - ((targetPos - val.Position).Unit * 2))
+				return CFrame.new(targetPos - ((targetPos - val.Position).Unit * clearance))
 			end
 			return val
 		end
@@ -9098,7 +9109,7 @@ function SilentAimHK.rewriteValue(val, keyHint, targetPos, hitPart, bulletTelepo
 	elseif t == "Ray" then
 		local origin = val.Origin
 		if bulletTeleport then
-			origin = targetPos - ((targetPos - origin).Unit * 2)
+			origin = targetPos - ((targetPos - origin).Unit * clearance)
 		end
 		return Ray.new(origin, (targetPos - origin).Unit * 1000)
 	elseif t == "table" then
@@ -9113,7 +9124,7 @@ function SilentAimHK.rewriteValue(val, keyHint, targetPos, hitPart, bulletTelepo
 				return SilentAimHK.makeVecTable(val, (targetPos - vec).Unit)
 			elseif SilentAimHK.TV_ORG[keyHint] then
 				if bulletTeleport then
-					return SilentAimHK.makeVecTable(val, targetPos - ((targetPos - vec).Unit * 2))
+					return SilentAimHK.makeVecTable(val, targetPos - ((targetPos - vec).Unit * clearance))
 				end
 				return val
 			end
@@ -9203,13 +9214,6 @@ function SilentAimHK.Namecall(...)
 			return original(...)
 		end
 		local toTarget = targetPos - origin
-		if bulletTeleport then
-			local distance = toTarget.Magnitude
-			if distance > 0 then
-				local dir = toTarget.Unit
-				return original(raySelf, targetPos - (dir * 2), dir * (distance + 2), select(4, ...))
-			end
-		end
 		if wallBang then
 			-- Pretend the ray already hit the target so wall checks pass.
 			return {
@@ -9220,6 +9224,9 @@ function SilentAimHK.Namecall(...)
 				Distance = toTarget.Magnitude,
 			}
 		end
+		-- A hitscan ray has no travel time to remove, and moving its origin next
+		-- to the target makes the game's own Raycast start inside the target and
+		-- register a miss, so Bullet Teleport leaves the origin alone here.
 		return original(raySelf, origin, toTarget.Unit * direction.Magnitude, select(4, ...))
 	end
 
