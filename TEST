@@ -8651,6 +8651,329 @@ end))
 setupReachTracking()
 
 -- ==========================================
+-- SILENT AIM (HITBOX BASED)
+-- ==========================================
+-- Ported from the reference "SilentAim (HB)" menu. It never moves the camera:
+-- instead it inflates the body part the game's own swing/ray check lands on, so
+-- a normal hit connects while the crosshair stays wherever the player put it.
+-- All state lives on one global table to stay clear of the main chunk's local
+-- register budget.
+SilentAimHB = {
+	Group = Tabs.Combat:AddLeftGroupbox("Silent Aim", "crosshair"),
+	Applied = {},   -- [player] = { part, partName, size, transparency, massless, canCollide }
+	Ring = nil,     -- Drawing circle used for the FOV ring
+	Accum = 0,      -- time accumulator for the Responsiveness throttle
+}
+
+SilentAimHB.Group:AddToggle("SilentAimHB", {
+	Text = "Silent Aim",
+	Default = false,
+})
+
+SilentAimHB.Group:AddCheckbox("SAWallCheck", {
+	Text = "Wall Check",
+	Default = false,
+})
+
+SilentAimHB.Group:AddCheckbox("SAScaleToScreen", {
+	Text = "Scale To Screen",
+	Default = false,
+})
+
+SilentAimHB.Group:AddSlider("SASTSDistance", {
+	Text = "STS Distance",
+	Default = 0,
+	Min = -50,
+	Max = 50,
+	Rounding = 0,
+	Compact = true,
+})
+
+SilentAimHB.Group:AddDropdown("SATargetPart", {
+	Text = "Target Part",
+	Values = { "Random", "Head", "HumanoidRootPart" },
+	Default = "Head",
+})
+
+SilentAimHB.Group:AddSlider("SARange", {
+	Text = "Target Range",
+	Default = 500,
+	Min = 5,
+	Max = 1000,
+	Rounding = 0,
+	Compact = true,
+})
+
+SilentAimHB.Group:AddSlider("SAHitChance", {
+	Text = "Hit Chance",
+	Default = 100,
+	Min = 0,
+	Max = 100,
+	Rounding = 0,
+	Compact = true,
+})
+
+SilentAimHB.Group:AddSlider("SAHeadshotChance", {
+	Text = "Headshot Chance",
+	Default = 100,
+	Min = 0,
+	Max = 100,
+	Rounding = 0,
+	Compact = true,
+})
+
+SilentAimHB.Group:AddSlider("SAResponsiveness", {
+	Text = "Responsiveness",
+	Default = 0.5,
+	Min = 0.01,
+	Max = 2,
+	Rounding = 2,
+	Compact = true,
+})
+
+SilentAimHB.Group:AddSlider("SAFOVRadius", {
+	Text = "FOV Radius",
+	Default = 120,
+	Min = 1,
+	Max = 500,
+	Rounding = 0,
+	Compact = true,
+})
+
+SilentAimHB.Group:AddSlider("SAHitboxTransparency", {
+	Text = "Hitbox Transparency",
+	Default = 0.5,
+	Min = 0,
+	Max = 1,
+	Rounding = 1,
+	Compact = true,
+})
+
+SilentAimHB.RayParams = RaycastParams.new()
+SilentAimHB.RayParams.FilterType = Enum.RaycastFilterType.Exclude
+
+-- Picks the body part to inflate for a player based on the Target Part setting.
+-- "Random" rolls the Headshot Chance so the aim wanders between the head and the
+-- torso instead of always taking the same one.
+function SilentAimHB.getPart(player)
+	local character = player.Character
+	if not character then return nil end
+	local mode = (Options.SATargetPart and Options.SATargetPart.Value) or "Head"
+	if mode == "Head" then
+		return character:FindFirstChild("Head")
+	elseif mode == "HumanoidRootPart" then
+		return character:FindFirstChild("HumanoidRootPart")
+	end
+	local chance = (Options.SAHeadshotChance and Options.SAHeadshotChance.Value) or 100
+	if math.random(1, 100) <= chance then
+		return character:FindFirstChild("Head") or character:FindFirstChild("HumanoidRootPart")
+	end
+	return character:FindFirstChild("HumanoidRootPart") or character:FindFirstChild("Head")
+end
+
+-- True when nothing solid sits between the camera and the target part.
+function SilentAimHB.hasLineOfSight(fromPos, toPos, character)
+	local direction = toPos - fromPos
+	if direction.Magnitude <= 0 then return true end
+	local ignore = { character }
+	local localCharacter = LocalPlayer.Character
+	if localCharacter then
+		table.insert(ignore, localCharacter)
+	end
+	SilentAimHB.RayParams.FilterDescendantsInstances = ignore
+	return workspace:Raycast(fromPos, direction, SilentAimHB.RayParams) == nil
+end
+
+-- How large the hitbox needs to be so it fills the FOV circle at the target's
+-- distance. "Scale To Screen" stretches it to cover the whole view instead, with
+-- STS Distance acting as a safety gap at point blank range.
+function SilentAimHB.computeSize(camera, worldDist, partPos, screenDist, scaleToScreen, stsDistance)
+	local viewport = camera.ViewportSize
+	local screenHeight = math.max(viewport.Y, 1)
+	local vFov = math.rad(math.clamp(camera.FieldOfView or 70, 1, 120))
+	local alpha = (screenDist / (screenHeight / 2)) * (vFov / 2)
+	local size = math.max(0.01, worldDist * math.tan(alpha) * 2)
+
+	if scaleToScreen then
+		local localRoot = getRootPart()
+		local fromPos = localRoot and localRoot.Position or camera.CFrame.Position
+		local distance = (partPos - fromPos).Magnitude
+		local effectiveDistance = math.max(distance - math.max(stsDistance, 0.1), 0.1)
+		size = math.max((effectiveDistance * math.tan(vFov / 2)) * 2, size)
+	end
+
+	return math.clamp(size, 0.01, 200)
+end
+
+-- Grows the body part, remembering everything about it so it can go back exactly
+-- the way it was.
+function SilentAimHB.apply(player, part, size)
+	if not part or not part.Parent then return end
+	local entry = SilentAimHB.Applied[player]
+	if not entry or entry.part ~= part then
+		SilentAimHB.restore(player)
+		entry = {
+			part = part,
+			partName = part.Name,
+			size = part.Size,
+			transparency = part.Transparency,
+			massless = part.Massless,
+			canCollide = part.CanCollide,
+		}
+		SilentAimHB.Applied[player] = entry
+	end
+	local transparency = (Options.SAHitboxTransparency and Options.SAHitboxTransparency.Value) or 0.5
+	pcall(function()
+		part.Size = Vector3.new(size, size, size)
+		part.Transparency = transparency
+		part.CanCollide = false
+		part.Massless = part.Name == "Head"
+	end)
+end
+
+function SilentAimHB.restore(player)
+	local entry = SilentAimHB.Applied[player]
+	if not entry then return end
+	SilentAimHB.Applied[player] = nil
+	local part = entry.part
+	if not part or not part.Parent then
+		local character = player.Character
+		part = character and character:FindFirstChild(entry.partName)
+	end
+	if part and part.Parent then
+		pcall(function()
+			part.Size = entry.size
+			part.Transparency = entry.transparency
+			part.Massless = entry.massless
+			part.CanCollide = entry.canCollide
+		end)
+	end
+end
+
+function SilentAimHB.restoreAll()
+	for player in pairs(SilentAimHB.Applied) do
+		SilentAimHB.restore(player)
+	end
+end
+
+-- FOV ring, drawn with the executor's Drawing API (same as the box ESP). If the
+-- executor has no Drawing it is simply skipped.
+function SilentAimHB.drawRing(visible, radius, camera)
+	if visible and not SilentAimHB.Ring then
+		pcall(function()
+			local circle = Drawing.new("Circle")
+			circle.Thickness = 1
+			circle.NumSides = 60
+			circle.Filled = false
+			circle.Transparency = 1
+			circle.Color = Color3.fromRGB(255, 255, 255)
+			circle.Visible = false
+			SilentAimHB.Ring = circle
+			-- Reuse the global the unload handler already removes.
+			fovCircle = circle
+		end)
+	end
+	local circle = SilentAimHB.Ring
+	if circle then
+		circle.Visible = visible and true or false
+		if visible then
+			circle.Radius = math.max(1, radius)
+			if camera then
+				circle.Position = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
+			end
+		end
+	end
+end
+
+function SilentAimHB.update()
+	local camera = workspace.CurrentCamera
+	if not camera then return end
+
+	if not isAlive() then
+		SilentAimHB.drawRing(false, 0, camera)
+		SilentAimHB.restoreAll()
+		return
+	end
+
+	local viewport = camera.ViewportSize
+	local center = Vector2.new(viewport.X / 2, viewport.Y / 2)
+	local radius = (Options.SAFOVRadius and Options.SAFOVRadius.Value) or 120
+	local range = (Options.SARange and Options.SARange.Value) or 500
+	local wallCheck = Toggles.SAWallCheck and Toggles.SAWallCheck.Value
+	local scaleToScreen = Toggles.SAScaleToScreen and Toggles.SAScaleToScreen.Value
+	local stsDistance = (Options.SASTSDistance and Options.SASTSDistance.Value) or 0
+	local hitChance = (Options.SAHitChance and Options.SAHitChance.Value) or 100
+
+	SilentAimHB.drawRing(true, radius, camera)
+
+	local camPos = camera.CFrame.Position
+	local bestPart, bestPlayer, bestWorldDist, bestScreenDist = nil, nil, nil, math.huge
+
+	for _, otherPlayer in ipairs(Players:GetPlayers()) do
+		if otherPlayer ~= LocalPlayer and otherPlayer.Character and not isTeammate(otherPlayer) then
+			local character = otherPlayer.Character
+			local humanoid = character:FindFirstChildOfClass("Humanoid")
+			local part = SilentAimHB.getPart(otherPlayer)
+			if humanoid and humanoid.Health > 0 and part and part.Parent
+				and not character:FindFirstChildOfClass("ForceField") then
+				local worldDist = (part.Position - camPos).Magnitude
+				if worldDist <= range then
+					local screenPoint, onScreen = camera:WorldToViewportPoint(part.Position)
+					if onScreen then
+						local screenDist = (Vector2.new(screenPoint.X, screenPoint.Y) - center).Magnitude
+						if screenDist <= radius and screenDist < bestScreenDist then
+							if not wallCheck or SilentAimHB.hasLineOfSight(camPos, part.Position, character) then
+								bestPart, bestPlayer = part, otherPlayer
+								bestWorldDist, bestScreenDist = worldDist, screenDist
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+
+	-- Whoever is no longer the chosen target gets their real size back.
+	for player in pairs(SilentAimHB.Applied) do
+		if player ~= bestPlayer then
+			SilentAimHB.restore(player)
+		end
+	end
+
+	if not bestPart then return end
+
+	-- Hit Chance is rolled every update: a miss simply leaves them untouched.
+	if math.random(1, 100) > hitChance then
+		SilentAimHB.restore(bestPlayer)
+		return
+	end
+
+	local size = SilentAimHB.computeSize(camera, bestWorldDist, bestPart.Position, bestScreenDist, scaleToScreen, stsDistance)
+	SilentAimHB.apply(bestPlayer, bestPart, size)
+end
+
+Toggles.SilentAimHB:OnChanged(function()
+	disconnect("SilentAimHBLoop")
+	if Toggles.SilentAimHB.Value then
+		SilentAimHB.Accum = 0
+		-- Draw the ring immediately so it never trails a throttled update.
+		SilentAimHB.drawRing(true, (Options.SAFOVRadius and Options.SAFOVRadius.Value) or 120, workspace.CurrentCamera)
+		track("SilentAimHBLoop", RunService.RenderStepped:Connect(function(dt)
+			local responsiveness = (Options.SAResponsiveness and Options.SAResponsiveness.Value) or 0.5
+			SilentAimHB.Accum = SilentAimHB.Accum + (dt or 0)
+			if SilentAimHB.Accum < responsiveness then return end
+			SilentAimHB.Accum = 0
+			SilentAimHB.update()
+		end))
+		Library:Notify({ Title = "Silent Aim", Description = "Enabled", Time = 2 })
+	else
+		SilentAimHB.restoreAll()
+		SilentAimHB.drawRing(false, 0, workspace.CurrentCamera)
+		Library:Notify({ Title = "Silent Aim", Description = "Disabled", Time = 2 })
+	end
+end)
+
+-- ==========================================
 -- MOVEMENT
 -- ==========================================
 local MoveLeft = Tabs.Movement:AddLeftGroupbox("Speed", "gauge")
@@ -14856,6 +15179,9 @@ Library:OnUnload(function()
 	end
 	if Toggles.AutoAirBubbles and Toggles.AutoAirBubbles.Value then
 		Toggles.AutoAirBubbles:SetValue(false)
+	end
+	if Toggles.SilentAimHB and Toggles.SilentAimHB.Value then
+		Toggles.SilentAimHB:SetValue(false)
 	end
 	pcall(restoreAirBubbles)
 
