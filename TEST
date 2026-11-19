@@ -6501,6 +6501,11 @@ SilentAimHK.Main:AddCheckbox("SAHKWallBang", {
 	Default = false,
 })
 
+SilentAimHK.Main:AddCheckbox("SAHKTriggerBot", {
+	Text = "Trigger Bot",
+	Default = false,
+})
+
 SilentAimHK.Main:AddDropdown("SAHKTargetPart", {
 	Text = "Target Part",
 	Values = { "Random", "Head", "HumanoidRootPart" },
@@ -6524,6 +6529,12 @@ SilentAimHK.Config:AddCheckbox("SAHKBulletTeleport", {
 SilentAimHK.Config:AddCheckbox("SAHK360Mode", {
 	Text = "360 Mode",
 	Default = false,
+})
+
+SilentAimHK.Config:AddDropdown("SAHKPriorityMode", {
+	Text = "Priority Mode",
+	Values = { "Crosshair", "Distance", "Health" },
+	Default = "Crosshair",
 })
 
 SilentAimHK.Config:AddSlider("SAHKHitChance", {
@@ -8937,8 +8948,8 @@ function SilentAimHK.predict(part)
 	return pos + ((part.AssemblyLinearVelocity or Vector3.zero) * predTime)
 end
 
--- Picks the target part every throttle tick. Screen-space closest to the
--- crosshair inside the FOV circle, or plain closest when 360 Mode is on.
+-- Picks the target part every throttle tick. FOV Radius limits the search unless
+-- 360 Mode is on; Priority Mode then decides which valid target wins.
 function SilentAimHK.findTarget()
 	local camera = workspace.CurrentCamera
 	local character = getCharacter()
@@ -8949,10 +8960,11 @@ function SilentAimHK.findTarget()
 	local radius = (Options.SAHKFOVRadius and Options.SAHKFOVRadius.Value) or 100
 	local range = (Options.SAHKTargetRange and Options.SAHKTargetRange.Value) or 500
 	local wallCheck = (Toggles.SAHKWallCheck and Toggles.SAHKWallCheck.Value) or false
+	local priority = (Options.SAHKPriorityMode and Options.SAHKPriorityMode.Value) or "Crosshair"
 
 	local viewport = camera.ViewportSize
 	local center = Vector2.new(viewport.X / 2, viewport.Y / 2)
-	local bestPart, bestScreen, bestWorld = nil, math.huge, math.huge
+	local bestPart, bestScore = nil, math.huge
 
 	for _, otherPlayer in ipairs(Players:GetPlayers()) do
 		if otherPlayer ~= LocalPlayer and not isTeammate(otherPlayer) then
@@ -8965,17 +8977,21 @@ function SilentAimHK.findTarget()
 					if worldDist <= range then
 						local part = SilentAimHK.getTargetPart(otherChar)
 						if part and part.Parent and (not wallCheck or SilentAimHK.isVisible(otherPlayer, otherChar)) then
-							if threeSixty then
-								if worldDist < bestWorld then
-									bestPart, bestWorld = part, worldDist
+							local screenPos, onScreen = camera:WorldToViewportPoint(part.Position)
+							local screenDist = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
+							-- The FOV circle only constrains while 360 Mode is off.
+							local inFOV = threeSixty or (onScreen and screenDist <= radius)
+							if inFOV then
+								local score
+								if priority == "Distance" then
+									score = worldDist
+								elseif priority == "Health" then
+									score = humanoid.Health
+								else
+									score = screenDist
 								end
-							else
-								local screenPos, onScreen = camera:WorldToViewportPoint(part.Position)
-								if onScreen then
-									local screenDist = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
-									if screenDist <= radius and screenDist < bestScreen then
-										bestPart, bestScreen = part, screenDist
-									end
+								if score < bestScore then
+									bestPart, bestScore = part, score
 								end
 							end
 						end
@@ -9308,6 +9324,38 @@ function SilentAimHK.syncMouseHook()
 	end
 end
 
+-- Trigger Bot: fires the held tool on its own while Silent Aim has a target
+-- locked (which is the FOV-circle pick unless 360 Mode is on).
+function SilentAimHK.fireWeapon()
+	local character = getCharacter()
+	local tool = character and character:FindFirstChildOfClass("Tool")
+	if tool then
+		pcall(function() tool:Activate() end)
+	elseif typeof(mouse1click) == "function" then
+		pcall(mouse1click)
+	end
+end
+
+function SilentAimHK.startTrigger()
+	SilentAimHK.LastShot = 0
+	track("SilentAimHKTrigger", RunService.Heartbeat:Connect(function()
+		if not SilentAimHK.isEnabled() then return end
+		local part = SilentAimHK.Target
+		if not part or not part.Parent then return end
+		local now = tick()
+		if now - SilentAimHK.LastShot < 0.1 then return end
+		SilentAimHK.LastShot = now
+		SilentAimHK.fireWeapon()
+	end))
+end
+
+function SilentAimHK.syncTrigger()
+	disconnect("SilentAimHKTrigger")
+	if SilentAimHK.isEnabled() and Toggles.SAHKTriggerBot and Toggles.SAHKTriggerBot.Value then
+		SilentAimHK.startTrigger()
+	end
+end
+
 -- Remote scanner behind the "Scan Remotes" button.
 function SilentAimHK.scanRemotes()
 	local names = SilentAimHK.getRemoteNames()
@@ -9352,6 +9400,7 @@ end
 Toggles.SilentAimHK:OnChanged(function()
 	disconnect("SilentAimHKLoop")
 	SilentAimHK.syncMouseHook()
+	SilentAimHK.syncTrigger()
 	if Toggles.SilentAimHK.Value then
 		SilentAimHK.Accum = 0
 		SilentAimHK.Target = nil
@@ -9383,6 +9432,11 @@ end)
 -- The mouse hook only needs to exist while "Mouse.Hit" is selected.
 Options.SAHKAimMethods:OnChanged(function()
 	SilentAimHK.syncMouseHook()
+end)
+
+-- Trigger Bot only runs alongside Silent Aim.
+Toggles.SAHKTriggerBot:OnChanged(function()
+	SilentAimHK.syncTrigger()
 end)
 
 -- ==========================================
