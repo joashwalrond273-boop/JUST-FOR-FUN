@@ -6466,8 +6466,6 @@ SilentAimHK = {
 	Accum = 0,           -- time accumulator for the Responsiveness throttle
 	Ring = nil,          -- Drawing circle used for the FOV ring
 	WallCache = {},      -- [player] = { t, visible, char } wallcheck cache
-	FOVOffset = Vector2.new(0, 0), -- FOV Shifter drag offset from screen centre
-	Shifting = false,    -- true while the FOV circle is being dragged
 }
 
 SilentAimHK.Main = SilentAimHK.Box:AddTab("Silent Aim", "crosshair")
@@ -6491,11 +6489,6 @@ SilentAimHK.Main:AddSlider("SAHKFOVRadius", {
 	Max = 500,
 	Rounding = 0,
 	Compact = true,
-})
-
-SilentAimHK.Main:AddCheckbox("SAHKFOVShifter", {
-	Text = "FOV Shifter",
-	Default = false,
 })
 
 SilentAimHK.Main:AddCheckbox("SAHKWallCheck", {
@@ -8950,22 +8943,6 @@ function SilentAimHK.predict(part)
 	return pos + ((part.AssemblyLinearVelocity or Vector3.zero) * predTime)
 end
 
--- Screen point the FOV circle is centred on. Normally the viewport middle, but
--- FOV Shifter lets the player drag it elsewhere (findTarget and the drawn ring
--- both read this so they always stay in sync).
-function SilentAimHK.fovCenter(camera)
-	local cam = camera or workspace.CurrentCamera
-	if not cam then
-		return Vector2.new(0, 0)
-	end
-	local size = cam.ViewportSize
-	local center = Vector2.new(size.X / 2, size.Y / 2)
-	if Toggles.SAHKFOVShifter and Toggles.SAHKFOVShifter.Value then
-		return center + SilentAimHK.FOVOffset
-	end
-	return center
-end
-
 -- Picks the target part every throttle tick. FOV Radius limits the search unless
 -- 360 Mode is on; Priority Mode then decides which valid target wins.
 function SilentAimHK.findTarget()
@@ -8980,7 +8957,7 @@ function SilentAimHK.findTarget()
 	local wallCheck = (Toggles.SAHKWallCheck and Toggles.SAHKWallCheck.Value) or false
 	local priority = (Options.SAHKPriorityMode and Options.SAHKPriorityMode.Value) or "Crosshair"
 
-	local center = SilentAimHK.fovCenter(camera)
+	local center = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
 	local bestPart, bestScore = nil, math.huge
 
 	for _, otherPlayer in ipairs(Players:GetPlayers()) do
@@ -9047,7 +9024,7 @@ function SilentAimHK.drawRing(visible, radius, camera)
 		circle.Visible = visible and true or false
 		if visible then
 			circle.Radius = math.max(1, radius)
-			circle.Position = SilentAimHK.fovCenter(camera)
+			circle.Position = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
 		end
 	end
 end
@@ -9421,41 +9398,6 @@ end)
 -- The mouse hook only needs to exist while "Mouse.Hit" is selected.
 Options.SAHKAimMethods:OnChanged(function()
 	SilentAimHK.syncMouseHook()
-end)
-
--- FOV Shifter: hold the right mouse button and drag to move the circle around.
--- Mouse deltas are used so the drag does not depend on cursor screen position.
-track("SilentAimHKShiftStart", UserInputService.InputBegan:Connect(function(input, processed)
-	if processed or SilentAimHK.Shifting then return end
-	if not (Toggles.SAHKFOVShifter and Toggles.SAHKFOVShifter.Value) then return end
-	if input.UserInputType == Enum.UserInputType.MouseButton2 then
-		SilentAimHK.Shifting = true
-	end
-end))
-
-track("SilentAimHKShiftMove", UserInputService.InputChanged:Connect(function(input)
-	if not SilentAimHK.Shifting then return end
-	if input.UserInputType ~= Enum.UserInputType.MouseMovement then return end
-	local delta = input.Delta
-	SilentAimHK.FOVOffset = SilentAimHK.FOVOffset + Vector2.new(delta.X, delta.Y)
-	if SilentAimHK.isEnabled() then
-		local radius = (Options.SAHKFOVRadius and Options.SAHKFOVRadius.Value) or 100
-		SilentAimHK.drawRing(SilentAimHK.showRing(), radius, workspace.CurrentCamera)
-	end
-end))
-
-track("SilentAimHKShiftStop", UserInputService.InputEnded:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton2 then
-		SilentAimHK.Shifting = false
-	end
-end))
-
--- Redraw the ring as soon as the shifter is switched on or off.
-Toggles.SAHKFOVShifter:OnChanged(function()
-	if Toggles.SilentAimHK and Toggles.SilentAimHK.Value then
-		local radius = (Options.SAHKFOVRadius and Options.SAHKFOVRadius.Value) or 100
-		SilentAimHK.drawRing(SilentAimHK.showRing(), radius, workspace.CurrentCamera)
-	end
 end)
 
 -- ==========================================
