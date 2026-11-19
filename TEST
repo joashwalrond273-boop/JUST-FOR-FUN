@@ -6476,17 +6476,27 @@ SilentAimHK.Main:AddToggle("SilentAimHK", {
 	Default = false,
 })
 
-SilentAimHK.Main:AddToggle("SAHKWallCheck", {
-	Text = "Wall Check",
-	Default = false,
+-- Hides the ring only; the FOV Radius limit stays active either way.
+SilentAimHK.Main:AddCheckbox("SAHKShowRing", {
+	Text = "Show FOV Circle",
+	Default = true,
 })
 
-SilentAimHK.Main:AddToggle("SAHKBulletTeleport", {
+SilentAimHK.Main:AddSlider("SAHKFOVRadius", {
+	Text = "FOV Radius",
+	Default = 100,
+	Min = 0,
+	Max = 500,
+	Rounding = 0,
+	Compact = true,
+})
+
+SilentAimHK.Main:AddCheckbox("SAHKBulletTeleport", {
 	Text = "Bullet Teleport",
 	Default = false,
 })
 
-SilentAimHK.Main:AddToggle("SAHK360Mode", {
+SilentAimHK.Main:AddCheckbox("SAHK360Mode", {
 	Text = "360 Mode",
 	Default = false,
 })
@@ -6495,13 +6505,6 @@ SilentAimHK.Main:AddDropdown("SAHKTargetPart", {
 	Text = "Target Part",
 	Values = { "Random", "Head", "HumanoidRootPart" },
 	Default = "Head",
-})
-
-SilentAimHK.Main:AddDropdown("SAHKAimMethods", {
-	Text = "Aim Methods",
-	Values = { "Raycast", "FireServer", "InvokeServer", "Mouse.Hit" },
-	Default = { "Raycast" },
-	Multi = true,
 })
 
 SilentAimHK.Main:AddSlider("SAHKTargetRange", {
@@ -6513,19 +6516,21 @@ SilentAimHK.Main:AddSlider("SAHKTargetRange", {
 	Compact = true,
 })
 
--- Hides the ring only; the FOV Radius limit stays active either way.
-SilentAimHK.Config:AddCheckbox("SAHKShowRing", {
-	Text = "Show FOV Circle",
-	Default = true,
+SilentAimHK.Config:AddCheckbox("SAHKWallCheck", {
+	Text = "Wall Check",
+	Default = false,
 })
 
-SilentAimHK.Config:AddSlider("SAHKFOVRadius", {
-	Text = "FOV Radius",
-	Default = 100,
-	Min = 0,
-	Max = 500,
-	Rounding = 0,
-	Compact = true,
+SilentAimHK.Config:AddCheckbox("SAHKWallBang", {
+	Text = "WallBang",
+	Default = false,
+})
+
+SilentAimHK.Config:AddDropdown("SAHKAimMethods", {
+	Text = "Aim Methods",
+	Values = { "Raycast", "FireServer", "InvokeServer", "Mouse.Hit" },
+	Default = { "Raycast" },
+	Multi = true,
 })
 
 SilentAimHK.Config:AddInput("SAHKRemoteGestalt", {
@@ -6549,15 +6554,6 @@ SilentAimHK.Config:AddButton({
 		end
 	end,
 })
-
-SilentAimHK.Config:AddDivider()
-
-SilentAimHK.Config:AddToggle("SAHKWallBang", {
-	Text = "WallBang",
-	Default = false,
-})
-
-SilentAimHK.Config:AddDivider()
 
 SilentAimHK.Config:AddSlider("SAHKHitChance", {
 	Text = "Hit Chance",
