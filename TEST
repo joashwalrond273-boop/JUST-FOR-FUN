@@ -6516,11 +6516,6 @@ SilentAimHK.Main:AddSlider("SAHKTargetRange", {
 	Compact = true,
 })
 
-SilentAimHK.Config:AddCheckbox("SAHKTriggerBot", {
-	Text = "Trigger Bot",
-	Default = false,
-})
-
 SilentAimHK.Config:AddCheckbox("SAHKBulletTeleport", {
 	Text = "Bullet Teleport",
 	Default = false,
@@ -9331,38 +9326,6 @@ function SilentAimHK.syncMouseHook()
 	end
 end
 
--- Trigger Bot: fires the held tool on its own while Silent Aim has a target
--- locked (which is the FOV-circle pick unless 360 Mode is on).
-function SilentAimHK.fireWeapon()
-	local character = getCharacter()
-	local tool = character and character:FindFirstChildOfClass("Tool")
-	if tool then
-		pcall(function() tool:Activate() end)
-	elseif typeof(mouse1click) == "function" then
-		pcall(mouse1click)
-	end
-end
-
-function SilentAimHK.startTrigger()
-	SilentAimHK.LastShot = 0
-	track("SilentAimHKTrigger", RunService.Heartbeat:Connect(function()
-		if not SilentAimHK.isEnabled() then return end
-		local part = SilentAimHK.Target
-		if not part or not part.Parent then return end
-		local now = tick()
-		if now - SilentAimHK.LastShot < 0.1 then return end
-		SilentAimHK.LastShot = now
-		SilentAimHK.fireWeapon()
-	end))
-end
-
-function SilentAimHK.syncTrigger()
-	disconnect("SilentAimHKTrigger")
-	if SilentAimHK.isEnabled() and Toggles.SAHKTriggerBot and Toggles.SAHKTriggerBot.Value then
-		SilentAimHK.startTrigger()
-	end
-end
-
 -- Remote scanner behind the "Scan Remotes" button.
 function SilentAimHK.scanRemotes()
 	local names = SilentAimHK.getRemoteNames()
@@ -9407,7 +9370,6 @@ end
 Toggles.SilentAimHK:OnChanged(function()
 	disconnect("SilentAimHKLoop")
 	SilentAimHK.syncMouseHook()
-	SilentAimHK.syncTrigger()
 	if Toggles.SilentAimHK.Value then
 		SilentAimHK.Accum = 0
 		SilentAimHK.Target = nil
@@ -9439,11 +9401,6 @@ end)
 -- The mouse hook only needs to exist while "Mouse.Hit" is selected.
 Options.SAHKAimMethods:OnChanged(function()
 	SilentAimHK.syncMouseHook()
-end)
-
--- Trigger Bot only runs alongside Silent Aim.
-Toggles.SAHKTriggerBot:OnChanged(function()
-	SilentAimHK.syncTrigger()
 end)
 
 -- ==========================================
