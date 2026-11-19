@@ -6451,6 +6451,112 @@ task.spawn(function()
 	end
 end)
 
+-- ==========================================
+-- SILENT AIM (HITBOX BASED) - MENU
+-- ==========================================
+-- Sits in the right column just above Advance Reach, laid out like the Camlock
+-- box: a main tab with the Config tab next to it. The logic it drives lives
+-- further down (see "SILENT AIM (HITBOX BASED)").
+SilentAimHB = {
+	Box = Tabs.Combat:AddRightTabbox(),
+	Applied = {},   -- [player] = { part, partName, size, transparency, massless, canCollide }
+	Ring = nil,     -- Drawing circle used for the FOV ring
+	Accum = 0,      -- time accumulator for the Responsiveness throttle
+}
+
+SilentAimHB.Main = SilentAimHB.Box:AddTab("Silent Aim", "crosshair")
+SilentAimHB.Config = SilentAimHB.Box:AddTab("Config", "settings")
+
+SilentAimHB.Main:AddToggle("SilentAimHB", {
+	Text = "Silent Aim",
+	Default = false,
+})
+
+-- Hides the ring only; the FOV Radius limit stays active either way.
+SilentAimHB.Main:AddCheckbox("SAShowRing", {
+	Text = "Show FOV Circle",
+	Default = true,
+})
+
+SilentAimHB.Main:AddCheckbox("SAWallCheck", {
+	Text = "Wall Check",
+	Default = false,
+})
+
+SilentAimHB.Main:AddCheckbox("SAScaleToScreen", {
+	Text = "Scale To Screen",
+	Default = false,
+})
+
+SilentAimHB.Main:AddSlider("SASTSDistance", {
+	Text = "STS Distance",
+	Default = 0,
+	Min = -50,
+	Max = 50,
+	Rounding = 0,
+	Compact = true,
+})
+
+SilentAimHB.Main:AddDropdown("SATargetPart", {
+	Text = "Target Part",
+	Values = { "Random", "Head", "HumanoidRootPart" },
+	Default = "Head",
+})
+
+SilentAimHB.Main:AddSlider("SARange", {
+	Text = "Target Range",
+	Default = 500,
+	Min = 5,
+	Max = 1000,
+	Rounding = 0,
+	Compact = true,
+})
+
+SilentAimHB.Config:AddSlider("SAHitChance", {
+	Text = "Hit Chance",
+	Default = 100,
+	Min = 0,
+	Max = 100,
+	Rounding = 0,
+	Compact = true,
+})
+
+SilentAimHB.Config:AddSlider("SAHeadshotChance", {
+	Text = "Headshot Chance",
+	Default = 100,
+	Min = 0,
+	Max = 100,
+	Rounding = 0,
+	Compact = true,
+})
+
+SilentAimHB.Config:AddSlider("SAResponsiveness", {
+	Text = "Responsiveness",
+	Default = 0.5,
+	Min = 0.01,
+	Max = 2,
+	Rounding = 2,
+	Compact = true,
+})
+
+SilentAimHB.Config:AddSlider("SAFOVRadius", {
+	Text = "FOV Radius",
+	Default = 120,
+	Min = 1,
+	Max = 500,
+	Rounding = 0,
+	Compact = true,
+})
+
+SilentAimHB.Config:AddSlider("SAHitboxTransparency", {
+	Text = "Hitbox Transparency",
+	Default = 1,
+	Min = 0,
+	Max = 1,
+	Rounding = 1,
+	Compact = true,
+})
+
 local CombatReach = Tabs.Combat:AddRightGroupbox("Advance Reach", "expand")
 
 CombatReach:AddToggle("Reach", {
@@ -8653,102 +8759,11 @@ setupReachTracking()
 -- ==========================================
 -- SILENT AIM (HITBOX BASED)
 -- ==========================================
--- Ported from the reference "SilentAim (HB)" menu. It never moves the camera:
--- instead it inflates the body part the game's own swing/ray check lands on, so
--- a normal hit connects while the crosshair stays wherever the player put it.
--- All state lives on one global table to stay clear of the main chunk's local
--- register budget.
-SilentAimHB = {
-	Group = Tabs.Combat:AddLeftGroupbox("Silent Aim", "crosshair"),
-	Applied = {},   -- [player] = { part, partName, size, transparency, massless, canCollide }
-	Ring = nil,     -- Drawing circle used for the FOV ring
-	Accum = 0,      -- time accumulator for the Responsiveness throttle
-}
-
-SilentAimHB.Group:AddToggle("SilentAimHB", {
-	Text = "Silent Aim",
-	Default = false,
-})
-
-SilentAimHB.Group:AddCheckbox("SAWallCheck", {
-	Text = "Wall Check",
-	Default = false,
-})
-
-SilentAimHB.Group:AddCheckbox("SAScaleToScreen", {
-	Text = "Scale To Screen",
-	Default = false,
-})
-
-SilentAimHB.Group:AddSlider("SASTSDistance", {
-	Text = "STS Distance",
-	Default = 0,
-	Min = -50,
-	Max = 50,
-	Rounding = 0,
-	Compact = true,
-})
-
-SilentAimHB.Group:AddDropdown("SATargetPart", {
-	Text = "Target Part",
-	Values = { "Random", "Head", "HumanoidRootPart" },
-	Default = "Head",
-})
-
-SilentAimHB.Group:AddSlider("SARange", {
-	Text = "Target Range",
-	Default = 500,
-	Min = 5,
-	Max = 1000,
-	Rounding = 0,
-	Compact = true,
-})
-
-SilentAimHB.Group:AddSlider("SAHitChance", {
-	Text = "Hit Chance",
-	Default = 100,
-	Min = 0,
-	Max = 100,
-	Rounding = 0,
-	Compact = true,
-})
-
-SilentAimHB.Group:AddSlider("SAHeadshotChance", {
-	Text = "Headshot Chance",
-	Default = 100,
-	Min = 0,
-	Max = 100,
-	Rounding = 0,
-	Compact = true,
-})
-
-SilentAimHB.Group:AddSlider("SAResponsiveness", {
-	Text = "Responsiveness",
-	Default = 0.5,
-	Min = 0.01,
-	Max = 2,
-	Rounding = 2,
-	Compact = true,
-})
-
-SilentAimHB.Group:AddSlider("SAFOVRadius", {
-	Text = "FOV Radius",
-	Default = 120,
-	Min = 1,
-	Max = 500,
-	Rounding = 0,
-	Compact = true,
-})
-
-SilentAimHB.Group:AddSlider("SAHitboxTransparency", {
-	Text = "Hitbox Transparency",
-	Default = 0.5,
-	Min = 0,
-	Max = 1,
-	Rounding = 1,
-	Compact = true,
-})
-
+-- Logic for the Silent Aim menu, which is built next to the Camlock box in the
+-- right column further up. It never moves the camera: instead it inflates the
+-- body part the game's own swing/ray check lands on, so a normal hit connects
+-- while the crosshair stays wherever the player put it. All state lives on one
+-- global table to stay clear of the main chunk's local register budget.
 SilentAimHB.RayParams = RaycastParams.new()
 SilentAimHB.RayParams.FilterType = Enum.RaycastFilterType.Exclude
 
@@ -8885,6 +8900,12 @@ function SilentAimHB.drawRing(visible, radius, camera)
 	end
 end
 
+-- The FOV ring can be hidden from the menu while the FOV Radius limit keeps
+-- working behind the scenes.
+function SilentAimHB.showRing()
+	return (Toggles.SAShowRing and Toggles.SAShowRing.Value) or false
+end
+
 function SilentAimHB.update()
 	local camera = workspace.CurrentCamera
 	if not camera then return end
@@ -8904,7 +8925,7 @@ function SilentAimHB.update()
 	local stsDistance = (Options.SASTSDistance and Options.SASTSDistance.Value) or 0
 	local hitChance = (Options.SAHitChance and Options.SAHitChance.Value) or 100
 
-	SilentAimHB.drawRing(true, radius, camera)
+	SilentAimHB.drawRing(SilentAimHB.showRing(), radius, camera)
 
 	local camPos = camera.CFrame.Position
 	local bestPart, bestPlayer, bestWorldDist, bestScreenDist = nil, nil, nil, math.huge
@@ -8957,7 +8978,7 @@ Toggles.SilentAimHB:OnChanged(function()
 	if Toggles.SilentAimHB.Value then
 		SilentAimHB.Accum = 0
 		-- Draw the ring immediately so it never trails a throttled update.
-		SilentAimHB.drawRing(true, (Options.SAFOVRadius and Options.SAFOVRadius.Value) or 120, workspace.CurrentCamera)
+		SilentAimHB.drawRing(SilentAimHB.showRing(), (Options.SAFOVRadius and Options.SAFOVRadius.Value) or 120, workspace.CurrentCamera)
 		track("SilentAimHBLoop", RunService.RenderStepped:Connect(function(dt)
 			local responsiveness = (Options.SAResponsiveness and Options.SAResponsiveness.Value) or 0.5
 			SilentAimHB.Accum = SilentAimHB.Accum + (dt or 0)
@@ -8970,6 +8991,14 @@ Toggles.SilentAimHB:OnChanged(function()
 		SilentAimHB.restoreAll()
 		SilentAimHB.drawRing(false, 0, workspace.CurrentCamera)
 		Library:Notify({ Title = "Silent Aim", Description = "Disabled", Time = 2 })
+	end
+end)
+
+-- Show / hide the ring the moment the checkbox is toggled.
+Toggles.SAShowRing:OnChanged(function()
+	if Toggles.SilentAimHB and Toggles.SilentAimHB.Value then
+		local radius = (Options.SAFOVRadius and Options.SAFOVRadius.Value) or 120
+		SilentAimHB.drawRing(Toggles.SAShowRing.Value and true or false, radius, workspace.CurrentCamera)
 	end
 end)
 
