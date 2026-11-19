@@ -4103,11 +4103,6 @@ MainRight:AddCheckbox("BossSpawnNotifier", {
 	Default = false,
 })
 
-MainRight:AddCheckbox("PositionReaderHud", {
-	Text = "Position Reader HUD",
-	Default = false,
-})
-
 MainRight:AddDivider()
 
 MainRight:AddCheckbox("AdminCham", {
@@ -4360,115 +4355,6 @@ do
 		end))
 
 		Library:Notify({ Title = "Ping / FPS HUD", Description = "Enabled", Time = 2 })
-	end)
-end
-
-do
-	local posRunning = false
-	local posGui = nil
-	local posLabel = nil
-	local posLastUpdate = 0
-
-	local function buildPosHud()
-		local playerGui = LocalPlayer:FindFirstChildOfClass("PlayerGui")
-		if not playerGui then return end
-
-		posGui = Instance.new("ScreenGui")
-		posGui.Name = "XenoPositionHud"
-		posGui.ResetOnSpawn = false
-		posGui.IgnoreGuiInset = true
-		posGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-		posGui.Parent = playerGui
-
-		local frame = Instance.new("Frame")
-		frame.Name = "Panel"
-		frame.Position = UDim2.new(0, 16, 0, 84)
-		frame.Size = UDim2.new(0, 190, 0, 20)
-		frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-		frame.BackgroundTransparency = 0.25
-		frame.BorderSizePixel = 0
-		frame.Active = true
-		frame.Parent = posGui
-
-		local corner = Instance.new("UICorner")
-		corner.CornerRadius = UDim.new(0, 5)
-		corner.Parent = frame
-
-		local stroke = Instance.new("UIStroke")
-		stroke.Color = Color3.fromRGB(0, 244, 255)
-		stroke.Transparency = 0.4
-		stroke.Thickness = 1
-		stroke.Parent = frame
-
-		posLabel = Instance.new("TextLabel")
-		posLabel.Size = UDim2.new(1, -12, 1, 0)
-		posLabel.Position = UDim2.new(0, 6, 0, 0)
-		posLabel.BackgroundTransparency = 1
-		posLabel.Font = Enum.Font.Code
-		posLabel.TextSize = 11
-		posLabel.TextColor3 = Color3.fromRGB(0, 244, 255)
-		posLabel.TextXAlignment = Enum.TextXAlignment.Left
-		posLabel.Text = "POS X --   Y --   Z --"
-		posLabel.Parent = frame
-
-		local dragging, dragStart, dragPos = false, nil, nil
-		frame.InputBegan:Connect(function(input)
-			if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-				dragging = true
-				dragStart = input.Position
-				dragPos = frame.Position
-				input.Changed:Connect(function()
-					if input.UserInputState == Enum.UserInputState.End then
-						dragging = false
-					end
-				end)
-			end
-		end)
-		frame.InputChanged:Connect(function(input)
-			if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-				local delta = input.Position - dragStart
-				frame.Position = UDim2.new(dragPos.X.Scale, dragPos.X.Offset + delta.X, dragPos.Y.Scale, dragPos.Y.Offset + delta.Y)
-			end
-		end)
-	end
-
-	Toggles.PositionReaderHud:OnChanged(function()
-		posRunning = false
-		disconnect("PositionReaderHud_Render")
-
-		if posGui then
-			posGui:Destroy()
-			posGui = nil
-			posLabel = nil
-		end
-
-		if not Toggles.PositionReaderHud.Value then
-			Library:Notify({ Title = "Position Reader HUD", Description = "Disabled", Time = 2 })
-			return
-		end
-
-		buildPosHud()
-		posRunning = true
-		posLastUpdate = 0
-
-		track("PositionReaderHud_Render", RunService.RenderStepped:Connect(function()
-			if not posRunning or not posLabel then return end
-
-			local now = tick()
-			if now - posLastUpdate < 0.2 then return end
-			posLastUpdate = now
-
-			local root = getRootPart()
-			if not root then
-				posLabel.Text = "POS X --   Y --   Z --"
-				return
-			end
-
-			local p = root.Position
-			posLabel.Text = string.format("POS X %.1f   Y %.1f   Z %.1f", p.X, p.Y, p.Z)
-		end))
-
-		Library:Notify({ Title = "Position Reader HUD", Description = "Enabled", Time = 2 })
 	end)
 end
 
@@ -5915,6 +5801,11 @@ CombatShieldSystem:AddSlider("ImmortalShieldSpeed", {
 	Compact = true,
 })
 
+CombatShieldSystem:AddCheckbox("DodgeArrows", {
+	Text = "Dodge Arrows",
+	Default = false,
+})
+
 CombatShieldSystem:AddCheckbox("Advance", {
 	Text = "Slot System",
 	Default = false,
@@ -6103,6 +5994,63 @@ function FireSetShield(state)
 	end)
 	ShieldAnimHeld = state and true or false
 	UpdateShieldAnimation()
+end
+
+-- Ghost shield swap. The server only accepts setShield while a shield-capable
+-- sword is equipped, so Infinite Shield equips one just long enough for the
+-- server to raise the block and then hands your own weapon back, which means you
+-- never have to hold the sword yourself. Globals on purpose: the main chunk is
+-- already at Luau's 200-local register limit.
+ShieldGhostSwapBusy = false
+ShieldGhostSwapLast = 0
+-- Minimum gap between two swaps, so the equip remotes are never spammed.
+ShieldGhostSwapInterval = 0.6
+
+-- The shield sword the player actually owns, strongest first. Same ownership rule
+-- as equipBestSword: getInventory() lists every item in the game, so being listed
+-- does not mean it is owned.
+function GetOwnedShieldSwordId()
+	if not (TSG.ClientData and TSG.ClientData.getInventory) then return nil end
+	local inventory = TSG.ClientData.getInventory() or {}
+	for _, itemId in ipairs({ 545, 406 }) do
+		local entry = inventory[itemId]
+		if entry ~= nil and entry ~= false and (type(entry) ~= "number" or entry > 0) then
+			return itemId
+		end
+	end
+	return nil
+end
+
+function GhostShieldSwap()
+	if ShieldGhostSwapBusy or IsHoldingShieldSword() then return end
+	local equipRemote = TSG.EquipHotbarRemote
+	if not equipRemote then return end
+	local shieldId = GetOwnedShieldSwordId()
+	if not shieldId then return end
+
+	-- Same slot equipBestSword / the Atlantean swap use for swords.
+	local slot = tonumber(Options.AutoArmorSlot and Options.AutoArmorSlot.Value) or 5
+	local restoreId = GetHeldToolId()
+
+	ShieldGhostSwapBusy = true
+	task.spawn(function()
+		local equipped = pcall(function()
+			equipRemote:InvokeServer("inventory", slot, shieldId)
+		end)
+		if equipped then
+			-- The InvokeServer above already returned from the server, but give the
+			-- equipped tool a moment to settle before asking for the block.
+			task.wait(0.1)
+			FireSetShield(true)
+			task.wait(0.1)
+			if restoreId and restoreId ~= shieldId then
+				pcall(function()
+					equipRemote:InvokeServer("inventory", slot, restoreId)
+				end)
+			end
+		end
+		ShieldGhostSwapBusy = false
+	end)
 end
 
 -- The pose is only ever shown while setShield is actually held, so clear the
@@ -6496,11 +6444,6 @@ SilentAimHK.Main:AddCheckbox("SAHKWallCheck", {
 	Default = false,
 })
 
-SilentAimHK.Main:AddCheckbox("SAHKWallBang", {
-	Text = "WallBang",
-	Default = false,
-})
-
 SilentAimHK.Main:AddDropdown("SAHKTargetPart", {
 	Text = "Target Part",
 	Values = { "Random", "Head", "HumanoidRootPart" },
@@ -6514,6 +6457,11 @@ SilentAimHK.Main:AddSlider("SAHKTargetRange", {
 	Max = 1000,
 	Rounding = 0,
 	Compact = true,
+})
+
+SilentAimHK.Config:AddCheckbox("SAHKWallBang", {
+	Text = "WallBang",
+	Default = false,
 })
 
 SilentAimHK.Config:AddCheckbox("SAHKBulletTeleport", {
@@ -6653,7 +6601,6 @@ end
 
 local isShielding = false
 local lastShieldFire = 0
-local multiSnapIndex = 1
 local function updateImmortalMode()
 	if not isAlive() or not Toggles.ImmortalMode.Value then
 		if isShielding then
@@ -6670,7 +6617,6 @@ local function updateImmortalMode()
 	local checkDistance = (Options.ImmortalModeStuds and Options.ImmortalModeStuds.Value) or 18
 	local nearestEnemy = nil
 	local nearestDist = math.huge
-	local activeAttackers = {}
 	-- Ignore Team is baked into Infinite Shield: teammates are never targeted.
 	local ignoreTeam = true
 
@@ -6687,16 +6633,6 @@ local function updateImmortalMode()
 							nearestDist = dist
 							nearestEnemy = targetRoot
 						end
-
-						local animator = hum:FindFirstChild("Animator")
-						if animator then
-							for _, trackObj in ipairs(animator:GetPlayingAnimationTracks()) do
-								if trackObj.Speed > 0 and isSwingAnimation(trackObj) then
-									table.insert(activeAttackers, { root = targetRoot, dist = dist })
-									break
-								end
-							end
-						end
 					end
 				end
 			end
@@ -6704,18 +6640,10 @@ local function updateImmortalMode()
 	end
 
 	if shouldShield then
-		local targetToFace = nil
-		if #activeAttackers > 0 then
-			table.sort(activeAttackers, function(a, b) return a.dist < b.dist end)
-			if #activeAttackers == 1 then
-				targetToFace = activeAttackers[1].root
-			else
-				multiSnapIndex = (multiSnapIndex % #activeAttackers) + 1
-				targetToFace = activeAttackers[multiSnapIndex].root
-			end
-		else
-			targetToFace = nearestEnemy
-		end
+		-- The block only covers the way the character faces, so while the shield is
+		-- up we always turn towards the closest enemy: that is the most coverage a
+		-- client can give a server-side block.
+		local targetToFace = nearestEnemy
 
 		if targetToFace then
 			local targetPos = targetToFace.Position
@@ -6725,7 +6653,17 @@ local function updateImmortalMode()
 		local shieldSpeed = (Options.ImmortalShieldSpeed and Options.ImmortalShieldSpeed.Value) or 0.1
 		if tick() - lastShieldFire >= shieldSpeed then
 			lastShieldFire = tick()
-			FireSetShield(true)
+			if IsHoldingShieldSword() then
+				-- Shield sword already in hand: the server accepts the block directly.
+				FireSetShield(true)
+			elseif GetOwnedShieldSwordId() and tick() - ShieldGhostSwapLast >= ShieldGhostSwapInterval then
+				-- Raise the shield without holding the sword: equip one just long
+				-- enough for the server to accept setShield, then hand your weapon back.
+				ShieldGhostSwapLast = tick()
+				GhostShieldSwap()
+			else
+				FireSetShield(true)
+			end
 		end
 		isShielding = true
 	else
@@ -6748,6 +6686,108 @@ Toggles.ImmortalMode:OnChanged(function()
 			isShielding = false
 			FireSetShield(false)
 		end
+	end
+end)
+
+-- Dodge Arrows. The block only protects the way you face, so this borrows the
+-- AntiAim trick of stepping out of an incoming projectile's flight path before it
+-- lands. Projectiles are collected by watching workspace for small newly spawned
+-- parts, and their speed is measured from position deltas, which also catches the
+-- arrows a game flies by CFrame (those report no AssemblyLinearVelocity).
+-- Globals on purpose: the main chunk is already at Luau's 200-local limit.
+ArrowDodgeParts = {}    -- [part] = { seen, pos, time, vel }
+ArrowDodgeOffset = nil  -- offset currently applied to the player, undone after
+ArrowDodgeLastThreat = 0
+ArrowDodgeLastScan = 0
+
+function ArrowDodgeTrack(part)
+	if not part:IsA("BasePart") then return end
+	-- Only small parts can be projectiles; this keeps map geometry out.
+	if part.Size.Magnitude > 14 then return end
+	local character = getCharacter()
+	if character and part:IsDescendantOf(character) then return end
+	if part:FindFirstAncestorOfClass("Accessory") or part:FindFirstAncestorOfClass("Tool") then return end
+	local model = part:FindFirstAncestorOfClass("Model")
+	if model and (model:FindFirstChildOfClass("Humanoid") or Players:GetPlayerFromCharacter(model)) then return end
+	local root = getRootPart()
+	-- Far away spawns are not worth tracking: only nearby shots can be dodged.
+	if root and (part.Position - root.Position).Magnitude > 250 then return end
+	ArrowDodgeParts[part] = { seen = tick(), pos = part.Position, time = tick(), vel = nil }
+end
+
+local function updateArrowDodge()
+	local now = tick()
+	if now - ArrowDodgeLastScan < 0.03 then return end
+	ArrowDodgeLastScan = now
+
+	local root = getRootPart()
+	local character = getCharacter()
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	if not root or not humanoid or humanoid.Health <= 0 then return end
+
+	local step = nil
+	for part, data in pairs(ArrowDodgeParts) do
+		if not part.Parent or now - data.seen > 4 then
+			ArrowDodgeParts[part] = nil
+		else
+			local pos = part.Position
+			local dt = now - data.time
+			if dt > 0 then
+				-- Smoothed, so a single jittery frame cannot invent a fast projectile.
+				local instant = (pos - data.pos) / dt
+				data.vel = data.vel and data.vel:Lerp(instant, 0.5) or instant
+			end
+			data.pos, data.time = pos, now
+
+			local speed = data.vel and data.vel.Magnitude or 0
+			if speed >= 45 then
+				local dir = data.vel / speed
+				local toMe = root.Position - pos
+				local along = toMe:Dot(dir)
+				-- Only react while the shot is still closing in and close to landing.
+				if toMe.Magnitude <= 90 and along > 0 and along <= speed * 0.6 then
+					local closest = pos + dir * along
+					if (closest - root.Position).Magnitude <= 6 then
+						local side = dir:Cross(Vector3.new(0, 1, 0))
+						if side.Magnitude < 0.05 then
+							side = Vector3.new(1, 0, 0)
+						end
+						side = side.Unit
+						-- Step to the side we are already leaning towards.
+						if toMe:Dot(side) < 0 then
+							side = -side
+						end
+						step = side * 7
+					end
+				end
+			end
+		end
+	end
+
+	if step then
+		root.CFrame = CFrame.new(root.Position + step)
+		ArrowDodgeOffset = (ArrowDodgeOffset or Vector3.new(0, 0, 0)) + step
+		ArrowDodgeLastThreat = now
+	elseif ArrowDodgeOffset and now - ArrowDodgeLastThreat > 0.4 then
+		-- The shot landed or flew past: undo the step, so repeated arrows can never
+		-- drag the player across the map.
+		root.CFrame = CFrame.new(root.Position - ArrowDodgeOffset)
+		ArrowDodgeOffset = nil
+	end
+end
+
+Toggles.DodgeArrows:OnChanged(function()
+	disconnect("DodgeArrowsSpawn")
+	disconnect("DodgeArrowsLoop")
+	ArrowDodgeParts = {}
+	if Toggles.DodgeArrows.Value then
+		track("DodgeArrowsSpawn", workspace.DescendantAdded:Connect(ArrowDodgeTrack))
+		track("DodgeArrowsLoop", RunService.Heartbeat:Connect(updateArrowDodge))
+		Library:Notify({ Title = "Dodge Arrows", Description = "Enabled", Time = 2 })
+	else
+		ArrowDodgeOffset = nil
+		ArrowDodgeLastThreat = 0
+		Library:Notify({ Title = "Dodge Arrows", Description = "Disabled", Time = 2 })
 	end
 end)
 
@@ -13558,6 +13598,14 @@ local function getOrCreateESP(player)
 	if player == LocalPlayer then return nil end
 	local entry = espObjects[player]
 	local character = player.Character
+
+	-- Fast path: an entry stays valid for as long as the same character is
+	-- alive, so the FindFirstChild lookups below only run on spawn/respawn
+	-- instead of on every ESP update.
+	if entry and entry.character == character and entry.root and entry.root.Parent then
+		return entry
+	end
+
 	if not character then
 		if entry then
 			if entry.billboard then entry.billboard.Enabled = false end
@@ -13588,11 +13636,9 @@ local function getOrCreateESP(player)
 		local maxDist = (Options and Options.ESPDistance and Options.ESPDistance.Value) or 500
 		local pColor = (Options and Options.PlayerESPColor and Options.PlayerESPColor.Value) or Color3.fromRGB(255, 255, 255)
 		local dColor = (Options and Options.ShowDistanceColor and Options.ShowDistanceColor.Value) or Color3.fromRGB(255, 255, 255)
-		local oColor = (Options and Options.OutlineESPColor and Options.OutlineESPColor.Value) or Color3.fromRGB(255, 255, 255)
 		local showDist = (Toggles and Toggles.ShowDistance and Toggles.ShowDistance.Value) or false
 		local showHealth = (Toggles and Toggles.PlayerHealthBar and Toggles.PlayerHealthBar.Value) or false
 		local showHpText = (Toggles and Toggles.ShowHealthText and Toggles.ShowHealthText.Value) or false
-		local outlineOn = (Toggles and Toggles.OutlineESP and Toggles.OutlineESP.Value) or false
 		local espMasterOn = (Toggles and Toggles.PlayerESP and Toggles.PlayerESP.Value) or false
 
 		-- Ultra-lightweight native BillboardGui (0% Lua overhead, Engine C++ rendered)
@@ -13670,15 +13716,8 @@ local function getOrCreateESP(player)
 		hpText.Visible = showHpText
 		hpText.Parent = container
 
-		local highlight = Instance.new("Highlight")
-		highlight.FillTransparency = 1
-		highlight.OutlineColor = oColor
-		highlight.OutlineTransparency = outlineOn and 0 or 1
-		highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-		highlight.Adornee = character
-		highlight.Enabled = outlineOn and espMasterOn
-		highlight.Parent = getESPFolder()
-
+		-- Outline ESP is created lazily by the update loop, and only for players
+		-- close enough to be worth the extra render pass.
 		entry = {
 			player = player,
 			character = character,
@@ -13690,7 +13729,7 @@ local function getOrCreateESP(player)
 			healthBg = healthBg,
 			healthFill = healthFill,
 			hpText = hpText,
-			highlight = highlight,
+			highlight = nil,
 			lastDist = -1,
 			lastHealth = -1,
 		}
@@ -13710,11 +13749,19 @@ local function getOrCreateESP(player)
 end
 
 local lastThrottledUpdate = 0
+-- Global on purpose: the main chunk is already at Luau's 200-local register limit.
+TSG_ESPUpdatePrev = 0
 
 local function updateAllESP()
 	if not Toggles.PlayerESP or not Toggles.PlayerESP.Value then return end
 
 	local now = tick()
+	-- The engine positions the BillboardGui itself, so the Lua side does not need
+	-- to run every frame. ~20 Hz looks identical while cutting the per-frame Lua
+	-- work (and the property writes it can trigger) by two thirds.
+	if now - TSG_ESPUpdatePrev < 0.05 then return end
+	TSG_ESPUpdatePrev = now
+
 	local myRoot = getRootPart()
 	local myPos = myRoot and myRoot.Position
 	local shouldThrottle = (now - lastThrottledUpdate >= 0.1)
@@ -13742,11 +13789,26 @@ local function updateAllESP()
 					entry.billboard.Enabled = inRange
 				end
 
-				if entry.highlight then
-					local shouldHl = outlineEnabled and inRange and (dist <= 250)
-					if entry.highlight.Enabled ~= shouldHl then
-						entry.highlight.Enabled = shouldHl
+				-- Outline ESP draws through a Highlight instance, which forces an
+				-- extra render pass per adorned character on mobile, so it is only
+				-- built while the option is on and the player is close enough.
+				local shouldHl = outlineEnabled and inRange and (dist <= 250)
+				if shouldHl then
+					if not entry.highlight then
+						local hl = Instance.new("Highlight")
+						hl.FillTransparency = 1
+						hl.OutlineColor = (Options and Options.OutlineESPColor and Options.OutlineESPColor.Value) or Color3.fromRGB(255, 255, 255)
+						hl.OutlineTransparency = 0
+						hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+						hl.Adornee = entry.character
+						hl.Parent = getESPFolder()
+						entry.highlight = hl
 					end
+					if not entry.highlight.Enabled then
+						entry.highlight.Enabled = true
+					end
+				elseif entry.highlight and entry.highlight.Enabled then
+					entry.highlight.Enabled = false
 				end
 
 				-- Box ESP: lightweight 2D bounding box drawn via the Drawing API
