@@ -5801,11 +5801,6 @@ CombatShieldSystem:AddSlider("ImmortalShieldSpeed", {
 	Compact = true,
 })
 
-CombatShieldSystem:AddCheckbox("DodgeArrows", {
-	Text = "Dodge Arrows",
-	Default = false,
-})
-
 CombatShieldSystem:AddCheckbox("Advance", {
 	Text = "Slot System",
 	Default = false,
@@ -5996,11 +5991,12 @@ function FireSetShield(state)
 	UpdateShieldAnimation()
 end
 
--- Ghost shield swap. The server only accepts setShield while a shield-capable
--- sword is equipped, so Infinite Shield equips one just long enough for the
--- server to raise the block and then hands your own weapon back, which means you
--- never have to hold the sword yourself. Globals on purpose: the main chunk is
--- already at Luau's 200-local register limit.
+-- Ghost shield swap. setShield is server-authoritative and the server only
+-- accepts it while a shield-capable sword is equipped, so Infinite Shield equips
+-- one just long enough for the server to raise the block and then hands your own
+-- weapon back. That is what makes the shield come up no matter what you happen to
+-- be holding. Globals on purpose: the main chunk is already at Luau's 200-local
+-- register limit.
 ShieldGhostSwapBusy = false
 ShieldGhostSwapLast = 0
 -- Minimum gap between two swaps, so the equip remotes are never spammed.
@@ -6031,6 +6027,7 @@ function GhostShieldSwap()
 	-- Same slot equipBestSword / the Atlantean swap use for swords.
 	local slot = tonumber(Options.AutoArmorSlot and Options.AutoArmorSlot.Value) or 5
 	local restoreId = GetHeldToolId()
+	if restoreId == shieldId then restoreId = nil end
 
 	ShieldGhostSwapBusy = true
 	task.spawn(function()
@@ -6038,12 +6035,21 @@ function GhostShieldSwap()
 			equipRemote:InvokeServer("inventory", slot, shieldId)
 		end)
 		if equipped then
-			-- The InvokeServer above already returned from the server, but give the
-			-- equipped tool a moment to settle before asking for the block.
-			task.wait(0.1)
+			-- Wait for the shield sword to actually be in hand instead of guessing
+			-- with a fixed delay: the server drops setShield when it arrives before
+			-- the sword does, which is the usual reason the block silently fails.
+			local deadline = tick() + 0.6
+			while not IsHoldingShieldSword() and tick() < deadline do
+				task.wait(0.03)
+			end
+
 			FireSetShield(true)
+			-- Let the server register the block before the sword is swapped back out.
 			task.wait(0.1)
-			if restoreId and restoreId ~= shieldId then
+
+			-- Holding nothing is left alone on purpose: the sword stays in hand so the
+			-- shield keeps holding instead of being dropped the moment it comes up.
+			if restoreId then
 				pcall(function()
 					equipRemote:InvokeServer("inventory", slot, restoreId)
 				end)
@@ -6656,13 +6662,11 @@ local function updateImmortalMode()
 			if IsHoldingShieldSword() then
 				-- Shield sword already in hand: the server accepts the block directly.
 				FireSetShield(true)
-			elseif GetOwnedShieldSwordId() and tick() - ShieldGhostSwapLast >= ShieldGhostSwapInterval then
+			elseif not ShieldGhostSwapBusy and tick() - ShieldGhostSwapLast >= ShieldGhostSwapInterval then
 				-- Raise the shield without holding the sword: equip one just long
 				-- enough for the server to accept setShield, then hand your weapon back.
 				ShieldGhostSwapLast = tick()
 				GhostShieldSwap()
-			else
-				FireSetShield(true)
 			end
 		end
 		isShielding = true
@@ -6686,108 +6690,6 @@ Toggles.ImmortalMode:OnChanged(function()
 			isShielding = false
 			FireSetShield(false)
 		end
-	end
-end)
-
--- Dodge Arrows. The block only protects the way you face, so this borrows the
--- AntiAim trick of stepping out of an incoming projectile's flight path before it
--- lands. Projectiles are collected by watching workspace for small newly spawned
--- parts, and their speed is measured from position deltas, which also catches the
--- arrows a game flies by CFrame (those report no AssemblyLinearVelocity).
--- Globals on purpose: the main chunk is already at Luau's 200-local limit.
-ArrowDodgeParts = {}    -- [part] = { seen, pos, time, vel }
-ArrowDodgeOffset = nil  -- offset currently applied to the player, undone after
-ArrowDodgeLastThreat = 0
-ArrowDodgeLastScan = 0
-
-function ArrowDodgeTrack(part)
-	if not part:IsA("BasePart") then return end
-	-- Only small parts can be projectiles; this keeps map geometry out.
-	if part.Size.Magnitude > 14 then return end
-	local character = getCharacter()
-	if character and part:IsDescendantOf(character) then return end
-	if part:FindFirstAncestorOfClass("Accessory") or part:FindFirstAncestorOfClass("Tool") then return end
-	local model = part:FindFirstAncestorOfClass("Model")
-	if model and (model:FindFirstChildOfClass("Humanoid") or Players:GetPlayerFromCharacter(model)) then return end
-	local root = getRootPart()
-	-- Far away spawns are not worth tracking: only nearby shots can be dodged.
-	if root and (part.Position - root.Position).Magnitude > 250 then return end
-	ArrowDodgeParts[part] = { seen = tick(), pos = part.Position, time = tick(), vel = nil }
-end
-
-local function updateArrowDodge()
-	local now = tick()
-	if now - ArrowDodgeLastScan < 0.03 then return end
-	ArrowDodgeLastScan = now
-
-	local root = getRootPart()
-	local character = getCharacter()
-	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-	if not root or not humanoid or humanoid.Health <= 0 then return end
-
-	local step = nil
-	for part, data in pairs(ArrowDodgeParts) do
-		if not part.Parent or now - data.seen > 4 then
-			ArrowDodgeParts[part] = nil
-		else
-			local pos = part.Position
-			local dt = now - data.time
-			if dt > 0 then
-				-- Smoothed, so a single jittery frame cannot invent a fast projectile.
-				local instant = (pos - data.pos) / dt
-				data.vel = data.vel and data.vel:Lerp(instant, 0.5) or instant
-			end
-			data.pos, data.time = pos, now
-
-			local speed = data.vel and data.vel.Magnitude or 0
-			if speed >= 45 then
-				local dir = data.vel / speed
-				local toMe = root.Position - pos
-				local along = toMe:Dot(dir)
-				-- Only react while the shot is still closing in and close to landing.
-				if toMe.Magnitude <= 90 and along > 0 and along <= speed * 0.6 then
-					local closest = pos + dir * along
-					if (closest - root.Position).Magnitude <= 6 then
-						local side = dir:Cross(Vector3.new(0, 1, 0))
-						if side.Magnitude < 0.05 then
-							side = Vector3.new(1, 0, 0)
-						end
-						side = side.Unit
-						-- Step to the side we are already leaning towards.
-						if toMe:Dot(side) < 0 then
-							side = -side
-						end
-						step = side * 7
-					end
-				end
-			end
-		end
-	end
-
-	if step then
-		root.CFrame = CFrame.new(root.Position + step)
-		ArrowDodgeOffset = (ArrowDodgeOffset or Vector3.new(0, 0, 0)) + step
-		ArrowDodgeLastThreat = now
-	elseif ArrowDodgeOffset and now - ArrowDodgeLastThreat > 0.4 then
-		-- The shot landed or flew past: undo the step, so repeated arrows can never
-		-- drag the player across the map.
-		root.CFrame = CFrame.new(root.Position - ArrowDodgeOffset)
-		ArrowDodgeOffset = nil
-	end
-end
-
-Toggles.DodgeArrows:OnChanged(function()
-	disconnect("DodgeArrowsSpawn")
-	disconnect("DodgeArrowsLoop")
-	ArrowDodgeParts = {}
-	if Toggles.DodgeArrows.Value then
-		track("DodgeArrowsSpawn", workspace.DescendantAdded:Connect(ArrowDodgeTrack))
-		track("DodgeArrowsLoop", RunService.Heartbeat:Connect(updateArrowDodge))
-		Library:Notify({ Title = "Dodge Arrows", Description = "Enabled", Time = 2 })
-	else
-		ArrowDodgeOffset = nil
-		ArrowDodgeLastThreat = 0
-		Library:Notify({ Title = "Dodge Arrows", Description = "Disabled", Time = 2 })
 	end
 end)
 
