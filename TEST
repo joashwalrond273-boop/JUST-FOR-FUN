@@ -6491,13 +6491,13 @@ SilentAimHK.Main:AddSlider("SAHKFOVRadius", {
 	Compact = true,
 })
 
-SilentAimHK.Main:AddCheckbox("SAHKBulletTeleport", {
-	Text = "Bullet Teleport",
+SilentAimHK.Main:AddCheckbox("SAHKWallCheck", {
+	Text = "Wall Check",
 	Default = false,
 })
 
-SilentAimHK.Main:AddCheckbox("SAHK360Mode", {
-	Text = "360 Mode",
+SilentAimHK.Main:AddCheckbox("SAHKWallBang", {
+	Text = "WallBang",
 	Default = false,
 })
 
@@ -6516,14 +6516,41 @@ SilentAimHK.Main:AddSlider("SAHKTargetRange", {
 	Compact = true,
 })
 
-SilentAimHK.Config:AddCheckbox("SAHKWallCheck", {
-	Text = "Wall Check",
+SilentAimHK.Config:AddCheckbox("SAHKBulletTeleport", {
+	Text = "Bullet Teleport",
 	Default = false,
 })
 
-SilentAimHK.Config:AddCheckbox("SAHKWallBang", {
-	Text = "WallBang",
+SilentAimHK.Config:AddCheckbox("SAHK360Mode", {
+	Text = "360 Mode",
 	Default = false,
+})
+
+SilentAimHK.Config:AddSlider("SAHKHitChance", {
+	Text = "Hit Chance",
+	Default = 100,
+	Min = 0,
+	Max = 100,
+	Rounding = 0,
+	Compact = true,
+})
+
+SilentAimHK.Config:AddSlider("SAHKHeadshotChance", {
+	Text = "Headshot Chance",
+	Default = 100,
+	Min = 0,
+	Max = 100,
+	Rounding = 0,
+	Compact = true,
+})
+
+SilentAimHK.Config:AddSlider("SAHKResponsiveness", {
+	Text = "Responsiveness",
+	Default = 0.5,
+	Min = 0.01,
+	Max = 2,
+	Rounding = 2,
+	Compact = true,
 })
 
 SilentAimHK.Config:AddDropdown("SAHKAimMethods", {
@@ -6553,33 +6580,6 @@ SilentAimHK.Config:AddButton({
 			Library:Notify({ Title = "Silent Aim", Description = tostring(#list) .. " remote(s): " .. shown, Time = 5 })
 		end
 	end,
-})
-
-SilentAimHK.Config:AddSlider("SAHKHitChance", {
-	Text = "Hit Chance",
-	Default = 100,
-	Min = 0,
-	Max = 100,
-	Rounding = 0,
-	Compact = true,
-})
-
-SilentAimHK.Config:AddSlider("SAHKHeadshotChance", {
-	Text = "Headshot Chance",
-	Default = 100,
-	Min = 0,
-	Max = 100,
-	Rounding = 0,
-	Compact = true,
-})
-
-SilentAimHK.Config:AddSlider("SAHKResponsiveness", {
-	Text = "Responsiveness",
-	Default = 0.5,
-	Min = 0.01,
-	Max = 2,
-	Rounding = 2,
-	Compact = true,
 })
 
 local CombatReach = Tabs.Combat:AddRightGroupbox("Advance Reach", "expand")
