@@ -5766,6 +5766,24 @@ CombatShieldSystem:AddSlider("ShieldParryStuds", {
 	Compact = true,
 })
 
+CombatShieldSystem:AddSlider("ShieldParryLead", {
+	Text = "Block Lead",
+	Default = 0,
+	Min = 0,
+	Max = 0.5,
+	Rounding = 2,
+	Compact = true,
+})
+
+CombatShieldSystem:AddSlider("ShieldParryHold", {
+	Text = "Block Hold",
+	Default = 0.35,
+	Min = 0.1,
+	Max = 1.5,
+	Rounding = 2,
+	Compact = true,
+})
+
 CombatShieldSystem:AddCheckbox("ShieldParryPunish", {
 	Text = "Parry Punish",
 	Default = false,
@@ -6863,6 +6881,7 @@ end
 do
 	local parryHolding = false
 	local parryUntil = 0
+	local parrySwingStart = 0
 	local lastParryFire = 0
 
 	local function getParryDistance()
@@ -6968,6 +6987,8 @@ do
 		end
 
 		setVisible(Options.ShieldParryStuds, autoShield)
+		setVisible(Options.ShieldParryLead, autoShield)
+		setVisible(Options.ShieldParryHold, autoShield)
 		setVisible(Toggles.ShieldParryPunish, autoShield)
 		setVisible(Options.ShieldDamageRefire, customRefire)
 		CombatShieldSystem:Resize()
@@ -7007,8 +7028,24 @@ do
 			end
 		end
 
+		-- Block Lead: hold off raising the shield for this long after the swing is
+		-- first seen, so the block lands on the strike rather than the windup.
+		-- 0 reproduces the old raise-on-sight behaviour.
 		if threat then
-			parryUntil = now + 0.35
+			if parrySwingStart == 0 then
+				parrySwingStart = now
+			end
+		else
+			parrySwingStart = 0
+		end
+
+		local lead = (Options.ShieldParryLead and Options.ShieldParryLead.Value) or 0
+		local hold = (Options.ShieldParryHold and Options.ShieldParryHold.Value) or 0.35
+
+		-- Refreshing while the attack is still landing keeps the guard up across a
+		-- combo instead of dropping it between two swings.
+		if threat and now >= parrySwingStart + lead then
+			parryUntil = now + hold
 		end
 
 		if now < parryUntil then
@@ -7027,6 +7064,7 @@ do
 		disconnect("ShieldAutoParry_CharacterAdded")
 		parryDrop()
 		parryUntil = 0
+		parrySwingStart = 0
 		punishUntil = 0
 
 		updateShieldSystemVisibility()
@@ -7036,6 +7074,7 @@ do
 		track("ShieldAutoParry_CharacterAdded", LocalPlayer.CharacterAdded:Connect(function()
 			parryDrop()
 			parryUntil = 0
+			parrySwingStart = 0
 		end))
 		track("ShieldAutoParry_Loop", RunService.Heartbeat:Connect(updateAutoParry))
 	end)
