@@ -6472,23 +6472,12 @@ SilentAimHK.Main = SilentAimHK.Box:AddTab("Silent Aim", "crosshair")
 SilentAimHK.Config = SilentAimHK.Box:AddTab("Config", "settings")
 
 SilentAimHK.Main:AddToggle("SilentAimHK", {
-	Text = "Silent Aim (HK)",
+	Text = "Silent Aim",
 	Default = false,
-})
-
--- Hides the ring only; the FOV Radius limit stays active either way.
-SilentAimHK.Main:AddCheckbox("SAHKShowRing", {
-	Text = "Show FOV Circle",
-	Default = true,
 })
 
 SilentAimHK.Main:AddToggle("SAHKWallCheck", {
 	Text = "Wall Check",
-	Default = false,
-})
-
-SilentAimHK.Main:AddToggle("SAHKWallBang", {
-	Text = "WallBang",
 	Default = false,
 })
 
@@ -6524,27 +6513,51 @@ SilentAimHK.Main:AddSlider("SAHKTargetRange", {
 	Compact = true,
 })
 
-SilentAimHK.Main:AddInput("SAHKRemoteGestalt", {
+-- Hides the ring only; the FOV Radius limit stays active either way.
+SilentAimHK.Config:AddCheckbox("SAHKShowRing", {
+	Text = "Show FOV Circle",
+	Default = true,
+})
+
+SilentAimHK.Config:AddSlider("SAHKFOVRadius", {
+	Text = "FOV Radius",
+	Default = 100,
+	Min = 0,
+	Max = 500,
+	Rounding = 0,
+	Compact = true,
+})
+
+SilentAimHK.Config:AddInput("SAHKRemoteGestalt", {
 	Text = "Remote Gestalt",
 	Default = "hit, bullet, projectile, hitscan",
 	Placeholder = "hit, bullet, projectile, hitscan",
 })
 
-SilentAimHK.Main:AddButton({
+SilentAimHK.Config:AddButton({
 	Text = "Scan Remotes",
 	Func = function()
 		local list = SilentAimHK.scanRemotes()
 		if #list == 0 then
-			Library:Notify({ Title = "Silent Aim (HK)", Description = "No matching remotes found.", Time = 3 })
+			Library:Notify({ Title = "Silent Aim", Description = "No matching remotes found.", Time = 3 })
 		else
 			local shown = table.concat(list, ", ")
 			if #shown > 220 then
 				shown = string.sub(shown, 1, 220) .. "..."
 			end
-			Library:Notify({ Title = "Silent Aim (HK)", Description = tostring(#list) .. " remote(s): " .. shown, Time = 5 })
+			Library:Notify({ Title = "Silent Aim", Description = tostring(#list) .. " remote(s): " .. shown, Time = 5 })
 		end
 	end,
 })
+
+SilentAimHK.Config:AddDivider()
+
+SilentAimHK.Config:AddToggle("SAHKWallBang", {
+	Text = "WallBang",
+	Default = false,
+})
+
+SilentAimHK.Config:AddDivider()
 
 SilentAimHK.Config:AddSlider("SAHKHitChance", {
 	Text = "Hit Chance",
@@ -6564,30 +6577,12 @@ SilentAimHK.Config:AddSlider("SAHKHeadshotChance", {
 	Compact = true,
 })
 
-SilentAimHK.Config:AddSlider("SAHKPrediction", {
-	Text = "Prediction",
-	Default = 0,
-	Min = 0,
-	Max = 0.5,
-	Rounding = 2,
-	Compact = true,
-})
-
 SilentAimHK.Config:AddSlider("SAHKResponsiveness", {
 	Text = "Responsiveness",
 	Default = 0.5,
 	Min = 0.01,
 	Max = 2,
 	Rounding = 2,
-	Compact = true,
-})
-
-SilentAimHK.Config:AddSlider("SAHKFOVRadius", {
-	Text = "FOV Radius",
-	Default = 100,
-	Min = 0,
-	Max = 500,
-	Rounding = 0,
 	Compact = true,
 })
 
@@ -8932,18 +8927,16 @@ function SilentAimHK.isVisible(player, character)
 	return visible
 end
 
--- Simple velocity lead so moving targets can be hit; Prediction 0 means no lead.
+-- Prediction is built in rather than exposed as a slider; kept at 0 so no
+-- velocity lead is applied for now.
 function SilentAimHK.predict(part)
 	if not part or not part.Parent then
 		return part and part.Position or nil
 	end
 	local pos = part.Position
-	local predTime = (Options.SAHKPrediction and Options.SAHKPrediction.Value) or 0
+	local predTime = 0
 	if predTime <= 0 then
 		return pos
-	end
-	if predTime > 0.5 then
-		predTime = 0.5
 	end
 	return pos + ((part.AssemblyLinearVelocity or Vector3.zero) * predTime)
 end
@@ -9357,7 +9350,7 @@ if hookmetamethod and getnamecallmethod and checkcaller then
 		return SilentAimHK.Namecall(...)
 	end)
 else
-	warn("[URIEL]: Silent Aim (HK) needs hookmetamethod, getnamecallmethod and checkcaller")
+	warn("[URIEL]: Silent Aim needs hookmetamethod, getnamecallmethod and checkcaller")
 end
 
 Toggles.SilentAimHK:OnChanged(function()
@@ -9375,11 +9368,11 @@ Toggles.SilentAimHK:OnChanged(function()
 			SilentAimHK.Accum = 0
 			SilentAimHK.update()
 		end))
-		Library:Notify({ Title = "Silent Aim (HK)", Description = "Enabled", Time = 2 })
+		Library:Notify({ Title = "Silent Aim", Description = "Enabled", Time = 2 })
 	else
 		SilentAimHK.Target = nil
 		SilentAimHK.drawRing(false, 0, workspace.CurrentCamera)
-		Library:Notify({ Title = "Silent Aim (HK)", Description = "Disabled", Time = 2 })
+		Library:Notify({ Title = "Silent Aim", Description = "Disabled", Time = 2 })
 	end
 end)
 
