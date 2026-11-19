@@ -8911,109 +8911,116 @@ function SilentAimHK.getTargetPart(character)
 		or character:FindFirstChild("HumanoidRootPart")
 end
 
--- True when nothing solid sits between the camera and the target part.
-function SilentAimHB.hasLineOfSight(fromPos, toPos, character)
-	local direction = toPos - fromPos
-	if direction.Magnitude <= 0 then return true end
-	local ignore = { character }
-	local localCharacter = LocalPlayer.Character
-	if localCharacter then
-		table.insert(ignore, localCharacter)
+-- True when nothing solid sits between the camera and the target. Cached for a
+-- fraction of a second because the check is a raycast per player.
+function SilentAimHK.isVisible(player, character)
+	local now = tick()
+	local entry = SilentAimHK.WallCache[player]
+	if entry and entry.char == character and now - entry.t < 0.2 then
+		return entry.visible
 	end
-	SilentAimHB.RayParams.FilterDescendantsInstances = ignore
-	return workspace:Raycast(fromPos, direction, SilentAimHB.RayParams) == nil
+	local camera = workspace.CurrentCamera
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	local visible = false
+	if camera and root then
+		local origin = camera.CFrame.Position
+		local direction = root.Position - origin
+		SilentAimHK.RayParams.FilterDescendantsInstances = { character, LocalPlayer.Character }
+		visible = direction.Magnitude <= 0 or workspace:Raycast(origin, direction, SilentAimHK.RayParams) == nil
+	end
+	SilentAimHK.WallCache[player] = { t = now, visible = visible, char = character }
+	return visible
 end
 
--- How large the hitbox needs to be so it fills the FOV circle at the target's
--- distance. "Scale To Screen" stretches it to cover the whole view instead, with
--- STS Distance acting as a safety gap at point blank range.
-function SilentAimHB.computeSize(camera, worldDist, partPos, screenDist, scaleToScreen, stsDistance)
-	local viewport = camera.ViewportSize
-	local screenHeight = math.max(viewport.Y, 1)
-	local vFov = math.rad(math.clamp(camera.FieldOfView or 70, 1, 120))
-	local alpha = (screenDist / (screenHeight / 2)) * (vFov / 2)
-	local size = math.max(0.01, worldDist * math.tan(alpha) * 2)
-
-	if scaleToScreen then
-		local localRoot = getRootPart()
-		local fromPos = localRoot and localRoot.Position or camera.CFrame.Position
-		local distance = (partPos - fromPos).Magnitude
-		local effectiveDistance = math.max(distance - math.max(stsDistance, 0.1), 0.1)
-		size = math.max((effectiveDistance * math.tan(vFov / 2)) * 2, size)
-	end
-
-	return math.clamp(size, 0.01, 200)
-end
-
--- Grows the body part, remembering everything about it so it can go back exactly
--- the way it was.
-function SilentAimHB.apply(player, part, size)
-	if not part or not part.Parent then return end
-	local entry = SilentAimHB.Applied[player]
-	if not entry or entry.part ~= part then
-		SilentAimHB.restore(player)
-		entry = {
-			part = part,
-			partName = part.Name,
-			size = part.Size,
-			transparency = part.Transparency,
-			massless = part.Massless,
-			canCollide = part.CanCollide,
-		}
-		SilentAimHB.Applied[player] = entry
-	end
-	local transparency = (Options.SAHitboxTransparency and Options.SAHitboxTransparency.Value) or 0.5
-	pcall(function()
-		part.Size = Vector3.new(size, size, size)
-		part.Transparency = transparency
-		part.CanCollide = false
-		part.Massless = part.Name == "Head"
-	end)
-end
-
-function SilentAimHB.restore(player)
-	local entry = SilentAimHB.Applied[player]
-	if not entry then return end
-	SilentAimHB.Applied[player] = nil
-	local part = entry.part
+-- Simple velocity lead so moving targets can be hit; Prediction 0 means no lead.
+function SilentAimHK.predict(part)
 	if not part or not part.Parent then
-		local character = player.Character
-		part = character and character:FindFirstChild(entry.partName)
+		return part and part.Position or nil
 	end
-	if part and part.Parent then
-		pcall(function()
-			part.Size = entry.size
-			part.Transparency = entry.transparency
-			part.Massless = entry.massless
-			part.CanCollide = entry.canCollide
-		end)
+	local pos = part.Position
+	local predTime = (Options.SAHKPrediction and Options.SAHKPrediction.Value) or 0
+	if predTime <= 0 then
+		return pos
 	end
+	if predTime > 0.5 then
+		predTime = 0.5
+	end
+	return pos + ((part.AssemblyLinearVelocity or Vector3.zero) * predTime)
 end
 
-function SilentAimHB.restoreAll()
-	for player in pairs(SilentAimHB.Applied) do
-		SilentAimHB.restore(player)
+-- Picks the target part every throttle tick. Screen-space closest to the
+-- crosshair inside the FOV circle, or plain closest when 360 Mode is on.
+function SilentAimHK.findTarget()
+	local camera = workspace.CurrentCamera
+	local character = getCharacter()
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if not camera or not root then return nil end
+
+	local threeSixty = (Toggles.SAHK360Mode and Toggles.SAHK360Mode.Value) or false
+	local radius = (Options.SAHKFOVRadius and Options.SAHKFOVRadius.Value) or 100
+	local range = (Options.SAHKTargetRange and Options.SAHKTargetRange.Value) or 500
+	local wallCheck = (Toggles.SAHKWallCheck and Toggles.SAHKWallCheck.Value) or false
+
+	local viewport = camera.ViewportSize
+	local center = Vector2.new(viewport.X / 2, viewport.Y / 2)
+	local bestPart, bestScreen, bestWorld = nil, math.huge, math.huge
+
+	for _, otherPlayer in ipairs(Players:GetPlayers()) do
+		if otherPlayer ~= LocalPlayer and not isTeammate(otherPlayer) then
+			local otherChar = otherPlayer.Character
+			local humanoid = otherChar and otherChar:FindFirstChildOfClass("Humanoid")
+			if otherChar and humanoid and humanoid.Health > 0 and not otherChar:FindFirstChildOfClass("ForceField") then
+				local otherRoot = otherChar:FindFirstChild("HumanoidRootPart")
+				if otherRoot then
+					local worldDist = (otherRoot.Position - root.Position).Magnitude
+					if worldDist <= range then
+						local part = SilentAimHK.getTargetPart(otherChar)
+						if part and part.Parent and (not wallCheck or SilentAimHK.isVisible(otherPlayer, otherChar)) then
+							if threeSixty then
+								if worldDist < bestWorld then
+									bestPart, bestWorld = part, worldDist
+								end
+							else
+								local screenPos, onScreen = camera:WorldToViewportPoint(part.Position)
+								if onScreen then
+									local screenDist = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
+									if screenDist <= radius and screenDist < bestScreen then
+										bestPart, bestScreen = part, screenDist
+									end
+								end
+							end
+						end
+					end
+				end
+			end
+		end
 	end
+
+	return bestPart
 end
 
 -- FOV ring, drawn with the executor's Drawing API (same as the box ESP). If the
 -- executor has no Drawing it is simply skipped.
-function SilentAimHB.drawRing(visible, radius, camera)
-	if visible and not SilentAimHB.Ring then
-		pcall(function()
-			local circle = Drawing.new("Circle")
-			circle.Thickness = 1
-			circle.NumSides = 60
-			circle.Filled = false
-			circle.Transparency = 1
-			circle.Color = Color3.fromRGB(255, 255, 255)
-			circle.Visible = false
-			SilentAimHB.Ring = circle
-			-- Reuse the global the unload handler already removes.
-			fovCircle = circle
-		end)
+function SilentAimHK.drawRing(visible, radius, camera)
+	if visible and not SilentAimHK.Ring and not SilentAimHK.RingUnsupported then
+		if typeof(Drawing) == "table" and typeof(Drawing.new) == "function" then
+			pcall(function()
+				local circle = Drawing.new("Circle")
+				circle.Thickness = 1
+				circle.NumSides = 60
+				circle.Filled = false
+				circle.Transparency = 1
+				circle.Color = Color3.fromRGB(255, 255, 255)
+				circle.Visible = false
+				SilentAimHK.Ring = circle
+				-- Reuse the global the unload handler already removes.
+				fovCircle = circle
+			end)
+		else
+			SilentAimHK.RingUnsupported = true
+		end
 	end
-	local circle = SilentAimHB.Ring
+	local circle = SilentAimHK.Ring
 	if circle then
 		circle.Visible = visible and true or false
 		if visible then
@@ -9027,104 +9034,366 @@ end
 
 -- The FOV ring can be hidden from the menu while the FOV Radius limit keeps
 -- working behind the scenes.
-function SilentAimHB.showRing()
-	return (Toggles.SAShowRing and Toggles.SAShowRing.Value) or false
+function SilentAimHK.showRing()
+	return (Toggles.SAHKShowRing and Toggles.SAHKShowRing.Value) or false
 end
 
-function SilentAimHB.update()
+function SilentAimHK.update()
 	local camera = workspace.CurrentCamera
-	if not camera then return end
-
 	if not isAlive() then
-		SilentAimHB.drawRing(false, 0, camera)
-		SilentAimHB.restoreAll()
+		SilentAimHK.Target = nil
+		SilentAimHK.drawRing(false, 0, camera)
 		return
 	end
+	local radius = (Options.SAHKFOVRadius and Options.SAHKFOVRadius.Value) or 100
+	SilentAimHK.drawRing(SilentAimHK.showRing(), radius, camera)
+	SilentAimHK.Target = SilentAimHK.findTarget()
+end
 
-	local viewport = camera.ViewportSize
-	local center = Vector2.new(viewport.X / 2, viewport.Y / 2)
-	local radius = (Options.SAFOVRadius and Options.SAFOVRadius.Value) or 120
-	local range = (Options.SARange and Options.SARange.Value) or 500
-	local wallCheck = Toggles.SAWallCheck and Toggles.SAWallCheck.Value
-	local scaleToScreen = Toggles.SAScaleToScreen and Toggles.SAScaleToScreen.Value
-	local stsDistance = (Options.SASTSDistance and Options.SASTSDistance.Value) or 0
-	local hitChance = (Options.SAHitChance and Options.SAHitChance.Value) or 100
+-- Rebuilds a {X=,Y=,Z=} table with the supplied vector, keeping any extra keys.
+function SilentAimHK.makeVecTable(template, newVec)
+	local copied = table.clone(template)
+	for key in pairs(copied) do
+		local lower = type(key) == "string" and string.lower(key) or key
+		if lower == "x" then
+			copied[key] = newVec.X
+		elseif lower == "y" then
+			copied[key] = newVec.Y
+		elseif lower == "z" then
+			copied[key] = newVec.Z
+		end
+	end
+	return copied
+end
 
-	SilentAimHB.drawRing(SilentAimHB.showRing(), radius, camera)
+-- Rewrites a single value the game passed to a ray/remote so it points at the
+-- target. keyHint is the lowercase argument/field name it sat under.
+function SilentAimHK.rewriteValue(val, keyHint, targetPos, hitPart, bulletTeleport)
+	local t = typeof(val)
+	if t == "Vector3" then
+		if SilentAimHK.V3_DIR[keyHint] then
+			return (targetPos - val).Unit
+		elseif SilentAimHK.V3_ORG[keyHint] then
+			if bulletTeleport then
+				return targetPos - ((targetPos - val).Unit * 2)
+			end
+			return val
+		elseif SilentAimHK.V3_HIT[keyHint] then
+			return targetPos
+		end
+		return val
+	elseif t == "CFrame" then
+		if SilentAimHK.CF_ORG[keyHint] then
+			if bulletTeleport then
+				return CFrame.new(targetPos - ((targetPos - val.Position).Unit * 2))
+			end
+			return val
+		end
+		return CFrame.lookAt(val.Position, targetPos)
+	elseif t == "Ray" then
+		local origin = val.Origin
+		if bulletTeleport then
+			origin = targetPos - ((targetPos - origin).Unit * 2)
+		end
+		return Ray.new(origin, (targetPos - origin).Unit * 1000)
+	elseif t == "table" then
+		local isVec = (val.X ~= nil or val.x ~= nil)
+			and (val.Y ~= nil or val.y ~= nil)
+			and (val.Z ~= nil or val.z ~= nil)
+		if isVec then
+			local vec = Vector3.new(val.X or val.x, val.Y or val.y, val.Z or val.z)
+			if SilentAimHK.TV_HIT[keyHint] then
+				return SilentAimHK.makeVecTable(val, targetPos)
+			elseif SilentAimHK.TV_DIR[keyHint] then
+				return SilentAimHK.makeVecTable(val, (targetPos - vec).Unit)
+			elseif SilentAimHK.TV_ORG[keyHint] then
+				if bulletTeleport then
+					return SilentAimHK.makeVecTable(val, targetPos - ((targetPos - vec).Unit * 2))
+				end
+				return val
+			end
+			return val
+		end
+		local rebuilt = {}
+		local hasDirection, hasHitPosition, hasHitPart = false, false, false
+		for key, value in pairs(val) do
+			local lower = type(key) == "string" and string.lower(key) or key
+			rebuilt[key] = SilentAimHK.rewriteValue(value, lower, targetPos, hitPart, bulletTeleport)
+			if SilentAimHK.TV_DIR[lower] then
+				if SilentAimHK.KEY_DIR2[lower] then
+					hasDirection = true
+				end
+			elseif SilentAimHK.TV_HIT[lower] then
+				hasHitPosition = true
+			elseif lower == "hitpart" or lower == "target" then
+				hasHitPart = true
+			end
+		end
+		-- A bare direction is not enough for most games, so a hit position (and
+		-- usually a hit part) is attached alongside it.
+		if hasDirection then
+			if not hasHitPosition then rebuilt["hitPosition"] = targetPos end
+			if not hasHitPart then rebuilt["hitPart"] = hitPart end
+		end
+		return rebuilt
+	end
+	return val
+end
 
-	local camPos = camera.CFrame.Position
-	local bestPart, bestPlayer, bestWorldDist, bestScreenDist = nil, nil, nil, math.huge
+-- The __namecall hook. Installed once at load and kept inert until the feature
+-- is switched on, so it costs one table lookup per call while disabled.
+function SilentAimHK.Namecall(...)
+	local original = SilentAimHK.OriginalNamecall
+	if not original then return end
+	if not SilentAimHK.isEnabled() then
+		return original(...)
+	end
 
-	for _, otherPlayer in ipairs(Players:GetPlayers()) do
-		if otherPlayer ~= LocalPlayer and otherPlayer.Character and not isTeammate(otherPlayer) then
-			local character = otherPlayer.Character
-			local humanoid = character:FindFirstChildOfClass("Humanoid")
-			local part = SilentAimHB.getPart(otherPlayer)
-			if humanoid and humanoid.Health > 0 and part and part.Parent
-				and not character:FindFirstChildOfClass("ForceField") then
-				local worldDist = (part.Position - camPos).Magnitude
-				if worldDist <= range then
-					local screenPoint, onScreen = camera:WorldToViewportPoint(part.Position)
-					if onScreen then
-						local screenDist = (Vector2.new(screenPoint.X, screenPoint.Y) - center).Magnitude
-						if screenDist <= radius and screenDist < bestScreenDist then
-							if not wallCheck or SilentAimHB.hasLineOfSight(camPos, part.Position, character) then
-								bestPart, bestPlayer = part, otherPlayer
-								bestWorldDist, bestScreenDist = worldDist, screenDist
-							end
-						end
+	local method = getnamecallmethod()
+	if method ~= "Raycast" and method ~= "FireServer" and method ~= "InvokeServer" then
+		return original(...)
+	end
+	-- Only the game's own calls are rewritten; anything this script fires
+	-- (melee remotes, its own raycasts...) is left exactly as it is.
+	if checkcaller() then
+		return original(...)
+	end
+
+	local methods = SilentAimHK.getAimMethods()
+	local isRay = (method == "Raycast")
+	if isRay then
+		if not methods.ray then return original(...) end
+	else
+		if method == "FireServer" then
+			if not methods.fire then return original(...) end
+		elseif not methods.invoke then
+			return original(...)
+		end
+		local remote = ...
+		if typeof(remote) ~= "Instance" then return original(...) end
+		local class = remote.ClassName
+		if class ~= "RemoteEvent" and class ~= "RemoteFunction" and class ~= "UnreliableRemoteEvent" then
+			return original(...)
+		end
+		if not SilentAimHK.matchesRemote(remote.Name) then return original(...) end
+	end
+
+	-- Hit Chance is rolled per call: a miss just lets the original call through.
+	local chance = (Options.SAHKHitChance and Options.SAHKHitChance.Value) or 100
+	if chance <= 0 or (chance < 100 and math.random(1, 100) > chance) then
+		return original(...)
+	end
+
+	local hitPart = SilentAimHK.Target
+	if not hitPart or not hitPart.Parent then return original(...) end
+	local targetPos = SilentAimHK.predict(hitPart)
+	if not targetPos then return original(...) end
+
+	local wallBang = (Toggles.SAHKWallBang and Toggles.SAHKWallBang.Value) or false
+	local bulletTeleport = (Toggles.SAHKBulletTeleport and Toggles.SAHKBulletTeleport.Value) or false
+
+	if isRay then
+		local raySelf, origin, direction = ...
+		if typeof(origin) ~= "Vector3" or typeof(direction) ~= "Vector3" then
+			return original(...)
+		end
+		local toTarget = targetPos - origin
+		if bulletTeleport then
+			local distance = toTarget.Magnitude
+			if distance > 0 then
+				local dir = toTarget.Unit
+				return original(raySelf, targetPos - (dir * 2), dir * (distance + 2), select(4, ...))
+			end
+		end
+		if wallBang then
+			-- Pretend the ray already hit the target so wall checks pass.
+			return {
+				Instance = hitPart,
+				Position = targetPos,
+				Normal = toTarget.Unit,
+				Material = hitPart.Material,
+				Distance = toTarget.Magnitude,
+			}
+		end
+		return original(raySelf, origin, toTarget.Unit * direction.Magnitude, select(4, ...))
+	end
+
+	local args = table.pack(...)
+	local count = args.n
+	for i = 1, count do
+		local arg = args[i]
+		local argType = typeof(arg)
+		if argType == "table" then
+			args[i] = SilentAimHK.rewriteValue(arg, nil, targetPos, hitPart, bulletTeleport)
+		elseif argType == "Vector3" or argType == "CFrame" or argType == "Ray" then
+			args[i] = SilentAimHK.rewriteValue(arg, "direction", targetPos, hitPart, bulletTeleport)
+		end
+	end
+
+	if wallBang then
+		for i = 1, count do
+			local arg = args[i]
+			if type(arg) == "table" then
+				for key in pairs(arg) do
+					local lower = type(key) == "string" and string.lower(key) or key
+					if SilentAimHK.WB_KEYS[lower] then
+						arg[key] = true
 					end
 				end
 			end
 		end
 	end
 
-	-- Whoever is no longer the chosen target gets their real size back.
-	for player in pairs(SilentAimHB.Applied) do
-		if player ~= bestPlayer then
-			SilentAimHB.restore(player)
-		end
-	end
-
-	if not bestPart then return end
-
-	-- Hit Chance is rolled every update: a miss simply leaves them untouched.
-	if math.random(1, 100) > hitChance then
-		SilentAimHB.restore(bestPlayer)
-		return
-	end
-
-	local size = SilentAimHB.computeSize(camera, bestWorldDist, bestPart.Position, bestScreenDist, scaleToScreen, stsDistance)
-	SilentAimHB.apply(bestPlayer, bestPart, size)
+	return original(table.unpack(args, 1, count))
 end
 
-Toggles.SilentAimHB:OnChanged(function()
-	disconnect("SilentAimHBLoop")
-	if Toggles.SilentAimHB.Value then
-		SilentAimHB.Accum = 0
-		-- Draw the ring immediately so it never trails a throttled update.
-		SilentAimHB.drawRing(SilentAimHB.showRing(), (Options.SAFOVRadius and Options.SAFOVRadius.Value) or 120, workspace.CurrentCamera)
-		track("SilentAimHBLoop", RunService.RenderStepped:Connect(function(dt)
-			local responsiveness = (Options.SAResponsiveness and Options.SAResponsiveness.Value) or 0.5
-			SilentAimHB.Accum = SilentAimHB.Accum + (dt or 0)
-			if SilentAimHB.Accum < responsiveness then return end
-			SilentAimHB.Accum = 0
-			SilentAimHB.update()
-		end))
-		Library:Notify({ Title = "Silent Aim", Description = "Enabled", Time = 2 })
+-- Optional Mouse.Hit interception. Only installed while "Mouse.Hit" is one of
+-- the chosen Aim Methods, because an __index hook on game runs for every
+-- property read the game's scripts make.
+function SilentAimHK.mouseIndex(original, self, key)
+	if not SilentAimHK.MouseKeys[key] or self ~= SilentAimHK.CachedMouse then
+		return original(self, key)
+	end
+	if not SilentAimHK.isEnabled() or (checkcaller and checkcaller()) then
+		return original(self, key)
+	end
+	local part = SilentAimHK.Target
+	if not part or not part.Parent then
+		return original(self, key)
+	end
+	if key == "Target" then
+		return part
+	elseif key == "TargetFilter" then
+		return nil
+	end
+	local camera = workspace.CurrentCamera
+	if not camera then return original(self, key) end
+	local pos = SilentAimHK.predict(part)
+	if not pos then return original(self, key) end
+	if key == "X" or key == "Y" then
+		local screen = camera:WorldToViewportPoint(pos)
+		if key == "X" then return screen.X end
+		return screen.Y
+	end
+	local origin = camera.CFrame.Position
+	local direction = pos - origin
+	if direction.Magnitude < 0.001 then
+		return original(self, key)
+	end
+	if key == "Hit" then
+		return CFrame.lookAt(pos, pos + direction.Unit)
+	end
+	return Ray.new(origin, direction.Unit * (direction.Magnitude + 5))
+end
+
+function SilentAimHK.installMouseHook()
+	if SilentAimHK.MouseHook or not SilentAimHK.Supported or not hookmetamethod then return end
+	local mouse = LocalPlayer:GetMouse()
+	if not mouse then return end
+	SilentAimHK.CachedMouse = mouse
+	local previous
+	local ok = pcall(function()
+		previous = hookmetamethod(game, "__index", function(self, key)
+			return SilentAimHK.mouseIndex(previous, self, key)
+		end)
+	end)
+	if ok then
+		SilentAimHK.MouseHook = previous
+	end
+end
+
+function SilentAimHK.removeMouseHook()
+	if not SilentAimHK.MouseHook then return end
+	pcall(function()
+		hookmetamethod(game, "__index", SilentAimHK.MouseHook)
+	end)
+	SilentAimHK.MouseHook = nil
+	SilentAimHK.CachedMouse = nil
+end
+
+function SilentAimHK.syncMouseHook()
+	if SilentAimHK.isEnabled() and SilentAimHK.getAimMethods().mouse then
+		SilentAimHK.installMouseHook()
 	else
-		SilentAimHB.restoreAll()
-		SilentAimHB.drawRing(false, 0, workspace.CurrentCamera)
-		Library:Notify({ Title = "Silent Aim", Description = "Disabled", Time = 2 })
+		SilentAimHK.removeMouseHook()
+	end
+end
+
+-- Remote scanner behind the "Scan Remotes" button.
+function SilentAimHK.scanRemotes()
+	local names = SilentAimHK.getRemoteNames()
+	local found = {}
+	local function search(parent)
+		if not parent then return end
+		for _, child in ipairs(parent:GetChildren()) do
+			if child:IsA("RemoteEvent") or child:IsA("RemoteFunction") or child:IsA("UnreliableRemoteEvent") then
+				local lower = string.lower(child.Name)
+				for _, pattern in ipairs(names) do
+					if string.find(lower, pattern, 1, true) then
+						found[child.Name] = true
+						break
+					end
+				end
+			end
+			if child:IsA("Folder") or child:IsA("Model") then
+				search(child)
+			end
+		end
+	end
+	search(ReplicatedStorage)
+	search(workspace)
+	local list = {}
+	for name in pairs(found) do
+		table.insert(list, name)
+	end
+	table.sort(list)
+	SilentAimHK.DetectedRemotes = list
+	return list
+end
+
+-- Install the hook once. It stays inert while the feature is off.
+if hookmetamethod and getnamecallmethod and checkcaller then
+	SilentAimHK.OriginalNamecall = hookmetamethod(game, "__namecall", function(...)
+		return SilentAimHK.Namecall(...)
+	end)
+else
+	warn("[URIEL]: Silent Aim (HK) needs hookmetamethod, getnamecallmethod and checkcaller")
+end
+
+Toggles.SilentAimHK:OnChanged(function()
+	disconnect("SilentAimHKLoop")
+	SilentAimHK.syncMouseHook()
+	if Toggles.SilentAimHK.Value then
+		SilentAimHK.Accum = 0
+		SilentAimHK.Target = nil
+		-- Draw the ring immediately so it never trails a throttled update.
+		SilentAimHK.drawRing(SilentAimHK.showRing(), (Options.SAHKFOVRadius and Options.SAHKFOVRadius.Value) or 100, workspace.CurrentCamera)
+		track("SilentAimHKLoop", RunService.Heartbeat:Connect(function(dt)
+			local responsiveness = (Options.SAHKResponsiveness and Options.SAHKResponsiveness.Value) or 0.5
+			SilentAimHK.Accum = SilentAimHK.Accum + (dt or 0)
+			if SilentAimHK.Accum < responsiveness then return end
+			SilentAimHK.Accum = 0
+			SilentAimHK.update()
+		end))
+		Library:Notify({ Title = "Silent Aim (HK)", Description = "Enabled", Time = 2 })
+	else
+		SilentAimHK.Target = nil
+		SilentAimHK.drawRing(false, 0, workspace.CurrentCamera)
+		Library:Notify({ Title = "Silent Aim (HK)", Description = "Disabled", Time = 2 })
 	end
 end)
 
 -- Show / hide the ring the moment the checkbox is toggled.
-Toggles.SAShowRing:OnChanged(function()
-	if Toggles.SilentAimHB and Toggles.SilentAimHB.Value then
-		local radius = (Options.SAFOVRadius and Options.SAFOVRadius.Value) or 120
-		SilentAimHB.drawRing(Toggles.SAShowRing.Value and true or false, radius, workspace.CurrentCamera)
+Toggles.SAHKShowRing:OnChanged(function()
+	if Toggles.SilentAimHK and Toggles.SilentAimHK.Value then
+		local radius = (Options.SAHKFOVRadius and Options.SAHKFOVRadius.Value) or 100
+		SilentAimHK.drawRing(Toggles.SAHKShowRing.Value and true or false, radius, workspace.CurrentCamera)
 	end
+end)
+
+-- The mouse hook only needs to exist while "Mouse.Hit" is selected.
+Options.SAHKAimMethods:OnChanged(function()
+	SilentAimHK.syncMouseHook()
 end)
 
 -- ==========================================
@@ -15334,8 +15603,8 @@ Library:OnUnload(function()
 	if Toggles.AutoAirBubbles and Toggles.AutoAirBubbles.Value then
 		Toggles.AutoAirBubbles:SetValue(false)
 	end
-	if Toggles.SilentAimHB and Toggles.SilentAimHB.Value then
-		Toggles.SilentAimHB:SetValue(false)
+	if Toggles.SilentAimHK and Toggles.SilentAimHK.Value then
+		Toggles.SilentAimHK:SetValue(false)
 	end
 	pcall(restoreAirBubbles)
 
