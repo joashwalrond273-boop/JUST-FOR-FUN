@@ -4760,44 +4760,6 @@ MainRight:AddButton({
 })
 
 MainRight:AddButton({
-	Text = "Ping Spoofer",
-	Func = function()
-		if getgenv().PingSpoofer then
-			getgenv().PingSpoofer.SpoofPing = true
-			Library:Notify({ Title = "Ping Spoofer", Description = "Ping spoofing activated!", Time = 2 })
-			return
-		end
-
-		getgenv().PingSpoofer = {
-			SpoofPing = true,
-			StartOfPingSpoofer = 31,
-			EndOfPingSpoofer = 69
-		}
-
-		local Memory
-		pcall(function()
-			for __, v in pairs(game.CoreGui.RobloxGui.PerformanceStats:GetChildren()) do
-				if v.Name == 'PS_Button' and v.StatsMiniTextPanelClass.TitleLabel.Text == 'Ping' then
-					Memory = v.StatsMiniTextPanelClass.ValueLabel
-				end
-			end
-		end)
-
-		if Memory then
-			Memory:GetPropertyChangedSignal('Text'):Connect(function()
-				if getgenv().PingSpoofer and getgenv().PingSpoofer.SpoofPing then
-					local Random = math.random(getgenv().PingSpoofer.StartOfPingSpoofer, getgenv().PingSpoofer.EndOfPingSpoofer)
-					Random = Random * 1.23
-					Memory.Text = Random .. ' ms'
-				end
-			end)
-		end
-
-		Library:Notify({ Title = "Ping Spoofer", Description = "Ping spoofing activated!", Time = 2 })
-	end,
-})
-
-MainRight:AddButton({
 	Text = "Rejoin Server",
 	Func = function()
 		game:GetService("TeleportService"):TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer)
@@ -12619,6 +12581,52 @@ TSG_AntiLagGroup:AddCheckbox("BlockRemoteSpam", {
 				return TSG_RemoteSpamHook(...)
 			end)
 		end
+	end,
+})
+
+-- Ping Spoofer (moved here from the Main buttons as a checkbox). It fakes the
+-- ping readout in the Roblox performance stats panel.
+TSG_AntiLagGroup:AddCheckbox("PingSpoofer", {
+	Text = "Ping Spoofer",
+	Default = false,
+	Callback = function(state)
+		local spoofer = getgenv().PingSpoofer
+		if not spoofer then
+			spoofer = {
+				SpoofPing = state,
+				StartOfPingSpoofer = 31,
+				EndOfPingSpoofer = 69,
+			}
+			getgenv().PingSpoofer = spoofer
+		else
+			spoofer.SpoofPing = state
+		end
+
+		-- Only wire the readout once; the handler checks SpoofPing each time so
+		-- turning the checkbox off restores the real ping immediately.
+		if state and not spoofer.Hooked then
+			spoofer.Hooked = true
+			pcall(function()
+				for _, v in pairs(game.CoreGui.RobloxGui.PerformanceStats:GetChildren()) do
+					if v.Name == "PS_Button" and v.StatsMiniTextPanelClass.TitleLabel.Text == "Ping" then
+						local memory = v.StatsMiniTextPanelClass.ValueLabel
+						memory:GetPropertyChangedSignal("Text"):Connect(function()
+							local active = getgenv().PingSpoofer
+							if active and active.SpoofPing then
+								local random = math.random(active.StartOfPingSpoofer, active.EndOfPingSpoofer)
+								memory.Text = (random * 1.23) .. " ms"
+							end
+						end)
+					end
+				end
+			end)
+		end
+
+		Library:Notify({
+			Title = "Ping Spoofer",
+			Description = state and "Ping spoofing activated!" or "Ping spoofing disabled.",
+			Time = 2,
+		})
 	end,
 })
 
