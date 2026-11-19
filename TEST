@@ -6452,58 +6452,70 @@ task.spawn(function()
 end)
 
 -- ==========================================
--- SILENT AIM (HITBOX BASED) - MENU
+-- SILENT AIM (HK / HOOK BASED) - MENU
 -- ==========================================
 -- Sits in the right column just above Advance Reach, laid out like the Camlock
 -- box: a main tab with the Config tab next to it. The logic it drives lives
--- further down (see "SILENT AIM (HITBOX BASED)").
-SilentAimHB = {
+-- further down (see "SILENT AIM (HK / HOOK BASED)"). Unlike the old hitbox
+-- version this one never touches body parts: it rewrites the arguments the
+-- game's own Raycast / remote calls carry, so the shot lands on the target
+-- while the camera stays where the player aimed.
+SilentAimHK = {
 	Box = Tabs.Combat:AddRightTabbox(),
-	Applied = {},   -- [player] = { part, partName, size, transparency, massless, canCollide }
-	Ring = nil,     -- Drawing circle used for the FOV ring
-	Accum = 0,      -- time accumulator for the Responsiveness throttle
+	Target = nil,        -- part the hooks aim at, refreshed on the throttle loop
+	Accum = 0,           -- time accumulator for the Responsiveness throttle
+	Ring = nil,          -- Drawing circle used for the FOV ring
+	WallCache = {},      -- [player] = { t, visible, char } wallcheck cache
 }
 
-SilentAimHB.Main = SilentAimHB.Box:AddTab("Silent Aim", "crosshair")
-SilentAimHB.Config = SilentAimHB.Box:AddTab("Config", "settings")
+SilentAimHK.Main = SilentAimHK.Box:AddTab("Silent Aim", "crosshair")
+SilentAimHK.Config = SilentAimHK.Box:AddTab("Config", "settings")
 
-SilentAimHB.Main:AddToggle("SilentAimHB", {
-	Text = "Silent Aim",
+SilentAimHK.Main:AddToggle("SilentAimHK", {
+	Text = "Silent Aim (HK)",
 	Default = false,
 })
 
 -- Hides the ring only; the FOV Radius limit stays active either way.
-SilentAimHB.Main:AddCheckbox("SAShowRing", {
+SilentAimHK.Main:AddCheckbox("SAHKShowRing", {
 	Text = "Show FOV Circle",
 	Default = true,
 })
 
-SilentAimHB.Main:AddCheckbox("SAWallCheck", {
+SilentAimHK.Main:AddToggle("SAHKWallCheck", {
 	Text = "Wall Check",
 	Default = false,
 })
 
-SilentAimHB.Main:AddCheckbox("SAScaleToScreen", {
-	Text = "Scale To Screen",
+SilentAimHK.Main:AddToggle("SAHKWallBang", {
+	Text = "WallBang",
 	Default = false,
 })
 
-SilentAimHB.Main:AddSlider("SASTSDistance", {
-	Text = "STS Distance",
-	Default = 0,
-	Min = -50,
-	Max = 50,
-	Rounding = 0,
-	Compact = true,
+SilentAimHK.Main:AddToggle("SAHKBulletTeleport", {
+	Text = "Bullet Teleport",
+	Default = false,
 })
 
-SilentAimHB.Main:AddDropdown("SATargetPart", {
+SilentAimHK.Main:AddToggle("SAHK360Mode", {
+	Text = "360 Mode",
+	Default = false,
+})
+
+SilentAimHK.Main:AddDropdown("SAHKTargetPart", {
 	Text = "Target Part",
 	Values = { "Random", "Head", "HumanoidRootPart" },
 	Default = "Head",
 })
 
-SilentAimHB.Main:AddSlider("SARange", {
+SilentAimHK.Main:AddDropdown("SAHKAimMethods", {
+	Text = "Aim Methods",
+	Values = { "Raycast", "FireServer", "InvokeServer", "Mouse.Hit" },
+	Default = { "Raycast" },
+	Multi = true,
+})
+
+SilentAimHK.Main:AddSlider("SAHKTargetRange", {
 	Text = "Target Range",
 	Default = 500,
 	Min = 5,
@@ -6512,7 +6524,29 @@ SilentAimHB.Main:AddSlider("SARange", {
 	Compact = true,
 })
 
-SilentAimHB.Config:AddSlider("SAHitChance", {
+SilentAimHK.Main:AddInput("SAHKRemoteGestalt", {
+	Text = "Remote Gestalt",
+	Default = "hit, bullet, projectile, hitscan",
+	Placeholder = "hit, bullet, projectile, hitscan",
+})
+
+SilentAimHK.Main:AddButton({
+	Text = "Scan Remotes",
+	Func = function()
+		local list = SilentAimHK.scanRemotes()
+		if #list == 0 then
+			Library:Notify({ Title = "Silent Aim (HK)", Description = "No matching remotes found.", Time = 3 })
+		else
+			local shown = table.concat(list, ", ")
+			if #shown > 220 then
+				shown = string.sub(shown, 1, 220) .. "..."
+			end
+			Library:Notify({ Title = "Silent Aim (HK)", Description = tostring(#list) .. " remote(s): " .. shown, Time = 5 })
+		end
+	end,
+})
+
+SilentAimHK.Config:AddSlider("SAHKHitChance", {
 	Text = "Hit Chance",
 	Default = 100,
 	Min = 0,
@@ -6521,7 +6555,7 @@ SilentAimHB.Config:AddSlider("SAHitChance", {
 	Compact = true,
 })
 
-SilentAimHB.Config:AddSlider("SAHeadshotChance", {
+SilentAimHK.Config:AddSlider("SAHKHeadshotChance", {
 	Text = "Headshot Chance",
 	Default = 100,
 	Min = 0,
@@ -6530,7 +6564,16 @@ SilentAimHB.Config:AddSlider("SAHeadshotChance", {
 	Compact = true,
 })
 
-SilentAimHB.Config:AddSlider("SAResponsiveness", {
+SilentAimHK.Config:AddSlider("SAHKPrediction", {
+	Text = "Prediction",
+	Default = 0,
+	Min = 0,
+	Max = 0.5,
+	Rounding = 2,
+	Compact = true,
+})
+
+SilentAimHK.Config:AddSlider("SAHKResponsiveness", {
 	Text = "Responsiveness",
 	Default = 0.5,
 	Min = 0.01,
@@ -6539,21 +6582,12 @@ SilentAimHB.Config:AddSlider("SAResponsiveness", {
 	Compact = true,
 })
 
-SilentAimHB.Config:AddSlider("SAFOVRadius", {
+SilentAimHK.Config:AddSlider("SAHKFOVRadius", {
 	Text = "FOV Radius",
-	Default = 120,
-	Min = 1,
+	Default = 100,
+	Min = 0,
 	Max = 500,
 	Rounding = 0,
-	Compact = true,
-})
-
-SilentAimHB.Config:AddSlider("SAHitboxTransparency", {
-	Text = "Hitbox Transparency",
-	Default = 1,
-	Min = 0,
-	Max = 1,
-	Rounding = 1,
 	Compact = true,
 })
 
@@ -8757,33 +8791,124 @@ end))
 setupReachTracking()
 
 -- ==========================================
--- SILENT AIM (HITBOX BASED)
+-- SILENT AIM (HK / HOOK BASED)
 -- ==========================================
 -- Logic for the Silent Aim menu, which is built next to the Camlock box in the
--- right column further up. It never moves the camera: instead it inflates the
--- body part the game's own swing/ray check lands on, so a normal hit connects
--- while the crosshair stays wherever the player put it. All state lives on one
--- global table to stay clear of the main chunk's local register budget.
-SilentAimHB.RayParams = RaycastParams.new()
-SilentAimHB.RayParams.FilterType = Enum.RaycastFilterType.Exclude
+-- right column further up. This is the hook based version: it never moves the
+-- camera and never resizes body parts. Instead it watches the game's own
+-- Raycast / FireServer / InvokeServer calls through a __namecall hook and
+-- rewrites the arguments they carry (direction, origin, hit position...) so the
+-- shot lands on the chosen target while everything on screen stays untouched.
+-- All state lives on one global table to stay clear of the main chunk's local
+-- register budget.
+SilentAimHK.Supported = (hookmetamethod ~= nil and getnamecallmethod ~= nil and checkcaller ~= nil)
+SilentAimHK.OriginalNamecall = nil
+SilentAimHK.MouseHook = nil
+SilentAimHK.CachedMouse = nil
+SilentAimHK.RemoteNameCache = nil
+SilentAimHK.DetectedRemotes = {}
+SilentAimHK.RingUnsupported = false
 
--- Picks the body part to inflate for a player based on the Target Part setting.
--- "Random" rolls the Headshot Chance so the aim wanders between the head and the
--- torso instead of always taking the same one.
-function SilentAimHB.getPart(player)
-	local character = player.Character
-	if not character then return nil end
-	local mode = (Options.SATargetPart and Options.SATargetPart.Value) or "Head"
-	if mode == "Head" then
-		return character:FindFirstChild("Head")
-	elseif mode == "HumanoidRootPart" then
-		return character:FindFirstChild("HumanoidRootPart")
+SilentAimHK.RayParams = RaycastParams.new()
+SilentAimHK.RayParams.FilterType = Enum.RaycastFilterType.Exclude
+
+-- Small helper so the key name sets below can be built without any top level
+-- locals.
+function SilentAimHK.keySet(...)
+	local set = {}
+	for i = 1, select("#", ...) do
+		set[(select(i, ...))] = true
 	end
-	local chance = (Options.SAHeadshotChance and Options.SAHeadshotChance.Value) or 100
-	if math.random(1, 100) <= chance then
-		return character:FindFirstChild("Head") or character:FindFirstChild("HumanoidRootPart")
+	return set
+end
+
+SilentAimHK.MouseKeys = SilentAimHK.keySet("Hit", "Target", "TargetFilter", "UnitRay", "X", "Y")
+SilentAimHK.V3_DIR = SilentAimHK.keySet("direction", "lookvector", "dir", "aimdirection")
+SilentAimHK.V3_ORG = SilentAimHK.keySet("origin", "start", "startpos", "startposition", "muzzleposition")
+SilentAimHK.V3_HIT = SilentAimHK.keySet("hitposition", "hitpos", "endposition", "endpos", "targetposition")
+SilentAimHK.CF_ORG = SilentAimHK.keySet("origin", "start", "startpos", "startposition")
+SilentAimHK.TV_HIT = SilentAimHK.keySet("hitposition", "hitpos", "endposition")
+SilentAimHK.TV_DIR = SilentAimHK.keySet("direction", "lookvector", "dir")
+SilentAimHK.TV_ORG = SilentAimHK.keySet("origin", "start", "startposition")
+SilentAimHK.KEY_DIR2 = SilentAimHK.keySet("direction", "lookvector")
+SilentAimHK.WB_KEYS = SilentAimHK.keySet("hitthroughwall", "ignorewalls", "wallbang", "penetrate")
+
+function SilentAimHK.isEnabled()
+	return (Toggles.SilentAimHK and Toggles.SilentAimHK.Value) or false
+end
+
+-- Which of the four interception methods are switched on right now.
+function SilentAimHK.getAimMethods()
+	local selected = Options.SAHKAimMethods and Options.SAHKAimMethods.Value
+	local result = { ray = false, fire = false, invoke = false, mouse = false }
+	if type(selected) ~= "table" then
+		result.ray = true
+		return result
 	end
-	return character:FindFirstChild("HumanoidRootPart") or character:FindFirstChild("Head")
+	for key, value in pairs(selected) do
+		local name = type(key) == "string" and key or value
+		if name == "Raycast" then
+			result.ray = true
+		elseif name == "FireServer" then
+			result.fire = true
+		elseif name == "InvokeServer" then
+			result.invoke = true
+		elseif name == "Mouse.Hit" then
+			result.mouse = true
+		end
+	end
+	if not (result.ray or result.fire or result.invoke or result.mouse) then
+		result.ray = true
+	end
+	return result
+end
+
+-- Remote names to intercept, parsed out of the "Remote Gestalt" text box.
+function SilentAimHK.getRemoteNames()
+	local text = (Options.SAHKRemoteGestalt and Options.SAHKRemoteGestalt.Value) or ""
+	local cache = SilentAimHK.RemoteNameCache
+	if cache and cache.text == text then
+		return cache.names
+	end
+	local names = {}
+	for item in string.gmatch(text, "[^,]+") do
+		local trimmed = string.match(item, "^%s*(.-)%s*$")
+		if trimmed ~= "" then
+			table.insert(names, string.lower(trimmed))
+		end
+	end
+	if #names == 0 then
+		names = { "hit", "bullet", "projectile", "hitscan" }
+	end
+	SilentAimHK.RemoteNameCache = { text = text, names = names }
+	return names
+end
+
+function SilentAimHK.matchesRemote(name)
+	local lower = string.lower(name)
+	for _, pattern in ipairs(SilentAimHK.getRemoteNames()) do
+		if string.find(lower, pattern, 1, true) then
+			return true
+		end
+	end
+	return false
+end
+
+-- Picks the body part to aim at for a character, honouring the Target Part
+-- setting. "Random" rolls the Headshot Chance so the aim wanders between the
+-- head and the torso instead of always taking the same one.
+function SilentAimHK.getTargetPart(character)
+	local mode = (Options.SAHKTargetPart and Options.SAHKTargetPart.Value) or "Head"
+	if mode == "Random" then
+		local chance = (Options.SAHKHeadshotChance and Options.SAHKHeadshotChance.Value) or 100
+		if math.random(1, 100) <= chance then
+			return character:FindFirstChild("Head") or character:FindFirstChild("HumanoidRootPart")
+		end
+		return character:FindFirstChild("HumanoidRootPart") or character:FindFirstChild("Head")
+	end
+	return character:FindFirstChild(mode)
+		or character:FindFirstChild("Head")
+		or character:FindFirstChild("HumanoidRootPart")
 end
 
 -- True when nothing solid sits between the camera and the target part.
