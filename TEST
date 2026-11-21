@@ -5743,7 +5743,12 @@ task.spawn(function()
 	end
 end)
 
-local CombatShieldSystem = Tabs.Combat:AddLeftGroupbox("SHIELD SYSTEM", "swords")
+-- Shield System is a tabbox now: the main tab keeps the parry/shield controls,
+-- the Config tab next to it holds Infinite Shield and the slot system. The tabbox
+-- is a global on purpose: the main chunk is already at Luau's 200-local limit.
+ShieldSystemTabBox = Tabs.Combat:AddLeftTabbox()
+local CombatShieldSystem = ShieldSystemTabBox:AddTab("Shield System", "swords")
+CombatShieldConfigTab = ShieldSystemTabBox:AddTab("Config", "settings")
 
 CombatShieldSystem:AddToggle("ShieldAutoParry", {
 	Text = "Auto Shield",
@@ -5796,19 +5801,24 @@ CombatShieldSystem:AddCheckbox("ShieldParryPunish", {
 	Default = false,
 })
 
-CombatShieldSystem:AddDivider()
+CombatShieldSystem:AddCheckbox("ShieldHud", {
+	Text = "Shield Indicator",
+	Default = false,
+})
 
-CombatShieldSystem:AddToggle("ImmortalMode", {
+-- Config tab: Infinite Shield, Bypass Shield, Block Distance, SetShield Speed
+-- and the slot system with its drop list all live here, next to Shield System.
+CombatShieldConfigTab:AddToggle("ImmortalMode", {
 	Text = "Infinite Shield",
 	Default = false,
 })
 
-CombatShieldSystem:AddCheckbox("BypassShield", {
+CombatShieldConfigTab:AddCheckbox("BypassShield", {
 	Text = "Bypass Shield",
 	Default = false,
 })
 
-CombatShieldSystem:AddSlider("ImmortalModeStuds", {
+CombatShieldConfigTab:AddSlider("ImmortalModeStuds", {
 	Text = "Block Distance",
 	Default = 18,
 	Min = 5,
@@ -5817,7 +5827,7 @@ CombatShieldSystem:AddSlider("ImmortalModeStuds", {
 	Compact = true,
 })
 
-CombatShieldSystem:AddSlider("ImmortalShieldSpeed", {
+CombatShieldConfigTab:AddSlider("ImmortalShieldSpeed", {
 	Text = "SetShield Speed",
 	Default = 0.1,
 	Min = 0.01,
@@ -5826,21 +5836,16 @@ CombatShieldSystem:AddSlider("ImmortalShieldSpeed", {
 	Compact = true,
 })
 
-CombatShieldSystem:AddCheckbox("Advance", {
+CombatShieldConfigTab:AddCheckbox("Advance", {
 	Text = "Slot System",
 	Default = false,
 })
 
-CombatShieldSystem:AddDropdown("AdvanceSlot", {
+CombatShieldConfigTab:AddDropdown("AdvanceSlot", {
 	Text = "ADV Slot System",
 	Values = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"},
 	Default = {"1"},
 	Multi = true,
-})
-
-CombatShieldSystem:AddCheckbox("ShieldHud", {
-	Text = "Shield Indicator",
-	Default = false,
 })
 
 -- Shield Animation: replays the game's built-in shield hold poses, taken from
@@ -6173,7 +6178,12 @@ updateImmortalModeVisibility = function()
 	if not isImmortal and Toggles.BypassShield and Toggles.BypassShield.Value then
 		Toggles.BypassShield:SetValue(false)
 	end
-	CombatShieldSystem:Resize()
+	if CombatShieldSystem and CombatShieldSystem.Resize then
+		CombatShieldSystem:Resize()
+	end
+	if ShieldSystemTabBox and ShieldSystemTabBox.Resize then
+		ShieldSystemTabBox:Resize()
+	end
 end
 
 updateImmortalModeVisibility()
@@ -6998,7 +7008,12 @@ do
 		setVisible(Options.ShieldParryHold, autoShield)
 		setVisible(Toggles.ShieldParryPunish, autoShield)
 		setVisible(Options.ShieldDamageRefire, customRefire)
-		CombatShieldSystem:Resize()
+		if CombatShieldSystem and CombatShieldSystem.Resize then
+			CombatShieldSystem:Resize()
+		end
+		if ShieldSystemTabBox and ShieldSystemTabBox.Resize then
+			ShieldSystemTabBox:Resize()
+		end
 	end
 
 	local function updateAutoParry()
