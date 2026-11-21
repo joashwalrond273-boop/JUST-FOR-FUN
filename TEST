@@ -7497,32 +7497,6 @@ function isTeammate(otherPlayer)
 	return false
 end
 
--- Smart Detection only swings: it activates whatever tool is already in hand and
--- never equips or swaps anything. Globals on purpose: the main chunk is already at
--- Luau's 200-local limit.
-function SwingHeldTool()
-	local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
-	if tool then
-		tool:Activate()
-		return true
-	end
-	return false
-end
-
--- A resource node only counts as a swing target while it is genuinely still in
--- the world. Broken nodes vanish from the folder, but client-side they can linger
--- for a moment as an invisible / zero-health shell, so those remnants are filtered
--- out here and Smart Detection stops swinging the instant the node is gone.
--- Global on purpose: the main chunk is already at Luau's 200-local limit.
-function isResourceNodeAlive(obj, anchor)
-	if not obj or not obj.Parent or not obj:IsDescendantOf(workspace) then return false end
-	if not anchor or not anchor.Parent or not anchor:IsDescendantOf(workspace) then return false end
-	if anchor.Transparency >= 1 then return false end
-	local health = obj:GetAttribute("Health") or obj:GetAttribute("health") or obj:GetAttribute("HP")
-	if typeof(health) == "number" and health <= 0 then return false end
-	return true
-end
-
 local lastSmartSwing = 0
 Toggles.SmartSwing:OnChanged(function()
 	disconnect("SmartSwing")
@@ -7540,46 +7514,6 @@ Toggles.SmartSwing:OnChanged(function()
 			if tick() - lastSmartSwing < delay then return end
 
 			local pos = root.Position
-
-			-- Within 20 studs of a mineable: swing the held tool.
-			local mineableNearby = false
-			if getMineableFolder then
-				local folder = getMineableFolder()
-				if folder then
-					forEachResourceNode(folder, function(obj)
-						local anchor = getMineableAnchor and getMineableAnchor(obj)
-						if anchor and isResourceNodeAlive(obj, anchor) and (anchor.Position - pos).Magnitude <= 20 then
-							mineableNearby = true
-						end
-					end)
-				end
-			end
-			if mineableNearby then
-				if SwingHeldTool() then
-					lastSmartSwing = tick()
-				end
-				return
-			end
-
-			-- Within 20 studs of a choppable: swing the held tool.
-			local choppableNearby = false
-			if getChoppableFolder then
-				local folder = getChoppableFolder()
-				if folder then
-					forEachResourceNode(folder, function(obj)
-						local part = getChopTargetPart(obj)
-						if part and isResourceNodeAlive(obj, part) and getFlatDistance(pos, part.Position) <= 20 then
-							choppableNearby = true
-						end
-					end)
-				end
-			end
-			if choppableNearby then
-				if SwingHeldTool() then
-					lastSmartSwing = tick()
-				end
-				return
-			end
 
 			-- Players within Player Studs: activate the held tool.
 			if not isAutoSwingSlotAllowed(Options.AutoSwingSlot) then
@@ -7607,7 +7541,9 @@ Toggles.SmartSwing:OnChanged(function()
 			end
 
 			if playerNearby then
-				if SwingHeldTool() then
+				local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
+				if tool then
+					tool:Activate()
 					lastSmartSwing = tick()
 				end
 			end
