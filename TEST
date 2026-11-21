@@ -353,19 +353,19 @@ end
 
 
 Library.Font = Enum.Font.Gotham
-Library.CornerRadius = 20
+Library.CornerRadius = 0
 
 -- Window
 local Window = Library:CreateWindow({
-	Title = "♛ URIEL",
-	Footer = "♛ URIEL - Powered by Shin",
+	Title = "⚔ URIEL",
+	Footer = "⚔ URIEL - Powered by Shin",
 	Icon = nil,
 	Center = true,
 	AutoShow = true,
 	Resizable = true,
 	NotifySide = "Right",
 	ShowCustomCursor = false,
-	CornerRadius = 20,
+	CornerRadius = 0,
 })
 
 local Tabs = {
@@ -3654,25 +3654,27 @@ do
 	})
 end
 
-local FunAttach = Tabs.Main:AddLeftGroupbox("PLAYER ATTACH", "link")
+local FunTabBox = Tabs.Main:AddLeftTabbox()
+local AttachTab = FunTabBox:AddTab("ATTACH", "link")
+local FlingTab = FunTabBox:AddTab("FLING", "swords")
 
-FunAttach:AddToggle("AttachToggle", {
+AttachTab:AddToggle("AttachToggle", {
 	Text = "Attach",
 	Default = false,
 })
 
-FunAttach:AddCheckbox("ResetFirst", {
+AttachTab:AddCheckbox("ResetFirst", {
 	Text = "Reset First",
 	Default = false,
 })
 
-FunAttach:AddDropdown("AttachAction", {
+AttachTab:AddDropdown("AttachAction", {
 	Text = "Player Action",
 	Values = { "None", "Kill Player", "Fling Player" },
 	Default = "None",
 })
 
-FunAttach:AddSlider("AttachDistance", {
+AttachTab:AddSlider("AttachDistance", {
 	Text = "Attach Distance",
 	Default = 2.5,
 	Min = 0,
@@ -3681,13 +3683,13 @@ FunAttach:AddSlider("AttachDistance", {
 	Compact = true,
 })
 
-FunAttach:AddDropdown("AttachPlayerList", {
+AttachTab:AddDropdown("AttachPlayerList", {
 	Text = "Target Player",
 	Values = {},
 	Default = "",
 })
 
-FunAttach:AddDropdown("AttachPosition", {
+AttachTab:AddDropdown("AttachPosition", {
 	Text = "Attach Position",
 	Values = { "Behind", "Front", "Float Over", "Hide Beneath", "Orbit" },
 	Default = "Behind",
@@ -3882,25 +3884,23 @@ TeleportGroup:AddSlider("TeleportOffsetStuds", {
 	Compact = true,
 })
 
-local FunLeft = Tabs.Main:AddRightGroupbox("FLING A BULLY", "swords")
-
-FunLeft:AddCheckbox("TouchFling", {
+FlingTab:AddCheckbox("TouchFling", {
 	Text = "Touch To Fling",
 	Default = false,
 })
 
-FunLeft:AddSlider("TouchFlingPower", {
+FlingTab:AddSlider("TouchFlingPower", {
 	Text = "Fling Power",
 	Default = 100,
-	Min = 50,
+	Min = 10,
 	Max = 5000,
 	Rounding = 0,
 	Compact = true,
 })
 
-FunLeft:AddDivider()
+FlingTab:AddDivider()
 
-FunLeft:AddCheckbox("AntiFling", {
+FlingTab:AddCheckbox("AntiFling", {
 	Text = "Anti Fling",
 	Default = false,
 })
@@ -3913,7 +3913,7 @@ updateTouchFlingVisibility = function()
 		end
 	end
 
-	FunLeft:Resize()
+	FlingTab:Resize()
 end
 
 updateTouchFlingVisibility()
@@ -5272,7 +5272,39 @@ end
 -- ==========================================
 -- COMBAT
 -- ==========================================
-local CombatLeft = Tabs.Combat:AddLeftGroupbox("Kill Aura", "swords")
+local KillAuraTabBox = Tabs.Combat:AddLeftTabbox()
+local CombatLeft = KillAuraTabBox:AddTab("Kill Aura", "swords")
+local CombatKillAuraConfig = KillAuraTabBox:AddTab("Config", "settings")
+
+CombatKillAuraConfig:AddDropdown("KillAuraPriority", {
+	Text = "Target Priority",
+	Values = {"Normal", "Lowest HP Kill", "Highest HP Kill", "Closest to Crosshair"},
+	Default = "Normal",
+})
+
+CombatKillAuraConfig:AddDropdown("KillAuraSlot", {
+	Text = "Tool Slot",
+	Values = {"1","2","3","4","5","6","7","8","9","10"},
+	Default = "1",
+})
+
+CombatKillAuraConfig:AddSlider("KillAuraAngle", {
+	Text = "Max Angle",
+	Default = 90,
+	Min = 15,
+	Max = 180,
+	Rounding = 0,
+	Compact = true,
+})
+
+CombatKillAuraConfig:AddSlider("KillAuraSpeed", {
+	Text = "Hit Cooldown",
+	Default = 0.2,
+	Min = 0.1,
+	Max = 2,
+	Rounding = 2,
+	Compact = true,
+})
 
 local AimbotTabBox = Tabs.Combat:AddRightTabbox()
 local CombatCamlock = AimbotTabBox:AddTab("CAMLOCK", "focus")
@@ -5552,42 +5584,12 @@ CombatLeft:AddDropdown("KillAuraTarget", {
 	Default = "All",
 })
 
-CombatLeft:AddDropdown("KillAuraPriority", {
-	Text = "Target Priority",
-	Values = {"Normal", "Lowest HP Kill", "Highest HP Kill", "Closest to Crosshair"},
-	Default = "Normal",
-})
-
-CombatLeft:AddDropdown("KillAuraSlot", {
-	Text = "Tool Slot",
-	Values = {"1","2","3","4","5","6","7","8","9","10"},
-	Default = "1",
-})
-
 CombatLeft:AddSlider("KillAuraRange", {
 	Text = "Range",
 	Default = 15,
 	Min = 5,
 	Max = 30,
 	Rounding = 1,
-	Compact = true,
-})
-
-CombatLeft:AddSlider("KillAuraAngle", {
-	Text = "Max Angle",
-	Default = 90,
-	Min = 15,
-	Max = 180,
-	Rounding = 0,
-	Compact = true,
-})
-
-CombatLeft:AddSlider("KillAuraSpeed", {
-	Text = "Hit Cooldown",
-	Default = 0.2,
-	Min = 0.1,
-	Max = 2,
-	Rounding = 2,
 	Compact = true,
 })
 
@@ -5610,7 +5612,12 @@ updatePhantomModeVisibility = function()
 			Options.OrbitSpeed.Holder.Visible = isPhantom
 		end
 	end
-	CombatLeft:Resize()
+	if CombatLeft.Resize then
+		CombatLeft:Resize()
+	end
+	if KillAuraTabBox and KillAuraTabBox.Resize then
+		KillAuraTabBox:Resize()
+	end
 end
 
 updatePhantomModeVisibility()
@@ -5751,8 +5758,8 @@ CombatShieldSystem:AddCheckbox("ShieldCustomRefire", {
 CombatShieldSystem:AddSlider("ShieldDamageRefire", {
 	Text = "Shield Refire",
 	Default = 2,
-	Min = 2,
-	Max = 5,
+	Min = 0.1,
+	Max = 60,
 	Rounding = 2,
 	Compact = true,
 })
@@ -13211,60 +13218,6 @@ do
 	})
 end
 
--- Remove the skybox and lock the time of day so shadow maps stop rebuilding
-do
-	local skyStore = {}
-	local clockOriginal = nil
-
-	local function removeSky(child)
-		if child and child:IsA("Sky") and child.Parent then
-			local parent = child.Parent
-			table.insert(skyStore, { sky = child, parent = parent })
-			pcall(function() child.Parent = nil end)
-		end
-	end
-
-	TSG_AntiLagGroup:AddCheckbox("SkyboxFreezeTime", {
-		Text = "Kill Skybox + Freeze Time",
-		Default = false,
-		Callback = function(state)
-			disconnect("SkyboxFreezeTime_ChildAdded")
-			disconnect("SkyboxFreezeTime_Clock")
-			local lighting = game:GetService("Lighting")
-
-			if state then
-				for _, child in ipairs(lighting:GetChildren()) do
-					removeSky(child)
-				end
-
-				clockOriginal = lighting.ClockTime
-				pcall(function() lighting.ClockTime = 14 end)
-				track("SkyboxFreezeTime_Clock", lighting:GetPropertyChangedSignal("ClockTime"):Connect(function()
-					if Toggles.SkyboxFreezeTime and Toggles.SkyboxFreezeTime.Value then
-						pcall(function() lighting.ClockTime = 14 end)
-					end
-				end))
-
-				track("SkyboxFreezeTime_ChildAdded", lighting.ChildAdded:Connect(function(child)
-					if Toggles.SkyboxFreezeTime and Toggles.SkyboxFreezeTime.Value then
-						removeSky(child)
-					end
-				end))
-			else
-				for _, entry in ipairs(skyStore) do
-					local sky = entry.sky
-					if sky and sky.Parent == nil then
-						pcall(function() sky.Parent = entry.parent end)
-					end
-				end
-				table.clear(skyStore)
-				pcall(function() lighting.ClockTime = clockOriginal or lighting.ClockTime end)
-				clockOriginal = nil
-			end
-		end,
-	})
-end
-
 -- Remote spam filter. A client can only intercept remote calls made from its own
 -- VM (for example another script running in the same executor); calls that leave
 -- someone else's machine for the server are never visible to us. So this caps
@@ -13442,7 +13395,7 @@ VisualEnv:AddSlider("ControlTheHours", {
 	Compact = true,
 })
 
-VisualEnv:AddToggle("ClearWeather", {
+VisualEnv:AddCheckbox("ClearWeather", {
 	Text = "Clear Weather",
 	Default = false,
 })
@@ -15409,7 +15362,7 @@ Library.ToggleKeybind = Options.MenuKeybind
 ThemeManager:SetLibrary(Library)
 -- Set default accent and outline color
 ThemeManager:SetDefaultTheme({
-	AccentColor = "00f4ff", -- RGB(0, 244, 255)
+	AccentColor = "ff0000", -- RGB(255, 0, 0)
 	OutlineColor = "232929", -- RGB(35, 41, 41)
 	MainColor = "1a2222", -- RGB(26, 34, 34)
 	BackgroundColor = "0d1717" -- RGB(13, 23, 23)
@@ -15478,9 +15431,6 @@ Library:OnUnload(function()
 	end
 	if Toggles.LowQualityLevel and Toggles.LowQualityLevel.Value then
 		Toggles.LowQualityLevel:SetValue(false)
-	end
-	if Toggles.SkyboxFreezeTime and Toggles.SkyboxFreezeTime.Value then
-		Toggles.SkyboxFreezeTime:SetValue(false)
 	end
 	if Toggles.BlockRemoteSpam and Toggles.BlockRemoteSpam.Value then
 		Toggles.BlockRemoteSpam:SetValue(false)
@@ -15628,7 +15578,7 @@ Library:OnUnload(function()
 end)
 
 Library:Notify({
-	Title = "♛ URIEL",
+	Title = "⚔ URIEL",
 	Description = "Script loaded successfully!",
 	Time = 2,
 })
