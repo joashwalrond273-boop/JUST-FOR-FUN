@@ -352,13 +352,13 @@ if hookmetamethod then
 end
 
 
-Library.Font = Enum.Font.Gotham
+Library.Font = Enum.Font.Fantasy
 Library.CornerRadius = 0
 
 -- Window
 local Window = Library:CreateWindow({
-	Title = "⚔ URIEL",
-	Footer = "⚔ URIEL - Powered by Shin",
+	Title = "URIEL",
+	Footer = "URIEL - Powered by Shin",
 	Icon = nil,
 	Center = true,
 	AutoShow = true,
@@ -402,7 +402,13 @@ local function getCraftDelay()
 	return 1 / math.max(0.1, speed)
 end
 
-local AutoArmorDeluxeGroup = Tabs.Player:AddLeftGroupbox("AUTO ARMOR DELUXE", "shield")
+-- ARMOR is a tabbox now: the main tab keeps the material craft / equip buttons,
+-- the Config tab next to it holds the equip, hotbar and Atlantean controls. The
+-- tabbox handles are globals on purpose: the main chunk is already at Luau's
+-- 200-local register limit.
+PlayerArmorTabBox = Tabs.Player:AddLeftTabbox()
+ArmorTab = PlayerArmorTabBox:AddTab("ARMOR", "shield")
+ArmorConfigTab = PlayerArmorTabBox:AddTab("CONFIG", "settings")
 
 -- Look for a matching forge/furnace already close to the player so the armor
 -- buttons craft with it instead of building a duplicate structure. Global on
@@ -440,7 +446,7 @@ function findNearbyForge(playerPosition, matcher, radius)
 	return best
 end
 
-AutoArmorDeluxeGroup:AddButton({
+ArmorTab:AddButton({
 	Text = "Toilet/Bed",
 	Func = function()
 		local character = LocalPlayer.Character
@@ -478,7 +484,7 @@ AutoArmorDeluxeGroup:AddButton({
 	end,
 })
 
-AutoArmorDeluxeGroup:AddSlider("ToiletBedSpeed", {
+ArmorTab:AddSlider("ToiletBedSpeed", {
 	Text = "Place Speed",
 	Default = 5,
 	Min = 1,
@@ -487,7 +493,7 @@ AutoArmorDeluxeGroup:AddSlider("ToiletBedSpeed", {
 	Compact = true,
 })
 
-AutoArmorDeluxeGroup:AddDivider()
+ArmorTab:AddDivider()
 
 -- True when `piece` is ticked in the "Armor Piece" dropdown below.
 local function isArmorPieceSelected(piece)
@@ -495,7 +501,7 @@ local function isArmorPieceSelected(piece)
 	return selected ~= nil and selected[piece] == true
 end
 
-AutoArmorDeluxeGroup:AddButton({
+ArmorTab:AddButton({
 	Text = "Bluesteel",
 	Func = function()
 		local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
@@ -630,7 +636,7 @@ AutoArmorDeluxeGroup:AddButton({
 	end,
 })
 
-AutoArmorDeluxeGroup:AddButton({
+ArmorTab:AddButton({
 	Text = "Atlantean",
 	Func = function()
 		local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
@@ -759,7 +765,7 @@ AutoArmorDeluxeGroup:AddButton({
 	end,
 })
 
-AutoArmorDeluxeGroup:AddButton({
+ArmorTab:AddButton({
 	Text = "Darksteel",
 	Func = function()
 		local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
@@ -885,7 +891,7 @@ AutoArmorDeluxeGroup:AddButton({
 	end,
 })
 
-AutoArmorDeluxeGroup:AddButton({
+ArmorTab:AddButton({
 	Text = "Samurai",
 	Func = function()
 		local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
@@ -1013,7 +1019,7 @@ AutoArmorDeluxeGroup:AddButton({
 	end,
 })
 
-AutoArmorDeluxeGroup:AddButton({
+ArmorTab:AddButton({
 	Text = "Juggernaut",
 	Func = function()
 		local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
@@ -1146,7 +1152,7 @@ AutoArmorDeluxeGroup:AddButton({
 	end,
 })
 
-AutoArmorDeluxeGroup:AddSlider("CraftSpeed", {
+ArmorTab:AddSlider("CraftSpeed", {
 	Text = "Craft Speed",
 	Default = 3,
 	Min = 1,
@@ -1155,7 +1161,7 @@ AutoArmorDeluxeGroup:AddSlider("CraftSpeed", {
 	Compact = true,
 })
 
-AutoArmorDeluxeGroup:AddDropdown("AutoArmorSlot", {
+ArmorTab:AddDropdown("AutoArmorSlot", {
 	Text = "Sword Slot",
 	Values = {"1", "2", "3", "4", "5", "6", "7", "8", "9"},
 	Default = "5",
@@ -1164,7 +1170,7 @@ AutoArmorDeluxeGroup:AddDropdown("AutoArmorSlot", {
 -- Which pieces each material button (Bluesteel, Atlantean, Darksteel, Samurai,
 -- Juggernaut) crafts and equips. With only "Sword" ticked they craft and equip
 -- the sword alone.
-AutoArmorDeluxeGroup:AddDropdown("ArmorPieceSelect", {
+ArmorTab:AddDropdown("ArmorPieceSelect", {
 	Text = "Armor Piece",
 	Values = { "Helmet", "Chestplate", "Pants", "Sword" },
 	Default = { "Helmet", "Chestplate", "Pants", "Sword" },
@@ -1172,14 +1178,12 @@ AutoArmorDeluxeGroup:AddDropdown("ArmorPieceSelect", {
 	Tooltip = "Which pieces the material buttons craft and equip",
 })
 
-AutoArmorDeluxeGroup:AddDivider()
-
-AutoArmorDeluxeGroup:AddCheckbox("ArmorEquipOnly", {
+ArmorConfigTab:AddCheckbox("ArmorEquipOnly", {
 	Text = "Equip Only Mode",
 	Default = false,
 })
 
-AutoArmorDeluxeGroup:AddCheckbox("ArmorCraftOnly", {
+ArmorConfigTab:AddCheckbox("ArmorCraftOnly", {
 	Text = "Craft Only",
 	Default = false,
 })
@@ -1272,23 +1276,23 @@ function equipBestSword()
 	end
 end
 
-AutoArmorDeluxeGroup:AddButton({
+ArmorConfigTab:AddButton({
 	Text = "Equip Best Armor",
 	Func = function()
 		equipBestArmor()
 	end,
 })
 
-AutoArmorDeluxeGroup:AddButton({
+ArmorConfigTab:AddButton({
 	Text = "Equip Best Sword",
 	Func = function()
 		equipBestSword()
 	end,
 })
 
-AutoArmorDeluxeGroup:AddDivider()
+ArmorConfigTab:AddDivider()
 
-AutoArmorDeluxeGroup:AddSlider("HotbarPresetSlot", {
+ArmorConfigTab:AddSlider("HotbarPresetSlot", {
 	Text = "Hotbar Preset Slot",
 	Default = 1,
 	Min = 1,
@@ -1299,7 +1303,7 @@ AutoArmorDeluxeGroup:AddSlider("HotbarPresetSlot", {
 
 HotbarPresets = {}
 
-AutoArmorDeluxeGroup:AddButton({
+ArmorConfigTab:AddButton({
 	Text = "Save Hotbar",
 	Func = function()
 		local slot = math.floor((Options.HotbarPresetSlot and Options.HotbarPresetSlot.Value) or 1)
@@ -1334,7 +1338,7 @@ AutoArmorDeluxeGroup:AddButton({
 	end,
 })
 
-AutoArmorDeluxeGroup:AddButton({
+ArmorConfigTab:AddButton({
 	Text = "Load Hotbar",
 	Func = function()
 		local slot = math.floor((Options.HotbarPresetSlot and Options.HotbarPresetSlot.Value) or 1)
@@ -1362,26 +1366,26 @@ AutoArmorDeluxeGroup:AddButton({
 	end,
 })
 
-AutoArmorDeluxeGroup:AddDivider()
+ArmorConfigTab:AddDivider()
 
-AutoArmorDeluxeGroup:AddCheckbox("AtlanteanAutoSwap", {
+ArmorConfigTab:AddCheckbox("AtlanteanAutoSwap", {
 	Text = "Atlantean Auto Swap",
 	Default = false,
 })
 
-AutoArmorDeluxeGroup:AddCheckbox("AtlanteanSlotSystem", {
+ArmorConfigTab:AddCheckbox("AtlanteanSlotSystem", {
 	Text = "Slot System",
 	Default = false,
 })
 
-AutoArmorDeluxeGroup:AddDropdown("AtlanteanSlotSystemSlot", {
+ArmorConfigTab:AddDropdown("AtlanteanSlotSystemSlot", {
 	Text = "Tool Slot",
 	Values = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"},
 	Default = {"1"},
 	Multi = true,
 })
 
-AutoArmorDeluxeGroup:AddSlider("AtlanteanEquipSpeed", {
+ArmorConfigTab:AddSlider("AtlanteanEquipSpeed", {
 	Text = "Equip Speed",
 	Default = 20,
 	Min = 1,
@@ -1392,7 +1396,7 @@ AutoArmorDeluxeGroup:AddSlider("AtlanteanEquipSpeed", {
 
 -- How long you must stay in the water before the Atlantean gear swaps in. Bail
 -- out of the water before this and nothing swaps at all.
-AutoArmorDeluxeGroup:AddSlider("AtlanteanWaterTime", {
+ArmorConfigTab:AddSlider("AtlanteanWaterTime", {
 	Text = "Seconds In Water",
 	Default = 0.5,
 	Min = 0,
@@ -7496,6 +7500,67 @@ function isTeammate(otherPlayer)
 	return false
 end
 
+-- Smart Detection equips the tool sitting in a chosen hotbar slot and swings it
+-- once a matching resource is close, so the swing uses the right pickaxe / axe.
+-- No resource remotes are fired: it is a plain tool swing. Globals on purpose:
+-- the main chunk is already at Luau's 200-local limit.
+function FindToolInSlot(slot)
+	local target = tonumber(slot)
+	if not target then return nil end
+	local containers = {}
+	local character = getCharacter()
+	if character then table.insert(containers, character) end
+	local backpack = LocalPlayer:FindFirstChildOfClass("Backpack")
+	if backpack then table.insert(containers, backpack) end
+	for _, container in ipairs(containers) do
+		for _, tool in ipairs(container:GetChildren()) do
+			if tool:IsA("Tool") then
+				local toolModel = tool:FindFirstChild("toolModel")
+				local toolSlot = tonumber(tool:GetAttribute("slot") or tool:GetAttribute("Slot") or tool:GetAttribute("HotbarSlot"))
+				if toolSlot == nil and toolModel then
+					toolSlot = tonumber(toolModel:GetAttribute("slot") or toolModel:GetAttribute("Slot") or toolModel:GetAttribute("HotbarSlot"))
+				end
+				if toolSlot == nil then
+					toolSlot = tonumber(tool.Name:match("(%d+)"))
+				end
+				if toolSlot == target then
+					local itemId = tonumber(tool:GetAttribute("id") or tool:GetAttribute("itemId") or tool:GetAttribute("ItemId"))
+					if itemId == nil and toolModel then
+						itemId = tonumber(toolModel:GetAttribute("id") or toolModel:GetAttribute("itemId"))
+					end
+					return tool, itemId
+				end
+			end
+		end
+	end
+	return nil
+end
+
+-- Swaps in the tool from the given hotbar slot, but only when it is not already
+-- in hand. The caller then swings whatever ends up equipped.
+function EquipSlotTool(slot)
+	local slotNum = tonumber(slot)
+	if not slotNum then return end
+	if isHoldingSelectedSlot(slotNum) then return end
+	local _, itemId = FindToolInSlot(slotNum)
+	if not itemId then return end
+	local equipRemote = TSG.EquipHotbarRemote
+	if not equipRemote then return end
+	pcall(function()
+		equipRemote:InvokeServer("inventory", slotNum, itemId)
+	end)
+end
+
+-- Activates whatever tool is in hand.
+function SwingHeldTool()
+	local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
+	if tool then
+		tool:Activate()
+		return true
+	end
+	return false
+end
+
 local lastSmartSwing = 0
 Toggles.SmartSwing:OnChanged(function()
 	disconnect("SmartSwing")
@@ -7514,56 +7579,46 @@ Toggles.SmartSwing:OnChanged(function()
 
 			local pos = root.Position
 
-			-- Within 20 studs of a mineable: swing the pickaxe sitting in the
-			-- configured Pickaxe Slot.
-			if TSG.MineRemote and getMineableFolder then
+			-- Within 20 studs of a mineable: equip the pickaxe slot and swing.
+			local mineableNearby = false
+			if getMineableFolder then
 				local folder = getMineableFolder()
-				local closestNode, closestAnchor, closestDist = nil, nil, 20
 				if folder then
 					forEachResourceNode(folder, function(obj)
 						local anchor = getMineableAnchor and getMineableAnchor(obj)
-						if anchor then
-							local d = (anchor.Position - pos).Magnitude
-							if d <= closestDist then
-								closestNode, closestAnchor, closestDist = obj, anchor, d
-							end
+						if anchor and (anchor.Position - pos).Magnitude <= 20 then
+							mineableNearby = true
 						end
 					end)
 				end
-				if closestNode then
-					local pickSlot = tonumber(Options.SmartPickaxeSlot and Options.SmartPickaxeSlot.Value) or 1
-					pcall(function()
-						TSG.MineRemote:FireServer(pickSlot, closestNode, CFrame.new(closestAnchor.Position))
-					end)
+			end
+			if mineableNearby then
+				EquipSlotTool(Options.SmartPickaxeSlot and Options.SmartPickaxeSlot.Value)
+				if SwingHeldTool() then
 					lastSmartSwing = tick()
-					return
 				end
+				return
 			end
 
-			-- Within 20 studs of a choppable: swing the axe sitting in the
-			-- configured Axe Slot.
-			if TSG.ChopRemote and getChoppableFolder then
+			-- Within 20 studs of a choppable: equip the axe slot and swing.
+			local choppableNearby = false
+			if getChoppableFolder then
 				local folder = getChoppableFolder()
-				local closestNode, closestPart, closestDist = nil, nil, 20
 				if folder then
 					forEachResourceNode(folder, function(obj)
 						local part = getChopTargetPart(obj)
-						if part then
-							local d = getFlatDistance(pos, part.Position)
-							if d <= closestDist then
-								closestNode, closestPart, closestDist = obj, part, d
-							end
+						if part and getFlatDistance(pos, part.Position) <= 20 then
+							choppableNearby = true
 						end
 					end)
 				end
-				if closestNode then
-					local axeSlot = tonumber(Options.SmartAxeSlot and Options.SmartAxeSlot.Value) or 1
-					pcall(function()
-						TSG.ChopRemote:FireServer(axeSlot, closestNode, closestPart.CFrame)
-					end)
+			end
+			if choppableNearby then
+				EquipSlotTool(Options.SmartAxeSlot and Options.SmartAxeSlot.Value)
+				if SwingHeldTool() then
 					lastSmartSwing = tick()
-					return
 				end
+				return
 			end
 
 			-- Players within Player Studs: activate the held tool.
@@ -7592,9 +7647,7 @@ Toggles.SmartSwing:OnChanged(function()
 			end
 
 			if playerNearby then
-				local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
-				if tool then
-					tool:Activate()
+				if SwingHeldTool() then
 					lastSmartSwing = tick()
 				end
 			end
@@ -9116,10 +9169,35 @@ function SilentAimHK.drawRing(visible, radius, camera)
 	if circle then
 		circle.Visible = visible and true or false
 		if visible then
-			circle.Radius = math.max(1, radius)
+			-- The radius is eased toward this target by stepRing, so dragging the FOV
+			-- Radius slider grows / shrinks the circle smoothly instead of snapping.
+			-- On first show there is no current radius yet, so it starts at size.
+			SilentAimHK.RingTargetRadius = math.max(1, radius)
+			if not SilentAimHK.RingRadius then
+				SilentAimHK.RingRadius = SilentAimHK.RingTargetRadius
+			end
 			circle.Position = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
 		end
 	end
+end
+
+-- Eases the FOV ring toward its target radius. Framerate independent (exponential
+-- approach), so resizing looks the same at any FPS.
+function SilentAimHK.stepRing(dt)
+	local circle = SilentAimHK.Ring
+	if not circle or not circle.Visible then return end
+	local camera = workspace.CurrentCamera
+	if not camera then return end
+	local target = SilentAimHK.RingTargetRadius or 0
+	local current = SilentAimHK.RingRadius or target
+	local alpha = 1 - math.exp(-14 * (dt or 0))
+	current = current + (target - current) * alpha
+	if math.abs(target - current) < 0.5 then
+		current = target
+	end
+	SilentAimHK.RingRadius = current
+	circle.Radius = math.max(1, current)
+	circle.Position = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
 end
 
 -- The FOV ring can be hidden from the menu while the FOV Radius limit keeps
@@ -9459,12 +9537,18 @@ end
 
 Toggles.SilentAimHK:OnChanged(function()
 	disconnect("SilentAimHKLoop")
+	disconnect("SilentAimHKAnim")
 	SilentAimHK.syncMouseHook()
 	if Toggles.SilentAimHK.Value then
 		SilentAimHK.Accum = 0
 		SilentAimHK.Target = nil
 		-- Draw the ring immediately so it never trails a throttled update.
 		SilentAimHK.drawRing(SilentAimHK.showRing(), (Options.SAHKFOVRadius and Options.SAHKFOVRadius.Value) or 100, workspace.CurrentCamera)
+		-- Unthrottled loop that eases the ring to a new size, so dragging the FOV
+		-- Radius slider animates instead of snapping.
+		track("SilentAimHKAnim", RunService.RenderStepped:Connect(function(dt)
+			SilentAimHK.stepRing(dt)
+		end))
 		track("SilentAimHKLoop", RunService.Heartbeat:Connect(function(dt)
 			local responsiveness = (Options.SAHKResponsiveness and Options.SAHKResponsiveness.Value) or 0.5
 			SilentAimHK.Accum = SilentAimHK.Accum + (dt or 0)
@@ -9491,6 +9575,14 @@ end)
 -- The mouse hook only needs to exist while "Mouse.Hit" is selected.
 Options.SAHKAimMethods:OnChanged(function()
 	SilentAimHK.syncMouseHook()
+end)
+
+-- Push the new radius to the ring the moment the slider moves, so the smooth
+-- resize starts right away instead of waiting for the next throttled update.
+Options.SAHKFOVRadius:OnChanged(function()
+	if Toggles.SilentAimHK and Toggles.SilentAimHK.Value and SilentAimHK.showRing() then
+		SilentAimHK.drawRing(true, Options.SAHKFOVRadius.Value or 100, workspace.CurrentCamera)
+	end
 end)
 
 -- ==========================================
@@ -9600,10 +9692,10 @@ task.spawn(function()
 	end
 end)
 
-local MoveSwimBoost = Tabs.Movement:AddLeftGroupbox("SWIM BOOST", "droplet")
+local MoveSwimBoost = Tabs.Movement:AddLeftGroupbox("SWIM", "droplet")
 
 MoveSwimBoost:AddToggle("SwimBoost", {
-	Text = "Swim Boost",
+	Text = "Swim",
 	Default = false,
 })
 
@@ -10704,8 +10796,14 @@ end)
 -- ==========================================
 local OreFarm = Tabs.OreFactory:AddLeftGroupbox("RESOURCE FARM", "drill")
 
+-- ORE ESP sits above the Auto Mine / Auto Chop tabs. Global on purpose: the main
+-- chunk is already at Luau's 200-local register limit.
+OreESPGroup = Tabs.OreFactory:AddRightGroupbox("ORE ESP", "scan-eye")
+
 -- ==========================================
-local FarmMine = Tabs.OreFactory:AddRightGroupbox("AUTO MINE", "gem")
+-- AUTO MINE and AUTO CHOP sit side by side in one right tabbox.
+OreFarmRightTabBox = Tabs.OreFactory:AddRightTabbox()
+local FarmMine = OreFarmRightTabBox:AddTab("AUTO MINE", "gem")
 
 FarmMine:AddToggle("AutoMine", {
 	Text = "Auto Mine",
@@ -10759,7 +10857,7 @@ FarmMine:AddSlider("AutoMineSpeed", {
 FarmMine:AddDivider()
 
 -- ==========================================
-local FarmChop = Tabs.OreFactory:AddRightGroupbox("AUTO CHOP", "axe")
+local FarmChop = OreFarmRightTabBox:AddTab("AUTO CHOP", "axe")
 
 FarmChop:AddToggle("AutoChop", {
 	Text = "Auto Chop",
@@ -11279,24 +11377,22 @@ task.spawn(function()
 	end
 end)
 
-OreFarm:AddDivider()
-
-OreFarm:AddCheckbox("OreESPToggle", {
+OreESPGroup:AddCheckbox("OreESPToggle", {
 	Text = "Mineable ESP",
 	Default = false,
 })
 
-OreFarm:AddCheckbox("OreESPRemoveNames", {
+OreESPGroup:AddCheckbox("OreESPRemoveNames", {
 	Text = "Remove Names",
 	Default = false,
 })
 
-OreFarm:AddCheckbox("OreESPHighlights", {
+OreESPGroup:AddCheckbox("OreESPHighlights", {
 	Text = "Show Chams",
 	Default = false,
 })
 
-OreFarm:AddSlider("OreESPDistance", {
+OreESPGroup:AddSlider("OreESPDistance", {
 	Text = "Max Distance",
 	Default = 500,
 	Min = 50,
@@ -11319,7 +11415,7 @@ local updateOreESPVisibility = function()
 	setVisible(Toggles.OreESPRemoveNames, espOn)
 	setVisible(Toggles.OreESPHighlights, espOn)
 
-	OreFarm:Resize()
+	OreESPGroup:Resize()
 end
 
 -- NOTE: Do not register a second OnChanged here - Obsidian overwrites the
@@ -12195,7 +12291,7 @@ local function scanOreTypesAndBuildUI()
 			oreESP.oreColorPickers[oreName] = colorPickerKey
 
 			local toggleKey = "OreESPFilter_" .. oreName
-			OreFarm:AddToggle(toggleKey, {
+			OreESPGroup:AddToggle(toggleKey, {
 				Text = oreName,
 				Default = true,
 			}):AddColorPicker(colorPickerKey, {
@@ -15683,7 +15779,7 @@ Library:OnUnload(function()
 end)
 
 Library:Notify({
-	Title = "⚔ URIEL",
+	Title = "URIEL",
 	Description = "Script loaded successfully!",
 	Time = 2,
 })
