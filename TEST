@@ -353,7 +353,7 @@ end
 
 
 Library.Font = Enum.Font.Fantasy
-Library.CornerRadius = 0
+Library.CornerRadius = 3
 
 -- Window
 local Window = Library:CreateWindow({
@@ -365,7 +365,7 @@ local Window = Library:CreateWindow({
 	Resizable = true,
 	NotifySide = "Right",
 	ShowCustomCursor = false,
-	CornerRadius = 0,
+	CornerRadius = 3,
 })
 
 local Tabs = {
@@ -1651,7 +1651,11 @@ AdvanceHealGroup:AddSlider("AutoEatCooldown", {
 	Compact = true,
 })
 
-local MainRight = Tabs.Player:AddRightGroupbox("SETTINGS", "settings")
+-- SETTINGS and HUDS sit side by side in one right tabbox. Globals on purpose:
+-- the main chunk is already at Luau's 200-local register limit.
+PlayerSettingsTabBox = Tabs.Player:AddRightTabbox()
+MainRight = PlayerSettingsTabBox:AddTab("SETTINGS", "settings")
+HudsGroup = PlayerSettingsTabBox:AddTab("HUDS", "layout-dashboard")
 
 -- ============================================================================
 -- MAIN TAB (COSMETICS / SPECTATE)
@@ -3991,11 +3995,6 @@ MainLeft:AddCheckbox("AutoJumpSlotSystem", {
 	Default = false,
 })
 
-MainLeft:AddCheckbox("AutoJumpIgnoreTeam", {
-	Text = "Ignore Team",
-	Default = true,
-})
-
 MainLeft:AddDropdown("AutoJumpSlotSystemSlot", {
 	Text = "Tool Slot",
 	Values = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" },
@@ -4101,18 +4100,24 @@ do
 	end
 end
 
-MainRight:AddCheckbox("SessionStatsHud", {
+-- The HUDs live in the HUDS tab next to SETTINGS.
+HudsGroup:AddCheckbox("SessionStatsHud", {
 	Text = "Session Stats HUD",
 	Default = false,
 })
 
-MainRight:AddCheckbox("PerfHud", {
+HudsGroup:AddCheckbox("PerfHud", {
 	Text = "Ping / FPS HUD",
 	Default = false,
 })
 
-MainRight:AddCheckbox("BossSpawnNotifier", {
+HudsGroup:AddCheckbox("BossSpawnNotifier", {
 	Text = "Boss Spawn Notifier",
+	Default = false,
+})
+
+HudsGroup:AddCheckbox("ShieldNotifier", {
+	Text = "Shield Notifier",
 	Default = false,
 })
 
@@ -6414,14 +6419,6 @@ updatePVPModulesVisibility = function()
 			Options.AutoJumpSlotSystemSlot.Holder.Visible = isAutoJump and isAJSlot
 		end
 	end
-	if Toggles.AutoJumpIgnoreTeam then
-		if Toggles.AutoJumpIgnoreTeam.Visible ~= nil then
-			Toggles.AutoJumpIgnoreTeam.Visible = isAutoJump
-		end
-		if Toggles.AutoJumpIgnoreTeam.Holder then
-			Toggles.AutoJumpIgnoreTeam.Holder.Visible = isAutoJump
-		end
-	end
 	if Options.AutoJumpStuds then
 		Options.AutoJumpStuds.Visible = isAutoJump
 		if Options.AutoJumpStuds.Holder then
@@ -6903,6 +6900,33 @@ do
 	end)
 
 end
+
+-- Shield Notifier: raises a notification when the shield breaks (posture break /
+-- refire) and again when it is back up. It only reads the same break stamps the
+-- Shield HUD uses, so it works whether or not the Shield HUD is enabled.
+Toggles.ShieldNotifier:OnChanged(function()
+	disconnect("ShieldNotifier")
+	local wasBroken = false
+
+	if not Toggles.ShieldNotifier.Value then
+		Library:Notify({ Title = "Shield Notifier", Description = "Disabled", Time = 2 })
+		return
+	end
+
+	track("ShieldNotifier", RunService.Heartbeat:Connect(function()
+		local now = tick()
+		local broken = now < (ShieldParryBreakUntil or 0) or now < (ShieldAnimBreakUntil or 0)
+		if broken and not wasBroken then
+			wasBroken = true
+			Library:Notify({ Title = "Shield Notifier", Description = "Shield broke - recharging", Time = 3 })
+		elseif (not broken) and wasBroken then
+			wasBroken = false
+			Library:Notify({ Title = "Shield Notifier", Description = "Shield ready", Time = 2 })
+		end
+	end))
+
+	Library:Notify({ Title = "Shield Notifier", Description = "Enabled", Time = 2 })
+end)
 
 -- Auto Shield: the shield stays down so you attack freely, and is raised only
 -- when an enemy within Parry Distance starts an attack. The game's own posture
@@ -7485,6 +7509,20 @@ function SwingHeldTool()
 	return false
 end
 
+-- A resource node only counts as a swing target while it is genuinely still in
+-- the world. Broken nodes vanish from the folder, but client-side they can linger
+-- for a moment as an invisible / zero-health shell, so those remnants are filtered
+-- out here and Smart Detection stops swinging the instant the node is gone.
+-- Global on purpose: the main chunk is already at Luau's 200-local limit.
+function isResourceNodeAlive(obj, anchor)
+	if not obj or not obj.Parent or not obj:IsDescendantOf(workspace) then return false end
+	if not anchor or not anchor.Parent or not anchor:IsDescendantOf(workspace) then return false end
+	if anchor.Transparency >= 1 then return false end
+	local health = obj:GetAttribute("Health") or obj:GetAttribute("health") or obj:GetAttribute("HP")
+	if typeof(health) == "number" and health <= 0 then return false end
+	return true
+end
+
 local lastSmartSwing = 0
 Toggles.SmartSwing:OnChanged(function()
 	disconnect("SmartSwing")
@@ -7510,7 +7548,7 @@ Toggles.SmartSwing:OnChanged(function()
 				if folder then
 					forEachResourceNode(folder, function(obj)
 						local anchor = getMineableAnchor and getMineableAnchor(obj)
-						if anchor and (anchor.Position - pos).Magnitude <= 20 then
+						if anchor and isResourceNodeAlive(obj, anchor) and (anchor.Position - pos).Magnitude <= 20 then
 							mineableNearby = true
 						end
 					end)
@@ -7530,7 +7568,7 @@ Toggles.SmartSwing:OnChanged(function()
 				if folder then
 					forEachResourceNode(folder, function(obj)
 						local part = getChopTargetPart(obj)
-						if part and getFlatDistance(pos, part.Position) <= 20 then
+						if part and isResourceNodeAlive(obj, part) and getFlatDistance(pos, part.Position) <= 20 then
 							choppableNearby = true
 						end
 					end)
@@ -8462,14 +8500,6 @@ if Options.AutoJumpSlotSystemSlot then
 	end)
 end
 
-if Toggles.AutoJumpIgnoreTeam then
-	Toggles.AutoJumpIgnoreTeam:OnChanged(function()
-		if updatePVPModulesVisibility then
-			updatePVPModulesVisibility()
-		end
-	end)
-end
-
 if Toggles.AutoJump then
 	Toggles.AutoJump:OnChanged(function()
 		disconnect("AutoJump")
@@ -8495,12 +8525,12 @@ if Toggles.AutoJump then
 
 				local maxStuds = (Options.AutoJumpStuds and Options.AutoJumpStuds.Value) or 20
 				local jumpDelay = (Options.AutoJumpDelay and Options.AutoJumpDelay.Value) or 0.25
-				local ignoreTeam = Toggles.AutoJumpIgnoreTeam and Toggles.AutoJumpIgnoreTeam.Value
+				-- Ignoring team is built in: Auto Jump only mirrors nearby enemies.
 				local myPos = myRoot.Position
 
 				for _, p in ipairs(Players:GetPlayers()) do
 					if p ~= LocalPlayer and p.Character then
-						if not ignoreTeam or not isTeammate(p) then
+						if not isTeammate(p) then
 							local otherRoot = p.Character:FindFirstChild("HumanoidRootPart")
 							local otherHum = p.Character:FindFirstChildOfClass("Humanoid")
 							if otherRoot and otherHum and otherHum.Health > 0 then
@@ -15645,9 +15675,6 @@ Library:OnUnload(function()
 	end
 	if Toggles.AutoJumpSlotSystem and Toggles.AutoJumpSlotSystem.Value then
 		Toggles.AutoJumpSlotSystem:SetValue(false)
-	end
-	if Toggles.AutoJumpIgnoreTeam and Toggles.AutoJumpIgnoreTeam.Value then
-		Toggles.AutoJumpIgnoreTeam:SetValue(false)
 	end
 	if Toggles.InvisibleFlyToggle and Toggles.InvisibleFlyToggle.Value then
 		Toggles.InvisibleFlyToggle:SetValue(false)
