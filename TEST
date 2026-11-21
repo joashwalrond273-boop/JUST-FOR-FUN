@@ -5653,21 +5653,6 @@ CombatAutoSwingGroup:AddCheckbox("SmartSwing", {
 	Default = false,
 })
 
--- Where the pickaxe / axe sit in the hotbar. Smart Detection swings within 20
--- studs of a mineable using the pickaxe slot, and of a choppable using the axe
--- slot.
-CombatAutoSwingGroup:AddDropdown("SmartPickaxeSlot", {
-	Text = "Pickaxe Slot",
-	Values = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" },
-	Default = "1",
-})
-
-CombatAutoSwingGroup:AddDropdown("SmartAxeSlot", {
-	Text = "Axe Slot",
-	Values = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" },
-	Default = "1",
-})
-
 CombatAutoSwingGroup:AddDropdown("AutoSwingSlot", {
 	Text = "Tool Slot",
 	Values = { "Normal", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" },
@@ -5750,18 +5735,6 @@ updateAutoSwingSliderVisibility = function()
 		Options.PlayerStuds.Visible = isSmartSwingToggled
 		if Options.PlayerStuds.Holder then
 			Options.PlayerStuds.Holder.Visible = isSmartSwingToggled
-		end
-	end
-	if Options.SmartPickaxeSlot then
-		Options.SmartPickaxeSlot.Visible = isSmartSwingToggled
-		if Options.SmartPickaxeSlot.Holder then
-			Options.SmartPickaxeSlot.Holder.Visible = isSmartSwingToggled
-		end
-	end
-	if Options.SmartAxeSlot then
-		Options.SmartAxeSlot.Visible = isSmartSwingToggled
-		if Options.SmartAxeSlot.Holder then
-			Options.SmartAxeSlot.Holder.Visible = isSmartSwingToggled
 		end
 	end
 	if Toggles.SmartSwingIgnoreTeam then
@@ -7500,58 +7473,9 @@ function isTeammate(otherPlayer)
 	return false
 end
 
--- Smart Detection equips the tool sitting in a chosen hotbar slot and swings it
--- once a matching resource is close, so the swing uses the right pickaxe / axe.
--- No resource remotes are fired: it is a plain tool swing. Globals on purpose:
--- the main chunk is already at Luau's 200-local limit.
-function FindToolInSlot(slot)
-	local target = tonumber(slot)
-	if not target then return nil end
-	local containers = {}
-	local character = getCharacter()
-	if character then table.insert(containers, character) end
-	local backpack = LocalPlayer:FindFirstChildOfClass("Backpack")
-	if backpack then table.insert(containers, backpack) end
-	for _, container in ipairs(containers) do
-		for _, tool in ipairs(container:GetChildren()) do
-			if tool:IsA("Tool") then
-				local toolModel = tool:FindFirstChild("toolModel")
-				local toolSlot = tonumber(tool:GetAttribute("slot") or tool:GetAttribute("Slot") or tool:GetAttribute("HotbarSlot"))
-				if toolSlot == nil and toolModel then
-					toolSlot = tonumber(toolModel:GetAttribute("slot") or toolModel:GetAttribute("Slot") or toolModel:GetAttribute("HotbarSlot"))
-				end
-				if toolSlot == nil then
-					toolSlot = tonumber(tool.Name:match("(%d+)"))
-				end
-				if toolSlot == target then
-					local itemId = tonumber(tool:GetAttribute("id") or tool:GetAttribute("itemId") or tool:GetAttribute("ItemId"))
-					if itemId == nil and toolModel then
-						itemId = tonumber(toolModel:GetAttribute("id") or toolModel:GetAttribute("itemId"))
-					end
-					return tool, itemId
-				end
-			end
-		end
-	end
-	return nil
-end
-
--- Swaps in the tool from the given hotbar slot, but only when it is not already
--- in hand. The caller then swings whatever ends up equipped.
-function EquipSlotTool(slot)
-	local slotNum = tonumber(slot)
-	if not slotNum then return end
-	if isHoldingSelectedSlot(slotNum) then return end
-	local _, itemId = FindToolInSlot(slotNum)
-	if not itemId then return end
-	local equipRemote = TSG.EquipHotbarRemote
-	if not equipRemote then return end
-	pcall(function()
-		equipRemote:InvokeServer("inventory", slotNum, itemId)
-	end)
-end
-
--- Activates whatever tool is in hand.
+-- Smart Detection only swings: it activates whatever tool is already in hand and
+-- never equips or swaps anything. Globals on purpose: the main chunk is already at
+-- Luau's 200-local limit.
 function SwingHeldTool()
 	local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
 	if tool then
@@ -7579,7 +7503,7 @@ Toggles.SmartSwing:OnChanged(function()
 
 			local pos = root.Position
 
-			-- Within 20 studs of a mineable: equip the pickaxe slot and swing.
+			-- Within 20 studs of a mineable: swing the held tool.
 			local mineableNearby = false
 			if getMineableFolder then
 				local folder = getMineableFolder()
@@ -7593,14 +7517,13 @@ Toggles.SmartSwing:OnChanged(function()
 				end
 			end
 			if mineableNearby then
-				EquipSlotTool(Options.SmartPickaxeSlot and Options.SmartPickaxeSlot.Value)
 				if SwingHeldTool() then
 					lastSmartSwing = tick()
 				end
 				return
 			end
 
-			-- Within 20 studs of a choppable: equip the axe slot and swing.
+			-- Within 20 studs of a choppable: swing the held tool.
 			local choppableNearby = false
 			if getChoppableFolder then
 				local folder = getChoppableFolder()
@@ -7614,7 +7537,6 @@ Toggles.SmartSwing:OnChanged(function()
 				end
 			end
 			if choppableNearby then
-				EquipSlotTool(Options.SmartAxeSlot and Options.SmartAxeSlot.Value)
 				if SwingHeldTool() then
 					lastSmartSwing = tick()
 				end
