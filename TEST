@@ -402,7 +402,7 @@ local function getCraftDelay()
 	return 1 / math.max(0.1, speed)
 end
 
-local AutoArmorDeluxeGroup = Tabs.Player:AddLeftGroupbox("Auto Armor Deluxe", "shield")
+local AutoArmorDeluxeGroup = Tabs.Player:AddLeftGroupbox("AUTO ARMOR DELUXE", "shield")
 
 -- Look for a matching forge/furnace already close to the player so the armor
 -- buttons craft with it instead of building a duplicate structure. Global on
@@ -1586,10 +1586,10 @@ do
 end
 
 local PlayerTabBox = Tabs.Player:AddLeftTabbox()
-local MainLeft = PlayerTabBox:AddTab("Player", "user")
-local ImmuneTab = PlayerTabBox:AddTab("Immune", "shield")
+local MainLeft = PlayerTabBox:AddTab("PLAYER", "user")
+local ImmuneTab = PlayerTabBox:AddTab("IMMUNE", "shield")
 
-local AdvanceHealGroup = Tabs.Player:AddRightGroupbox("Advance Heal", "heart")
+local AdvanceHealGroup = Tabs.Player:AddRightGroupbox("ADVANCE HEAL", "heart")
 
 AdvanceHealGroup:AddToggle("AutoEatCustom", {
 	Text = "Auto Heal",
@@ -1647,12 +1647,12 @@ AdvanceHealGroup:AddSlider("AutoEatCooldown", {
 	Compact = true,
 })
 
-local MainRight = Tabs.Player:AddRightGroupbox("Settings", "settings")
+local MainRight = Tabs.Player:AddRightGroupbox("SETTINGS", "settings")
 
 -- ============================================================================
 -- MAIN TAB (COSMETICS / SPECTATE)
 -- ============================================================================
-local CosmeticsGroup = Tabs.Main:AddLeftGroupbox("Cosmetics", "crown")
+local CosmeticsGroup = Tabs.Main:AddLeftGroupbox("COSMETICS", "crown")
 
 CosmeticPresets = {}
 
@@ -1753,7 +1753,8 @@ CosmeticsGroup:AddDropdown("BackWearSelect", {
 
 CosmeticsGroup:AddDivider()
 
--- Hit Sounds
+-- Hit Sounds (built here, but the controls live in the MISC group so the
+-- Cosmetics menu stays purely visual).
 local soundsRoot = ReplicatedStorage:FindFirstChild("modules")
 if soundsRoot then soundsRoot = soundsRoot:FindFirstChild("misc") end
 if soundsRoot then soundsRoot = soundsRoot:FindFirstChild("Sounds") end
@@ -1777,18 +1778,23 @@ for _, folder in ipairs(soundFolders) do
 	end
 end
 
-CosmeticsGroup:AddCheckbox("HitSound", {
+-- MISC group: hit sounds, hit effect and Redeem Codes. It is a right-column
+-- groupbox created before the Spectate/Teleport tabbox, so it sits above them.
+-- Global on purpose: the main chunk is already at Luau's 200-local limit.
+MiscGroup = Tabs.Main:AddRightGroupbox("MISC", "sparkles")
+
+MiscGroup:AddCheckbox("HitSound", {
 	Text = "Hit Sounds",
 	Default = false,
 })
 
-CosmeticsGroup:AddDropdown("HitSoundSelect", {
+MiscGroup:AddDropdown("HitSoundSelect", {
 	Text = "Hit Sound",
 	Values = hitSoundNames,
 	Default = "None",
 })
 
-CosmeticsGroup:AddDropdown("HitEffectSelect", {
+MiscGroup:AddDropdown("HitEffectSelect", {
 	Text = "Hit Effect",
 	Values = { "None", "Lightning", "Smoke", "Fire", "Explosion", "Ice", "Poison", "Shockwave", "Blood", "Sakura", "Void", "Holy", "Shadow", "Water", "Sand", "Leaf", "Fireworks", "Meteor" },
 	Default = "None",
@@ -1812,9 +1818,9 @@ Options.HitEffectSelect:OnChanged(function(value)
 	end
 end)
 
-CosmeticsGroup:AddDivider()
+MiscGroup:AddDivider()
 
-CosmeticsGroup:AddButton({
+MiscGroup:AddButton({
 	Text = "Redeem Codes",
 	Func = function()
 		task.spawn(function()
@@ -3695,7 +3701,10 @@ AttachTab:AddDropdown("AttachPosition", {
 	Default = "Behind",
 })
 
-local SpectateGroup = Tabs.Main:AddRightGroupbox("SPECTATE", "eye")
+-- SPECTATE and TELEPORT sit side by side in one right tabbox. The tabbox is a
+-- global on purpose: the main chunk is already at Luau's 200-local limit.
+MainSideTabBox = Tabs.Main:AddRightTabbox()
+local SpectateGroup = MainSideTabBox:AddTab("SPECTATE", "eye")
 
 SpectateGroup:AddToggle("SpectateToggle", {
 	Text = "Spectate",
@@ -3777,7 +3786,7 @@ end
 
 updateFreecamVisibility()
 
-local TeleportGroup = Tabs.Main:AddRightGroupbox("TELEPORT", "navigation")
+local TeleportGroup = MainSideTabBox:AddTab("TELEPORT", "navigation")
 
 TeleportGroup:AddDropdown("TeleportPlayerList", {
 	Text = "Select Player",
@@ -5273,8 +5282,8 @@ end
 -- COMBAT
 -- ==========================================
 local KillAuraTabBox = Tabs.Combat:AddLeftTabbox()
-local CombatLeft = KillAuraTabBox:AddTab("Kill Aura", "swords")
-local CombatKillAuraConfig = KillAuraTabBox:AddTab("Config", "settings")
+local CombatLeft = KillAuraTabBox:AddTab("KILL AURA", "swords")
+local CombatKillAuraConfig = KillAuraTabBox:AddTab("CONFIG", "settings")
 
 CombatKillAuraConfig:AddDropdown("KillAuraPriority", {
 	Text = "Target Priority",
@@ -5308,7 +5317,7 @@ CombatKillAuraConfig:AddSlider("KillAuraSpeed", {
 
 local AimbotTabBox = Tabs.Combat:AddRightTabbox()
 local CombatCamlock = AimbotTabBox:AddTab("CAMLOCK", "focus")
-local CombatCamlockConfig = AimbotTabBox:AddTab("Config", "settings")
+local CombatCamlockConfig = AimbotTabBox:AddTab("CONFIG", "settings")
 
 -- CAMLOCK TAB (LEFT)
 CombatCamlock:AddToggle("Camlock", {
@@ -5628,7 +5637,7 @@ task.spawn(function()
 	end
 end)
 
-local CombatAutoSwingGroup = Tabs.Combat:AddLeftGroupbox("Auto Swing", "swords")
+local CombatAutoSwingGroup = Tabs.Combat:AddLeftGroupbox("AUTO SWING", "swords")
 
 CombatAutoSwingGroup:AddToggle("AutoSwing", {
 	Text = "Auto Swing",
@@ -5638,6 +5647,21 @@ CombatAutoSwingGroup:AddToggle("AutoSwing", {
 CombatAutoSwingGroup:AddCheckbox("SmartSwing", {
 	Text = "Smart Detection",
 	Default = false,
+})
+
+-- Where the pickaxe / axe sit in the hotbar. Smart Detection swings within 20
+-- studs of a mineable using the pickaxe slot, and of a choppable using the axe
+-- slot.
+CombatAutoSwingGroup:AddDropdown("SmartPickaxeSlot", {
+	Text = "Pickaxe Slot",
+	Values = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" },
+	Default = "1",
+})
+
+CombatAutoSwingGroup:AddDropdown("SmartAxeSlot", {
+	Text = "Axe Slot",
+	Values = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" },
+	Default = "1",
 })
 
 CombatAutoSwingGroup:AddDropdown("AutoSwingSlot", {
@@ -5724,6 +5748,18 @@ updateAutoSwingSliderVisibility = function()
 			Options.PlayerStuds.Holder.Visible = isSmartSwingToggled
 		end
 	end
+	if Options.SmartPickaxeSlot then
+		Options.SmartPickaxeSlot.Visible = isSmartSwingToggled
+		if Options.SmartPickaxeSlot.Holder then
+			Options.SmartPickaxeSlot.Holder.Visible = isSmartSwingToggled
+		end
+	end
+	if Options.SmartAxeSlot then
+		Options.SmartAxeSlot.Visible = isSmartSwingToggled
+		if Options.SmartAxeSlot.Holder then
+			Options.SmartAxeSlot.Holder.Visible = isSmartSwingToggled
+		end
+	end
 	if Toggles.SmartSwingIgnoreTeam then
 		if Toggles.SmartSwingIgnoreTeam.Visible ~= nil then
 			Toggles.SmartSwingIgnoreTeam.Visible = isSmartSwingToggled
@@ -5747,8 +5783,8 @@ end)
 -- the Config tab next to it holds Infinite Shield and the slot system. The tabbox
 -- is a global on purpose: the main chunk is already at Luau's 200-local limit.
 ShieldSystemTabBox = Tabs.Combat:AddLeftTabbox()
-local CombatShieldSystem = ShieldSystemTabBox:AddTab("Shield System", "swords")
-CombatShieldConfigTab = ShieldSystemTabBox:AddTab("Config", "settings")
+local CombatShieldSystem = ShieldSystemTabBox:AddTab("SHIELD", "swords")
+CombatShieldConfigTab = ShieldSystemTabBox:AddTab("CONFIG", "settings")
 
 CombatShieldSystem:AddToggle("ShieldAutoParry", {
 	Text = "Auto Shield",
@@ -6457,8 +6493,8 @@ SilentAimHK = {
 	WallCache = {},      -- [player] = { t, visible, char } wallcheck cache
 }
 
-SilentAimHK.Main = SilentAimHK.Box:AddTab("Silent Aim", "crosshair")
-SilentAimHK.Config = SilentAimHK.Box:AddTab("Config", "settings")
+SilentAimHK.Main = SilentAimHK.Box:AddTab("SILENT AIM", "crosshair")
+SilentAimHK.Config = SilentAimHK.Box:AddTab("CONFIG", "settings")
 
 SilentAimHK.Main:AddToggle("SilentAimHK", {
 	Text = "Silent Aim",
@@ -6577,7 +6613,7 @@ SilentAimHK.Config:AddButton({
 	end,
 })
 
-local CombatReach = Tabs.Combat:AddRightGroupbox("Advance Reach", "expand")
+local CombatReach = Tabs.Combat:AddRightGroupbox("ADVANCE REACH", "expand")
 
 CombatReach:AddToggle("Reach", {
 	Text = "Reach",
@@ -7472,17 +7508,71 @@ Toggles.SmartSwing:OnChanged(function()
 			local root = getRootPart()
 			if not root then return end
 
-			if not isAutoSwingSlotAllowed(Options.AutoSwingSlot) then
-				return
-			end
-
 			local speedVal = Options.AutoSwingSpeed and Options.AutoSwingSpeed.Value or 10
 			local delay = 1 / math.max(0.1, speedVal)
 			if tick() - lastSmartSwing < delay then return end
 
+			local pos = root.Position
+
+			-- Within 20 studs of a mineable: swing the pickaxe sitting in the
+			-- configured Pickaxe Slot.
+			if TSG.MineRemote and getMineableFolder then
+				local folder = getMineableFolder()
+				local closestNode, closestAnchor, closestDist = nil, nil, 20
+				if folder then
+					forEachResourceNode(folder, function(obj)
+						local anchor = getMineableAnchor and getMineableAnchor(obj)
+						if anchor then
+							local d = (anchor.Position - pos).Magnitude
+							if d <= closestDist then
+								closestNode, closestAnchor, closestDist = obj, anchor, d
+							end
+						end
+					end)
+				end
+				if closestNode then
+					local pickSlot = tonumber(Options.SmartPickaxeSlot and Options.SmartPickaxeSlot.Value) or 1
+					pcall(function()
+						TSG.MineRemote:FireServer(pickSlot, closestNode, CFrame.new(closestAnchor.Position))
+					end)
+					lastSmartSwing = tick()
+					return
+				end
+			end
+
+			-- Within 20 studs of a choppable: swing the axe sitting in the
+			-- configured Axe Slot.
+			if TSG.ChopRemote and getChoppableFolder then
+				local folder = getChoppableFolder()
+				local closestNode, closestPart, closestDist = nil, nil, 20
+				if folder then
+					forEachResourceNode(folder, function(obj)
+						local part = getChopTargetPart(obj)
+						if part then
+							local d = getFlatDistance(pos, part.Position)
+							if d <= closestDist then
+								closestNode, closestPart, closestDist = obj, part, d
+							end
+						end
+					end)
+				end
+				if closestNode then
+					local axeSlot = tonumber(Options.SmartAxeSlot and Options.SmartAxeSlot.Value) or 1
+					pcall(function()
+						TSG.ChopRemote:FireServer(axeSlot, closestNode, closestPart.CFrame)
+					end)
+					lastSmartSwing = tick()
+					return
+				end
+			end
+
+			-- Players within Player Studs: activate the held tool.
+			if not isAutoSwingSlotAllowed(Options.AutoSwingSlot) then
+				return
+			end
+
 			local maxDist = Options.PlayerStuds and Options.PlayerStuds.Value or 20
 			local ignoreTeam = Toggles.SmartSwingIgnoreTeam and Toggles.SmartSwingIgnoreTeam.Value
-			local pos = root.Position
 			local playerNearby = false
 
 			for _, otherPlayer in ipairs(Players:GetPlayers()) do
@@ -9406,8 +9496,8 @@ end)
 -- ==========================================
 -- MOVEMENT
 -- ==========================================
-local MoveLeft = Tabs.Movement:AddLeftGroupbox("Speed", "gauge")
-local MoveRight = Tabs.Movement:AddRightGroupbox("Advance Fly Script", "plane")
+local MoveLeft = Tabs.Movement:AddLeftGroupbox("SPEED", "gauge")
+local MoveRight = Tabs.Movement:AddRightGroupbox("ADVANCE FLY SCRIPT", "plane")
 
 MoveRight:AddCheckbox("InvisibleFlyToggle", {
 	Text = "Invis Fly",
@@ -9510,7 +9600,7 @@ task.spawn(function()
 	end
 end)
 
-local MoveSwimBoost = Tabs.Movement:AddLeftGroupbox("Swim Boost", "droplet")
+local MoveSwimBoost = Tabs.Movement:AddLeftGroupbox("SWIM BOOST", "droplet")
 
 MoveSwimBoost:AddToggle("SwimBoost", {
 	Text = "Swim Boost",
@@ -9717,7 +9807,7 @@ task.spawn(function()
 	end
 end)
 
-local MoveMountAura = Tabs.Movement:AddRightGroupbox("Mount Aura", "paw-print")
+local MoveMountAura = Tabs.Movement:AddRightGroupbox("MOUNT AURA", "paw-print")
 
 MoveMountAura:AddCheckbox("MountSpeedBoost", {
 	Text = "Mount Speed",
@@ -9778,7 +9868,7 @@ task.spawn(function()
 	end
 end)
 
-local MoveBoatSpeed = Tabs.Movement:AddRightGroupbox("Boat Speed", "anchor")
+local MoveBoatSpeed = Tabs.Movement:AddRightGroupbox("BOAT SPEED", "anchor")
 
 MoveBoatSpeed:AddToggle("BoatSpeedToggle", {
 	Text = "Boat Speed",
@@ -10476,7 +10566,7 @@ function passesAiAuraNameFilter(ai)
 	return true
 end
 
-local FarmAI = Tabs.OreFactory:AddLeftGroupbox("AI Aura", "bot")
+local FarmAI = Tabs.OreFactory:AddLeftGroupbox("AI AURA", "bot")
 
 FarmAI:AddToggle("AiAura", {
 	Text = "AI Aura",
@@ -10612,10 +10702,10 @@ end)
 -- ==========================================
 -- ORE FACTORY
 -- ==========================================
-local OreFarm = Tabs.OreFactory:AddLeftGroupbox("Resource Farm", "drill")
+local OreFarm = Tabs.OreFactory:AddLeftGroupbox("RESOURCE FARM", "drill")
 
 -- ==========================================
-local FarmMine = Tabs.OreFactory:AddRightGroupbox("Auto Mine", "gem")
+local FarmMine = Tabs.OreFactory:AddRightGroupbox("AUTO MINE", "gem")
 
 FarmMine:AddToggle("AutoMine", {
 	Text = "Auto Mine",
@@ -10669,7 +10759,7 @@ FarmMine:AddSlider("AutoMineSpeed", {
 FarmMine:AddDivider()
 
 -- ==========================================
-local FarmChop = Tabs.OreFactory:AddRightGroupbox("Auto Chop", "axe")
+local FarmChop = Tabs.OreFactory:AddRightGroupbox("AUTO CHOP", "axe")
 
 FarmChop:AddToggle("AutoChop", {
 	Text = "Auto Chop",
@@ -12325,7 +12415,7 @@ TSG_TeleportToMeteor = function(ev, label)
 	resetAndTeleport(function() return cf end, label or "Meteor", true)
 end
 
-TSG_MeteorGroup = Tabs.Teleport:AddLeftGroupbox("Meteor Search", "map-pin")
+TSG_MeteorGroup = Tabs.Teleport:AddLeftGroupbox("METEOR SEARCH", "map-pin")
 
 TSG_MeteorGroup:AddCheckbox("AutoMeteorTeleport", {
 	Text = "Auto Teleport",
@@ -12453,7 +12543,7 @@ Toggles.MeteorAlert:OnChanged(function()
 end)
 
 -- Boss Locations
-local BossLocationsGroup = Tabs.Teleport:AddLeftGroupbox("Boss locations", "swords")
+local BossLocationsGroup = Tabs.Teleport:AddLeftGroupbox("BOSS LOCATIONS", "swords")
 
 -- Paired two per row, so the six bosses sit as three side-by-side rows.
 BossLocationsGroup:AddButton({
@@ -12493,7 +12583,7 @@ BossLocationsGroup:AddButton({
 })
 
 -- Extra Locations
-local TeleportExtra = Tabs.Teleport:AddLeftGroupbox("Extra Locations", "map-pin")
+local TeleportExtra = Tabs.Teleport:AddLeftGroupbox("EXTRA LOCATIONS", "map-pin")
 
 -- Paired two per row (Obsidian's Button:AddButton chain), so the ten locations
 -- sit as five side-by-side pairs — same style as the Mounts / Merchants menus.
@@ -12580,7 +12670,7 @@ function refreshWaypointList()
 	end)
 end
 
-local WaypointGroup = Tabs.Teleport:AddRightGroupbox("Waypoints", "bookmark")
+local WaypointGroup = Tabs.Teleport:AddRightGroupbox("WAYPOINTS", "bookmark")
 
 WaypointGroup:AddInput("WaypointName", {
 	Text = "Spot Name",
@@ -12648,7 +12738,7 @@ WaypointGroup:AddButton({
 })
 
 -- Mounts Groupbox
-local MountsGroup = Tabs.Teleport:AddRightGroupbox("Mounts", "paw-print")
+local MountsGroup = Tabs.Teleport:AddRightGroupbox("MOUNTS", "paw-print")
 
 -- Buttons are paired side by side (Obsidian's Button:AddButton) so the mounts
 -- sit two per row.
@@ -12701,7 +12791,7 @@ MountsGroup:AddButton({
 })
 
 -- Merchants Groupbox
-local MerchantsGroup = Tabs.Teleport:AddRightGroupbox("Merchants", "map-pin")
+local MerchantsGroup = Tabs.Teleport:AddRightGroupbox("MERCHANTS", "map-pin")
 
 -- Paired side by side as well: three rows of two merchants.
 MerchantsGroup:AddButton({
@@ -12743,11 +12833,11 @@ MerchantsGroup:AddButton({
 -- ==========================================
 -- VISUALS
 -- ==========================================
-local VisualLeft = Tabs.Visuals:AddLeftGroupbox("Player ESP", "scan-eye")
-local VisualFPS = Tabs.Visuals:AddRightGroupbox("FPS Booster", "zap")
+local VisualLeft = Tabs.Visuals:AddLeftGroupbox("PLAYER ESP", "scan-eye")
+local VisualFPS = Tabs.Visuals:AddRightGroupbox("FPS BOOSTER", "zap")
 -- Anti-Lag Plus hosts the heavier perf toggles. Kept global on purpose:
 -- the main chunk is already at Luau's 200-local register limit.
-TSG_AntiLagGroup = Tabs.Visuals:AddRightGroupbox("Anti-Lag Plus", "wind")
+TSG_AntiLagGroup = Tabs.Visuals:AddRightGroupbox("ANTI-LAG PLUS", "wind")
 
 -- ==========================================
 local function setPlayerShadows(castShadow)
@@ -15309,7 +15399,7 @@ task.spawn(updateTeleportPlayerList)
 -- ==========================================
 -- UI SETTINGS
 -- ==========================================
-local MenuGroup = Tabs["UI Settings"]:AddLeftGroupbox("Menu", "wrench")
+local MenuGroup = Tabs["UI Settings"]:AddLeftGroupbox("MENU", "wrench")
 
 MenuGroup:AddToggle("KeybindMenuOpen", {
 	Default = Library.KeybindFrame.Visible,
